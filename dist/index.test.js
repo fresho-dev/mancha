@@ -21,9 +21,10 @@ function testContentRender(fname, compare = "Hello World", vars = {}) {
         const content = fs.readFileSync(fname).toString("utf8");
         const fsroot = path.dirname(fname);
         const wwwroot = path.join(__dirname, "fixtures");
-        const relpath = path.relative(fsroot, wwwroot) || ".";
-        const result = yield index_1.Mancha.renderContent(content, vars, fsroot, relpath);
+        const relpath = path.relative(fname, wwwroot) || ".";
+        vars = Object.assign({ wwwroot: relpath }, vars);
         try {
+            const result = yield index_1.Mancha.renderContent(content, vars, fsroot);
             resolve(assert.equal(result, compare, String(result)));
         }
         catch (exc) {
@@ -44,9 +45,7 @@ function testBufferedTransform(fname, compare = "Hello World", vars = {}) {
                 reject(err);
             }
             else {
-                const content = file.isBuffer()
-                    ? file.contents.toString("utf8")
-                    : null;
+                const content = file.isBuffer() ? file.contents.toString("utf8") : null;
                 try {
                     resolve(assert.equal(content, compare, String(content)));
                 }
@@ -115,8 +114,10 @@ function testGulpedTransform(fname, compare = "Hello World", vars = {}) {
             .src(fname)
             .pipe((0, index_2.default)(vars, path.join(__dirname, "fixtures")))
             .on("data", (chunk) => {
-            const file = chunk;
-            content = file.isBuffer() ? file.contents.toString("utf8") : null;
+            content = chunk.isBuffer() ? chunk.contents.toString("utf8") : null;
+        })
+            .on("error", (err) => {
+            reject(err);
         })
             .on("end", () => {
             try {
@@ -190,24 +191,28 @@ describe("Mancha", () => {
             testAllMethods(fname);
         });
         describe("pass through root var #1", () => {
-            const fname = path.join(__dirname, "fixtures", "render-root.tpl.html");
-            let expected = ".";
-            testAllMethods(fname, expected);
+            const fsroot = path.join(__dirname, "fixtures");
+            const fpath = path.join(fsroot, "render-root.tpl.html");
+            const expected = path.relative(fpath, fsroot);
+            testAllMethods(fpath, expected);
         });
         describe("pass through root var #2", () => {
-            const fname = path.join(__dirname, "fixtures", "subfolder/render-root.tpl.html");
-            let expected = "..";
-            testAllMethods(fname, expected);
+            const fsroot = path.join(__dirname, "fixtures");
+            const fpath = path.join(fsroot, "subfolder/render-root.tpl.html");
+            const expected = path.relative(fpath, fsroot);
+            testAllMethods(fpath, expected);
         });
         describe("pass through root var #3", () => {
-            const fname = path.join(__dirname, "fixtures", "subfolder/subsubfolder/render-root.tpl.html");
-            let expected = "../..";
-            testAllMethods(fname, expected);
+            const fsroot = path.join(__dirname, "fixtures");
+            const fpath = path.join(fsroot, "subfolder/subsubfolder/render-root.tpl.html");
+            const expected = path.relative(fpath, fsroot);
+            testAllMethods(fpath, expected);
         });
         describe("pass through root var #4", () => {
-            const fname = path.join(__dirname, "fixtures", "render-include-subsubfolder.tpl.html");
-            let expected = ".";
-            testAllMethods(fname, expected);
+            const fsroot = path.join(__dirname, "fixtures");
+            const fpath = path.join(fsroot, "render-include-subsubfolder.tpl.html");
+            const expected = path.relative(fpath, fsroot);
+            testAllMethods(fpath, expected);
         });
     });
 });

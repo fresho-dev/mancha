@@ -19,15 +19,16 @@ function mancha(vars = {}, wwwroot = process.cwd()) {
             console.log(err);
             callback(err, file);
         };
+        const fsroot = path.dirname(file.path);
+        const relpath = path.relative(file.path, wwwroot) || ".";
+        const newvars = Object.assign(vars, { wwwroot: relpath });
         if (file.isNull()) {
             callback(null, file);
         }
         else {
-            const fsroot = path.dirname(file.path);
-            const relpath = path.relative(fsroot, wwwroot) || ".";
             if (file.isBuffer()) {
                 const fragment = file.contents.toString(encoding);
-                index_1.Mancha.renderContent(fragment, vars, fsroot, relpath)
+                index_1.Mancha.renderContent(fragment, newvars, fsroot)
                     .then((content) => {
                     file.contents = Buffer.from(content, encoding);
                     callback(null, file);
@@ -46,7 +47,7 @@ function mancha(vars = {}, wwwroot = process.cwd()) {
                     }
                 })
                     .on("end", () => {
-                    index_1.Mancha.renderContent(fragment, vars, fsroot, relpath)
+                    index_1.Mancha.renderContent(fragment, newvars, fsroot)
                         .then((content) => {
                         const readable = new stream.Readable();
                         readable._read = function () { };

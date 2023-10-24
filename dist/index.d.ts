@@ -9,8 +9,11 @@ export declare namespace Mancha {
     function decodeHtmlAttrib(value: string): string;
     function preprocess(content: string, vars: {
         [key: string]: string;
-    }, wwwroot: string): string;
+    }): string;
     function renderContent(content: string, vars?: {
         [key: string]: string;
-    }, root?: string, wwwroot?: string, encoding?: BufferEncoding): Promise<string>;
+    }, fsroot?: string): Promise<string>;
+    function renderLocalPath(fpath: string, vars?: {
+        [key: string]: string;
+    }, encoding?: BufferEncoding): Promise<string>;
 }

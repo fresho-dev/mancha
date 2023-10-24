@@ -1,9 +1,19 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Mancha = void 0;
-const fs = require("fs");
+// import * as fs from "fs";
 const parse5 = require("parse5");
 const path = require("path");
+const axios_1 = require("axios");
 var Mancha;
 (function (Mancha) {
     function replaceNodeWith(original, replacement) {
@@ -19,23 +29,36 @@ var Mancha;
     function isDocument(content) {
         return /^[\n\r\s]*<(!doctype|html|head|body)\b/i.test(content);
     }
+    function isBrowser() {
+        return typeof window !== "undefined";
+    }
     function parseDocument(content) {
         return isDocument(content)
             ? parse5.parse(content)
             : parse5.parseFragment(content);
     }
     function traverse(tree) {
-        return new Promise((resolve) => {
-            const explored = [];
-            const frontier = Array.isArray(tree) ? tree : [tree];
-            while (frontier.length) {
-                const node = frontier.pop();
-                explored.push(node);
-                if (node.childNodes) {
-                    node.childNodes.forEach((node) => frontier.push(node));
-                }
+        const explored = [];
+        const frontier = Array.isArray(tree) ? tree : [tree];
+        while (frontier.length) {
+            const node = frontier.pop();
+            explored.push(node);
+            if (node.childNodes) {
+                node.childNodes.forEach((node) => frontier.push(node));
             }
-            resolve(explored);
+        }
+        return explored;
+    }
+    function readFromPath(fpath) {
+        return __awaiter(this, void 0, void 0, function* () {
+            fpath = fpath.startsWith("://") ? "https" + fpath : fpath;
+            if (isBrowser() || fpath.startsWith("http://") || fpath.startsWith("https://")) {
+                return yield axios_1.default.get(fpath, { responseType: "text" }).then((res) => res.data);
+            }
+            else {
+                // Runtime import
+                const fs = require("fs/promises");
+            }
         });
     }
     /**
@@ -64,71 +87,81 @@ var Mancha;
             .replace(/&#13;/g, "\n");
     }
     Mancha.decodeHtmlAttrib = decodeHtmlAttrib;
-    function preprocess(content, vars, wwwroot) {
-        // Add the root relative to this file as a variable
-        const newvars = Object.assign({ wwwroot: wwwroot }, vars);
+    function preprocess(content, vars) {
         // Replace all {{variables}}
-        Object.keys(newvars).forEach((key) => {
-            content = content.replace(new RegExp(`{{${key}}}`, "g"), newvars[key]);
+        Object.keys(vars).forEach((key) => {
+            content = content.replace(new RegExp(`{{${key}}}`, "g"), vars[key]);
         });
         return content;
     }
     Mancha.preprocess = preprocess;
-    function renderContent(content, vars = {}, root = ".", wwwroot = ".", encoding = "utf8") {
-        return new Promise((resolve, reject) => {
-            const preprocessed = preprocess(content, vars, wwwroot);
+    function renderContent(content, vars = {}, fsroot = ".") {
+        return __awaiter(this, void 0, void 0, function* () {
+            const preprocessed = preprocess(content, vars);
             const document = parseDocument(preprocessed);
-            traverse(document.childNodes.map((node) => node))
-                .then((nodes) => {
-                const promises = nodes.map((node) => {
-                    return new Promise((resolve, reject) => {
-                        if (node.nodeName === "include") {
-                            const attribs = node.attrs.reduce((dict, attr) => {
-                                dict[attr.name] = attr.value;
-                                return dict;
-                            }, {});
-                            // If the node has a vars attribute, it overrides our current vars
-                            // NOTE: this will propagate to all subsequent calls to render,
-                            //  including nested calls
-                            if (attribs.hasOwnProperty("data-vars")) {
-                                vars = Object.assign({}, vars, JSON.parse(decodeHtmlAttrib(attribs["data-vars"])));
-                            }
-                            // Case 1: we render the fragment by including another file
-                            if (attribs["src"]) {
-                                const fname = path.join(root, attribs["src"]);
-                                const newroot = path.dirname(fname);
-                                const contents = fs.readFileSync(fname, encoding);
-                                renderContent(contents, vars, newroot, wwwroot, encoding)
-                                    .then((content) => {
-                                    const docfragment = parse5.parseFragment(content);
-                                    replaceNodeWith(node, docfragment.childNodes);
-                                    resolve();
-                                })
-                                    .catch((err) => reject(err));
-                            }
-                            else {
-                                reject(new Error(`"src" attribute missing from ${JSON.stringify(node)}`));
-                            }
-                        }
-                        else {
-                            resolve();
-                        }
-                    });
-                });
-                return Promise.all(promises);
-            })
-                .then(() => {
-                const result = parse5.serialize(document);
-                // Render until there are no changes
-                if (result === preprocessed) {
-                    resolve(parse5.serialize(document));
+            const renderings = traverse(document.childNodes.map((node) => node))
+                .filter((node) => node.nodeName === "include")
+                .map((node) => __awaiter(this, void 0, void 0, function* () {
+                const attribs = node.attrs.reduce((dict, attr) => {
+                    dict[attr.name] = attr.value;
+                    return dict;
+                }, {});
+                // If the node has a vars attribute, it overrides our current vars
+                // NOTE: this will propagate to all subsequent render calls, including nested calls.
+                if (attribs.hasOwnProperty("data-vars")) {
+                    vars = Object.assign({}, vars, JSON.parse(decodeHtmlAttrib(attribs["data-vars"])));
+                }
+                // Early exit: <include> tags must have a src attribute.
+                if (!attribs["src"]) {
+                    throw new Error(`"src" attribute missing from ${JSON.stringify(node)}`);
+                }
+                // The new root will be the included file's directory.
+                // const newroot = path.dirname(attribs["src"]);
+                // The included file will replace this tag.
+                const handler = (content) => {
+                    const docfragment = parse5.parseFragment(content);
+                    replaceNodeWith(node, docfragment.childNodes);
+                };
+                // Case 1: Absolute remote path.
+                if (attribs["src"].indexOf("://") !== -1) {
+                    // await renderRemotePath(attribs["src"], vars, newroot).then(handler);
+                    // Case 2: Relative remote path.
+                }
+                else if (fsroot.indexOf("://") !== -1) {
+                    const relpath = path.join(fsroot, attribs["src"]);
+                    // await renderRemotePath(relpath, vars, newroot).then(handler);
+                    // Case 3: Local absolute path.
+                }
+                else if (attribs["src"].charAt(0) === "/") {
+                    yield renderLocalPath(attribs["src"], vars).then(handler);
+                    // Case 4: Local relative path.
                 }
                 else {
-                    renderContent(result, vars, root, wwwroot, encoding).then(resolve).catch(reject);
+                    // const fname = path.basename(attribs["src"]);
+                    const relpath = path.join(fsroot, attribs["src"]);
+                    yield renderLocalPath(relpath, vars).then(handler);
                 }
-            })
-                .catch(reject);
+            }));
+            // Wait for all the rendering operations to complete.
+            yield Promise.all(renderings);
+            // The document has now been modified and can be re-serialized.
+            const result = parse5.serialize(document);
+            // Re-render until no changes are made.
+            if (renderings.length === 0) {
+                return result;
+            }
+            else {
+                return renderContent(result, vars, fsroot);
+            }
         });
     }
     Mancha.renderContent = renderContent;
+    function renderLocalPath(fpath, vars = {}, encoding = "utf8") {
+        return __awaiter(this, void 0, void 0, function* () {
+            const fs = require("fs/promises");
+            const content = yield fs.readFile(fpath, { encoding: encoding });
+            return renderContent(content, vars, path.dirname(fpath));
+        });
+    }
+    Mancha.renderLocalPath = renderLocalPath;
 })(Mancha || (exports.Mancha = Mancha = {}));

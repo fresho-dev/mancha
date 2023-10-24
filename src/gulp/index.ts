@@ -18,25 +18,22 @@ function mancha(
   vars: { [key: string]: string } = {},
   wwwroot: string = process.cwd()
 ): stream.Transform {
-  return through.obj(function (
-    file: File,
-    encoding: BufferEncoding,
-    callback: Function
-  ) {
+  return through.obj(function (file: File, encoding: BufferEncoding, callback: Function) {
     const catcher = (err: Error) => {
       console.log(err);
       callback(err, file);
     };
 
+    const fsroot = path.dirname(file.path);
+    const relpath = path.relative(file.path, wwwroot) || ".";
+    const newvars = Object.assign(vars, { wwwroot: relpath });
+
     if (file.isNull()) {
       callback(null, file);
     } else {
-      const fsroot = path.dirname(file.path);
-      const relpath = path.relative(fsroot, wwwroot) || ".";
-
       if (file.isBuffer()) {
         const fragment = file.contents.toString(encoding);
-        Mancha.renderContent(fragment, vars, fsroot, relpath)
+        Mancha.renderContent(fragment, newvars, fsroot)
           .then((content) => {
             file.contents = Buffer.from(content, encoding);
             callback(null, file);
@@ -53,7 +50,7 @@ function mancha(
             }
           })
           .on("end", () => {
-            Mancha.renderContent(fragment, vars, fsroot, relpath)
+            Mancha.renderContent(fragment, newvars, fsroot)
               .then((content) => {
                 const readable = new stream.Readable();
                 readable._read = function () {};
