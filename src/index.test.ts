@@ -1,14 +1,13 @@
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
-import * as stream from "stream";
 import * as File from "vinyl";
 import * as gulp from "gulp";
 
-import mancha from "../mancha";
+import mancha from "./index";
 
 /**
- * Helper function used to test a transformation after reading `fname` into a Buffer
+ * Helper function used to test a transformation after reading `fname` into a Buffer.
  * @param fname file name to test
  */
 function testBufferedTransform(
@@ -37,7 +36,7 @@ function testBufferedTransform(
 }
 
 /**
- * Helper function used to test a transformation after reading `fname` into a ReadableStream
+ * Helper function used to test a transformation after reading `fname` into a ReadableStream.
  * @param fname file name to test
  */
 function testStreamedTransform(
@@ -71,7 +70,7 @@ function testStreamedTransform(
                   content += chunk.toString();
                 }
               })
-              .on("end", () => {
+              ?.on("end", () => {
                 assert.equal(content, compare, content);
                 resolve();
               });
@@ -83,7 +82,7 @@ function testStreamedTransform(
 }
 
 /**
- * Helper function used to test a transformation after reading `fname` into a ReadableStream
+ * Helper function used to test a transformation after reading `fname` into a gulp src.
  * @param fname file name to test
  */
 function testGulpedTransform(
@@ -91,11 +90,11 @@ function testGulpedTransform(
   compare = "Hello World",
   vars: any = {},
 ): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
+  return new Promise<void>((resolve) => {
     let content: string | null = null;
     gulp
       .src(fname)
-      .pipe(mancha(vars, "./dist/test/fixtures"))
+      .pipe(mancha(vars, "./dist/fixtures"))
       .on("data", (chunk: any) => {
         const file = <File>chunk;
         content = file.isBuffer() ? file.contents.toString("utf8") : null;

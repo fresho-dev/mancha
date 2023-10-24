@@ -5,15 +5,15 @@ const fs = require("fs");
 const path = require("path");
 const File = require("vinyl");
 const gulp = require("gulp");
-const mancha_1 = require("../mancha");
+const index_1 = require("./index");
 /**
- * Helper function used to test a transformation after reading `fname` into a Buffer
+ * Helper function used to test a transformation after reading `fname` into a Buffer.
  * @param fname file name to test
  */
 function testBufferedTransform(fname, compare = "Hello World", vars = {}) {
     return new Promise((resolve, reject) => {
         const file = new File({ path: fname, contents: fs.readFileSync(fname) });
-        (0, mancha_1.default)(vars)._transform(file, "utf8", (err, file) => {
+        (0, index_1.default)(vars)._transform(file, "utf8", (err, file) => {
             if (err) {
                 reject(err);
             }
@@ -28,7 +28,7 @@ function testBufferedTransform(fname, compare = "Hello World", vars = {}) {
     });
 }
 /**
- * Helper function used to test a transformation after reading `fname` into a ReadableStream
+ * Helper function used to test a transformation after reading `fname` into a ReadableStream.
  * @param fname file name to test
  */
 function testStreamedTransform(fname, compare = "Hello World", vars = {}) {
@@ -37,8 +37,8 @@ function testStreamedTransform(fname, compare = "Hello World", vars = {}) {
             path: fname,
             contents: fs.createReadStream(fname),
         });
-        (0, mancha_1.default)(vars)._transform(file, "utf8", (err, file) => {
-            var _a;
+        (0, index_1.default)(vars)._transform(file, "utf8", (err, file) => {
+            var _a, _b;
             if (err) {
                 reject(err);
             }
@@ -50,14 +50,14 @@ function testStreamedTransform(fname, compare = "Hello World", vars = {}) {
                     resolve();
                 }
                 else {
-                    (_a = file.contents) === null || _a === void 0 ? void 0 : _a.on("data", (chunk) => {
+                    (_b = (_a = file.contents) === null || _a === void 0 ? void 0 : _a.on("data", (chunk) => {
                         if (Buffer.isBuffer(chunk)) {
                             content += chunk.toString("utf8");
                         }
                         else {
                             content += chunk.toString();
                         }
-                    }).on("end", () => {
+                    })) === null || _b === void 0 ? void 0 : _b.on("end", () => {
                         assert.equal(content, compare, content);
                         resolve();
                     });
@@ -67,15 +67,15 @@ function testStreamedTransform(fname, compare = "Hello World", vars = {}) {
     });
 }
 /**
- * Helper function used to test a transformation after reading `fname` into a ReadableStream
+ * Helper function used to test a transformation after reading `fname` into a gulp src.
  * @param fname file name to test
  */
 function testGulpedTransform(fname, compare = "Hello World", vars = {}) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         let content = null;
         gulp
             .src(fname)
-            .pipe((0, mancha_1.default)(vars, "./dist/test/fixtures"))
+            .pipe((0, index_1.default)(vars, "./dist/fixtures"))
             .on("data", (chunk) => {
             const file = chunk;
             content = file.isBuffer() ? file.contents.toString("utf8") : null;

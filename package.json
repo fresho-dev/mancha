@@ -2,12 +2,12 @@
   "name": "mancha",
   "version": "0.3.0",
   "description": "Gulp plugin that performs server-size, compile-time rendering of HTML",
-  "main": "dist/mancha",
-  "typings": "dist/mancha",
+  "main": "dist/index",
+  "typings": "dist/index",
   "scripts": {
     "clean": "gulp clean",
     "build": "gulp build",
-    "test": "mocha dist/test"
+    "test": "mocha dist/*.test.js"
   },
   "repository": {
     "type": "git",
