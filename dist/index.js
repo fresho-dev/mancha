@@ -1,10 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.Mancha = void 0;
 const fs = require("fs");
-const path = require("path");
 const parse5 = require("parse5");
-const stream = require("stream");
-const through = require("through2");
+const path = require("path");
 var Mancha;
 (function (Mancha) {
     function replaceNodeWith(original, replacement) {
@@ -20,7 +19,7 @@ var Mancha;
     function isDocument(content) {
         return /^[\n\r\s]*<(!doctype|html|head|body)\b/i.test(content);
     }
-    function smartParse(content) {
+    function parseDocument(content) {
         return isDocument(content)
             ? parse5.parse(content)
             : parse5.parseFragment(content);
@@ -75,10 +74,10 @@ var Mancha;
         return content;
     }
     Mancha.preprocess = preprocess;
-    function render(content, vars = {}, root = ".", wwwroot = ".", encoding = "utf8") {
+    function renderContent(content, vars = {}, root = ".", wwwroot = ".", encoding = "utf8") {
         return new Promise((resolve, reject) => {
             const preprocessed = preprocess(content, vars, wwwroot);
-            const document = smartParse(preprocessed);
+            const document = parseDocument(preprocessed);
             traverse(document.childNodes.map((node) => node))
                 .then((nodes) => {
                 const promises = nodes.map((node) => {
@@ -99,7 +98,7 @@ var Mancha;
                                 const fname = path.join(root, attribs["src"]);
                                 const newroot = path.dirname(fname);
                                 const contents = fs.readFileSync(fname, encoding);
-                                render(contents, vars, newroot, wwwroot, encoding)
+                                renderContent(contents, vars, newroot, wwwroot, encoding)
                                     .then((content) => {
                                     const docfragment = parse5.parseFragment(content);
                                     replaceNodeWith(node, docfragment.childNodes);
@@ -125,74 +124,11 @@ var Mancha;
                     resolve(parse5.serialize(document));
                 }
                 else {
-                    render(result, vars, root, wwwroot, encoding)
-                        .then(resolve)
-                        .catch(reject);
+                    renderContent(result, vars, root, wwwroot, encoding).then(resolve).catch(reject);
                 }
             })
                 .catch(reject);
         });
     }
-    Mancha.render = render;
-})(Mancha || (Mancha = {}));
-/**
- * Main entrypoint to be used in Gulp. Usage:
- *
- *     var mancha = require('gulp-mancha')
- *     gulp.src(...).pipe(mancha({myvar: myval})).pipe(...)
- *
- * @param vars <key, value> pairs of literal string replacements. `key` will become `{{key}}` before
- * replacing it with `value` in the processed files.
- */
-function mancha(vars = {}, wwwroot = process.cwd()) {
-    return through.obj(function (file, encoding, callback) {
-        const catcher = (err) => {
-            console.log(err);
-            callback(err, file);
-        };
-        if (file.isNull()) {
-            callback(null, file);
-        }
-        else {
-            const root = path.dirname(file.path);
-            const relpath = path.relative(root, wwwroot) || ".";
-            if (file.isBuffer()) {
-                const fragment = file.contents.toString(encoding);
-                Mancha.render(fragment, vars, root, relpath)
-                    .then((content) => {
-                    file.contents = Buffer.from(content, encoding);
-                    callback(null, file);
-                })
-                    .catch(catcher);
-            }
-            else if (file.isStream()) {
-                let fragment = "";
-                file.contents
-                    .on("data", (chunk) => {
-                    if (Buffer.isBuffer(chunk)) {
-                        fragment += chunk.toString(encoding);
-                    }
-                    else {
-                        fragment += chunk.toString();
-                    }
-                })
-                    .on("end", () => {
-                    Mancha.render(fragment, vars, root, relpath)
-                        .then((content) => {
-                        const readable = new stream.Readable();
-                        readable._read = function () { };
-                        readable.push(content);
-                        readable.push(null);
-                        file.contents = readable;
-                        callback(null, file);
-                    })
-                        .catch(catcher);
-                });
-            }
-        }
-    });
-}
-// Add exported functions as properties of the main export
-mancha.encodeHtmlAttrib = Mancha.encodeHtmlAttrib;
-mancha.decodeHtmlAttrib = Mancha.decodeHtmlAttrib;
-exports.default = mancha;
+    Mancha.renderContent = renderContent;
+})(Mancha || (exports.Mancha = Mancha = {}));

@@ -1,4 +1,13 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const assert = require("assert");
 const fs = require("fs");
@@ -6,6 +15,23 @@ const path = require("path");
 const File = require("vinyl");
 const gulp = require("gulp");
 const index_1 = require("./index");
+const index_2 = require("./gulp/index");
+function testContentRender(fname, compare = "Hello World", vars = {}) {
+    return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+        const content = fs.readFileSync(fname).toString("utf8");
+        const fsroot = path.dirname(fname);
+        const wwwroot = path.join(__dirname, "fixtures");
+        const relpath = path.relative(fsroot, wwwroot) || ".";
+        const result = yield index_1.Mancha.renderContent(content, vars, fsroot, relpath);
+        try {
+            resolve(assert.equal(result, compare, String(result)));
+        }
+        catch (exc) {
+            console.error(exc);
+            reject(exc);
+        }
+    }));
+}
 /**
  * Helper function used to test a transformation after reading `fname` into a Buffer.
  * @param fname file name to test
@@ -13,7 +39,7 @@ const index_1 = require("./index");
 function testBufferedTransform(fname, compare = "Hello World", vars = {}) {
     return new Promise((resolve, reject) => {
         const file = new File({ path: fname, contents: fs.readFileSync(fname) });
-        (0, index_1.default)(vars)._transform(file, "utf8", (err, file) => {
+        (0, index_2.default)(vars, path.join(__dirname, "fixtures"))._transform(file, "utf8", (err, file) => {
             if (err) {
                 reject(err);
             }
@@ -21,8 +47,12 @@ function testBufferedTransform(fname, compare = "Hello World", vars = {}) {
                 const content = file.isBuffer()
                     ? file.contents.toString("utf8")
                     : null;
-                assert.equal(content, compare, String(content));
-                resolve();
+                try {
+                    resolve(assert.equal(content, compare, String(content)));
+                }
+                catch (err) {
+                    reject(err);
+                }
             }
         });
     });
@@ -37,7 +67,7 @@ function testStreamedTransform(fname, compare = "Hello World", vars = {}) {
             path: fname,
             contents: fs.createReadStream(fname),
         });
-        (0, index_1.default)(vars)._transform(file, "utf8", (err, file) => {
+        (0, index_2.default)(vars, path.join(__dirname, "fixtures"))._transform(file, "utf8", (err, file) => {
             var _a, _b;
             if (err) {
                 reject(err);
@@ -46,8 +76,12 @@ function testStreamedTransform(fname, compare = "Hello World", vars = {}) {
                 let content = "";
                 if (Buffer.isBuffer(file.contents)) {
                     content = file.contents.toString("utf8");
-                    assert.equal(content, "Hello World", content);
-                    resolve();
+                    try {
+                        resolve(assert.equal(content, compare, content));
+                    }
+                    catch (err) {
+                        reject(err);
+                    }
                 }
                 else {
                     (_b = (_a = file.contents) === null || _a === void 0 ? void 0 : _a.on("data", (chunk) => {
@@ -58,8 +92,12 @@ function testStreamedTransform(fname, compare = "Hello World", vars = {}) {
                             content += chunk.toString();
                         }
                     })) === null || _b === void 0 ? void 0 : _b.on("end", () => {
-                        assert.equal(content, compare, content);
-                        resolve();
+                        try {
+                            resolve(assert.equal(content, compare, content));
+                        }
+                        catch (err) {
+                            reject(err);
+                        }
                     });
                 }
             }
@@ -71,95 +109,105 @@ function testStreamedTransform(fname, compare = "Hello World", vars = {}) {
  * @param fname file name to test
  */
 function testGulpedTransform(fname, compare = "Hello World", vars = {}) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         let content = null;
         gulp
             .src(fname)
-            .pipe((0, index_1.default)(vars, "./dist/fixtures"))
+            .pipe((0, index_2.default)(vars, path.join(__dirname, "fixtures")))
             .on("data", (chunk) => {
             const file = chunk;
             content = file.isBuffer() ? file.contents.toString("utf8") : null;
         })
             .on("end", () => {
-            assert.equal(content, compare, String(content));
-            resolve();
+            try {
+                resolve(assert.equal(content, compare, String(content)));
+            }
+            catch (exc) {
+                reject(exc);
+            }
         });
     });
 }
+function testAllMethods(fname, compare = "Hello World", vars = {}) {
+    it("content render", () => __awaiter(this, void 0, void 0, function* () {
+        yield testContentRender(fname, compare, vars);
+    }));
+    it("buffered transform", () => __awaiter(this, void 0, void 0, function* () {
+        yield testBufferedTransform(fname, compare, vars);
+    }));
+    it("streamed transform", () => __awaiter(this, void 0, void 0, function* () {
+        yield testStreamedTransform(fname, compare, vars);
+    }));
+    it("gulped transform", () => __awaiter(this, void 0, void 0, function* () {
+        yield testGulpedTransform(fname, compare, vars);
+    }));
+}
 describe("Mancha", () => {
-    describe("include", () => {
-        it("include with vars", (done) => {
+    describe("vars", () => {
+        describe("substitution", () => {
             const name = "Vars";
             const hello_vars = `Hello ${name}`;
             const fname = path.join(__dirname, "fixtures", "hello-name.tpl.html");
-            testBufferedTransform(fname, hello_vars, { name: name }).then(done);
+            testAllMethods(fname, hello_vars, { name: name });
         });
     });
-    describe("render", () => {
-        it("simple include (buffer)", (done) => {
+    describe("include", () => {
+        describe("simple", () => {
             const fname = path.join(__dirname, "fixtures", "render-include-simple.tpl.html");
-            testBufferedTransform(fname).then(done);
+            testAllMethods(fname);
         });
-        it("simple include (stream)", (done) => {
-            const fname = path.join(__dirname, "fixtures", "render-include-simple.tpl.html");
-            testStreamedTransform(fname).then(done);
-        });
-        it("simple include (gulp)", (done) => {
-            const fname = path.join(__dirname, "fixtures", "render-include-simple.tpl.html");
-            testGulpedTransform(fname).then(done);
-        });
-        it("nested include", (done) => {
+        describe("nested", () => {
             const fname = path.join(__dirname, "fixtures", "render-include-nested.tpl.html");
-            testBufferedTransform(fname).then(done);
+            testAllMethods(fname);
         });
-        it("multiple include", (done) => {
+        describe("multiple", () => {
             const fname = path.join(__dirname, "fixtures", "render-include-multiple.tpl.html");
-            testBufferedTransform(fname).then(done);
+            testAllMethods(fname);
         });
-        it("include with vars", (done) => {
+        describe("with vars", () => {
             const name = "Vars";
             const hello_vars = `Hello ${name}`;
             const fname = path.join(__dirname, "fixtures", "render-include-vars.tpl.html");
-            testBufferedTransform(fname, hello_vars, { name: name }).then(done);
+            testAllMethods(fname, hello_vars, { name: name });
         });
-        it("include with vars override", (done) => {
+        describe("with vars override", () => {
             const name = "Vars";
             const hello_override = `Hello Override`;
             const fname = path.join(__dirname, "fixtures", "render-include-vars-override.tpl.html");
-            testBufferedTransform(fname, hello_override, { name: name }).then(done);
+            testAllMethods(fname, hello_override, { name: name });
         });
-        it("include with comments", (done) => {
+        describe("with comments", () => {
             const fname = path.join(__dirname, "fixtures", "render-include-with-comments.tpl.html");
-            testBufferedTransform(fname, "<!-- This is a comment node -->\nHello World").then(done);
+            testAllMethods(fname, "<!-- This is a comment node -->\nHello World");
         });
-        it("include with root document", (done) => {
+        describe("with root document", () => {
             const fname = path.join(__dirname, "fixtures", "render-include-with-root.tpl.html");
             const expected = "<!DOCTYPE html><html><head></head><body>\nHello World\n</body></html>";
-            testBufferedTransform(fname, expected).then(done);
+            testAllMethods(fname, expected);
         });
-        it("subfolder include", (done) => {
+        describe("subfolder", () => {
             const fname = path.join(__dirname, "fixtures", "render-include-subfolder.tpl.html");
-            testBufferedTransform(fname).then(done);
+            testAllMethods(fname);
         });
-        it("pass through root var #1", (done) => {
+        describe("pass through root var #1", () => {
             const fname = path.join(__dirname, "fixtures", "render-root.tpl.html");
             let expected = ".";
-            testGulpedTransform(fname, expected).then(done);
+            testAllMethods(fname, expected);
         });
-        it("pass through root var #2", (done) => {
+        describe("pass through root var #2", () => {
             const fname = path.join(__dirname, "fixtures", "subfolder/render-root.tpl.html");
             let expected = "..";
-            testGulpedTransform(fname, expected).then(done);
+            testAllMethods(fname, expected);
         });
-        it("pass through root var #3", (done) => {
+        describe("pass through root var #3", () => {
             const fname = path.join(__dirname, "fixtures", "subfolder/subsubfolder/render-root.tpl.html");
             let expected = "../..";
-            testGulpedTransform(fname, expected).then(done);
+            testAllMethods(fname, expected);
         });
-        it("pass through root var #4", (done) => {
+        describe("pass through root var #4", () => {
             const fname = path.join(__dirname, "fixtures", "render-include-subsubfolder.tpl.html");
             let expected = ".";
-            testGulpedTransform(fname, expected).then(done);
+            testAllMethods(fname, expected);
         });
     });
 });

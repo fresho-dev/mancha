@@ -1,6 +1,6 @@
 import * as fs from "fs";
-import * as path from "path";
 import * as parse5 from "parse5";
+import * as path from "path";
 import {
   ChildNode,
   Document,
@@ -9,11 +9,8 @@ import {
   Node,
   ParentNode,
 } from "parse5/dist/tree-adapters/default";
-import * as stream from "stream";
-import * as through from "through2";
-import * as File from "vinyl";
 
-module Mancha {
+export module Mancha {
   function replaceNodeWith(original: Node, replacement: Node[]) {
     const elem = <Element>original;
     const parent = <ParentNode>elem.parentNode;
@@ -29,7 +26,7 @@ module Mancha {
     return /^[\n\r\s]*<(!doctype|html|head|body)\b/i.test(content);
   }
 
-  function smartParse(content: string): Document | DocumentFragment {
+  function parseDocument(content: string): Document | DocumentFragment {
     return isDocument(content)
       ? (parse5.parse(content) as Document)
       : (parse5.parseFragment(content) as DocumentFragment);
@@ -93,7 +90,7 @@ module Mancha {
     return content;
   }
 
-  export function render(
+  export function renderContent(
     content: string,
     vars: { [key: string]: string } = {},
     root: string = ".",
@@ -102,19 +99,16 @@ module Mancha {
   ): Promise<string> {
     return new Promise<string>((resolve, reject) => {
       const preprocessed = preprocess(content, vars, wwwroot);
-      const document = smartParse(preprocessed);
+      const document = parseDocument(preprocessed);
       traverse(document.childNodes.map((node) => node as Element))
         .then((nodes) => {
           const promises = nodes.map((node) => {
             return new Promise<void>((resolve, reject) => {
               if (node.nodeName === "include") {
-                const attribs = (node as Element).attrs.reduce(
-                  (dict: any, attr) => {
-                    dict[attr.name] = attr.value;
-                    return dict;
-                  },
-                  {}
-                );
+                const attribs = (node as Element).attrs.reduce((dict: any, attr) => {
+                  dict[attr.name] = attr.value;
+                  return dict;
+                }, {});
 
                 // If the node has a vars attribute, it overrides our current vars
                 // NOTE: this will propagate to all subsequent calls to render,
@@ -132,21 +126,15 @@ module Mancha {
                   const fname = path.join(root, attribs["src"]);
                   const newroot = path.dirname(fname);
                   const contents = fs.readFileSync(fname, encoding);
-                  render(contents, vars, newroot, wwwroot, encoding)
+                  renderContent(contents, vars, newroot, wwwroot, encoding)
                     .then((content) => {
-                      const docfragment = parse5.parseFragment(
-                        content
-                      ) as DocumentFragment;
+                      const docfragment = parse5.parseFragment(content) as DocumentFragment;
                       replaceNodeWith(node, docfragment.childNodes);
                       resolve();
                     })
                     .catch((err) => reject(err));
                 } else {
-                  reject(
-                    new Error(
-                      `"src" attribute missing from ${JSON.stringify(node)}`
-                    )
-                  );
+                  reject(new Error(`"src" attribute missing from ${JSON.stringify(node)}`));
                 }
               } else {
                 resolve();
@@ -163,82 +151,10 @@ module Mancha {
           if (result === preprocessed) {
             resolve(parse5.serialize(document));
           } else {
-            render(result, vars, root, wwwroot, encoding)
-              .then(resolve)
-              .catch(reject);
+            renderContent(result, vars, root, wwwroot, encoding).then(resolve).catch(reject);
           }
         })
         .catch(reject);
     });
   }
 }
-
-/**
- * Main entrypoint to be used in Gulp. Usage:
- *
- *     var mancha = require('gulp-mancha')
- *     gulp.src(...).pipe(mancha({myvar: myval})).pipe(...)
- *
- * @param vars <key, value> pairs of literal string replacements. `key` will become `{{key}}` before
- * replacing it with `value` in the processed files.
- */
-function mancha(
-  vars: { [key: string]: string } = {},
-  wwwroot: string = process.cwd()
-): stream.Transform {
-  return through.obj(function (
-    file: File,
-    encoding: BufferEncoding,
-    callback: Function
-  ) {
-    const catcher = (err: Error) => {
-      console.log(err);
-      callback(err, file);
-    };
-
-    if (file.isNull()) {
-      callback(null, file);
-    } else {
-      const root = path.dirname(file.path);
-      const relpath = path.relative(root, wwwroot) || ".";
-
-      if (file.isBuffer()) {
-        const fragment = file.contents.toString(encoding);
-        Mancha.render(fragment, vars, root, relpath)
-          .then((content) => {
-            file.contents = Buffer.from(content, encoding);
-            callback(null, file);
-          })
-          .catch(catcher);
-      } else if (file.isStream()) {
-        let fragment: string = "";
-        file.contents
-          .on("data", (chunk) => {
-            if (Buffer.isBuffer(chunk)) {
-              fragment += chunk.toString(encoding);
-            } else {
-              fragment += chunk.toString();
-            }
-          })
-          .on("end", () => {
-            Mancha.render(fragment, vars, root, relpath)
-              .then((content) => {
-                const readable = new stream.Readable();
-                readable._read = function () {};
-                readable.push(content);
-                readable.push(null);
-                file.contents = readable;
-                callback(null, file);
-              })
-              .catch(catcher);
-          });
-      }
-    }
-  });
-}
-
-// Add exported functions as properties of the main export
-mancha.encodeHtmlAttrib = Mancha.encodeHtmlAttrib;
-mancha.decodeHtmlAttrib = Mancha.decodeHtmlAttrib;
-
-export default mancha;
