@@ -1,0 +1,44 @@
+{
+  "name": "mancha",
+  "version": "0.3.0",
+  "description": "Gulp plugin that performs server-size, compile-time rendering of HTML",
+  "main": "dist/mancha",
+  "typings": "dist/mancha",
+  "scripts": {
+    "clean": "gulp clean",
+    "build": "gulp build",
+    "test": "mocha dist/test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fresho-dev/mancha.git"
+  },
+  "keywords": [
+    "gulp",
+    "render",
+    "html",
+    "include",
+    "preprocessor"
+  ],
+  "author": "omtinez@gmail.com",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://gitlab.com/omtinez/mancha/issues"
+  },
+  "homepage": "https://gitlab.com/omtinez/mancha#README",
+  "dependencies": {
+    "parse5": "^7.1.2",
+    "through2": "^4.0.2"
+  },
+  "devDependencies": {
+    "@types/gulp": "^4.0.8",
+    "@types/mocha": "^10.0.3",
+    "@types/node": "^20.8.8",
+    "@types/through2": "^2.0.36",
+    "del": "^7.1.0",
+    "gulp": "^4.0.2",
+    "gulp-typescript": "^6.0.0-alpha.1",
+    "mocha": "^10.2.0",
+    "typescript": "^5.2.2"
+  }
+}
