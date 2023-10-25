@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import { Document, DocumentFragment } from "parse5/dist/tree-adapters/default";
 /**
  * Helper function used to escape HTML attribute values.
  * See: https://stackoverflow.com/a/9756789
@@ -10,6 +11,9 @@ export declare function preprocess(content: string, vars: {
     [key: string]: string;
 }): string;
 export declare function renderContent(content: string, vars?: {
+    [key: string]: string;
+}, fsroot?: string, maxdepth?: number): Promise<string>;
+export declare function renderDocument(document: Document | DocumentFragment, vars?: {
     [key: string]: string;
 }, fsroot?: string, maxdepth?: number): Promise<string>;
 export declare function renderLocalPath(fpath: string, vars?: {

@@ -3,7 +3,7 @@ const path = require("path");
 
 module.exports = {
   target: "web",
-  mode: "development",
+  mode: "production",
   entry: "./dist/browser/index.js",
   output: {
     path: path.resolve(__dirname, "dist", "browser"),

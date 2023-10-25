@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.renderRemotePath = exports.renderLocalPath = exports.renderContent = exports.preprocess = exports.decodeHtmlAttrib = exports.encodeHtmlAttrib = void 0;
+exports.renderRemotePath = exports.renderLocalPath = exports.renderDocument = exports.renderContent = exports.preprocess = exports.decodeHtmlAttrib = exports.encodeHtmlAttrib = void 0;
 const fs = require("fs/promises");
 const parse5 = require("parse5");
 const path = require("path");
@@ -85,6 +85,12 @@ function renderContent(content, vars = {}, fsroot = ".", maxdepth = 10) {
     return __awaiter(this, void 0, void 0, function* () {
         const preprocessed = preprocess(content, vars);
         const document = parseDocument(preprocessed);
+        return renderDocument(document, vars, fsroot, maxdepth);
+    });
+}
+exports.renderContent = renderContent;
+function renderDocument(document, vars = {}, fsroot = ".", maxdepth = 10) {
+    return __awaiter(this, void 0, void 0, function* () {
         const renderings = traverse(document.childNodes.map((node) => node))
             .filter((node) => node.nodeName === "include")
             .map((node) => __awaiter(this, void 0, void 0, function* () {
@@ -141,7 +147,7 @@ function renderContent(content, vars = {}, fsroot = ".", maxdepth = 10) {
         }
     });
 }
-exports.renderContent = renderContent;
+exports.renderDocument = renderDocument;
 function renderLocalPath(fpath, vars = {}, encoding = "utf8") {
     return __awaiter(this, void 0, void 0, function* () {
         const content = yield fs.readFile(fpath, { encoding: encoding });

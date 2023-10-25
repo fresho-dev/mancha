@@ -93,6 +93,15 @@ export async function renderContent(
 ): Promise<string> {
   const preprocessed = preprocess(content, vars);
   const document = parseDocument(preprocessed);
+  return renderDocument(document, vars, fsroot, maxdepth);
+}
+
+export async function renderDocument(
+  document: Document | DocumentFragment,
+  vars: { [key: string]: string } = {},
+  fsroot: string = ".",
+  maxdepth: number = 10
+) {
   const renderings = traverse(document.childNodes.map((node) => node as Element))
     .filter((node) => node.nodeName === "include")
     .map(async (node) => {
