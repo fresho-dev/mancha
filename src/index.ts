@@ -52,16 +52,6 @@ export module Mancha {
     return explored;
   }
 
-  async function readFromPath(fpath: string) {
-    fpath = fpath.startsWith("://") ? "https" + fpath : fpath;
-    if (isBrowser() || fpath.startsWith("http://") || fpath.startsWith("https://")) {
-      return await axios.get(fpath, { responseType: "text" }).then((res) => res.data);
-    } else {
-      // Runtime import
-      const fs = require("fs/promises");
-    }
-  }
-
   /**
    * Helper function used to escape HTML attribute values.
    * See: https://stackoverflow.com/a/9756789
@@ -89,7 +79,7 @@ export module Mancha {
   }
 
   export function preprocess(content: string, vars: { [key: string]: string }): string {
-    // Replace all {{variables}}
+    // Replace all {{variables}}.
     Object.keys(vars).forEach((key) => {
       content = content.replace(new RegExp(`{{${key}}}`, "g"), vars[key]);
     });
@@ -99,7 +89,8 @@ export module Mancha {
   export async function renderContent(
     content: string,
     vars: { [key: string]: string } = {},
-    fsroot: string = "."
+    fsroot: string = ".",
+    maxdepth: number = 10
   ): Promise<string> {
     const preprocessed = preprocess(content, vars);
     const document = parseDocument(preprocessed);
@@ -111,7 +102,7 @@ export module Mancha {
           return dict;
         }, {}) as { [key: string]: string };
 
-        // If the node has a vars attribute, it overrides our current vars
+        // If the node has a vars attribute, it overrides our current vars.
         // NOTE: this will propagate to all subsequent render calls, including nested calls.
         if (attribs.hasOwnProperty("data-vars")) {
           vars = Object.assign({}, vars, JSON.parse(decodeHtmlAttrib(attribs["data-vars"])));
@@ -122,9 +113,6 @@ export module Mancha {
           throw new Error(`"src" attribute missing from ${JSON.stringify(node)}`);
         }
 
-        // The new root will be the included file's directory.
-        // const newroot = path.dirname(attribs["src"]);
-
         // The included file will replace this tag.
         const handler = (content: string) => {
           const docfragment = parse5.parseFragment(content);
@@ -133,11 +121,12 @@ export module Mancha {
 
         // Case 1: Absolute remote path.
         if (attribs["src"].indexOf("://") !== -1) {
-          // await renderRemotePath(attribs["src"], vars, newroot).then(handler);
+          await renderRemotePath(attribs["src"], vars).then(handler);
+
           // Case 2: Relative remote path.
         } else if (fsroot.indexOf("://") !== -1) {
-          const relpath = path.join(fsroot, attribs["src"]);
-          // await renderRemotePath(relpath, vars, newroot).then(handler);
+          const relpath = `${fsroot}/${attribs["src"]}`;
+          await renderRemotePath(relpath, vars).then(handler);
 
           // Case 3: Local absolute path.
         } else if (attribs["src"].charAt(0) === "/") {
@@ -145,7 +134,6 @@ export module Mancha {
 
           // Case 4: Local relative path.
         } else {
-          // const fname = path.basename(attribs["src"]);
           const relpath = path.join(fsroot, attribs["src"]);
           await renderLocalPath(relpath, vars).then(handler);
         }
@@ -160,8 +148,10 @@ export module Mancha {
     // Re-render until no changes are made.
     if (renderings.length === 0) {
       return result;
+    } else if (maxdepth === 0) {
+      throw new Error("Maximum recursion depth reached.");
     } else {
-      return renderContent(result, vars, fsroot);
+      return renderContent(result, vars, fsroot, maxdepth--);
     }
   }
 
@@ -172,6 +162,14 @@ export module Mancha {
   ): Promise<string> {
     const fs = require("fs/promises");
     const content = await fs.readFile(fpath, { encoding: encoding });
+    return renderContent(content, vars, path.dirname(fpath));
+  }
+
+  export async function renderRemotePath(fpath: string, vars: { [key: string]: string } = {}) {
+    const content = (await axios
+      .get(fpath, { responseType: "text" })
+      .catch((err) => Promise.reject(new Error(err.message)))
+      .then((res) => res.data)) as string;
     return renderContent(content, vars, path.dirname(fpath));
   }
 }

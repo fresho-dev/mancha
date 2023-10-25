@@ -7,6 +7,10 @@ import * as gulp from "gulp";
 import { Mancha } from "./index";
 import mancha from "./gulp/index";
 
+/**
+ * Helper function used to test a transformation of string elements.
+ * @param fname file name to test
+ */
 function testContentRender(fname: string, compare = "Hello World", vars: any = {}) {
   return new Promise<void>(async (resolve, reject) => {
     const content = fs.readFileSync(fname).toString("utf8");
@@ -17,6 +21,45 @@ function testContentRender(fname: string, compare = "Hello World", vars: any = {
     vars = Object.assign({ wwwroot: relpath }, vars);
     try {
       const result = await Mancha.renderContent(content, vars, fsroot);
+      resolve(assert.equal(result, compare, String(result)));
+    } catch (exc) {
+      console.error(exc);
+      reject(exc);
+    }
+  });
+}
+
+/**
+ * Helper function used to test a transformation of local file paths.
+ * @param fname file name to test
+ */
+function testLocalPathRender(fname: string, compare = "Hello World", vars: any = {}) {
+  return new Promise<void>(async (resolve, reject) => {
+    const wwwroot = path.join(__dirname, "fixtures");
+    const relpath = path.relative(fname, wwwroot) || ".";
+    vars = Object.assign({ wwwroot: relpath }, vars);
+    try {
+      const result = await Mancha.renderLocalPath(fname, vars);
+      resolve(assert.equal(result, compare, String(result)));
+    } catch (exc) {
+      console.error(exc);
+      reject(exc);
+    }
+  });
+}
+
+/**
+ * Helper function used to test a transformation of local file paths.
+ * @param fname file name to test
+ */
+function testRemotePathRender(fname: string, compare = "Hello World", vars: any = {}) {
+  return new Promise<void>(async (resolve, reject) => {
+    const wwwroot = path.join(__dirname, "fixtures");
+    const relpath = path.relative(fname, wwwroot) || ".";
+    const remotePath = `http://127.0.0.1:${port}/${path.relative(wwwroot, fname)}`;
+    vars = Object.assign({ wwwroot: relpath }, vars);
+    try {
+      const result = await Mancha.renderRemotePath(remotePath, vars);
       resolve(assert.equal(result, compare, String(result)));
     } catch (exc) {
       console.error(exc);
@@ -137,6 +180,12 @@ function testAllMethods(fname: string, compare = "Hello World", vars: any = {}):
   it("content render", async () => {
     await testContentRender(fname, compare, vars);
   });
+  it("local path render", async () => {
+    await testLocalPathRender(fname, compare, vars);
+  });
+  it("remote path render", async () => {
+    await testRemotePathRender(fname, compare, vars);
+  });
   it("buffered transform", async () => {
     await testBufferedTransform(fname, compare, vars);
   });
@@ -148,7 +197,22 @@ function testAllMethods(fname: string, compare = "Hello World", vars: any = {}):
   });
 }
 
+const port = Math.floor(1_024 + Math.random() * (Math.pow(2, 16) - 1_024));
+const server = new (require("static-server"))({
+  port: port,
+  host: "127.0.0.1",
+  rootPath: path.join(__dirname, "fixtures"),
+});
+
 describe("Mancha", () => {
+  before("start server", (done) => {
+    server.start(done);
+  });
+
+  after("stop server", () => {
+    server.stop();
+  });
+
   describe("vars", () => {
     describe("substitution", () => {
       const name = "Vars";

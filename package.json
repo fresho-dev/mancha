@@ -41,6 +41,7 @@
     "gulp": "^4.0.2",
     "gulp-typescript": "^6.0.0-alpha.1",
     "mocha": "^10.2.0",
+    "static-server": "^2.2.1",
     "typescript": "^5.2.2"
   }
 }

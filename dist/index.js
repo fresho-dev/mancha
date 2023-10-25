@@ -49,18 +49,6 @@ var Mancha;
         }
         return explored;
     }
-    function readFromPath(fpath) {
-        return __awaiter(this, void 0, void 0, function* () {
-            fpath = fpath.startsWith("://") ? "https" + fpath : fpath;
-            if (isBrowser() || fpath.startsWith("http://") || fpath.startsWith("https://")) {
-                return yield axios_1.default.get(fpath, { responseType: "text" }).then((res) => res.data);
-            }
-            else {
-                // Runtime import
-                const fs = require("fs/promises");
-            }
-        });
-    }
     /**
      * Helper function used to escape HTML attribute values.
      * See: https://stackoverflow.com/a/9756789
@@ -88,14 +76,14 @@ var Mancha;
     }
     Mancha.decodeHtmlAttrib = decodeHtmlAttrib;
     function preprocess(content, vars) {
-        // Replace all {{variables}}
+        // Replace all {{variables}}.
         Object.keys(vars).forEach((key) => {
             content = content.replace(new RegExp(`{{${key}}}`, "g"), vars[key]);
         });
         return content;
     }
     Mancha.preprocess = preprocess;
-    function renderContent(content, vars = {}, fsroot = ".") {
+    function renderContent(content, vars = {}, fsroot = ".", maxdepth = 10) {
         return __awaiter(this, void 0, void 0, function* () {
             const preprocessed = preprocess(content, vars);
             const document = parseDocument(preprocessed);
@@ -106,7 +94,7 @@ var Mancha;
                     dict[attr.name] = attr.value;
                     return dict;
                 }, {});
-                // If the node has a vars attribute, it overrides our current vars
+                // If the node has a vars attribute, it overrides our current vars.
                 // NOTE: this will propagate to all subsequent render calls, including nested calls.
                 if (attribs.hasOwnProperty("data-vars")) {
                     vars = Object.assign({}, vars, JSON.parse(decodeHtmlAttrib(attribs["data-vars"])));
@@ -115,8 +103,6 @@ var Mancha;
                 if (!attribs["src"]) {
                     throw new Error(`"src" attribute missing from ${JSON.stringify(node)}`);
                 }
-                // The new root will be the included file's directory.
-                // const newroot = path.dirname(attribs["src"]);
                 // The included file will replace this tag.
                 const handler = (content) => {
                     const docfragment = parse5.parseFragment(content);
@@ -124,12 +110,12 @@ var Mancha;
                 };
                 // Case 1: Absolute remote path.
                 if (attribs["src"].indexOf("://") !== -1) {
-                    // await renderRemotePath(attribs["src"], vars, newroot).then(handler);
+                    yield renderRemotePath(attribs["src"], vars).then(handler);
                     // Case 2: Relative remote path.
                 }
                 else if (fsroot.indexOf("://") !== -1) {
-                    const relpath = path.join(fsroot, attribs["src"]);
-                    // await renderRemotePath(relpath, vars, newroot).then(handler);
+                    const relpath = `${fsroot}/${attribs["src"]}`;
+                    yield renderRemotePath(relpath, vars).then(handler);
                     // Case 3: Local absolute path.
                 }
                 else if (attribs["src"].charAt(0) === "/") {
@@ -137,7 +123,6 @@ var Mancha;
                     // Case 4: Local relative path.
                 }
                 else {
-                    // const fname = path.basename(attribs["src"]);
                     const relpath = path.join(fsroot, attribs["src"]);
                     yield renderLocalPath(relpath, vars).then(handler);
                 }
@@ -150,8 +135,11 @@ var Mancha;
             if (renderings.length === 0) {
                 return result;
             }
+            else if (maxdepth === 0) {
+                throw new Error("Maximum recursion depth reached.");
+            }
             else {
-                return renderContent(result, vars, fsroot);
+                return renderContent(result, vars, fsroot, maxdepth--);
             }
         });
     }
@@ -164,4 +152,16 @@ var Mancha;
         });
     }
     Mancha.renderLocalPath = renderLocalPath;
+    function renderRemotePath(fpath, vars = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // console.log("fetching remote:", fpath);
+            const content = (yield axios_1.default
+                .get(fpath, { responseType: "text" })
+                .catch((err) => Promise.reject(new Error(err.message)))
+                .then((res) => res.data));
+            // console.log("dirname", path.dirname(fpath));
+            return renderContent(content, vars, path.dirname(fpath));
+        });
+    }
+    Mancha.renderRemotePath = renderRemotePath;
 })(Mancha || (exports.Mancha = Mancha = {}));

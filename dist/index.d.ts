@@ -12,8 +12,11 @@ export declare namespace Mancha {
     }): string;
     function renderContent(content: string, vars?: {
         [key: string]: string;
-    }, fsroot?: string): Promise<string>;
+    }, fsroot?: string, maxdepth?: number): Promise<string>;
     function renderLocalPath(fpath: string, vars?: {
         [key: string]: string;
     }, encoding?: BufferEncoding): Promise<string>;
+    function renderRemotePath(fpath: string, vars?: {
+        [key: string]: string;
+    }): Promise<string>;
 }
