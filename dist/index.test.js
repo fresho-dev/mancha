@@ -14,8 +14,10 @@ const fs = require("fs");
 const path = require("path");
 const File = require("vinyl");
 const gulp = require("gulp");
-const index_1 = require("./index");
-const index_2 = require("./gulp/index");
+// @ts-ignore
+const StaticServer = require("static-server");
+const Mancha = require("./index.js");
+const index_js_1 = require("./gulp/index.js");
 /**
  * Helper function used to test a transformation of string elements.
  * @param fname file name to test
@@ -28,7 +30,7 @@ function testContentRender(fname, compare = "Hello World", vars = {}) {
         const relpath = path.relative(fname, wwwroot) || ".";
         vars = Object.assign({ wwwroot: relpath }, vars);
         try {
-            const result = yield index_1.Mancha.renderContent(content, vars, fsroot);
+            const result = yield Mancha.renderContent(content, vars, fsroot);
             resolve(assert.equal(result, compare, String(result)));
         }
         catch (exc) {
@@ -47,7 +49,7 @@ function testLocalPathRender(fname, compare = "Hello World", vars = {}) {
         const relpath = path.relative(fname, wwwroot) || ".";
         vars = Object.assign({ wwwroot: relpath }, vars);
         try {
-            const result = yield index_1.Mancha.renderLocalPath(fname, vars);
+            const result = yield Mancha.renderLocalPath(fname, vars);
             resolve(assert.equal(result, compare, String(result)));
         }
         catch (exc) {
@@ -67,7 +69,7 @@ function testRemotePathRender(fname, compare = "Hello World", vars = {}) {
         const remotePath = `http://127.0.0.1:${port}/${path.relative(wwwroot, fname)}`;
         vars = Object.assign({ wwwroot: relpath }, vars);
         try {
-            const result = yield index_1.Mancha.renderRemotePath(remotePath, vars);
+            const result = yield Mancha.renderRemotePath(remotePath, vars);
             resolve(assert.equal(result, compare, String(result)));
         }
         catch (exc) {
@@ -83,7 +85,7 @@ function testRemotePathRender(fname, compare = "Hello World", vars = {}) {
 function testBufferedTransform(fname, compare = "Hello World", vars = {}) {
     return new Promise((resolve, reject) => {
         const file = new File({ path: fname, contents: fs.readFileSync(fname) });
-        (0, index_2.default)(vars, path.join(__dirname, "fixtures"))._transform(file, "utf8", (err, file) => {
+        (0, index_js_1.default)(vars, path.join(__dirname, "fixtures"))._transform(file, "utf8", (err, file) => {
             if (err) {
                 reject(err);
             }
@@ -109,7 +111,7 @@ function testStreamedTransform(fname, compare = "Hello World", vars = {}) {
             path: fname,
             contents: fs.createReadStream(fname),
         });
-        (0, index_2.default)(vars, path.join(__dirname, "fixtures"))._transform(file, "utf8", (err, file) => {
+        (0, index_js_1.default)(vars, path.join(__dirname, "fixtures"))._transform(file, "utf8", (err, file) => {
             var _a, _b;
             if (err) {
                 reject(err);
@@ -155,7 +157,7 @@ function testGulpedTransform(fname, compare = "Hello World", vars = {}) {
         let content = null;
         gulp
             .src(fname)
-            .pipe((0, index_2.default)(vars, path.join(__dirname, "fixtures")))
+            .pipe((0, index_js_1.default)(vars, path.join(__dirname, "fixtures")))
             .on("data", (chunk) => {
             content = chunk.isBuffer() ? chunk.contents.toString("utf8") : null;
         })
@@ -193,7 +195,7 @@ function testAllMethods(fname, compare = "Hello World", vars = {}) {
     }));
 }
 const port = Math.floor(1024 + Math.random() * (Math.pow(2, 16) - 1024));
-const server = new (require("static-server"))({
+const server = new StaticServer({
     port: port,
     host: "127.0.0.1",
     rootPath: path.join(__dirname, "fixtures"),

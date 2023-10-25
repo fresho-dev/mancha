@@ -3,7 +3,7 @@ import * as stream from "stream";
 import * as through from "through2";
 import * as File from "vinyl";
 
-import { Mancha } from "../index";
+import * as Mancha from "../index.js";
 
 /**
  * Main entrypoint to be used in Gulp. Usage:

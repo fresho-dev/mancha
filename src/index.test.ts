@@ -1,11 +1,14 @@
 import * as assert from "assert";
 import * as fs from "fs";
+import * as url from "url";
 import * as path from "path";
 import * as File from "vinyl";
 import * as gulp from "gulp";
+// @ts-ignore
+import * as StaticServer from "static-server";
 
-import { Mancha } from "./index";
-import mancha from "./gulp/index";
+import * as Mancha from "./index.js";
+import mancha from "./gulp/index.js";
 
 /**
  * Helper function used to test a transformation of string elements.
@@ -198,7 +201,7 @@ function testAllMethods(fname: string, compare = "Hello World", vars: any = {}):
 }
 
 const port = Math.floor(1_024 + Math.random() * (Math.pow(2, 16) - 1_024));
-const server = new (require("static-server"))({
+const server = new StaticServer({
   port: port,
   host: "127.0.0.1",
   rootPath: path.join(__dirname, "fixtures"),

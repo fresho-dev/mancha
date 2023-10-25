@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const path = require("path");
 const stream = require("stream");
 const through = require("through2");
-const index_1 = require("../index");
+const Mancha = require("../index.js");
 /**
  * Main entrypoint to be used in Gulp. Usage:
  *
@@ -28,7 +28,7 @@ function mancha(vars = {}, wwwroot = process.cwd()) {
         else {
             if (file.isBuffer()) {
                 const fragment = file.contents.toString(encoding);
-                index_1.Mancha.renderContent(fragment, newvars, fsroot)
+                Mancha.renderContent(fragment, newvars, fsroot)
                     .then((content) => {
                     file.contents = Buffer.from(content, encoding);
                     callback(null, file);
@@ -47,7 +47,7 @@ function mancha(vars = {}, wwwroot = process.cwd()) {
                     }
                 })
                     .on("end", () => {
-                    index_1.Mancha.renderContent(fragment, newvars, fsroot)
+                    Mancha.renderContent(fragment, newvars, fsroot)
                         .then((content) => {
                         const readable = new stream.Readable();
                         readable._read = function () { };

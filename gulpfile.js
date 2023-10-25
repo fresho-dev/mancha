@@ -2,9 +2,9 @@ const gulp = require("gulp");
 
 // Clean tasks
 
-gulp.task("clean", function () {
+gulp.task("clean", function (done) {
   const del = require("del");
-  return del("dist");
+  return del.deleteAsync("dist").then(() => done());
 });
 
 // Build tasks
@@ -15,7 +15,7 @@ gulp.task("ts", function () {
     .src("src/**/*.ts")
     .pipe(
       ts({
-        target: "ES2015",
+        target: "es2015",
         module: "commonjs",
         declaration: true,
         noImplicitAny: true,
