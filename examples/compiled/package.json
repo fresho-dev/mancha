@@ -1,0 +1,15 @@
+{
+  "name": "mancha-compile-time-example",
+  "version": "0.0.1",
+  "description": "example mancha.js server-side compile-time rendering",
+  "main": "index.js",
+  "repository": "https://github.com/fresho-dev/mancha",
+  "author": "Fresho Dev",
+  "license": "MIT",
+  "scripts": {
+    "build": "mancha --input=html/index.html --vars=\"$(cat vars.json)\""
+  },
+  "devDependencies": {
+    "mancha": "../../"
+  }
+}
