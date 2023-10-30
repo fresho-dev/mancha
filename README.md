@@ -41,7 +41,7 @@ Source:
 <div>
   <include src="./hello-world.html"></include>
 </div>
-<script src="//fresho-dev.github.io/mancha/dist/mancha.js" init></script>
+<script src="//unpkg.com/mancha" init></script>
 ```
 
 Result:
