@@ -1,8 +1,7 @@
 # mancha
 
-`mancha` is an HTML templating library designed to be used as a `Gulp 4+` plugin, although it
-can also be used on its own. In essence, it is a stream transformer that can be used for simple but
-powerful server-side, compile-time rendering.
+`mancha` is an HTML templating library. It can work as a command-line tool, imported as a Javascript
+function, or as a `Gulp 4+` plugin.
 
 ## Examples
 
@@ -13,9 +12,9 @@ Here are some of the things you can use `mancha` for.
 Source:
 
 ```js
-import mancha from "mancha";
+import * as Mancha from "mancha";
 const content = "<div>Hello {{user}}</div>";
-const output = mancha.render(content, { user: "World" });
+const output = Mancha.renderContent(content, { user: "World" });
 console.log(output);
 ```
 
@@ -25,12 +24,15 @@ Result:
 <div>Hello World</div>
 ```
 
+The first argument is a string of content to preprocess, the second is a dictionary of
+`<key, value>` pairs such that instances of `{{key}}` in the content will be replaced with `value`.
+
 ### Include files from other local sources using the `<include>` tag
 
 hello-world.html:
 
 ```html
-Hello World
+<span>Hello World</span>
 ```
 
 Source:
@@ -39,20 +41,21 @@ Source:
 <div>
   <include src="./hello-world.html"></include>
 </div>
+<script src="//fresho-dev.github.io/mancha/dist/mancha.js" init></script>
 ```
 
 Result:
 
 ```html
-<div>Hello World</div>
+<div><span>Hello World</span></div>
 ```
 
-## Usage
+## Use `mancha` in gulpfile scripts
 
 To use `mancha` in your gulpfile, you can do the following:
 
 ```js
-const mancha = require('gulp-mancha');
+const mancha = require('mancha');
 gulp.src(...).pipe(mancha({myvar: myval})).pipe(...)
 ```
 
@@ -71,6 +74,3 @@ Result:
 ```html
 <div>Hello Batman</div>
 ```
-
-`mancha` also accepts a second optional argument which will be the `context`. This way, you can pass
-complex objects or even libraries to be used within your rendered Javascript.
