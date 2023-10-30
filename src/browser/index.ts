@@ -1,6 +1,6 @@
 import * as Mancha from "../index.js";
 
-(window as any)["Mancha"] = Mancha;
+((window as any) || {})["Mancha"] = Mancha;
 
 if (document.currentScript?.getAttribute("init") !== undefined) {
   const vars = JSON.parse(document.currentScript.dataset["vars"] || "{}");
