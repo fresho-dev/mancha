@@ -6,12 +6,13 @@
   "typings": "dist/index",
   "scripts": {
     "clean": "gulp clean",
-    "build": "gulp build",
+    "build": "gulp build && webpack",
     "test": "mocha dist/*.test.js",
-    "webpack": "webpack"
+    "webpack": "webpack",
+    "cli": "node dist/cli.js"
   },
   "bin": {
-    "mancha": "node ./dist/index.js"
+    "mancha": "./dist/cli.js"
   },
   "repository": {
     "type": "git",

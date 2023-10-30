@@ -3,8 +3,8 @@ const gulp = require("gulp");
 // Clean tasks
 
 gulp.task("clean", function (done) {
-  const del = require("del");
-  return del.deleteAsync("dist").then(() => done());
+  const fs = require("fs/promises");
+  return fs.rm("dist", { recursive: true, force: true }).then(done);
 });
 
 // Build tasks
