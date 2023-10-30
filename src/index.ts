@@ -1,24 +1,17 @@
 import * as fs from "fs/promises";
 import * as parse5 from "parse5";
 import * as path from "path";
-import {
-  ChildNode,
-  Document,
-  DocumentFragment,
-  Element,
-  Node,
-  ParentNode,
-} from "parse5/dist/tree-adapters/default";
+import * as tree from "parse5/dist/tree-adapters/default";
 import axios from "axios";
 
-function replaceNodeWith(original: Node, replacement: Node[]) {
-  const elem = <Element>original;
-  const parent = <ParentNode>elem.parentNode;
+function replaceNodeWith(original: tree.Node, replacement: tree.Node[]) {
+  const elem = original as tree.Element;
+  const parent = elem.parentNode as tree.ParentNode;
   const index = parent.childNodes.indexOf(elem);
-  replacement.forEach((elem) => ((<Element>elem).parentNode = parent));
-  parent.childNodes = (<ChildNode[]>[])
+  replacement.forEach((elem) => ((elem as tree.Element).parentNode = parent));
+  parent.childNodes = ([] as tree.ChildNode[])
     .concat(parent.childNodes.slice(0, index))
-    .concat(replacement as ChildNode[])
+    .concat(replacement as tree.ChildNode[])
     .concat(parent.childNodes.slice(index + 1));
 }
 
@@ -26,22 +19,18 @@ function isDocument(content: string) {
   return /^[\n\r\s]*<(!doctype|html|head|body)\b/i.test(content);
 }
 
-function isBrowser() {
-  return typeof window !== "undefined";
-}
-
-function parseDocument(content: string): Document | DocumentFragment {
+function parseDocument(content: string): tree.Document | tree.DocumentFragment {
   return isDocument(content)
-    ? (parse5.parse(content) as Document)
-    : (parse5.parseFragment(content) as DocumentFragment);
+    ? (parse5.parse(content) as tree.Document)
+    : (parse5.parseFragment(content) as tree.DocumentFragment);
 }
 
-function traverse(tree: Element | Element[]): Node[] {
-  const explored: Node[] = [];
-  const frontier: Node[] = Array.isArray(tree) ? tree : [tree];
+function traverse(tree: tree.Element | tree.Element[]): tree.Node[] {
+  const explored: tree.Node[] = [];
+  const frontier: tree.Node[] = Array.isArray(tree) ? tree : [tree];
 
   while (frontier.length) {
-    const node: Element = <Element>frontier.pop();
+    const node: tree.Element = frontier.pop() as tree.Element;
     explored.push(node);
     if (node.childNodes) {
       node.childNodes.forEach((node) => frontier.push(node));
@@ -97,15 +86,15 @@ export async function renderContent(
 }
 
 export async function renderDocument(
-  document: Document | DocumentFragment,
+  document: tree.Document | tree.DocumentFragment,
   vars: { [key: string]: string } = {},
   fsroot: string = ".",
   maxdepth: number = 10
 ) {
-  const renderings = traverse(document.childNodes.map((node) => node as Element))
+  const renderings = traverse(document.childNodes.map((node) => node as tree.Element))
     .filter((node) => node.nodeName === "include")
     .map(async (node) => {
-      const attribs = (node as Element).attrs.reduce((dict: any, attr) => {
+      const attribs = (node as tree.Element).attrs.reduce((dict: any, attr) => {
         dict[attr.name] = attr.value;
         return dict;
       }, {}) as { [key: string]: string };

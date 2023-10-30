@@ -27,9 +27,6 @@ function replaceNodeWith(original, replacement) {
 function isDocument(content) {
     return /^[\n\r\s]*<(!doctype|html|head|body)\b/i.test(content);
 }
-function isBrowser() {
-    return typeof window !== "undefined";
-}
 function parseDocument(content) {
     return isDocument(content)
         ? parse5.parse(content)
