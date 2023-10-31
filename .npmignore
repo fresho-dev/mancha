@@ -1,2 +1,4 @@
 src/
 examples/
+dist/fixtures
+dist/*.test.*
