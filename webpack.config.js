@@ -3,9 +3,9 @@ const path = require("path");
 module.exports = {
   target: "web",
   mode: "production",
-  entry: "./dist/browser/index.js",
+  entry: "./dist/browser.js",
   output: {
-    path: path.resolve(__dirname, "dist", "browser"),
+    path: path.resolve(__dirname, "dist"),
     filename: "mancha.js",
   },
   resolve: {

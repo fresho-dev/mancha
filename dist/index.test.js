@@ -17,7 +17,7 @@ const gulp = require("gulp");
 // @ts-ignore
 const StaticServer = require("static-server");
 const Mancha = require("./index.js");
-const index_js_1 = require("./gulp/index.js");
+const gulp_js_1 = require("./gulp.js");
 /**
  * Helper function used to test a transformation of string elements.
  * @param fname file name to test
@@ -85,7 +85,7 @@ function testRemotePathRender(fname, compare = "Hello World", vars = {}) {
 function testBufferedTransform(fname, compare = "Hello World", vars = {}) {
     return new Promise((resolve, reject) => {
         const file = new File({ path: fname, contents: fs.readFileSync(fname) });
-        (0, index_js_1.default)(vars, path.join(__dirname, "fixtures"))._transform(file, "utf8", (err, file) => {
+        (0, gulp_js_1.default)(vars, path.join(__dirname, "fixtures"))._transform(file, "utf8", (err, file) => {
             if (err) {
                 reject(err);
             }
@@ -111,7 +111,7 @@ function testStreamedTransform(fname, compare = "Hello World", vars = {}) {
             path: fname,
             contents: fs.createReadStream(fname),
         });
-        (0, index_js_1.default)(vars, path.join(__dirname, "fixtures"))._transform(file, "utf8", (err, file) => {
+        (0, gulp_js_1.default)(vars, path.join(__dirname, "fixtures"))._transform(file, "utf8", (err, file) => {
             var _a, _b;
             if (err) {
                 reject(err);
@@ -157,7 +157,7 @@ function testGulpedTransform(fname, compare = "Hello World", vars = {}) {
         let content = null;
         gulp
             .src(fname)
-            .pipe((0, index_js_1.default)(vars, path.join(__dirname, "fixtures")))
+            .pipe((0, gulp_js_1.default)(vars, path.join(__dirname, "fixtures")))
             .on("data", (chunk) => {
             content = chunk.isBuffer() ? chunk.contents.toString("utf8") : null;
         })

@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const path = require("path");
 const stream = require("stream");
 const through = require("through2");
-const Mancha = require("../index.js");
+const Mancha = require("./index.js");
 /**
  * Main entrypoint to be used in Gulp. Usage:
  *

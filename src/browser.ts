@@ -1,4 +1,4 @@
-import * as Mancha from "../index.js";
+import * as Mancha from "./web.js";
 
 (self as any)["Mancha"] = Mancha;
 

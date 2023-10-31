@@ -1,6 +1,5 @@
 import * as assert from "assert";
 import * as fs from "fs";
-import * as url from "url";
 import * as path from "path";
 import * as File from "vinyl";
 import * as gulp from "gulp";
@@ -8,7 +7,7 @@ import * as gulp from "gulp";
 import * as StaticServer from "static-server";
 
 import * as Mancha from "./index.js";
-import mancha from "./gulp/index.js";
+import gulpMancha from "./gulp.js";
 
 /**
  * Helper function used to test a transformation of string elements.
@@ -78,7 +77,7 @@ function testRemotePathRender(fname: string, compare = "Hello World", vars: any 
 function testBufferedTransform(fname: string, compare = "Hello World", vars: any = {}) {
   return new Promise<void>((resolve, reject) => {
     const file = new File({ path: fname, contents: fs.readFileSync(fname) });
-    mancha(vars, path.join(__dirname, "fixtures"))._transform(
+    gulpMancha(vars, path.join(__dirname, "fixtures"))._transform(
       file,
       "utf8",
       (err: Error | null | undefined, file: File) => {
@@ -111,7 +110,7 @@ function testStreamedTransform(
       path: fname,
       contents: fs.createReadStream(fname),
     });
-    mancha(vars, path.join(__dirname, "fixtures"))._transform(
+    gulpMancha(vars, path.join(__dirname, "fixtures"))._transform(
       file,
       "utf8",
       (err: Error | null | undefined, file: File) => {
@@ -162,7 +161,7 @@ function testGulpedTransform(
     let content: string | null = null;
     gulp
       .src(fname)
-      .pipe(mancha(vars, path.join(__dirname, "fixtures")))
+      .pipe(gulpMancha(vars, path.join(__dirname, "fixtures")))
       .on("data", (chunk: File) => {
         content = chunk.isBuffer() ? chunk.contents.toString("utf8") : null;
       })
