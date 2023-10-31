@@ -1,0 +1,19 @@
+{
+  "name": "mancha-serverless-example",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "example mancha.js serverless rendering",
+  "main": "index.js",
+  "repository": "https://github.com/fresho-dev/mancha",
+  "author": "Fresho Dev",
+  "license": "MIT",
+  "scripts": {
+    "start": "npx wrangler dev ./index.js"
+  },
+  "devDependencies": {
+    "mancha": "../../"
+  },
+  "dependencies": {
+    "@worker-tools/router": "^0.3.0-pre.6"
+  }
+}
