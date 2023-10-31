@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 
-<head></head>
+<head>
+  <title>Hello {{name}}!</title>
+</head>
 
 <body>
-  <include src="./body.tpl.html" data-vars='{"name": "John"}' />
+  <include src="./body.tpl.html" />
 </body>
 
-<script src="//unpkg.com/mancha" init></script>
+<script src="//unpkg.com/mancha" data-vars='{"name": "John"}' target="body,head" init></script>
