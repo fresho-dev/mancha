@@ -10,10 +10,8 @@
   "scripts": {
     "start": "npx wrangler dev ./index.js"
   },
-  "devDependencies": {
-    "mancha": "../../"
-  },
   "dependencies": {
-    "@worker-tools/router": "^0.3.0-pre.6"
+    "@worker-tools/router": "^0.3.0-pre.6",
+    "mancha": "../../"
   }
 }

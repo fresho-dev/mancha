@@ -10,10 +10,8 @@
   "scripts": {
     "start": "node ./index.js"
   },
-  "devDependencies": {
-    "mancha": "../../"
-  },
   "dependencies": {
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "mancha": "../../"
   }
 }
