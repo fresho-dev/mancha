@@ -1,6 +1,6 @@
 {
   "name": "mancha",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "Javscript HTML rendering engine",
   "main": "dist/index",
   "typings": "dist/index",

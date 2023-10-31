@@ -20,8 +20,9 @@ function renderLocalPath(fpath, vars = {}, encoding = "utf8") {
     });
 }
 exports.renderLocalPath = renderLocalPath;
-function renderContent(content, vars = {}, fsroot = ".", maxdepth = 10) {
+function renderContent(content, vars = {}, fsroot = null, maxdepth = 10) {
     return __awaiter(this, void 0, void 0, function* () {
+        fsroot = fsroot || ".";
         return (0, web_1.renderContent)(content, vars, fsroot, maxdepth, renderLocalPath);
     });
 }

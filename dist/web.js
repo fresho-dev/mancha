@@ -76,8 +76,9 @@ function preprocess(content, vars) {
     return content;
 }
 exports.preprocess = preprocess;
-function renderContent(content, vars = {}, fsroot = ".", maxdepth = 10, _renderLocalPathFunc = renderLocalPath) {
+function renderContent(content, vars = {}, fsroot = null, maxdepth = 10, _renderLocalPathFunc = renderLocalPath) {
     return __awaiter(this, void 0, void 0, function* () {
+        fsroot = fsroot || self.location.href.split("/").slice(0, -1).join("/") + "/";
         const preprocessed = preprocess(content, vars);
         const document = parseDocument(preprocessed);
         const renderings = traverse(document.childNodes.map((node) => node))
@@ -106,7 +107,7 @@ function renderContent(content, vars = {}, fsroot = ".", maxdepth = 10, _renderL
                 yield renderRemotePath(attribs["src"], vars).then(handler);
                 // Case 2: Relative remote path.
             }
-            else if (fsroot.indexOf("://") !== -1) {
+            else if ((fsroot === null || fsroot === void 0 ? void 0 : fsroot.indexOf("://")) !== -1) {
                 const relpath = `${fsroot}/${attribs["src"]}`;
                 yield renderRemotePath(relpath, vars).then(handler);
                 // Case 3: Local absolute path.

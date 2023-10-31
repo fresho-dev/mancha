@@ -11,7 +11,7 @@ export declare function preprocess(content: string, vars: {
 }): string;
 export declare function renderContent(content: string, vars?: {
     [key: string]: string;
-}, fsroot?: string, maxdepth?: number, _renderLocalPathFunc?: typeof renderLocalPath): Promise<string>;
+}, fsroot?: string | null, maxdepth?: number, _renderLocalPathFunc?: typeof renderLocalPath): Promise<string>;
 export declare function renderLocalPath(fpath: string, vars?: {
     [key: string]: string;
 }, encoding?: BufferEncoding): Promise<string>;

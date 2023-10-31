@@ -14,9 +14,10 @@ export async function renderLocalPath(
 export async function renderContent(
   content: string,
   vars: { [key: string]: string } = {},
-  fsroot: string = ".",
+  fsroot: string | null = null,
   maxdepth: number = 10
 ) {
+  fsroot = fsroot || ".";
   return webRenderContent(content, vars, fsroot, maxdepth, renderLocalPath);
 }
 

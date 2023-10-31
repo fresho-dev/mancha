@@ -75,10 +75,11 @@ export function preprocess(content: string, vars: { [key: string]: string }): st
 export async function renderContent(
   content: string,
   vars: { [key: string]: string } = {},
-  fsroot: string = ".",
+  fsroot: string | null = null,
   maxdepth: number = 10,
   _renderLocalPathFunc = renderLocalPath
 ): Promise<string> {
+  fsroot = fsroot || self.location.href.split("/").slice(0, -1).join("/") + "/";
   const preprocessed = preprocess(content, vars);
   const document = parseDocument(preprocessed);
   const renderings = traverse(document.childNodes.map((node) => node as tree.Element))
@@ -111,7 +112,7 @@ export async function renderContent(
         await renderRemotePath(attribs["src"], vars).then(handler);
 
         // Case 2: Relative remote path.
-      } else if (fsroot.indexOf("://") !== -1) {
+      } else if (fsroot?.indexOf("://") !== -1) {
         const relpath = `${fsroot}/${attribs["src"]}`;
         await renderRemotePath(relpath, vars).then(handler);
 
