@@ -2,7 +2,7 @@ import * as Mancha from "./web.js";
 
 (self as any)["Mancha"] = Mancha;
 
-if (self.document?.currentScript?.getAttribute("init") !== undefined) {
+if (self.document?.currentScript?.hasAttribute("init")) {
   const vars = JSON.parse(self.document.currentScript.dataset["vars"] || "{}");
   const fsroot = self.location.href.split("/").slice(0, -1).join("/") + "/";
   const targets = self.document.currentScript?.getAttribute("target")?.split(",") || ["body"];
