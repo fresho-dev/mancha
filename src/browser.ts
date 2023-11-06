@@ -5,12 +5,21 @@ import * as Mancha from "./web.js";
 if (self.document?.currentScript?.hasAttribute("init")) {
   const vars = JSON.parse(self.document.currentScript.dataset["vars"] || "{}");
   const fsroot = self.location.href.split("/").slice(0, -1).join("/") + "/";
-  const targets = self.document.currentScript?.getAttribute("target")?.split(",") || ["body"];
-  self.document?.body?.addEventListener("load", () => {
-    targets.forEach(async (target) => {
-      const node = (self.document as any)[target] as Element;
-      node.innerHTML = await Mancha.renderContent(node.innerHTML, vars, fsroot);
-    });
+  const attributes = Array.from(self.document.currentScript?.attributes || []).reduce(
+    (dict, attr) => Object.assign(dict, { [attr.name]: attr.value }),
+    {} as { [key: string]: string }
+  );
+  const targets = attributes["target"]?.split(",") || ["body"];
+  const renderings = targets.map(async (target: string) => {
+    const node = (self.document as any)[target] as Element;
+    node.innerHTML = await Mancha.renderContent(node.innerHTML, vars, fsroot);
+  });
+
+  Promise.all(renderings).then(() => {
+    if (attributes["onrender"]) {
+      eval(attributes["onrender"]);
+    }
+    dispatchEvent(new Event("mancha-render", { bubbles: true }));
   });
 }
 
