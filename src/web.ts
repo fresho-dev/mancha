@@ -1,15 +1,17 @@
-import * as parse5 from "parse5";
+import * as domutils from "domutils";
+import { render as renderDOM } from "dom-serializer";
+import * as htmlparser2 from "htmlparser2";
+import { ChildNode, Document, Element, Node, ParentNode } from "domhandler";
 import * as path from "path-browserify";
-import * as tree from "parse5/dist/tree-adapters/default";
 
-function replaceNodeWith(original: tree.Node, replacement: tree.Node[]) {
-  const elem = original as tree.Element;
-  const parent = elem.parentNode as tree.ParentNode;
+function replaceNodeWith(original: Node, replacement: Node[]) {
+  const elem = original as Element;
+  const parent = elem.parentNode as ParentNode;
   const index = parent.childNodes.indexOf(elem);
-  replacement.forEach((elem) => ((elem as tree.Element).parentNode = parent));
-  parent.childNodes = ([] as tree.ChildNode[])
+  replacement.forEach((elem) => ((elem as Element).parentNode = parent));
+  parent.childNodes = ([] as ChildNode[])
     .concat(parent.childNodes.slice(0, index))
-    .concat(replacement as tree.ChildNode[])
+    .concat(replacement as ChildNode[])
     .concat(parent.childNodes.slice(index + 1));
 }
 
@@ -17,21 +19,27 @@ function isDocument(content: string) {
   return /^[\n\r\s]*<(!doctype|html|head|body)\b/i.test(content);
 }
 
-function parseDocument(content: string): tree.Document | tree.DocumentFragment {
-  return isDocument(content)
-    ? (parse5.parse(content) as tree.Document)
-    : (parse5.parseFragment(content) as tree.DocumentFragment);
+function parseDocument(content: string): Document {
+  return htmlparser2.parseDocument(content);
+  // if (isDocument(content)) {
+  //   const document = new JSDOM(content).window.document;
+  //   const fragment = document.createDocumentFragment();
+  //   document.childNodes.forEach(fragment.appendChild);
+  //   return fragment;
+  // } else {
+  //   return JSDOM.fragment(content);
+  // }
 }
 
-function traverse(tree: tree.Element | tree.Element[]): tree.Node[] {
-  const explored: tree.Node[] = [];
-  const frontier: tree.Node[] = Array.isArray(tree) ? tree : [tree];
+function traverse(tree: Element | Element[]): Element[] {
+  const explored: Element[] = [];
+  const frontier: Element[] = Array.isArray(tree) ? tree : [tree];
 
   while (frontier.length) {
-    const node: tree.Element = frontier.pop() as tree.Element;
+    const node: Element = frontier.pop() as Element;
     explored.push(node);
     if (node.childNodes) {
-      node.childNodes.forEach((node) => frontier.push(node));
+      node.childNodes.forEach((node) => frontier.push(node as Node as Element));
     }
   }
 
@@ -82,10 +90,11 @@ export async function renderContent(
   fsroot = fsroot || self.location.href.split("/").slice(0, -1).join("/") + "/";
   const preprocessed = preprocess(content, vars);
   const document = parseDocument(preprocessed);
-  const renderings = traverse(document.childNodes.map((node) => node as tree.Element))
-    .filter((node) => node.nodeName === "include")
+  const childNodes = Array.from(document.childNodes);
+  const renderings = traverse(childNodes.map((node) => node as Node as Element))
+    .filter((node) => node.name === "include")
     .map(async (node) => {
-      const attribs = (node as tree.Element).attrs.reduce((dict: any, attr) => {
+      const attribs = Array.from(node.attributes).reduce((dict: any, attr) => {
         dict[attr.name] = attr.value;
         return dict;
       }, {}) as { [key: string]: string };
@@ -103,8 +112,7 @@ export async function renderContent(
 
       // The included file will replace this tag.
       const handler = (content: string) => {
-        const docfragment = parse5.parseFragment(content);
-        replaceNodeWith(node, docfragment.childNodes);
+        replaceNodeWith(node, parseDocument(content).childNodes);
       };
 
       // Case 1: Absolute remote path.
@@ -131,7 +139,7 @@ export async function renderContent(
   await Promise.all(renderings);
 
   // The document has now been modified and can be re-serialized.
-  const result = parse5.serialize(document);
+  const result = renderDOM(document as any);
 
   // Re-render until no changes are made.
   if (renderings.length === 0) {

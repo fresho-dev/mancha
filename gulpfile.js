@@ -19,6 +19,7 @@ gulp.task("ts", function () {
         module: "commonjs",
         declaration: true,
         noImplicitAny: true,
+        skipLibCheck: true,
       })
     )
     .pipe(gulp.dest("dist"));

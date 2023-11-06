@@ -261,7 +261,13 @@ describe("Mancha", () => {
 
     describe("with root document", () => {
       const fname = path.join(__dirname, "fixtures", "render-include-with-root.tpl.html");
-      const expected = "<!DOCTYPE html><html><head></head><body>\nHello World\n</body></html>";
+      const expected = "<!DOCTYPE html>\n<html><head></head><body>\nHello World\n</body></html>";
+      testAllMethods(fname, expected);
+    });
+
+    describe("with node attributes", () => {
+      const fname = path.join(__dirname, "fixtures", "render-include-attributes.tpl.html");
+      const expected = '<span @click="fn()" x-attr:click="fn()"></span>';
       testAllMethods(fname, expected);
     });
 

@@ -10,7 +10,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.renderRemotePath = exports.renderLocalPath = exports.renderContent = exports.preprocess = exports.decodeHtmlAttrib = exports.encodeHtmlAttrib = void 0;
-const parse5 = require("parse5");
+const dom_serializer_1 = require("dom-serializer");
+const htmlparser2 = require("htmlparser2");
 const path = require("path-browserify");
 function replaceNodeWith(original, replacement) {
     const elem = original;
@@ -26,9 +27,15 @@ function isDocument(content) {
     return /^[\n\r\s]*<(!doctype|html|head|body)\b/i.test(content);
 }
 function parseDocument(content) {
-    return isDocument(content)
-        ? parse5.parse(content)
-        : parse5.parseFragment(content);
+    return htmlparser2.parseDocument(content);
+    // if (isDocument(content)) {
+    //   const document = new JSDOM(content).window.document;
+    //   const fragment = document.createDocumentFragment();
+    //   document.childNodes.forEach(fragment.appendChild);
+    //   return fragment;
+    // } else {
+    //   return JSDOM.fragment(content);
+    // }
 }
 function traverse(tree) {
     const explored = [];
@@ -81,10 +88,11 @@ function renderContent(content, vars = {}, fsroot = null, maxdepth = 10, _render
         fsroot = fsroot || self.location.href.split("/").slice(0, -1).join("/") + "/";
         const preprocessed = preprocess(content, vars);
         const document = parseDocument(preprocessed);
-        const renderings = traverse(document.childNodes.map((node) => node))
-            .filter((node) => node.nodeName === "include")
+        const childNodes = Array.from(document.childNodes);
+        const renderings = traverse(childNodes.map((node) => node))
+            .filter((node) => node.name === "include")
             .map((node) => __awaiter(this, void 0, void 0, function* () {
-            const attribs = node.attrs.reduce((dict, attr) => {
+            const attribs = Array.from(node.attributes).reduce((dict, attr) => {
                 dict[attr.name] = attr.value;
                 return dict;
             }, {});
@@ -99,8 +107,7 @@ function renderContent(content, vars = {}, fsroot = null, maxdepth = 10, _render
             }
             // The included file will replace this tag.
             const handler = (content) => {
-                const docfragment = parse5.parseFragment(content);
-                replaceNodeWith(node, docfragment.childNodes);
+                replaceNodeWith(node, parseDocument(content).childNodes);
             };
             // Case 1: Absolute remote path.
             if (attribs["src"].indexOf("://") !== -1) {
@@ -124,7 +131,7 @@ function renderContent(content, vars = {}, fsroot = null, maxdepth = 10, _render
         // Wait for all the rendering operations to complete.
         yield Promise.all(renderings);
         // The document has now been modified and can be re-serialized.
-        const result = parse5.serialize(document);
+        const result = (0, dom_serializer_1.render)(document);
         // Re-render until no changes are made.
         if (renderings.length === 0) {
             return result;
