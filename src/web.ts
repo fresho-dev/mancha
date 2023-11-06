@@ -15,20 +15,8 @@ function replaceNodeWith(original: Node, replacement: Node[]) {
     .concat(parent.childNodes.slice(index + 1));
 }
 
-function isDocument(content: string) {
-  return /^[\n\r\s]*<(!doctype|html|head|body)\b/i.test(content);
-}
-
 function parseDocument(content: string): Document {
   return htmlparser2.parseDocument(content);
-  // if (isDocument(content)) {
-  //   const document = new JSDOM(content).window.document;
-  //   const fragment = document.createDocumentFragment();
-  //   document.childNodes.forEach(fragment.appendChild);
-  //   return fragment;
-  // } else {
-  //   return JSDOM.fragment(content);
-  // }
 }
 
 function traverse(tree: Element | Element[]): Element[] {
