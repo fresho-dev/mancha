@@ -5,4 +5,4 @@ export declare function renderLocalPath(fpath: string, vars?: {
 export declare function renderContent(content: string, vars?: {
     [key: string]: string;
 }, fsroot?: string | null, maxdepth?: number): Promise<string>;
-export { preprocess, renderRemotePath, encodeHtmlAttrib, decodeHtmlAttrib } from "./web";
+export { preprocess, resolvePath, folderPath, renderRemotePath, encodeHtmlAttrib, decodeHtmlAttrib, } from "./web";

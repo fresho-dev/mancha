@@ -1,6 +1,5 @@
 import * as fs from "fs/promises";
-import * as path from "path";
-import { renderContent as webRenderContent } from "./web";
+import { folderPath, renderContent as webRenderContent } from "./web";
 
 export async function renderLocalPath(
   fpath: string,
@@ -8,7 +7,7 @@ export async function renderLocalPath(
   encoding: BufferEncoding = "utf8"
 ): Promise<string> {
   const content = await fs.readFile(fpath, { encoding: encoding });
-  return renderContent(content, vars, path.dirname(fpath));
+  return renderContent(content, vars, folderPath(fpath));
 }
 
 export async function renderContent(
@@ -22,4 +21,11 @@ export async function renderContent(
 }
 
 // Re-exports from web.
-export { preprocess, renderRemotePath, encodeHtmlAttrib, decodeHtmlAttrib } from "./web";
+export {
+  preprocess,
+  folderPath,
+  resolvePath,
+  renderRemotePath,
+  encodeHtmlAttrib,
+  decodeHtmlAttrib,
+} from "./web";

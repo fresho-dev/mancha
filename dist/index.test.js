@@ -11,7 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const assert = require("assert");
 const fs = require("fs");
-const path = require("path");
+const path = require("path-browserify");
 const File = require("vinyl");
 const gulp = require("gulp");
 // @ts-ignore
@@ -281,6 +281,38 @@ describe("Mancha", () => {
             const fpath = path.join(fsroot, "render-include-subsubfolder.tpl.html");
             const expected = path.relative(fpath, fsroot);
             testAllMethods(fpath, expected);
+        });
+    });
+    describe("paths", () => {
+        it("folderPath no-op", () => {
+            const expected = "https://example.com/subpath";
+            const url = "https://example.com/subpath/";
+            assert.equal(Mancha.folderPath(url), expected);
+        });
+        it("folderPath with file name", () => {
+            const expected = "https://example.com/subpath";
+            const url = "https://example.com/subpath/index.html";
+            assert.equal(Mancha.folderPath(url), expected);
+        });
+        it("folderPath with query string", () => {
+            const expected = "https://example.com/subpath";
+            const url = "https://example.com/subpath/?q=1";
+            assert.equal(Mancha.folderPath(url), expected);
+        });
+        it("resolvePath no-op", () => {
+            const expected = "https://example.com/subpath/index.html";
+            const url = "https://example.com/subpath/index.html";
+            assert.equal(Mancha.resolvePath(url), expected);
+        });
+        it("resolvePath subdir", () => {
+            const expected = "https://example.com/index.html";
+            const url = "https://example.com/subpath/../index.html";
+            assert.equal(Mancha.resolvePath(url), expected);
+        });
+        it("resolvePath subdir + updir", () => {
+            const expected = "https://example.com/subpath/index.html";
+            const url = "https://example.com/subpath/../subpath/index.html";
+            assert.equal(Mancha.resolvePath(url), expected);
         });
     });
 });

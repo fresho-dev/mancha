@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.renderRemotePath = exports.renderLocalPath = exports.renderContent = exports.preprocess = exports.decodeHtmlAttrib = exports.encodeHtmlAttrib = void 0;
+exports.resolvePath = exports.folderPath = exports.renderRemotePath = exports.renderLocalPath = exports.renderContent = exports.preprocess = exports.decodeHtmlAttrib = exports.encodeHtmlAttrib = void 0;
 const dom_serializer_1 = require("dom-serializer");
 const htmlparser2 = require("htmlparser2");
 const path = require("path-browserify");
@@ -74,7 +74,7 @@ function preprocess(content, vars) {
 exports.preprocess = preprocess;
 function renderContent(content, vars = {}, fsroot = null, maxdepth = 10, _renderLocalPathFunc = renderLocalPath) {
     return __awaiter(this, void 0, void 0, function* () {
-        fsroot = fsroot || self.location.href.split("/").slice(0, -1).join("/") + "/";
+        fsroot = fsroot || folderPath(self.location.href) + "/";
         const preprocessed = preprocess(content, vars);
         const document = parseDocument(preprocessed);
         const childNodes = Array.from(document.childNodes);
@@ -143,7 +143,26 @@ exports.renderLocalPath = renderLocalPath;
 function renderRemotePath(fpath, vars = {}) {
     return __awaiter(this, void 0, void 0, function* () {
         const content = yield fetch(fpath).then((res) => res.text());
-        return renderContent(content, vars, path.dirname(fpath));
+        return renderContent(content, vars, folderPath(fpath));
     });
 }
 exports.renderRemotePath = renderRemotePath;
+function folderPath(fpath) {
+    if (fpath.endsWith("/")) {
+        return fpath.slice(0, -1);
+    }
+    else {
+        return path.dirname(fpath);
+    }
+}
+exports.folderPath = folderPath;
+function resolvePath(fpath) {
+    if (fpath.includes("://")) {
+        const [scheme, remotePath] = fpath.split("://", 2);
+        return `${scheme}://${resolvePath("/" + remotePath).substring(1)}`;
+    }
+    else {
+        return path.resolve(fpath);
+    }
+}
+exports.resolvePath = resolvePath;

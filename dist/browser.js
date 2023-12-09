@@ -14,12 +14,11 @@ const Mancha = require("./web.js");
 self["Mancha"] = Mancha;
 if ((_b = (_a = self.document) === null || _a === void 0 ? void 0 : _a.currentScript) === null || _b === void 0 ? void 0 : _b.hasAttribute("init")) {
     const vars = JSON.parse(self.document.currentScript.dataset["vars"] || "{}");
-    const fsroot = self.location.href.split("/").slice(0, -1).join("/") + "/";
     const attributes = Array.from(((_c = self.document.currentScript) === null || _c === void 0 ? void 0 : _c.attributes) || []).reduce((dict, attr) => Object.assign(dict, { [attr.name]: attr.value }), {});
     const targets = ((_d = attributes["target"]) === null || _d === void 0 ? void 0 : _d.split(",")) || ["body"];
     const renderings = targets.map((target) => __awaiter(void 0, void 0, void 0, function* () {
         const node = self.document[target];
-        node.innerHTML = yield Mancha.renderContent(node.innerHTML, vars, fsroot);
+        node.innerHTML = yield Mancha.renderContent(node.innerHTML, vars);
     }));
     Promise.all(renderings).then(() => {
         if (attributes["onrender"]) {

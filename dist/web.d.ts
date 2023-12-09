@@ -18,3 +18,5 @@ export declare function renderLocalPath(fpath: string, vars?: {
 export declare function renderRemotePath(fpath: string, vars?: {
     [key: string]: string;
 }): Promise<string>;
+export declare function folderPath(fpath: string): string;
+export declare function resolvePath(fpath: string): string;

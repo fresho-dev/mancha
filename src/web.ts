@@ -1,4 +1,3 @@
-import * as domutils from "domutils";
 import { render as renderDOM } from "dom-serializer";
 import * as htmlparser2 from "htmlparser2";
 import { ChildNode, Document, Element, Node, ParentNode } from "domhandler";
@@ -75,14 +74,14 @@ export async function renderContent(
   maxdepth: number = 10,
   _renderLocalPathFunc = renderLocalPath
 ): Promise<string> {
-  fsroot = fsroot || self.location.href.split("/").slice(0, -1).join("/") + "/";
+  fsroot = fsroot || folderPath(self.location.href) + "/";
   const preprocessed = preprocess(content, vars);
   const document = parseDocument(preprocessed);
   const childNodes = Array.from(document.childNodes);
   const renderings = traverse(childNodes.map((node) => node as Node as Element))
     .filter((node) => node.name === "include")
     .map(async (node) => {
-      const attribs = Array.from(node.attributes).reduce((dict: any, attr) => {
+      const attribs = Array.from(node.attributes).reduce((dict: any, attr: any) => {
         dict[attr.name] = attr.value;
         return dict;
       }, {}) as { [key: string]: string };
@@ -149,5 +148,22 @@ export async function renderLocalPath(
 
 export async function renderRemotePath(fpath: string, vars: { [key: string]: string } = {}) {
   const content = await fetch(fpath).then((res) => res.text());
-  return renderContent(content, vars, path.dirname(fpath));
+  return renderContent(content, vars, folderPath(fpath));
+}
+
+export function folderPath(fpath: string): string {
+  if (fpath.endsWith("/")) {
+    return fpath.slice(0, -1);
+  } else {
+    return path.dirname(fpath);
+  }
+}
+
+export function resolvePath(fpath: string): string {
+  if (fpath.includes("://")) {
+    const [scheme, remotePath] = fpath.split("://", 2);
+    return `${scheme}://${resolvePath("/" + remotePath).substring(1)}`;
+  } else {
+    return path.resolve(fpath);
+  }
 }
