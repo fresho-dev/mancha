@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.decodeHtmlAttrib = exports.encodeHtmlAttrib = exports.renderRemotePath = exports.folderPath = exports.resolvePath = exports.preprocess = exports.renderContent = exports.renderLocalPath = void 0;
+exports.decodeHtmlAttrib = exports.encodeHtmlAttrib = exports.renderRemotePath = exports.resolvePath = exports.folderPath = exports.preprocess = exports.renderContent = exports.renderLocalPath = void 0;
 const fs = require("fs/promises");
 const web_1 = require("./web");
 function renderLocalPath(fpath, vars = {}, encoding = "utf8") {
@@ -29,8 +29,8 @@ exports.renderContent = renderContent;
 // Re-exports from web.
 var web_2 = require("./web");
 Object.defineProperty(exports, "preprocess", { enumerable: true, get: function () { return web_2.preprocess; } });
-Object.defineProperty(exports, "resolvePath", { enumerable: true, get: function () { return web_2.resolvePath; } });
 Object.defineProperty(exports, "folderPath", { enumerable: true, get: function () { return web_2.folderPath; } });
+Object.defineProperty(exports, "resolvePath", { enumerable: true, get: function () { return web_2.resolvePath; } });
 Object.defineProperty(exports, "renderRemotePath", { enumerable: true, get: function () { return web_2.renderRemotePath; } });
 Object.defineProperty(exports, "encodeHtmlAttrib", { enumerable: true, get: function () { return web_2.encodeHtmlAttrib; } });
 Object.defineProperty(exports, "decodeHtmlAttrib", { enumerable: true, get: function () { return web_2.decodeHtmlAttrib; } });

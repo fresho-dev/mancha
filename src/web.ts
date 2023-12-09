@@ -74,7 +74,7 @@ export async function renderContent(
   maxdepth: number = 10,
   _renderLocalPathFunc = renderLocalPath
 ): Promise<string> {
-  fsroot = fsroot || folderPath(self.location.href) + "/";
+  fsroot = fsroot || folderPath(self.location.href);
   const preprocessed = preprocess(content, vars);
   const document = parseDocument(preprocessed);
   const childNodes = Array.from(document.childNodes);

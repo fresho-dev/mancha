@@ -74,7 +74,7 @@ function preprocess(content, vars) {
 exports.preprocess = preprocess;
 function renderContent(content, vars = {}, fsroot = null, maxdepth = 10, _renderLocalPathFunc = renderLocalPath) {
     return __awaiter(this, void 0, void 0, function* () {
-        fsroot = fsroot || folderPath(self.location.href) + "/";
+        fsroot = fsroot || folderPath(self.location.href);
         const preprocessed = preprocess(content, vars);
         const document = parseDocument(preprocessed);
         const childNodes = Array.from(document.childNodes);
