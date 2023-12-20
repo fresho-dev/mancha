@@ -207,11 +207,17 @@ describe("Mancha", () => {
     after("stop server", () => {
         server.stop();
     });
-    describe("vars", () => {
+    describe("render", () => {
         describe("substitution", () => {
             const name = "Vars";
             const hello_vars = `Hello ${name}`;
             const fname = path.join(__dirname, "fixtures", "hello-name.tpl.html");
+            testAllMethods(fname, hello_vars, { name: name });
+        });
+        describe("substitution spaced", () => {
+            const name = "Vars";
+            const hello_vars = `Hello ${name}`;
+            const fname = path.join(__dirname, "fixtures", "hello-name-spaced.tpl.html");
             testAllMethods(fname, hello_vars, { name: name });
         });
     });

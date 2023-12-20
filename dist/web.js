@@ -67,7 +67,7 @@ exports.decodeHtmlAttrib = decodeHtmlAttrib;
 function preprocess(content, vars) {
     // Replace all {{variables}}.
     Object.keys(vars).forEach((key) => {
-        content = content.replace(new RegExp(`{{${key}}}`, "g"), vars[key]);
+        content = content.replace(new RegExp(`{{\\s?${key}\\s?}}`, "g"), vars[key]);
     });
     return content;
 }
@@ -85,11 +85,15 @@ function renderContent(content, vars = {}, fsroot = null, maxdepth = 10, _render
                 dict[attr.name] = attr.value;
                 return dict;
             }, {});
-            // If the node has a vars attribute, it overrides our current vars.
+            // Add all the data-* attributes as properties to current vars.
             // NOTE: this will propagate to all subsequent render calls, including nested calls.
-            if (attribs.hasOwnProperty("data-vars")) {
-                vars = Object.assign({}, vars, JSON.parse(decodeHtmlAttrib(attribs["data-vars"])));
-            }
+            Object.keys(attribs)
+                .filter((key) => key.startsWith("data-"))
+                .forEach((key) => {
+                const varsKey = key.substring("data-".length);
+                const varsVal = decodeHtmlAttrib(attribs[key]);
+                vars[varsKey] = varsVal;
+            });
             // Early exit: <include> tags must have a src attribute.
             if (!attribs["src"]) {
                 throw new Error(`"src" attribute missing from ${JSON.stringify(node)}`);
