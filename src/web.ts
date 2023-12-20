@@ -62,7 +62,7 @@ export function decodeHtmlAttrib(value: string) {
 export function preprocess(content: string, vars: { [key: string]: string }): string {
   // Replace all {{variables}}.
   Object.keys(vars).forEach((key) => {
-    content = content.replace(new RegExp(`{{${key}}}`, "g"), vars[key]);
+    content = content.replace(new RegExp(`{{\\s?${key}\\s?}}`, "g"), vars[key]);
   });
   return content;
 }
