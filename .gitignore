@@ -62,3 +62,6 @@ typings/
 
 # dotenv environment variables file
 .env
+
+# wrangler temporary files
+.wrangler
