@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resolvePath = exports.folderPath = exports.renderRemotePath = exports.renderLocalPath = exports.renderContent = exports.preprocess = exports.decodeHtmlAttrib = exports.encodeHtmlAttrib = void 0;
+exports.resolvePath = exports.folderPath = exports.renderRemotePath = exports.renderLocalPath = exports.renderContent = exports.datasetAttributes = exports.preprocess = exports.decodeHtmlAttrib = exports.encodeHtmlAttrib = void 0;
 const dom_serializer_1 = require("dom-serializer");
 const htmlparser2 = require("htmlparser2");
 const path = require("path-browserify");
@@ -37,6 +37,13 @@ function traverse(tree) {
         }
     }
     return explored;
+}
+function getElementAttribute(elem, key) {
+    for (const attr of elem.attributes) {
+        if (attr.name === key)
+            return attr.value;
+    }
+    return null;
 }
 /**
  * Helper function used to escape HTML attribute values.
@@ -72,6 +79,15 @@ function preprocess(content, vars) {
     return content;
 }
 exports.preprocess = preprocess;
+function datasetAttributes(attributes) {
+    return Array.from(attributes)
+        .filter((attr) => attr.name.startsWith("data-"))
+        .reduce((dict, attr) => {
+        dict[attr.name.substring("data-".length)] = attr.value;
+        return dict;
+    }, {});
+}
+exports.datasetAttributes = datasetAttributes;
 function renderContent(content, vars = {}, fsroot = null, maxdepth = 10, _renderLocalPathFunc = renderLocalPath) {
     return __awaiter(this, void 0, void 0, function* () {
         fsroot = fsroot || folderPath(self.location.href);
@@ -81,43 +97,35 @@ function renderContent(content, vars = {}, fsroot = null, maxdepth = 10, _render
         const renderings = traverse(childNodes.map((node) => node))
             .filter((node) => node.name === "include")
             .map((node) => __awaiter(this, void 0, void 0, function* () {
-            const attribs = Array.from(node.attributes).reduce((dict, attr) => {
-                dict[attr.name] = attr.value;
-                return dict;
-            }, {});
+            const src = getElementAttribute(node, "src");
+            const dataset = datasetAttributes(node.attributes);
             // Add all the data-* attributes as properties to current vars.
             // NOTE: this will propagate to all subsequent render calls, including nested calls.
-            Object.keys(attribs)
-                .filter((key) => key.startsWith("data-"))
-                .forEach((key) => {
-                const varsKey = key.substring("data-".length);
-                const varsVal = decodeHtmlAttrib(attribs[key]);
-                vars[varsKey] = varsVal;
-            });
+            Object.keys(dataset).forEach((key) => (vars[key] = decodeHtmlAttrib(dataset[key])));
             // Early exit: <include> tags must have a src attribute.
-            if (!attribs["src"]) {
-                throw new Error(`"src" attribute missing from ${JSON.stringify(node)}`);
+            if (!src) {
+                throw new Error(`"src" attribute missing from ${node}.`);
             }
             // The included file will replace this tag.
             const handler = (content) => {
                 replaceNodeWith(node, parseDocument(content).childNodes);
             };
             // Case 1: Absolute remote path.
-            if (attribs["src"].indexOf("://") !== -1) {
-                yield renderRemotePath(attribs["src"], vars).then(handler);
+            if (src.indexOf("://") !== -1) {
+                yield renderRemotePath(src, vars).then(handler);
                 // Case 2: Relative remote path.
             }
             else if ((fsroot === null || fsroot === void 0 ? void 0 : fsroot.indexOf("://")) !== -1) {
-                const relpath = `${fsroot}/${attribs["src"]}`;
+                const relpath = `${fsroot}/${src}`;
                 yield renderRemotePath(relpath, vars).then(handler);
                 // Case 3: Local absolute path.
             }
-            else if (attribs["src"].charAt(0) === "/") {
-                yield _renderLocalPathFunc(attribs["src"], vars).then(handler);
+            else if (src.charAt(0) === "/") {
+                yield _renderLocalPathFunc(src, vars).then(handler);
                 // Case 4: Local relative path.
             }
             else {
-                const relpath = path.join(fsroot, attribs["src"]);
+                const relpath = path.join(fsroot, src);
                 yield _renderLocalPathFunc(relpath, vars).then(handler);
             }
         }));

@@ -9,6 +9,9 @@ export declare function decodeHtmlAttrib(value: string): string;
 export declare function preprocess(content: string, vars: {
     [key: string]: string;
 }): string;
+export declare function datasetAttributes(attributes: NamedNodeMap): {
+    [key: string]: string;
+};
 export declare function renderContent(content: string, vars?: {
     [key: string]: string;
 }, fsroot?: string | null, maxdepth?: number, _renderLocalPathFunc?: typeof renderLocalPath): Promise<string>;
