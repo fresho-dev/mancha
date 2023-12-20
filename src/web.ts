@@ -33,6 +33,13 @@ function traverse(tree: Element | Element[]): Element[] {
   return explored;
 }
 
+function getElementAttribute(elem: Element, key: string): string | null {
+  for (const attr of elem.attributes) {
+    if (attr.name === key) return attr.value;
+  }
+  return null;
+}
+
 /**
  * Helper function used to escape HTML attribute values.
  * See: https://stackoverflow.com/a/9756789
@@ -67,6 +74,15 @@ export function preprocess(content: string, vars: { [key: string]: string }): st
   return content;
 }
 
+export function datasetAttributes(attributes: NamedNodeMap): { [key: string]: string } {
+  return Array.from(attributes)
+    .filter((attr) => attr.name.startsWith("data-"))
+    .reduce((dict: any, attr: any) => {
+      dict[attr.name.substring("data-".length)] = attr.value;
+      return dict;
+    }, {});
+}
+
 export async function renderContent(
   content: string,
   vars: { [key: string]: string } = {},
@@ -81,24 +97,16 @@ export async function renderContent(
   const renderings = traverse(childNodes.map((node) => node as Node as Element))
     .filter((node) => node.name === "include")
     .map(async (node) => {
-      const attribs = Array.from(node.attributes).reduce((dict: any, attr: any) => {
-        dict[attr.name] = attr.value;
-        return dict;
-      }, {}) as { [key: string]: string };
+      const src = getElementAttribute(node, "src");
+      const dataset = datasetAttributes(node.attributes as any as NamedNodeMap);
 
       // Add all the data-* attributes as properties to current vars.
       // NOTE: this will propagate to all subsequent render calls, including nested calls.
-      Object.keys(attribs)
-        .filter((key) => key.startsWith("data-"))
-        .forEach((key) => {
-          const varsKey = key.substring("data-".length);
-          const varsVal = decodeHtmlAttrib(attribs[key]);
-          vars[varsKey] = varsVal;
-        });
+      Object.keys(dataset).forEach((key) => (vars[key] = decodeHtmlAttrib(dataset[key])));
 
       // Early exit: <include> tags must have a src attribute.
-      if (!attribs["src"]) {
-        throw new Error(`"src" attribute missing from ${JSON.stringify(node)}`);
+      if (!src) {
+        throw new Error(`"src" attribute missing from ${node}.`);
       }
 
       // The included file will replace this tag.
@@ -107,21 +115,21 @@ export async function renderContent(
       };
 
       // Case 1: Absolute remote path.
-      if (attribs["src"].indexOf("://") !== -1) {
-        await renderRemotePath(attribs["src"], vars).then(handler);
+      if (src.indexOf("://") !== -1) {
+        await renderRemotePath(src, vars).then(handler);
 
         // Case 2: Relative remote path.
       } else if (fsroot?.indexOf("://") !== -1) {
-        const relpath = `${fsroot}/${attribs["src"]}`;
+        const relpath = `${fsroot}/${src}`;
         await renderRemotePath(relpath, vars).then(handler);
 
         // Case 3: Local absolute path.
-      } else if (attribs["src"].charAt(0) === "/") {
-        await _renderLocalPathFunc(attribs["src"], vars).then(handler);
+      } else if (src.charAt(0) === "/") {
+        await _renderLocalPathFunc(src, vars).then(handler);
 
         // Case 4: Local relative path.
       } else {
-        const relpath = path.join(fsroot, attribs["src"]);
+        const relpath = path.join(fsroot, src);
         await _renderLocalPathFunc(relpath, vars).then(handler);
       }
     });

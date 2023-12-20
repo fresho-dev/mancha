@@ -7,12 +7,12 @@ function, or as a `Gulp` plugin.
 
 Here are some of the things you can use `mancha` for.
 
-### Replace simple variables using `{{value}}` format
+### Replace simple variables using `{{ value }}` format
 
 index.html:
 
 ```html
-<span>Hello {{name}}</span>
+<span>Hello {{ name }}</span>
 ```
 
 Command:
@@ -29,17 +29,17 @@ Result:
 
 ### Include files from a relative path using the `<include>` tag
 
-hello-world.html:
+hello-name.html:
 
 ```html
-<span>Hello World</span>
+<span>Hello {{ name }}</span>
 ```
 
 index.html:
 
 ```html
 <div>
-  <include src="./hello-world.html"></include>
+  <include src="./hello-world.html" data-name="World"></include>
 </div>
 ```
 
@@ -65,16 +65,16 @@ To use `mancha` on the client (browser), use the `mancha.js` bundled file availa
 
 ```html
 <body>
-  <span>Hello, {{name}}!</span>
+  <span>Hello, {{ name }}!</span>
 </body>
 
-<script src="//unpkg.com/mancha" data-vars='{"name": "John"}' target="body" init></script>
+<script src="//unpkg.com/mancha" data-name="John" target="body" init></script>
 ```
 
 Script tag attributes:
 
 - `init`: whether to automatically render upon script load
-- `data-vars`: JSON string with key-value pairs, where `{{key}}` will be replaced with `{{value}}`
+- `data-name`: dataset atribute, where `data-{{key}}` will be replaced with the attribute's value
 - `target`: comma-separated document elements to render e.g. "body" or "head,body" (defaults to "body")
 
 For a more complete example, see [examples/browser](./examples/browser).
@@ -156,13 +156,13 @@ gulp.src(...).pipe(mancha({"myvar": "myval"})).pipe(...)
 ```
 
 The first argument consists of a dictionary of `<key, value>` pairs of literal string replacements.
-`key` will become `{{key}}` before replacing it with `value` in the processed files. For example,
+`key` will become `{{ key }}` before replacing it with `value` in the processed files. For example,
 if we passed `{"name": "World"}` as the argument:
 
 Source:
 
 ```html
-<div>Hello {{name}}</div>
+<div>Hello {{ name }}</div>
 ```
 
 Result:

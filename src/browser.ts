@@ -3,7 +3,7 @@ import * as Mancha from "./web.js";
 (self as any)["Mancha"] = Mancha;
 
 if (self.document?.currentScript?.hasAttribute("init")) {
-  const vars = JSON.parse(self.document.currentScript.dataset["vars"] || "{}");
+  const vars = Mancha.datasetAttributes(self.document.currentScript.attributes);
   const attributes = Array.from(self.document.currentScript?.attributes || []).reduce(
     (dict, attr) => Object.assign(dict, { [attr.name]: attr.value }),
     {} as { [key: string]: string }
