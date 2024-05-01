@@ -39,7 +39,7 @@ index.html:
 
 ```html
 <div>
-  <include src="./hello-world.html" data-name="World"></include>
+  <include src="./hello-name.html" data-name="World"></include>
 </div>
 ```
 
@@ -133,7 +133,7 @@ will need to be separately hosted by a static server, although you can also gene
 containing HTML on demand.
 
 ```js
-import { renderRemotePath } from "mancha/dist/web"
+import { renderRemotePath } from "mancha/dist/core"
 
 const VARS = {...};
 const HTML_ROOT = "https://example.com/html";

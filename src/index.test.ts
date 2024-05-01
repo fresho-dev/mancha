@@ -6,8 +6,9 @@ import * as gulp from "gulp";
 // @ts-ignore
 import * as StaticServer from "static-server";
 
-import * as Mancha from "./index.js";
-import gulpMancha from "./gulp.js";
+import { Mancha } from "./index";
+import { folderPath, resolvePath } from "./index";
+import gulpMancha from "./gulp";
 
 /**
  * Helper function used to test a transformation of string elements.
@@ -316,37 +317,37 @@ describe("Mancha", () => {
     it("folderPath no-op", () => {
       const expected = "https://example.com/subpath";
       const url = "https://example.com/subpath/";
-      assert.equal(Mancha.folderPath(url), expected);
+      assert.equal(folderPath(url), expected);
     });
 
     it("folderPath with file name", () => {
       const expected = "https://example.com/subpath";
       const url = "https://example.com/subpath/index.html";
-      assert.equal(Mancha.folderPath(url), expected);
+      assert.equal(folderPath(url), expected);
     });
 
     it("folderPath with query string", () => {
       const expected = "https://example.com/subpath";
       const url = "https://example.com/subpath/?q=1";
-      assert.equal(Mancha.folderPath(url), expected);
+      assert.equal(folderPath(url), expected);
     });
 
     it("resolvePath no-op", () => {
       const expected = "https://example.com/subpath/index.html";
       const url = "https://example.com/subpath/index.html";
-      assert.equal(Mancha.resolvePath(url), expected);
+      assert.equal(resolvePath(url), expected);
     });
 
     it("resolvePath subdir", () => {
       const expected = "https://example.com/index.html";
       const url = "https://example.com/subpath/../index.html";
-      assert.equal(Mancha.resolvePath(url), expected);
+      assert.equal(resolvePath(url), expected);
     });
 
     it("resolvePath subdir + updir", () => {
       const expected = "https://example.com/subpath/index.html";
       const url = "https://example.com/subpath/../subpath/index.html";
-      assert.equal(Mancha.resolvePath(url), expected);
+      assert.equal(resolvePath(url), expected);
     });
   });
 });

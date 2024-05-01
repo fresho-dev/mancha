@@ -65,3 +65,6 @@ typings/
 
 # wrangler temporary files
 .wrangler
+
+# example build outputs
+public/

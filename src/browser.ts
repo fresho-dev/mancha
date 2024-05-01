@@ -1,9 +1,22 @@
-import * as Mancha from "./web.js";
+import { datasetAttributes, IRenderer } from "./core";
 
+class RendererImpl extends IRenderer {
+  parseDocument(content: string): Document {
+    return new DOMParser().parseFromString(content, "text/html");
+  }
+  serializeDocument(document: Document): string {
+    return new XMLSerializer().serializeToString(document);
+  }
+  replaceNodeWith(node: Node, children: Node[]): void {
+    (node as Element).replaceWith(...children);
+  }
+}
+
+const Mancha = new RendererImpl();
 (self as any)["Mancha"] = Mancha;
 
 if (self.document?.currentScript?.hasAttribute("init")) {
-  const vars = Mancha.datasetAttributes(self.document.currentScript.attributes);
+  const vars = datasetAttributes(self.document.currentScript.attributes);
   const attributes = Array.from(self.document.currentScript?.attributes || []).reduce(
     (dict, attr) => Object.assign(dict, { [attr.name]: attr.value }),
     {} as { [key: string]: string }

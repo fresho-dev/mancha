@@ -2,7 +2,7 @@
 
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import * as Mancha from "./index.js";
+import { Mancha } from "./index";
 import * as fs from "fs/promises";
 
 const args = yargs(hideBin(process.argv))

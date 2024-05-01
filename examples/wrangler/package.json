@@ -8,7 +8,7 @@
   "author": "Fresho Dev",
   "license": "MIT",
   "scripts": {
-    "start": "npx -y wrangler dev ./index.js"
+    "start": "npx -y wrangler dev ./index.js --port 8080"
   },
   "dependencies": {
     "itty-router": "^4.0.23",

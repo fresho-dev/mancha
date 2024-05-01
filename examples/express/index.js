@@ -1,13 +1,14 @@
 import express from "express";
-import * as Mancha from "mancha";
+import { Mancha } from "mancha";
 
 const app = express();
 
 app.get("/", async (req, res) => {
-  const name = req.query.name || "stranger";
+  const name = req.query.name || "Stranger";
   const html = await Mancha.renderLocalPath("html/index.html", { name: name });
   res.set("Content-Type", "text/html");
   res.send(html);
 });
 
-app.listen(process.env.PORT || 8080);
+const port = process.env.PORT || 8080;
+app.listen(port, () => console.log(`Server started on port ${port}`));

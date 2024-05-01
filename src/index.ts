@@ -1,31 +1,21 @@
 import * as fs from "fs/promises";
-import { folderPath, renderContent as webRenderContent } from "./web";
+import { folderPath } from "./core";
+import { RendererImpl as WorkerRendererImpl } from "./worker";
 
-export async function renderLocalPath(
-  fpath: string,
-  vars: { [key: string]: string } = {},
-  encoding: BufferEncoding = "utf8"
-): Promise<string> {
-  const content = await fs.readFile(fpath, { encoding: encoding });
-  return renderContent(content, vars, folderPath(fpath));
+/** The Node Mancha renderer is just like the worker renderer, but it also uses the filesystem. */
+class RendererImpl extends WorkerRendererImpl {
+  async renderLocalPath(
+    fpath: string,
+    vars: { [key: string]: string } = {},
+    encoding: BufferEncoding = "utf8"
+  ): Promise<string> {
+    const content = await fs.readFile(fpath, { encoding: encoding });
+    return this.renderContent(content, vars, folderPath(fpath));
+  }
 }
 
-export async function renderContent(
-  content: string,
-  vars: { [key: string]: string } = {},
-  fsroot: string | null = null,
-  maxdepth: number = 10
-) {
-  fsroot = fsroot || ".";
-  return webRenderContent(content, vars, fsroot, maxdepth, renderLocalPath);
-}
+// Re-exports from core.
+export { preprocess, folderPath, resolvePath, encodeHtmlAttrib, decodeHtmlAttrib } from "./core";
 
-// Re-exports from web.
-export {
-  preprocess,
-  folderPath,
-  resolvePath,
-  renderRemotePath,
-  encodeHtmlAttrib,
-  decodeHtmlAttrib,
-} from "./web";
+// Export the renderer instance directly.
+export const Mancha = new RendererImpl();

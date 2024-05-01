@@ -1,7 +1,9 @@
 /// <reference types="node" />
-import { RendererImpl as WorkerRendererImpl } from "./worker";
-/** The Node Mancha renderer is just like the worker renderer, but it also uses the filesystem. */
-declare class RendererImpl extends WorkerRendererImpl {
+import { IRenderer } from "./core";
+export declare class RendererImpl extends IRenderer {
+    parseDocument(content: string): Document;
+    serializeDocument(document: Document): string;
+    replaceNodeWith(original: Node, replacement: Node[]): void;
     renderLocalPath(fpath: string, vars?: {
         [key: string]: string;
     }, encoding?: BufferEncoding): Promise<string>;

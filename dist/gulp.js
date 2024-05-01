@@ -3,11 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const path = require("path");
 const stream = require("stream");
 const through = require("through2");
-const Mancha = require("./index.js");
+const index_1 = require("./index");
 /**
  * Main entrypoint to be used in Gulp. Usage:
  *
- *     var mancha = require('gulp-mancha')
+ *     var mancha = require('mancha/dist/gulp')
  *     gulp.src(...).pipe(mancha({myvar: myval})).pipe(...)
  *
  * @param vars <key, value> pairs of literal string replacements. `key` will become `{{key}}` before
@@ -28,7 +28,7 @@ function mancha(vars = {}, wwwroot = process.cwd()) {
         else {
             if (file.isBuffer()) {
                 const fragment = file.contents.toString(encoding);
-                Mancha.renderContent(fragment, newvars, fsroot)
+                index_1.Mancha.renderContent(fragment, newvars, fsroot)
                     .then((content) => {
                     file.contents = Buffer.from(content, encoding);
                     callback(null, file);
@@ -47,7 +47,7 @@ function mancha(vars = {}, wwwroot = process.cwd()) {
                     }
                 })
                     .on("end", () => {
-                    Mancha.renderContent(fragment, newvars, fsroot)
+                    index_1.Mancha.renderContent(fragment, newvars, fsroot)
                         .then((content) => {
                         const readable = new stream.Readable();
                         readable._read = function () { };

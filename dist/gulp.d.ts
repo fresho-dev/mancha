@@ -3,7 +3,7 @@ import * as stream from "stream";
 /**
  * Main entrypoint to be used in Gulp. Usage:
  *
- *     var mancha = require('gulp-mancha')
+ *     var mancha = require('mancha/dist/gulp')
  *     gulp.src(...).pipe(mancha({myvar: myval})).pipe(...)
  *
  * @param vars <key, value> pairs of literal string replacements. `key` will become `{{key}}` before

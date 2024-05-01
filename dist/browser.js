@@ -10,10 +10,22 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 var _a, _b, _c, _d;
 Object.defineProperty(exports, "__esModule", { value: true });
-const Mancha = require("./web.js");
+const core_1 = require("./core");
+class RendererImpl extends core_1.IRenderer {
+    parseDocument(content) {
+        return new DOMParser().parseFromString(content, "text/html");
+    }
+    serializeDocument(document) {
+        return new XMLSerializer().serializeToString(document);
+    }
+    replaceNodeWith(node, children) {
+        node.replaceWith(...children);
+    }
+}
+const Mancha = new RendererImpl();
 self["Mancha"] = Mancha;
 if ((_b = (_a = self.document) === null || _a === void 0 ? void 0 : _a.currentScript) === null || _b === void 0 ? void 0 : _b.hasAttribute("init")) {
-    const vars = Mancha.datasetAttributes(self.document.currentScript.attributes);
+    const vars = (0, core_1.datasetAttributes)(self.document.currentScript.attributes);
     const attributes = Array.from(((_c = self.document.currentScript) === null || _c === void 0 ? void 0 : _c.attributes) || []).reduce((dict, attr) => Object.assign(dict, { [attr.name]: attr.value }), {});
     const targets = ((_d = attributes["target"]) === null || _d === void 0 ? void 0 : _d.split(",")) || ["body"];
     const renderings = targets.map((target) => __awaiter(void 0, void 0, void 0, function* () {

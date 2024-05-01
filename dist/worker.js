@@ -9,19 +9,34 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Mancha = exports.decodeHtmlAttrib = exports.encodeHtmlAttrib = exports.resolvePath = exports.folderPath = exports.preprocess = void 0;
-const fs = require("fs/promises");
+exports.Mancha = exports.decodeHtmlAttrib = exports.encodeHtmlAttrib = exports.resolvePath = exports.folderPath = exports.preprocess = exports.RendererImpl = void 0;
+const htmlparser2 = require("htmlparser2");
+const dom_serializer_1 = require("dom-serializer");
 const core_1 = require("./core");
-const worker_1 = require("./worker");
-/** The Node Mancha renderer is just like the worker renderer, but it also uses the filesystem. */
-class RendererImpl extends worker_1.RendererImpl {
+class RendererImpl extends core_1.IRenderer {
+    parseDocument(content) {
+        return htmlparser2.parseDocument(content);
+    }
+    serializeDocument(document) {
+        return (0, dom_serializer_1.render)(document);
+    }
+    replaceNodeWith(original, replacement) {
+        const elem = original;
+        const parent = elem.parentNode;
+        const index = Array.from(parent.childNodes).indexOf(elem);
+        replacement.forEach((elem) => (elem.parentNode = parent));
+        parent.childNodes = []
+            .concat(Array.from(parent.childNodes).slice(0, index))
+            .concat(replacement)
+            .concat(Array.from(parent.childNodes).slice(index + 1));
+    }
     renderLocalPath(fpath_1) {
         return __awaiter(this, arguments, void 0, function* (fpath, vars = {}, encoding = "utf8") {
-            const content = yield fs.readFile(fpath, { encoding: encoding });
-            return this.renderContent(content, vars, (0, core_1.folderPath)(fpath));
+            throw new Error("Not implemented.");
         });
     }
 }
+exports.RendererImpl = RendererImpl;
 // Re-exports from web.
 var core_2 = require("./core");
 Object.defineProperty(exports, "preprocess", { enumerable: true, get: function () { return core_2.preprocess; } });

@@ -7,7 +7,7 @@
   "author": "Fresho Dev",
   "license": "MIT",
   "scripts": {
-    "build": "mancha --input=html/index.html --vars=\"$(cat vars.json)\""
+    "build": "mkdir -p public && mancha --input=html/index.html --vars=\"$(cat vars.json)\" > public/index.html"
   },
   "devDependencies": {
     "mancha": "../../"
