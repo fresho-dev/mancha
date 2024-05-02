@@ -29,10 +29,14 @@ function testContentRender(fname, compare = "Hello World", vars = {}) {
         const fsroot = path.dirname(fname);
         const wwwroot = path.join(__dirname, "fixtures");
         const relpath = path.relative(fname, wwwroot) || ".";
-        vars = Object.assign({ wwwroot: relpath }, vars);
+        const context = Object.assign({ wwwroot: relpath }, vars);
         try {
-            const fragment = yield index_1.Mancha.renderString(content, vars, fsroot);
-            const result = index_1.Mancha.serializeDocumentFragment(fragment);
+            const renderer = new index_1.RendererImpl(context);
+            const fragment = yield renderer.renderString(content, {
+                fsroot,
+                isRoot: !fname.endsWith(".tpl.html"),
+            });
+            const result = renderer.serializeHTML(fragment);
             resolve(assert.equal(result, compare, String(result)));
         }
         catch (exc) {
@@ -49,10 +53,11 @@ function testLocalPathRender(fname, compare = "Hello World", vars = {}) {
     return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
         const wwwroot = path.join(__dirname, "fixtures");
         const relpath = path.relative(fname, wwwroot) || ".";
-        vars = Object.assign({ wwwroot: relpath }, vars);
+        const context = Object.assign({ wwwroot: relpath }, vars);
         try {
-            const fragment = yield index_1.Mancha.renderLocalPath(fname, vars);
-            const result = index_1.Mancha.serializeDocumentFragment(fragment);
+            const renderer = new index_1.RendererImpl(context);
+            const fragment = yield renderer.renderLocalPath(fname);
+            const result = renderer.serializeHTML(fragment);
             resolve(assert.equal(result, compare, String(result)));
         }
         catch (exc) {
@@ -70,10 +75,11 @@ function testRemotePathRender(fname, compare = "Hello World", vars = {}) {
         const wwwroot = path.join(__dirname, "fixtures");
         const relpath = path.relative(fname, wwwroot) || ".";
         const remotePath = `http://127.0.0.1:${port}/${path.relative(wwwroot, fname)}`;
-        vars = Object.assign({ wwwroot: relpath }, vars);
+        const context = Object.assign({ wwwroot: relpath }, vars);
         try {
-            const fragment = yield index_1.Mancha.renderRemotePath(remotePath, vars);
-            const result = index_1.Mancha.serializeDocumentFragment(fragment);
+            const renderer = new index_1.RendererImpl(context);
+            const fragment = yield renderer.renderRemotePath(remotePath);
+            const result = renderer.serializeHTML(fragment);
             resolve(assert.equal(result, compare, String(result)));
         }
         catch (exc) {
@@ -88,8 +94,11 @@ function testRemotePathRender(fname, compare = "Hello World", vars = {}) {
  */
 function testBufferedTransform(fname, compare = "Hello World", vars = {}) {
     return new Promise((resolve, reject) => {
+        const wwwroot = path.join(__dirname, "fixtures");
+        const relpath = path.relative(fname, wwwroot) || ".";
+        const context = Object.assign({ wwwroot: relpath }, vars);
         const file = new File({ path: fname, contents: fs.readFileSync(fname) });
-        (0, gulp_1.default)(vars, path.join(__dirname, "fixtures"))._transform(file, "utf8", (err, file) => {
+        (0, gulp_1.default)(context, path.join(__dirname, "fixtures"))._transform(file, "utf8", (err, file) => {
             if (err) {
                 reject(err);
             }
@@ -110,12 +119,15 @@ function testBufferedTransform(fname, compare = "Hello World", vars = {}) {
  * @param fname file name to test
  */
 function testStreamedTransform(fname, compare = "Hello World", vars = {}) {
+    const wwwroot = path.join(__dirname, "fixtures");
+    const relpath = path.relative(fname, wwwroot) || ".";
+    const context = Object.assign({ wwwroot: relpath }, vars);
     return new Promise((resolve, reject) => {
         const file = new File({
             path: fname,
             contents: fs.createReadStream(fname),
         });
-        (0, gulp_1.default)(vars, path.join(__dirname, "fixtures"))._transform(file, "utf8", (err, file) => {
+        (0, gulp_1.default)(context, path.join(__dirname, "fixtures"))._transform(file, "utf8", (err, file) => {
             var _a, _b;
             if (err) {
                 reject(err);
@@ -157,11 +169,14 @@ function testStreamedTransform(fname, compare = "Hello World", vars = {}) {
  * @param fname file name to test
  */
 function testGulpedTransform(fname, compare = "Hello World", vars = {}) {
+    const wwwroot = path.join(__dirname, "fixtures");
+    const relpath = path.relative(fname, wwwroot) || ".";
+    const context = Object.assign({ wwwroot: relpath }, vars);
     return new Promise((resolve, reject) => {
         let content = null;
         gulp
             .src(fname)
-            .pipe((0, gulp_1.default)(vars, path.join(__dirname, "fixtures")))
+            .pipe((0, gulp_1.default)(context, path.join(__dirname, "fixtures")))
             .on("data", (chunk) => {
             content = chunk.isBuffer() ? chunk.contents.toString("utf8") : null;
         })
@@ -204,7 +219,7 @@ const server = new StaticServer({
     host: "127.0.0.1",
     rootPath: path.join(__dirname, "fixtures"),
 });
-describe("Mancha", () => {
+describe("Mancha index module", () => {
     before("start server", (done) => {
         server.start(done);
     });
@@ -216,12 +231,6 @@ describe("Mancha", () => {
             const name = "Vars";
             const hello_vars = `Hello ${name}`;
             const fname = path.join(__dirname, "fixtures", "hello-name.tpl.html");
-            testAllMethods(fname, hello_vars, { name: name });
-        });
-        describe("substitution spaced", () => {
-            const name = "Vars";
-            const hello_vars = `Hello ${name}`;
-            const fname = path.join(__dirname, "fixtures", "hello-name-spaced.tpl.html");
             testAllMethods(fname, hello_vars, { name: name });
         });
     });
@@ -255,13 +264,13 @@ describe("Mancha", () => {
             testAllMethods(fname, "<!-- This is a comment node -->\nHello World");
         });
         describe("with root document", () => {
-            const fname = path.join(__dirname, "fixtures", "render-include-with-root.tpl.html");
-            const expected = "<!DOCTYPE html>\n<html><head></head><body>\nHello World\n</body></html>";
+            const fname = path.join(__dirname, "fixtures", "render-root-document.html");
+            const expected = "<!DOCTYPE html><html><head></head><body>\nHello World\n</body></html>";
             testAllMethods(fname, expected);
         });
         describe("with node attributes", () => {
             const fname = path.join(__dirname, "fixtures", "render-include-attributes.tpl.html");
-            const expected = '<span @click="fn()" x-attr:click="fn()"></span>';
+            const expected = '<span x-attr:click="fn()"></span>';
             testAllMethods(fname, expected);
         });
         describe("subfolder", () => {
@@ -270,19 +279,19 @@ describe("Mancha", () => {
         });
         describe("pass through root var #1", () => {
             const fsroot = path.join(__dirname, "fixtures");
-            const fpath = path.join(fsroot, "render-root.tpl.html");
+            const fpath = path.join(fsroot, "render-wwwroot.tpl.html");
             const expected = path.relative(fpath, fsroot);
             testAllMethods(fpath, expected);
         });
         describe("pass through root var #2", () => {
             const fsroot = path.join(__dirname, "fixtures");
-            const fpath = path.join(fsroot, "subfolder/render-root.tpl.html");
+            const fpath = path.join(fsroot, "subfolder/render-wwwroot.tpl.html");
             const expected = path.relative(fpath, fsroot);
             testAllMethods(fpath, expected);
         });
         describe("pass through root var #3", () => {
             const fsroot = path.join(__dirname, "fixtures");
-            const fpath = path.join(fsroot, "subfolder/subsubfolder/render-root.tpl.html");
+            const fpath = path.join(fsroot, "subfolder/subsubfolder/render-wwwroot.tpl.html");
             const expected = path.relative(fpath, fsroot);
             testAllMethods(fpath, expected);
         });

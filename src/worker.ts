@@ -1,35 +1,34 @@
-import * as htmlparser2 from "htmlparser2";
-import { render as renderDOM } from "dom-serializer";
-import { IRenderer } from "./core";
+import { JSDOM } from "jsdom";
+import { IRenderer, ParserParams, RendererParams } from "./core";
 
 export class RendererImpl extends IRenderer {
-  parseDocumentFragment(content: string): DocumentFragment {
-    return htmlparser2.parseDocument(content) as any as DocumentFragment;
+  parseHTML(content: string, params: ParserParams = { isRoot: false }): DocumentFragment {
+    // return JSDOM.fragment(content) as unknown as DocumentFragment;
+    const dom = new JSDOM();
+    if (params.isRoot) {
+      const DOMParser = dom.window.DOMParser;
+      return new DOMParser().parseFromString(content, "text/html") as unknown as DocumentFragment;
+    } else {
+      const range = dom.window.document.createRange();
+      range.selectNodeContents(dom.window.document.body);
+      return range.createContextualFragment(content);
+    }
   }
-  serializeDocumentFragment(document: DocumentFragment): string {
-    return renderDOM(document as any);
+  serializeHTML(root: Node | DocumentFragment): string {
+    const dom = new JSDOM();
+    const XMLSerializer = dom.window.XMLSerializer;
+    return new XMLSerializer().serializeToString(root).replace(/\s?xmlns="[^"]+"/gm, "");
   }
-  replaceNodeWith(original: Node, replacement: Node[]): void {
-    const elem = original as Element;
-    const parent = elem.parentNode as ParentNode;
-    const index = Array.from(parent.childNodes).indexOf(elem);
-    replacement.forEach((elem) => ((elem as any).parentNode = parent));
-    (parent as any).childNodes = ([] as ChildNode[])
-      .concat(Array.from(parent.childNodes).slice(0, index))
-      .concat(replacement as ChildNode[])
-      .concat(Array.from(parent.childNodes).slice(index + 1));
-  }
-  async renderLocalPath(
+  renderLocalPath(
     fpath: string,
-    vars: { [key: string]: string } = {},
-    encoding: BufferEncoding = "utf8"
+    params?: RendererParams & ParserParams
   ): Promise<DocumentFragment> {
     throw new Error("Not implemented.");
   }
 }
 
 // Re-exports from core.
-export { preprocess, folderPath, resolvePath, encodeHtmlAttrib, decodeHtmlAttrib } from "./core";
+export { folderPath, resolvePath } from "./core";
 
 // Export the renderer instance directly.
 export const Mancha = new RendererImpl();

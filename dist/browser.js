@@ -12,30 +12,40 @@ var _a, _b, _c, _d;
 Object.defineProperty(exports, "__esModule", { value: true });
 const core_1 = require("./core");
 class RendererImpl extends core_1.IRenderer {
-    parseDocumentFragment(content) {
-        return new DOMParser().parseFromString(content, "text/html");
+    constructor() {
+        super(...arguments);
+        this.fsroot = (0, core_1.folderPath)(self.location.href);
     }
-    serializeDocumentFragment(fragment) {
-        return new XMLSerializer().serializeToString(fragment);
+    parseHTML(content, params = { isRoot: false }) {
+        if (params.isRoot) {
+            return new DOMParser().parseFromString(content, "text/html");
+        }
+        else {
+            const range = document.createRange();
+            range.selectNodeContents(document.body);
+            return range.createContextualFragment(content);
+        }
     }
-    replaceNodeWith(node, children) {
-        node.replaceWith(...children);
+    serializeHTML(root) {
+        return new XMLSerializer().serializeToString(root).replace(/\s?xmlns="[^"]+"/gm, "");
+    }
+    renderLocalPath(fpath, params) {
+        throw new Error("Not implemented.");
     }
 }
 const Mancha = new RendererImpl();
 self["Mancha"] = Mancha;
-if ((_b = (_a = self.document) === null || _a === void 0 ? void 0 : _a.currentScript) === null || _b === void 0 ? void 0 : _b.hasAttribute("init")) {
-    const vars = (0, core_1.datasetAttributes)(self.document.currentScript.attributes);
-    const attributes = Array.from(((_c = self.document.currentScript) === null || _c === void 0 ? void 0 : _c.attributes) || []).reduce((dict, attr) => Object.assign(dict, { [attr.name]: attr.value }), {});
-    const targets = ((_d = attributes["target"]) === null || _d === void 0 ? void 0 : _d.split(",")) || ["body"];
+const currentScript = (_a = self.document) === null || _a === void 0 ? void 0 : _a.currentScript;
+if ((_c = (_b = self.document) === null || _b === void 0 ? void 0 : _b.currentScript) === null || _c === void 0 ? void 0 : _c.hasAttribute("init")) {
+    Mancha.update(Object.assign({}, currentScript === null || currentScript === void 0 ? void 0 : currentScript.dataset));
+    const debug = currentScript === null || currentScript === void 0 ? void 0 : currentScript.hasAttribute("debug");
+    const cachePolicy = currentScript === null || currentScript === void 0 ? void 0 : currentScript.getAttribute("cache");
+    const targets = ((_d = currentScript === null || currentScript === void 0 ? void 0 : currentScript.getAttribute("target")) === null || _d === void 0 ? void 0 : _d.split(",")) || ["body"];
     const renderings = targets.map((target) => __awaiter(void 0, void 0, void 0, function* () {
-        const node = self.document[target];
-        node.replaceWith(yield Mancha.renderDocument(node, vars));
+        const fragment = self.document.querySelector(target);
+        yield Mancha.mount(fragment, { cache: cachePolicy, debug });
     }));
     Promise.all(renderings).then(() => {
-        if (attributes["onrender"]) {
-            eval(attributes["onrender"]);
-        }
         dispatchEvent(new Event("mancha-render", { bubbles: true }));
     });
 }

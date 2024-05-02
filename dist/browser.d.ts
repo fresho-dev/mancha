@@ -1,8 +1,9 @@
-import { IRenderer } from "./core";
+import { IRenderer, ParserParams, RendererParams } from "./core";
 declare class RendererImpl extends IRenderer {
-    parseDocumentFragment(content: string): DocumentFragment;
-    serializeDocumentFragment(fragment: DocumentFragment): string;
-    replaceNodeWith(node: Node, children: Node[]): void;
+    protected readonly fsroot: string;
+    parseHTML(content: string, params?: ParserParams): DocumentFragment;
+    serializeHTML(root: Node | DocumentFragment): string;
+    renderLocalPath(fpath: string, params?: RendererParams & ParserParams): Promise<DocumentFragment>;
 }
 declare const Mancha: RendererImpl;
 export default Mancha;

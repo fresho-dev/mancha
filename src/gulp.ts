@@ -3,7 +3,7 @@ import * as stream from "stream";
 import * as through from "through2";
 import * as File from "vinyl";
 
-import { Mancha } from "./index";
+import { RendererImpl } from "./index";
 
 /**
  * Main entrypoint to be used in Gulp. Usage:
@@ -11,13 +11,15 @@ import { Mancha } from "./index";
  *     var mancha = require('mancha/dist/gulp')
  *     gulp.src(...).pipe(mancha({myvar: myval})).pipe(...)
  *
- * @param vars <key, value> pairs of literal string replacements. `key` will become `{{key}}` before
- * replacing it with `value` in the processed files.
+ * @param context <key, value> pairs of literal string replacements. `key` will become `{{ key }}`
+ * before replacing it with `value` in the processed files.
  */
 function mancha(
-  vars: { [key: string]: string } = {},
+  context: { [key: string]: string } = {},
   wwwroot: string = process.cwd()
 ): stream.Transform {
+  const renderer = new RendererImpl(context);
+  // Mancha.update(context);
   return through.obj(function (file: File, encoding: BufferEncoding, callback: Function) {
     const catcher = (err: Error) => {
       console.log(err);
@@ -25,17 +27,16 @@ function mancha(
     };
 
     const fsroot = path.dirname(file.path);
-    const relpath = path.relative(file.path, wwwroot) || ".";
-    const newvars = Object.assign(vars, { wwwroot: relpath });
 
     if (file.isNull()) {
       callback(null, file);
     } else {
       if (file.isBuffer()) {
         const chunk = file.contents.toString(encoding);
-        Mancha.renderString(chunk, newvars, fsroot)
+        renderer
+          .renderString(chunk, { fsroot, isRoot: !file.path.endsWith(".tpl.html") })
           .then((fragment) => {
-            const content = Mancha.serializeDocumentFragment(fragment);
+            const content = renderer.serializeHTML(fragment);
             file.contents = Buffer.from(content, encoding);
             callback(null, file);
           })
@@ -51,9 +52,10 @@ function mancha(
             }
           })
           .on("end", () => {
-            Mancha.renderString(docstr, newvars, fsroot)
+            renderer
+              .renderString(docstr, { fsroot, isRoot: !file.path.endsWith(".tpl.html") })
               .then((document) => {
-                const content = Mancha.serializeDocumentFragment(document);
+                const content = renderer.serializeHTML(document);
                 const readable = new stream.Readable();
                 readable._read = function () {};
                 readable.push(content);

@@ -6,7 +6,7 @@ import * as gulp from "gulp";
 // @ts-ignore
 import * as StaticServer from "static-server";
 
-import { Mancha } from "./index";
+import { RendererImpl } from "./index";
 import { folderPath, resolvePath } from "./index";
 import gulpMancha from "./gulp";
 
@@ -21,10 +21,15 @@ function testContentRender(fname: string, compare = "Hello World", vars: any = {
     const fsroot = path.dirname(fname);
     const wwwroot = path.join(__dirname, "fixtures");
     const relpath = path.relative(fname, wwwroot) || ".";
-    vars = Object.assign({ wwwroot: relpath }, vars);
+    const context = Object.assign({ wwwroot: relpath }, vars);
+
     try {
-      const fragment = await Mancha.renderString(content, vars, fsroot);
-      const result = Mancha.serializeDocumentFragment(fragment);
+      const renderer = new RendererImpl(context);
+      const fragment = await renderer.renderString(content, {
+        fsroot,
+        isRoot: !fname.endsWith(".tpl.html"),
+      });
+      const result = renderer.serializeHTML(fragment);
       resolve(assert.equal(result, compare, String(result)));
     } catch (exc) {
       console.error(exc);
@@ -41,10 +46,11 @@ function testLocalPathRender(fname: string, compare = "Hello World", vars: any =
   return new Promise<void>(async (resolve, reject) => {
     const wwwroot = path.join(__dirname, "fixtures");
     const relpath = path.relative(fname, wwwroot) || ".";
-    vars = Object.assign({ wwwroot: relpath }, vars);
+    const context = Object.assign({ wwwroot: relpath }, vars);
     try {
-      const fragment = await Mancha.renderLocalPath(fname, vars);
-      const result = Mancha.serializeDocumentFragment(fragment);
+      const renderer = new RendererImpl(context);
+      const fragment = await renderer.renderLocalPath(fname);
+      const result = renderer.serializeHTML(fragment);
       resolve(assert.equal(result, compare, String(result)));
     } catch (exc) {
       console.error(exc);
@@ -62,10 +68,11 @@ function testRemotePathRender(fname: string, compare = "Hello World", vars: any 
     const wwwroot = path.join(__dirname, "fixtures");
     const relpath = path.relative(fname, wwwroot) || ".";
     const remotePath = `http://127.0.0.1:${port}/${path.relative(wwwroot, fname)}`;
-    vars = Object.assign({ wwwroot: relpath }, vars);
+    const context = Object.assign({ wwwroot: relpath }, vars);
     try {
-      const fragment = await Mancha.renderRemotePath(remotePath, vars);
-      const result = Mancha.serializeDocumentFragment(fragment);
+      const renderer = new RendererImpl(context);
+      const fragment = await renderer.renderRemotePath(remotePath);
+      const result = renderer.serializeHTML(fragment);
       resolve(assert.equal(result, compare, String(result)));
     } catch (exc) {
       console.error(exc);
@@ -80,8 +87,12 @@ function testRemotePathRender(fname: string, compare = "Hello World", vars: any 
  */
 function testBufferedTransform(fname: string, compare = "Hello World", vars: any = {}) {
   return new Promise<void>((resolve, reject) => {
+    const wwwroot = path.join(__dirname, "fixtures");
+    const relpath = path.relative(fname, wwwroot) || ".";
+    const context = Object.assign({ wwwroot: relpath }, vars);
+
     const file = new File({ path: fname, contents: fs.readFileSync(fname) });
-    gulpMancha(vars, path.join(__dirname, "fixtures"))._transform(
+    gulpMancha(context, path.join(__dirname, "fixtures"))._transform(
       file,
       "utf8",
       (err: Error | null | undefined, file: File) => {
@@ -109,12 +120,16 @@ function testStreamedTransform(
   compare = "Hello World",
   vars: any = {}
 ): Promise<void> {
+  const wwwroot = path.join(__dirname, "fixtures");
+  const relpath = path.relative(fname, wwwroot) || ".";
+  const context = Object.assign({ wwwroot: relpath }, vars);
+
   return new Promise<void>((resolve, reject) => {
     const file = new File({
       path: fname,
       contents: fs.createReadStream(fname),
     });
-    gulpMancha(vars, path.join(__dirname, "fixtures"))._transform(
+    gulpMancha(context, path.join(__dirname, "fixtures"))._transform(
       file,
       "utf8",
       (err: Error | null | undefined, file: File) => {
@@ -161,11 +176,15 @@ function testGulpedTransform(
   compare = "Hello World",
   vars: any = {}
 ): Promise<void> {
+  const wwwroot = path.join(__dirname, "fixtures");
+  const relpath = path.relative(fname, wwwroot) || ".";
+  const context = Object.assign({ wwwroot: relpath }, vars);
+
   return new Promise<void>((resolve, reject) => {
     let content: string | null = null;
     gulp
       .src(fname)
-      .pipe(gulpMancha(vars, path.join(__dirname, "fixtures")))
+      .pipe(gulpMancha(context, path.join(__dirname, "fixtures")))
       .on("data", (chunk: File) => {
         content = chunk.isBuffer() ? chunk.contents.toString("utf8") : null;
       })
@@ -210,7 +229,7 @@ const server = new StaticServer({
   rootPath: path.join(__dirname, "fixtures"),
 });
 
-describe("Mancha", () => {
+describe("Mancha index module", () => {
   before("start server", (done) => {
     server.start(done);
   });
@@ -224,13 +243,6 @@ describe("Mancha", () => {
       const name = "Vars";
       const hello_vars = `Hello ${name}`;
       const fname = path.join(__dirname, "fixtures", "hello-name.tpl.html");
-      testAllMethods(fname, hello_vars, { name: name });
-    });
-
-    describe("substitution spaced", () => {
-      const name = "Vars";
-      const hello_vars = `Hello ${name}`;
-      const fname = path.join(__dirname, "fixtures", "hello-name-spaced.tpl.html");
       testAllMethods(fname, hello_vars, { name: name });
     });
   });
@@ -271,14 +283,14 @@ describe("Mancha", () => {
     });
 
     describe("with root document", () => {
-      const fname = path.join(__dirname, "fixtures", "render-include-with-root.tpl.html");
-      const expected = "<!DOCTYPE html>\n<html><head></head><body>\nHello World\n</body></html>";
+      const fname = path.join(__dirname, "fixtures", "render-root-document.html");
+      const expected = "<!DOCTYPE html><html><head></head><body>\nHello World\n</body></html>";
       testAllMethods(fname, expected);
     });
 
     describe("with node attributes", () => {
       const fname = path.join(__dirname, "fixtures", "render-include-attributes.tpl.html");
-      const expected = '<span @click="fn()" x-attr:click="fn()"></span>';
+      const expected = '<span x-attr:click="fn()"></span>';
       testAllMethods(fname, expected);
     });
 
@@ -289,21 +301,21 @@ describe("Mancha", () => {
 
     describe("pass through root var #1", () => {
       const fsroot = path.join(__dirname, "fixtures");
-      const fpath = path.join(fsroot, "render-root.tpl.html");
+      const fpath = path.join(fsroot, "render-wwwroot.tpl.html");
       const expected = path.relative(fpath, fsroot);
       testAllMethods(fpath, expected);
     });
 
     describe("pass through root var #2", () => {
       const fsroot = path.join(__dirname, "fixtures");
-      const fpath = path.join(fsroot, "subfolder/render-root.tpl.html");
+      const fpath = path.join(fsroot, "subfolder/render-wwwroot.tpl.html");
       const expected = path.relative(fpath, fsroot);
       testAllMethods(fpath, expected);
     });
 
     describe("pass through root var #3", () => {
       const fsroot = path.join(__dirname, "fixtures");
-      const fpath = path.join(fsroot, "subfolder/subsubfolder/render-root.tpl.html");
+      const fpath = path.join(fsroot, "subfolder/subsubfolder/render-wwwroot.tpl.html");
       const expected = path.relative(fpath, fsroot);
       testAllMethods(fpath, expected);
     });

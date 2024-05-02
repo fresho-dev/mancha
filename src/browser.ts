@@ -1,36 +1,42 @@
-import { datasetAttributes, IRenderer } from "./core";
+import { folderPath, resolvePath, IRenderer, ParserParams, RendererParams } from "./core";
 
 class RendererImpl extends IRenderer {
-  parseDocumentFragment(content: string): DocumentFragment {
-    return new DOMParser().parseFromString(content, "text/html") as any as DocumentFragment;
+  protected readonly fsroot: string = folderPath(self.location.href);
+  parseHTML(content: string, params: ParserParams = { isRoot: false }): DocumentFragment {
+    if (params.isRoot) {
+      return new DOMParser().parseFromString(content, "text/html") as unknown as DocumentFragment;
+    } else {
+      const range = document.createRange();
+      range.selectNodeContents(document.body);
+      return range.createContextualFragment(content);
+    }
   }
-  serializeDocumentFragment(fragment: DocumentFragment): string {
-    return new XMLSerializer().serializeToString(fragment);
+  serializeHTML(root: Node | DocumentFragment): string {
+    return new XMLSerializer().serializeToString(root).replace(/\s?xmlns="[^"]+"/gm, "");
   }
-  replaceNodeWith(node: Node, children: Node[]): void {
-    (node as Element).replaceWith(...children);
+  renderLocalPath(
+    fpath: string,
+    params?: RendererParams & ParserParams
+  ): Promise<DocumentFragment> {
+    throw new Error("Not implemented.");
   }
 }
 
 const Mancha = new RendererImpl();
 (self as any)["Mancha"] = Mancha;
+const currentScript = self.document?.currentScript;
 
 if (self.document?.currentScript?.hasAttribute("init")) {
-  const vars = datasetAttributes(self.document.currentScript.attributes);
-  const attributes = Array.from(self.document.currentScript?.attributes || []).reduce(
-    (dict, attr) => Object.assign(dict, { [attr.name]: attr.value }),
-    {} as { [key: string]: string }
-  );
-  const targets = attributes["target"]?.split(",") || ["body"];
+  Mancha.update({ ...currentScript?.dataset });
+  const debug = currentScript?.hasAttribute("debug");
+  const cachePolicy = currentScript?.getAttribute("cache") as RequestCache | null;
+  const targets = currentScript?.getAttribute("target")?.split(",") || ["body"];
   const renderings = targets.map(async (target: string) => {
-    const node = (self.document as any)[target] as Element;
-    node.replaceWith(await Mancha.renderDocument(node as unknown as DocumentFragment, vars));
+    const fragment = self.document.querySelector(target) as unknown as DocumentFragment;
+    await Mancha.mount(fragment, { cache: cachePolicy, debug });
   });
 
   Promise.all(renderings).then(() => {
-    if (attributes["onrender"]) {
-      eval(attributes["onrender"]);
-    }
     dispatchEvent(new Event("mancha-render", { bubbles: true }));
   });
 }

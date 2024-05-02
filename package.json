@@ -13,7 +13,7 @@
     "cli": "node dist/cli.js"
   },
   "bin": {
-    "mancha": "./dist/cli.js"
+    "mancha": "dist/cli.js"
   },
   "repository": {
     "type": "git",
@@ -34,13 +34,16 @@
   "homepage": "https://gitlab.com/omtinez/mancha#README",
   "dependencies": {
     "dom-serializer": "^2.0.0",
+    "domutils": "^3.1.0",
     "htmlparser2": "^9.0.0",
+    "node-html-parser": "^6.1.13",
     "path-browserify": "^1.0.1",
     "through2": "^4.0.2",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
     "@types/gulp": "^4.0.8",
+    "@types/jsdom": "^21.1.6",
     "@types/mocha": "^10.0.3",
     "@types/node": "^20.8.8",
     "@types/path-browserify": "^1.0.1",
@@ -48,6 +51,7 @@
     "@types/yargs": "^17.0.29",
     "gulp": "^4.0.2",
     "gulp-typescript": "^6.0.0-alpha.1",
+    "jsdom": "^24.0.0",
     "mocha": "^10.2.0",
     "static-server": "^2.2.1",
     "typescript": "^5.2.2",

@@ -1,12 +1,8 @@
-/// <reference types="node" />
-import { IRenderer } from "./core";
+import { IRenderer, ParserParams, RendererParams } from "./core";
 export declare class RendererImpl extends IRenderer {
-    parseDocumentFragment(content: string): DocumentFragment;
-    serializeDocumentFragment(document: DocumentFragment): string;
-    replaceNodeWith(original: Node, replacement: Node[]): void;
-    renderLocalPath(fpath: string, vars?: {
-        [key: string]: string;
-    }, encoding?: BufferEncoding): Promise<DocumentFragment>;
+    parseHTML(content: string, params?: ParserParams): DocumentFragment;
+    serializeHTML(root: Node | DocumentFragment): string;
+    renderLocalPath(fpath: string, params?: RendererParams & ParserParams): Promise<DocumentFragment>;
 }
-export { preprocess, folderPath, resolvePath, encodeHtmlAttrib, decodeHtmlAttrib } from "./core";
+export { folderPath, resolvePath } from "./core";
 export declare const Mancha: RendererImpl;
