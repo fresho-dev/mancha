@@ -14,10 +14,10 @@ const htmlparser2 = require("htmlparser2");
 const dom_serializer_1 = require("dom-serializer");
 const core_1 = require("./core");
 class RendererImpl extends core_1.IRenderer {
-    parseDocument(content) {
+    parseDocumentFragment(content) {
         return htmlparser2.parseDocument(content);
     }
-    serializeDocument(document) {
+    serializeDocumentFragment(document) {
         return (0, dom_serializer_1.render)(document);
     }
     replaceNodeWith(original, replacement) {
@@ -37,7 +37,7 @@ class RendererImpl extends core_1.IRenderer {
     }
 }
 exports.RendererImpl = RendererImpl;
-// Re-exports from web.
+// Re-exports from core.
 var core_2 = require("./core");
 Object.defineProperty(exports, "preprocess", { enumerable: true, get: function () { return core_2.preprocess; } });
 Object.defineProperty(exports, "folderPath", { enumerable: true, get: function () { return core_2.folderPath; } });

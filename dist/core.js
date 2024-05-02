@@ -9,11 +9,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.IRenderer = exports.resolvePath = exports.folderPath = exports.datasetAttributes = exports.preprocess = exports.decodeHtmlAttrib = exports.encodeHtmlAttrib = void 0;
+exports.IRenderer = exports.resolvePath = exports.folderPath = exports.datasetAttributes = exports.preprocess = exports.decodeHtmlAttrib = exports.encodeHtmlAttrib = exports.traverse = void 0;
 const path = require("path-browserify");
-function traverse(tree) {
+function traverse(fragment) {
     const explored = [];
-    const frontier = Array.isArray(tree) ? tree : [tree];
+    const frontier = Array.from(fragment.childNodes);
     while (frontier.length) {
         const node = frontier.pop();
         explored.push(node);
@@ -23,6 +23,7 @@ function traverse(tree) {
     }
     return explored;
 }
+exports.traverse = traverse;
 function getElementAttribute(elem, key) {
     for (const attr of elem.attributes) {
         if (attr.name === key)
@@ -106,16 +107,21 @@ class IRenderer {
     renderRemotePath(fpath_1) {
         return __awaiter(this, arguments, void 0, function* (fpath, vars = {}, maxdepth = 10) {
             const content = yield fetch(fpath).then((res) => res.text());
-            return this.renderContent(content, vars, folderPath(fpath), maxdepth);
+            return this.renderString(content, vars, folderPath(fpath), maxdepth);
         });
     }
-    renderContent(content_1) {
+    renderString(content_1) {
         return __awaiter(this, arguments, void 0, function* (content, vars = {}, fsroot = null, maxdepth = 10) {
-            fsroot = fsroot || folderPath(self.location.href);
             const preprocessed = preprocess(content, vars);
-            const document = this.parseDocument(preprocessed);
-            const childNodes = Array.from(document.childNodes);
-            const renderings = traverse(childNodes.map((node) => node))
+            const fragment = this.parseDocumentFragment(preprocessed);
+            return this.renderDocument(fragment, vars, fsroot, maxdepth);
+        });
+    }
+    renderDocument(fragment_1) {
+        return __awaiter(this, arguments, void 0, function* (fragment, vars = {}, fsroot = null, maxdepth = 10) {
+            fsroot = fsroot || folderPath(self.location.href);
+            const renderings = traverse(fragment)
+                .map((node) => node)
                 .filter((node) => { var _a; return ((_a = node.tagName) === null || _a === void 0 ? void 0 : _a.toLocaleLowerCase()) === "include"; })
                 .map((node) => __awaiter(this, void 0, void 0, function* () {
                 const src = getElementAttribute(node, "src");
@@ -128,9 +134,8 @@ class IRenderer {
                     throw new Error(`"src" attribute missing from ${node}.`);
                 }
                 // The included file will replace this tag.
-                const handler = (content) => {
-                    // (node as any).replaceWith(...parseDocument(content).childNodes);
-                    this.replaceNodeWith(node, Array.from(this.parseDocument(content).childNodes));
+                const handler = (fragment) => {
+                    this.replaceNodeWith(node, Array.from(fragment.childNodes));
                 };
                 // Case 1: Absolute remote path.
                 if (src.indexOf("://") !== -1) {
@@ -153,17 +158,15 @@ class IRenderer {
             }));
             // Wait for all the rendering operations to complete.
             yield Promise.all(renderings);
-            // The document has now been modified and can be re-serialized.
-            const result = this.serializeDocument(document);
             // Re-render until no changes are made.
             if (renderings.length === 0) {
-                return result;
+                return fragment;
             }
             else if (maxdepth === 0) {
                 throw new Error("Maximum recursion depth reached.");
             }
             else {
-                return this.renderContent(result, vars, fsroot, maxdepth--);
+                return this.renderDocument(fragment, vars, fsroot, maxdepth--);
             }
         });
     }

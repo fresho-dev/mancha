@@ -8,9 +8,9 @@ class RendererImpl extends WorkerRendererImpl {
     fpath: string,
     vars: { [key: string]: string } = {},
     encoding: BufferEncoding = "utf8"
-  ): Promise<string> {
+  ): Promise<DocumentFragment> {
     const content = await fs.readFile(fpath, { encoding: encoding });
-    return this.renderContent(content, vars, folderPath(fpath));
+    return this.renderString(content, vars, folderPath(fpath));
   }
 }
 

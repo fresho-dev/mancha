@@ -1,4 +1,5 @@
 /// <reference types="node" />
+export declare function traverse(fragment: DocumentFragment): ChildNode[];
 /**
  * Helper function used to escape HTML attribute values.
  * See: https://stackoverflow.com/a/9756789
@@ -15,19 +16,22 @@ export declare function datasetAttributes(attributes: NamedNodeMap): {
 export declare function folderPath(fpath: string): string;
 export declare function resolvePath(fpath: string): string;
 export declare abstract class IRenderer {
-    abstract parseDocument(content: string): Document;
-    abstract serializeDocument(document: Document): string;
+    abstract parseDocumentFragment(content: string): DocumentFragment;
+    abstract serializeDocumentFragment(fragment: DocumentFragment): string;
     abstract replaceNodeWith(node: Node, children: Node[]): void;
     preprocess(content: string, vars: {
         [key: string]: string;
     }): string;
     renderLocalPath(fpath: string, vars?: {
         [key: string]: string;
-    }, encoding?: BufferEncoding): Promise<string>;
+    }, encoding?: BufferEncoding): Promise<DocumentFragment>;
     renderRemotePath(fpath: string, vars?: {
         [key: string]: string;
-    }, maxdepth?: number): Promise<string>;
-    renderContent(content: string, vars?: {
+    }, maxdepth?: number): Promise<DocumentFragment>;
+    renderString(content: string, vars?: {
         [key: string]: string;
-    }, fsroot?: string | null, maxdepth?: number): Promise<string>;
+    }, fsroot?: string | null, maxdepth?: number): Promise<DocumentFragment>;
+    renderDocument(fragment: DocumentFragment, vars?: {
+        [key: string]: string;
+    }, fsroot?: string | null, maxdepth?: number): Promise<DocumentFragment>;
 }

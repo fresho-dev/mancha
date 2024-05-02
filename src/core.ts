@@ -1,14 +1,14 @@
 import * as path from "path-browserify";
 
-function traverse(tree: Element | Element[]): Element[] {
-  const explored: Element[] = [];
-  const frontier: Element[] = Array.isArray(tree) ? tree : [tree];
+export function traverse(fragment: DocumentFragment): ChildNode[] {
+  const explored: ChildNode[] = [];
+  const frontier: ChildNode[] = Array.from(fragment.childNodes);
 
   while (frontier.length) {
-    const node: Element = frontier.pop() as Element;
+    const node: ChildNode = frontier.pop() as ChildNode;
     explored.push(node);
     if (node.childNodes) {
-      node.childNodes.forEach((node) => frontier.push(node as Node as Element));
+      node.childNodes.forEach((node) => frontier.push(node));
     }
   }
 
@@ -83,8 +83,8 @@ export function resolvePath(fpath: string): string {
 }
 
 export abstract class IRenderer {
-  abstract parseDocument(content: string): Document;
-  abstract serializeDocument(document: Document): string;
+  abstract parseDocumentFragment(content: string): DocumentFragment;
+  abstract serializeDocumentFragment(fragment: DocumentFragment): string;
   abstract replaceNodeWith(node: Node, children: Node[]): void;
 
   preprocess(content: string, vars: { [key: string]: string }): string {
@@ -99,7 +99,7 @@ export abstract class IRenderer {
     fpath: string,
     vars: { [key: string]: string } = {},
     encoding: BufferEncoding = "utf8"
-  ): Promise<string> {
+  ): Promise<DocumentFragment> {
     throw new Error("Not implemented.");
   }
 
@@ -107,22 +107,31 @@ export abstract class IRenderer {
     fpath: string,
     vars: { [key: string]: string } = {},
     maxdepth: number = 10
-  ): Promise<string> {
+  ): Promise<DocumentFragment> {
     const content = await fetch(fpath).then((res) => res.text());
-    return this.renderContent(content, vars, folderPath(fpath), maxdepth);
+    return this.renderString(content, vars, folderPath(fpath), maxdepth);
   }
 
-  async renderContent(
+  async renderString(
     content: string,
     vars: { [key: string]: string } = {},
     fsroot: string | null = null,
     maxdepth: number = 10
-  ): Promise<string> {
-    fsroot = fsroot || folderPath(self.location.href);
+  ): Promise<DocumentFragment> {
     const preprocessed = preprocess(content, vars);
-    const document = this.parseDocument(preprocessed);
-    const childNodes = Array.from(document.childNodes);
-    const renderings = traverse(childNodes.map((node) => node as Node as Element))
+    const fragment = this.parseDocumentFragment(preprocessed);
+    return this.renderDocument(fragment, vars, fsroot, maxdepth);
+  }
+
+  async renderDocument(
+    fragment: DocumentFragment,
+    vars: { [key: string]: string } = {},
+    fsroot: string | null = null,
+    maxdepth: number = 10
+  ): Promise<DocumentFragment> {
+    fsroot = fsroot || folderPath(self.location.href);
+    const renderings = traverse(fragment)
+      .map((node) => node as Element)
       .filter((node) => node.tagName?.toLocaleLowerCase() === "include")
       .map(async (node) => {
         const src = getElementAttribute(node, "src");
@@ -138,9 +147,8 @@ export abstract class IRenderer {
         }
 
         // The included file will replace this tag.
-        const handler = (content: string) => {
-          // (node as any).replaceWith(...parseDocument(content).childNodes);
-          this.replaceNodeWith(node, Array.from(this.parseDocument(content).childNodes));
+        const handler = (fragment: DocumentFragment) => {
+          this.replaceNodeWith(node, Array.from(fragment.childNodes));
         };
 
         // Case 1: Absolute remote path.
@@ -166,17 +174,13 @@ export abstract class IRenderer {
     // Wait for all the rendering operations to complete.
     await Promise.all(renderings);
 
-    // The document has now been modified and can be re-serialized.
-    const result = this.serializeDocument(document);
-
     // Re-render until no changes are made.
     if (renderings.length === 0) {
-      return result;
+      return fragment;
     } else if (maxdepth === 0) {
       throw new Error("Maximum recursion depth reached.");
     } else {
-      return this.renderContent(result, vars, fsroot, maxdepth--);
+      return this.renderDocument(fragment, vars, fsroot, maxdepth--);
     }
   }
 }
-

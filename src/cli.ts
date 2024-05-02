@@ -16,6 +16,6 @@ Mancha.renderLocalPath(args["input"], JSON.parse(args.vars || "{}")).then((resul
   if (!args.output || args.output === "-") {
     console.log(result + "\n");
   } else {
-    return fs.writeFile(args.output, result);
+    return fs.writeFile(args.output, Mancha.serializeDocumentFragment(result));
   }
 });

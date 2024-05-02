@@ -32,26 +32,28 @@ function mancha(
       callback(null, file);
     } else {
       if (file.isBuffer()) {
-        const fragment = file.contents.toString(encoding);
-        Mancha.renderContent(fragment, newvars, fsroot)
-          .then((content) => {
+        const chunk = file.contents.toString(encoding);
+        Mancha.renderString(chunk, newvars, fsroot)
+          .then((fragment) => {
+            const content = Mancha.serializeDocumentFragment(fragment);
             file.contents = Buffer.from(content, encoding);
             callback(null, file);
           })
           .catch(catcher);
       } else if (file.isStream()) {
-        let fragment: string = "";
+        let docstr: string = "";
         file.contents
           .on("data", (chunk) => {
             if (Buffer.isBuffer(chunk)) {
-              fragment += chunk.toString(encoding);
+              docstr += chunk.toString(encoding);
             } else {
-              fragment += chunk.toString();
+              docstr += chunk.toString();
             }
           })
           .on("end", () => {
-            Mancha.renderContent(fragment, newvars, fsroot)
-              .then((content) => {
+            Mancha.renderString(docstr, newvars, fsroot)
+              .then((document) => {
+                const content = Mancha.serializeDocumentFragment(document);
                 const readable = new stream.Readable();
                 readable._read = function () {};
                 readable.push(content);

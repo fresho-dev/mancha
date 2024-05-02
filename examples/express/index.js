@@ -5,7 +5,8 @@ const app = express();
 
 app.get("/", async (req, res) => {
   const name = req.query.name || "Stranger";
-  const html = await Mancha.renderLocalPath("html/index.html", { name: name });
+  const fragment = await Mancha.renderLocalPath("html/index.html", { name: name });
+  const html = Mancha.serializeDocumentFragment(fragment);
   res.set("Content-Type", "text/html");
   res.send(html);
 });

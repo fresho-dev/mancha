@@ -16,6 +16,6 @@ index_1.Mancha.renderLocalPath(args["input"], JSON.parse(args.vars || "{}")).the
         console.log(result + "\n");
     }
     else {
-        return fs.writeFile(args.output, result);
+        return fs.writeFile(args.output, index_1.Mancha.serializeDocumentFragment(result));
     }
 });

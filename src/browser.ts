@@ -1,11 +1,11 @@
 import { datasetAttributes, IRenderer } from "./core";
 
 class RendererImpl extends IRenderer {
-  parseDocument(content: string): Document {
-    return new DOMParser().parseFromString(content, "text/html");
+  parseDocumentFragment(content: string): DocumentFragment {
+    return new DOMParser().parseFromString(content, "text/html") as any as DocumentFragment;
   }
-  serializeDocument(document: Document): string {
-    return new XMLSerializer().serializeToString(document);
+  serializeDocumentFragment(fragment: DocumentFragment): string {
+    return new XMLSerializer().serializeToString(fragment);
   }
   replaceNodeWith(node: Node, children: Node[]): void {
     (node as Element).replaceWith(...children);
@@ -24,7 +24,7 @@ if (self.document?.currentScript?.hasAttribute("init")) {
   const targets = attributes["target"]?.split(",") || ["body"];
   const renderings = targets.map(async (target: string) => {
     const node = (self.document as any)[target] as Element;
-    node.innerHTML = await Mancha.renderContent(node.innerHTML, vars);
+    node.replaceWith(await Mancha.renderDocument(node as unknown as DocumentFragment, vars));
   });
 
   Promise.all(renderings).then(() => {

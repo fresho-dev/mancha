@@ -31,7 +31,8 @@ function testContentRender(fname, compare = "Hello World", vars = {}) {
         const relpath = path.relative(fname, wwwroot) || ".";
         vars = Object.assign({ wwwroot: relpath }, vars);
         try {
-            const result = yield index_1.Mancha.renderContent(content, vars, fsroot);
+            const fragment = yield index_1.Mancha.renderString(content, vars, fsroot);
+            const result = index_1.Mancha.serializeDocumentFragment(fragment);
             resolve(assert.equal(result, compare, String(result)));
         }
         catch (exc) {
@@ -50,7 +51,8 @@ function testLocalPathRender(fname, compare = "Hello World", vars = {}) {
         const relpath = path.relative(fname, wwwroot) || ".";
         vars = Object.assign({ wwwroot: relpath }, vars);
         try {
-            const result = yield index_1.Mancha.renderLocalPath(fname, vars);
+            const fragment = yield index_1.Mancha.renderLocalPath(fname, vars);
+            const result = index_1.Mancha.serializeDocumentFragment(fragment);
             resolve(assert.equal(result, compare, String(result)));
         }
         catch (exc) {
@@ -70,7 +72,8 @@ function testRemotePathRender(fname, compare = "Hello World", vars = {}) {
         const remotePath = `http://127.0.0.1:${port}/${path.relative(wwwroot, fname)}`;
         vars = Object.assign({ wwwroot: relpath }, vars);
         try {
-            const result = yield index_1.Mancha.renderRemotePath(remotePath, vars);
+            const fragment = yield index_1.Mancha.renderRemotePath(remotePath, vars);
+            const result = index_1.Mancha.serializeDocumentFragment(fragment);
             resolve(assert.equal(result, compare, String(result)));
         }
         catch (exc) {

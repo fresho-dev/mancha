@@ -27,28 +27,30 @@ function mancha(vars = {}, wwwroot = process.cwd()) {
         }
         else {
             if (file.isBuffer()) {
-                const fragment = file.contents.toString(encoding);
-                index_1.Mancha.renderContent(fragment, newvars, fsroot)
-                    .then((content) => {
+                const chunk = file.contents.toString(encoding);
+                index_1.Mancha.renderString(chunk, newvars, fsroot)
+                    .then((fragment) => {
+                    const content = index_1.Mancha.serializeDocumentFragment(fragment);
                     file.contents = Buffer.from(content, encoding);
                     callback(null, file);
                 })
                     .catch(catcher);
             }
             else if (file.isStream()) {
-                let fragment = "";
+                let docstr = "";
                 file.contents
                     .on("data", (chunk) => {
                     if (Buffer.isBuffer(chunk)) {
-                        fragment += chunk.toString(encoding);
+                        docstr += chunk.toString(encoding);
                     }
                     else {
-                        fragment += chunk.toString();
+                        docstr += chunk.toString();
                     }
                 })
                     .on("end", () => {
-                    index_1.Mancha.renderContent(fragment, newvars, fsroot)
-                        .then((content) => {
+                    index_1.Mancha.renderString(docstr, newvars, fsroot)
+                        .then((document) => {
+                        const content = index_1.Mancha.serializeDocumentFragment(document);
                         const readable = new stream.Readable();
                         readable._read = function () { };
                         readable.push(content);

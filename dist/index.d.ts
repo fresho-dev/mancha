@@ -4,7 +4,7 @@ import { RendererImpl as WorkerRendererImpl } from "./worker";
 declare class RendererImpl extends WorkerRendererImpl {
     renderLocalPath(fpath: string, vars?: {
         [key: string]: string;
-    }, encoding?: BufferEncoding): Promise<string>;
+    }, encoding?: BufferEncoding): Promise<DocumentFragment>;
 }
 export { preprocess, folderPath, resolvePath, encodeHtmlAttrib, decodeHtmlAttrib } from "./core";
 export declare const Mancha: RendererImpl;

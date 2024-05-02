@@ -3,10 +3,10 @@ import { render as renderDOM } from "dom-serializer";
 import { IRenderer } from "./core";
 
 export class RendererImpl extends IRenderer {
-  parseDocument(content: string): Document {
-    return htmlparser2.parseDocument(content) as any as Document;
+  parseDocumentFragment(content: string): DocumentFragment {
+    return htmlparser2.parseDocument(content) as any as DocumentFragment;
   }
-  serializeDocument(document: Document): string {
+  serializeDocumentFragment(document: DocumentFragment): string {
     return renderDOM(document as any);
   }
   replaceNodeWith(original: Node, replacement: Node[]): void {
@@ -23,7 +23,7 @@ export class RendererImpl extends IRenderer {
     fpath: string,
     vars: { [key: string]: string } = {},
     encoding: BufferEncoding = "utf8"
-  ): Promise<string> {
+  ): Promise<DocumentFragment> {
     throw new Error("Not implemented.");
   }
 }

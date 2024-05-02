@@ -12,11 +12,11 @@ var _a, _b, _c, _d;
 Object.defineProperty(exports, "__esModule", { value: true });
 const core_1 = require("./core");
 class RendererImpl extends core_1.IRenderer {
-    parseDocument(content) {
+    parseDocumentFragment(content) {
         return new DOMParser().parseFromString(content, "text/html");
     }
-    serializeDocument(document) {
-        return new XMLSerializer().serializeToString(document);
+    serializeDocumentFragment(fragment) {
+        return new XMLSerializer().serializeToString(fragment);
     }
     replaceNodeWith(node, children) {
         node.replaceWith(...children);
@@ -30,7 +30,7 @@ if ((_b = (_a = self.document) === null || _a === void 0 ? void 0 : _a.currentSc
     const targets = ((_d = attributes["target"]) === null || _d === void 0 ? void 0 : _d.split(",")) || ["body"];
     const renderings = targets.map((target) => __awaiter(void 0, void 0, void 0, function* () {
         const node = self.document[target];
-        node.innerHTML = yield Mancha.renderContent(node.innerHTML, vars);
+        node.replaceWith(yield Mancha.renderDocument(node, vars));
     }));
     Promise.all(renderings).then(() => {
         if (attributes["onrender"]) {

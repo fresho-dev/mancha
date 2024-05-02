@@ -18,11 +18,11 @@ class RendererImpl extends worker_1.RendererImpl {
     renderLocalPath(fpath_1) {
         return __awaiter(this, arguments, void 0, function* (fpath, vars = {}, encoding = "utf8") {
             const content = yield fs.readFile(fpath, { encoding: encoding });
-            return this.renderContent(content, vars, (0, core_1.folderPath)(fpath));
+            return this.renderString(content, vars, (0, core_1.folderPath)(fpath));
         });
     }
 }
-// Re-exports from web.
+// Re-exports from core.
 var core_2 = require("./core");
 Object.defineProperty(exports, "preprocess", { enumerable: true, get: function () { return core_2.preprocess; } });
 Object.defineProperty(exports, "folderPath", { enumerable: true, get: function () { return core_2.folderPath; } });
