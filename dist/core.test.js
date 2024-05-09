@@ -459,6 +459,21 @@ describe("Mancha core module", () => {
             assert.ok(node.parentNode === parent);
             assert.ok(((_d = node.parentNode) === null || _d === void 0 ? void 0 : _d.firstElementChild) === node);
         }));
+        it("hides an element based on data from the same element", () => __awaiter(void 0, void 0, void 0, function* () {
+            var _e;
+            const html = `<div :data="{show: false}" :show="show" />`;
+            const fragment = jsdom_1.JSDOM.fragment(html);
+            const node = fragment.firstElementChild;
+            const parent = node.parentNode;
+            const renderer = new MockRenderer();
+            yield renderer.mount(fragment);
+            assert.ok(!node.hasAttribute(":show"));
+            assert.equal(parent === null || parent === void 0 ? void 0 : parent.childNodes.length, 0);
+            assert.notEqual(node.parentNode, parent);
+            yield renderer.set("show", true);
+            assert.equal(node.parentNode, parent);
+            assert.equal((_e = node.parentNode) === null || _e === void 0 ? void 0 : _e.firstElementChild, node);
+        }));
     });
     describe("shorthands", () => {
         it("$text", () => __awaiter(void 0, void 0, void 0, function* () {

@@ -481,10 +481,10 @@ export abstract class IRenderer extends ReactiveProxyStore {
     // Do these steps one at a time to avoid any potential race conditions.
     for (const node of traverse(root, this.skipNodes)) {
       this.log(params, "Processing node:\n", node);
-      // Resolve the :show attribute in the node.
-      await this.resolveShowAttribute(node, params);
       // Resolve the :data attribute in the node.
       await this.resolveDataAttribute(node, params);
+      // Resolve the :show attribute in the node.
+      await this.resolveShowAttribute(node, params);
       // Resolve the @watch attribute in the node.
       await this.resolveWatchAttribute(node, params);
       // Resolve the :for attribute in the node.

@@ -533,6 +533,24 @@ describe("Mancha core module", () => {
       assert.ok(node.parentNode === parent);
       assert.ok(node.parentNode?.firstElementChild === node);
     });
+
+    it("hides an element based on data from the same element", async () => {
+      const html = `<div :data="{show: false}" :show="show" />`;
+      const fragment = JSDOM.fragment(html);
+      const node = fragment.firstElementChild as HTMLElement;
+      const parent = node.parentNode;
+
+      const renderer = new MockRenderer();
+      await renderer.mount(fragment);
+      assert.ok(!node.hasAttribute(":show"));
+
+      assert.equal(parent?.childNodes.length, 0);
+      assert.notEqual(node.parentNode, parent);
+
+      await renderer.set("show", true);
+      assert.equal(node.parentNode, parent);
+      assert.equal(node.parentNode?.firstElementChild, node);
+    });
   });
 
   describe("shorthands", () => {
