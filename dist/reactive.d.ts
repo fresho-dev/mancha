@@ -5,7 +5,7 @@ export declare class ReactiveProxy<T> {
     private listeners;
     protected constructor(value?: T | null, ...listeners: Listener<T>[]);
     static from<T>(value: T | ReactiveProxy<T>, ...listeners: Listener<T>[]): ReactiveProxy<T>;
-    get(...props: string[]): any;
+    get(): T;
     set(value: T | null): Promise<void>;
     watch(listener: Listener<T>): void;
     unwatch(listener: Listener<T>): void;
@@ -26,7 +26,7 @@ export declare class ReactiveProxyStore {
         [key: string]: any;
     });
     entries(): IterableIterator<[string, ReactiveProxy<any>]>;
-    get<K extends string>(key: K, ...props: string[]): any;
+    get<K extends string>(key: K): any;
     set<K extends string>(key: K, value: any): Promise<void>;
     del<K extends string>(key: K): boolean;
     /**

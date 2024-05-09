@@ -21,20 +21,16 @@ describe("Mancha reactive module", () => {
             assert.equal(yield watched, 1);
             assert.equal(proxy.get(), 1);
         }));
-        it("get nested property", () => {
-            const proxy = reactive_1.ReactiveProxy.from({ a: 1, b: { c: 2 } });
-            assert.equal(proxy.get("a"), 1);
-            assert.equal(proxy.get("b", "c"), 2);
-        });
         it("set and watch nested property", () => __awaiter(void 0, void 0, void 0, function* () {
+            var _a, _b, _c;
             const proxy = reactive_1.ReactiveProxy.from({ a: 1, b: 2 });
-            assert.equal(proxy.get("a"), 1);
-            assert.equal(proxy.get("b"), 2);
+            assert.equal((_a = proxy.get()) === null || _a === void 0 ? void 0 : _a.a, 1);
+            assert.equal((_b = proxy.get()) === null || _b === void 0 ? void 0 : _b.b, 2);
             let ops = 0;
             proxy.watch(() => ops++);
             yield proxy.set({ a: 1, b: 3 });
             assert.ok(ops > 0);
-            assert.equal(proxy.get("b"), 3);
+            assert.equal((_c = proxy.get()) === null || _c === void 0 ? void 0 : _c.b, 3);
         }));
         it("manually trigger listeners", () => __awaiter(void 0, void 0, void 0, function* () {
             const arr = [1, 2, 3];
@@ -101,25 +97,27 @@ describe("Mancha reactive module", () => {
             assert.equal(store.get("c"), proxy.get());
         });
         it("get nested property", () => {
+            var _a;
             const store = new reactive_1.ReactiveProxyStore({ a: 1, b: { c: 2 } });
             assert.equal(store.get("a"), 1);
-            assert.equal(store.get("b", "c"), 2);
+            assert.equal((_a = store.get("b")) === null || _a === void 0 ? void 0 : _a.c, 2);
         });
         it("watch nested property", () => __awaiter(void 0, void 0, void 0, function* () {
+            var _a, _b, _c, _d;
             const store = new reactive_1.ReactiveProxyStore({ x: { a: 1, b: 2 } });
-            assert.equal(store.get("x", "a"), 1);
-            assert.equal(store.get("x", "b"), 2);
+            assert.equal((_a = store.get("x")) === null || _a === void 0 ? void 0 : _a.a, 1);
+            assert.equal((_b = store.get("x")) === null || _b === void 0 ? void 0 : _b.b, 2);
             let ops = 0;
             store.watch(["x"], () => ops++);
             ops = 0;
             yield store.set("x", { a: 1, b: 3 });
             assert.ok(ops > 0);
-            assert.equal(store.get("x", "b"), 3);
+            assert.equal((_c = store.get("x")) === null || _c === void 0 ? void 0 : _c.b, 3);
             ops = 0;
             store.get("x").b = 2;
             yield new Promise((resolve) => setTimeout(resolve, 10));
             assert.ok(ops > 0);
-            assert.equal(store.get("x", "b"), 2);
+            assert.equal((_d = store.get("x")) === null || _d === void 0 ? void 0 : _d.b, 2);
         }));
         it("manually trigger listeners", () => __awaiter(void 0, void 0, void 0, function* () {
             const arr = [1, 2, 3];

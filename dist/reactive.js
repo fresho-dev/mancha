@@ -10,13 +10,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.proxify = exports.ReactiveProxyStore = exports.InertProxy = exports.ReactiveProxy = exports.proxifyObject = void 0;
-function getNestedProperty(target, ...props) {
-    let result = target;
-    for (const currProp of props) {
-        result = result[currProp];
-    }
-    return result;
-}
 function isProxified(object) {
     return object instanceof ReactiveProxy || object["__is_proxy__"];
 }
@@ -76,13 +69,8 @@ class ReactiveProxy {
             return new ReactiveProxy(value, ...listeners);
         }
     }
-    get(...props) {
-        if (props.length) {
-            return getNestedProperty(this.value, ...props);
-        }
-        else {
-            return this.value;
-        }
+    get() {
+        return this.value;
     }
     set(value) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -147,11 +135,11 @@ class ReactiveProxyStore {
     entries() {
         return this.store.entries();
     }
-    get(key, ...props) {
+    get(key) {
         var _a;
         if (this.tracing)
             this.traced.add(key);
-        return (_a = this.store.get(key)) === null || _a === void 0 ? void 0 : _a.get(...props);
+        return (_a = this.store.get(key)) === null || _a === void 0 ? void 0 : _a.get();
     }
     set(key, value) {
         return __awaiter(this, void 0, void 0, function* () {

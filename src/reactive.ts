@@ -1,14 +1,6 @@
 // Type shorthand for the listeners.
 type Listener<T> = (curr: T | null, prev: T | null) => any | Promise<any>;
 
-function getNestedProperty(target: any, ...props: string[]) {
-  let result = target;
-  for (const currProp of props) {
-    result = result[currProp];
-  }
-  return result;
-}
-
 function isProxified<T extends object>(object: T) {
   return object instanceof ReactiveProxy || (object as any)["__is_proxy__"];
 }
@@ -66,12 +58,8 @@ export class ReactiveProxy<T> {
       return new ReactiveProxy(value, ...listeners);
     }
   }
-  get(...props: string[]) {
-    if (props.length) {
-      return getNestedProperty(this.value, ...props);
-    } else {
-      return this.value;
-    }
+  get() {
+    return this.value;
   }
   async set(value: T | null): Promise<void> {
     if (this.value !== value) {
@@ -134,9 +122,9 @@ export class ReactiveProxyStore {
     return this.store.entries();
   }
 
-  get<K extends string>(key: K, ...props: string[]) {
+  get<K extends string>(key: K) {
     if (this.tracing) this.traced.add(key);
-    return this.store.get(key)?.get(...props);
+    return this.store.get(key)?.get();
   }
 
   async set<K extends string>(key: K, value: any): Promise<void> {

@@ -130,7 +130,7 @@ describe("Mancha core module", () => {
       const fn = "++x.a";
       const result = await renderer.eval(fn);
       assert.equal(result, 2);
-      assert.equal(renderer.get("x", "a"), 2);
+      assert.equal(renderer.get("x")?.a, 2);
     });
 
     it("tracing works as expected", async () => {
@@ -203,7 +203,7 @@ describe("Mancha core module", () => {
       assert.equal(renderer.get("foobar"), "bar");
 
       // Set subproperty directly.
-      renderer.get("foo").bar = "baz";
+      renderer.get("foo")!!.bar = "baz";
       await new Promise((resolve) => setTimeout(resolve, 10));
       assert.equal(renderer.get("foobar"), "baz");
 

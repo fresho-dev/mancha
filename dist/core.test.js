@@ -116,11 +116,12 @@ describe("Mancha core module", () => {
             assert.equal(renderer.get("a"), 2);
         }));
         it("using implicit `this` and nested values", () => __awaiter(void 0, void 0, void 0, function* () {
+            var _a;
             const renderer = new MockRenderer({ x: { a: 1 } });
             const fn = "++x.a";
             const result = yield renderer.eval(fn);
             assert.equal(result, 2);
-            assert.equal(renderer.get("x", "a"), 2);
+            assert.equal((_a = renderer.get("x")) === null || _a === void 0 ? void 0 : _a.a, 2);
         }));
         it("tracing works as expected", () => __awaiter(void 0, void 0, void 0, function* () {
             const renderer = new MockRenderer({ a: 1, b: 2, c: 3 });

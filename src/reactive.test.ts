@@ -12,22 +12,16 @@ describe("Mancha reactive module", () => {
       assert.equal(proxy.get(), 1);
     });
 
-    it("get nested property", () => {
-      const proxy = ReactiveProxy.from({ a: 1, b: { c: 2 } });
-      assert.equal(proxy.get("a"), 1);
-      assert.equal(proxy.get("b", "c"), 2);
-    });
-
     it("set and watch nested property", async () => {
       const proxy = ReactiveProxy.from({ a: 1, b: 2 });
-      assert.equal(proxy.get("a"), 1);
-      assert.equal(proxy.get("b"), 2);
+      assert.equal(proxy.get()?.a, 1);
+      assert.equal(proxy.get()?.b, 2);
 
       let ops = 0;
       proxy.watch(() => ops++);
       await proxy.set({ a: 1, b: 3 });
       assert.ok(ops > 0);
-      assert.equal(proxy.get("b"), 3);
+      assert.equal(proxy.get()?.b, 3);
     });
 
     it("manually trigger listeners", async () => {
@@ -107,13 +101,13 @@ describe("Mancha reactive module", () => {
     it("get nested property", () => {
       const store = new ReactiveProxyStore({ a: 1, b: { c: 2 } });
       assert.equal(store.get("a"), 1);
-      assert.equal(store.get("b", "c"), 2);
+      assert.equal(store.get("b")?.c, 2);
     });
 
     it("watch nested property", async () => {
       const store = new ReactiveProxyStore({ x: { a: 1, b: 2 } });
-      assert.equal(store.get("x", "a"), 1);
-      assert.equal(store.get("x", "b"), 2);
+      assert.equal(store.get("x")?.a, 1);
+      assert.equal(store.get("x")?.b, 2);
 
       let ops = 0;
       store.watch(["x"], () => ops++);
@@ -121,13 +115,13 @@ describe("Mancha reactive module", () => {
       ops = 0;
       await store.set("x", { a: 1, b: 3 });
       assert.ok(ops > 0);
-      assert.equal(store.get("x", "b"), 3);
+      assert.equal(store.get("x")?.b, 3);
 
       ops = 0;
       store.get("x").b = 2;
       await new Promise((resolve) => setTimeout(resolve, 10));
       assert.ok(ops > 0);
-      assert.equal(store.get("x", "b"), 2);
+      assert.equal(store.get("x")?.b, 2);
     });
 
     it("manually trigger listeners", async () => {
