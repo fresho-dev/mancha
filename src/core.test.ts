@@ -600,7 +600,7 @@ describe("Mancha core module", () => {
 
       const renderer = new MockRenderer({
         items: [{ text: "foo" }, { text: "bar" }],
-        inner: `<span :data="{ item: { text: null, ...this.item } }">{{ item.text }}</span>`,
+        inner: `<span :data="{ item: { text: null, ...this.item } }" $text="item.text"></span>`,
       });
       await renderer.mount(fragment);
 

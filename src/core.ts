@@ -261,10 +261,13 @@ export abstract class IRenderer extends ReactiveProxyStore {
       // Remove the attribute from the node.
       elem.removeAttribute("$html");
 
+      // Obtain a subrenderer for the node contents.
+      const subrenderer = this.clone();
+
       // Compute the function's result and trace dependencies.
       const fn = async () => {
         const html = await this.eval(htmlAttr, { $elem: node }, params);
-        elem.replaceChildren(await this.renderString(html, params));
+        elem.replaceChildren(await subrenderer.renderString(html, params));
       };
       const [result, dependencies] = await this.trace(fn);
       this.log(params, "$html", htmlAttr, "=>", result);

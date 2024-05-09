@@ -512,7 +512,7 @@ describe("Mancha core module", () => {
             const fragment = jsdom_1.JSDOM.fragment(html);
             const renderer = new MockRenderer({
                 items: [{ text: "foo" }, { text: "bar" }],
-                inner: `<span :data="{ item: { text: null, ...this.item } }">{{ item.text }}</span>`,
+                inner: `<span :data="{ item: { text: null, ...this.item } }" $text="item.text"></span>`,
             });
             yield renderer.mount(fragment);
             const children = Array.from(fragment.childNodes).slice(1);
