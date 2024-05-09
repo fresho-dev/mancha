@@ -11,7 +11,9 @@ import {
 
 class MockRenderer extends IRenderer {
   parseHTML(content: string, params?: ParserParams): DocumentFragment {
-    throw new Error("Not implemented.");
+    return params?.isRoot
+      ? (new JSDOM(content).window.document as unknown as DocumentFragment)
+      : JSDOM.fragment(content);
   }
   serializeHTML(fragment: DocumentFragment): string {
     throw new Error("Not implemented.");
@@ -564,18 +566,8 @@ describe("Mancha core module", () => {
     });
   });
 
-  describe("shorthands", () => {
-    it("$text", async () => {
-      const html = `<div $text="foo" />`;
-      const fragment = JSDOM.fragment(html);
-      const node = fragment.firstElementChild as HTMLElement;
-
-      const renderer = new MockRenderer({ foo: "bar" });
-      await renderer.mount(fragment);
-      assert.equal(node.textContent, "bar");
-    });
-
-    it("$html", async () => {
+  describe("$html", () => {
+    it("render simple HTML", async () => {
       const html = `<div $html="foo" />`;
       const fragment = JSDOM.fragment(html);
       const node = fragment.firstElementChild as HTMLElement;
@@ -585,6 +577,33 @@ describe("Mancha core module", () => {
       await renderer.mount(fragment);
       assert.equal(node.innerHTML, inner);
       assert.equal(node.childElementCount, 1);
+    });
+
+    it("render contents of HTML", async () => {
+      const html = `<div $html="foo"></div>`;
+      const fragment = JSDOM.fragment(html);
+      const node = fragment.firstElementChild as HTMLElement;
+
+      const inner = "<div>{{ bar }}</div>";
+      const renderer = new MockRenderer({ foo: inner, bar: "Hello World" });
+      await renderer.mount(fragment);
+      assert.equal(node.firstChild?.textContent, "Hello World");
+
+      // Modify content and observe changes.
+      await renderer.set("bar", "Goodbye World");
+      assert.equal(node.firstChild?.textContent, "Goodbye World");
+    });
+  });
+
+  describe("shorthands", () => {
+    it("$text", async () => {
+      const html = `<div $text="foo" />`;
+      const fragment = JSDOM.fragment(html);
+      const node = fragment.firstElementChild as HTMLElement;
+
+      const renderer = new MockRenderer({ foo: "bar" });
+      await renderer.mount(fragment);
+      assert.equal(node.textContent, "bar");
     });
   });
 });

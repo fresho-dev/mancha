@@ -13,11 +13,18 @@ exports.IRenderer = exports.safeEval = exports.extractTextNodeKeys = exports.res
 const path = require("path-browserify");
 const reactive_1 = require("./reactive");
 const attributes_1 = require("./attributes");
-const KW_ATTRIBUTES = new Set([":bind", ":bind-events", ":data", ":for", ":show", "@watch"]);
+const KW_ATTRIBUTES = new Set([
+    ":bind",
+    ":bind-events",
+    ":data",
+    ":for",
+    ":show",
+    "@watch",
+    "$html",
+]);
 const ATTR_SHORTHANDS = {
-    // ":class": ":class-name",
     $text: "$text-content",
-    $html: "$inner-HTML",
+    // $html: "$inner-HTML",
 };
 function* traverse(root, skip = new Set()) {
     const explored = new Set();
@@ -214,6 +221,29 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
                 const fn = () => this.eval(watchAttr, { $elem: node }, params);
                 const [result, dependencies] = yield this.trace(fn);
                 this.log(params, "@watch", watchAttr, "=>", result);
+                // Watch for updates, and re-execute function if needed.
+                this.watch(dependencies, fn);
+            }
+        });
+    }
+    resolveHtmlAttribute(node, params) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            if (this.skipNodes.has(node))
+                return;
+            const elem = node;
+            const htmlAttr = (_a = elem.getAttribute) === null || _a === void 0 ? void 0 : _a.call(elem, "$html");
+            if (htmlAttr) {
+                this.log(params, "$html attribute found in:\n", node);
+                // Remove the attribute from the node.
+                elem.removeAttribute("$html");
+                // Compute the function's result and trace dependencies.
+                const fn = () => __awaiter(this, void 0, void 0, function* () {
+                    const html = yield this.eval(htmlAttr, { $elem: node }, params);
+                    elem.replaceChildren(yield this.renderString(html, params));
+                });
+                const [result, dependencies] = yield this.trace(fn);
+                this.log(params, "$html", htmlAttr, "=>", result);
                 // Watch for updates, and re-execute function if needed.
                 this.watch(dependencies, fn);
             }
@@ -435,12 +465,14 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
                 this.log(params, "Processing node:\n", node);
                 // Resolve the :data attribute in the node.
                 yield this.resolveDataAttribute(node, params);
+                // Resolve the :for attribute in the node.
+                yield this.resolveForAttribute(node, params);
+                // Resolve the :$html attribute in the node.
+                yield this.resolveHtmlAttribute(node, params);
                 // Resolve the :show attribute in the node.
                 yield this.resolveShowAttribute(node, params);
                 // Resolve the @watch attribute in the node.
                 yield this.resolveWatchAttribute(node, params);
-                // Resolve the :for attribute in the node.
-                yield this.resolveForAttribute(node, params);
                 // Resolve the :bind attribute in the node.
                 yield this.resolveBindAttribute(node, params);
                 // Resolve all $attributes in the node.

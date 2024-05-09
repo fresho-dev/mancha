@@ -14,7 +14,9 @@ const jsdom_1 = require("jsdom");
 const core_1 = require("./core");
 class MockRenderer extends core_1.IRenderer {
     parseHTML(content, params) {
-        throw new Error("Not implemented.");
+        return (params === null || params === void 0 ? void 0 : params.isRoot)
+            ? new jsdom_1.JSDOM(content).window.document
+            : jsdom_1.JSDOM.fragment(content);
     }
     serializeHTML(fragment) {
         throw new Error("Not implemented.");
@@ -480,16 +482,8 @@ describe("Mancha core module", () => {
             assert.notEqual(node.style.display, "none");
         }));
     });
-    describe("shorthands", () => {
-        it("$text", () => __awaiter(void 0, void 0, void 0, function* () {
-            const html = `<div $text="foo" />`;
-            const fragment = jsdom_1.JSDOM.fragment(html);
-            const node = fragment.firstElementChild;
-            const renderer = new MockRenderer({ foo: "bar" });
-            yield renderer.mount(fragment);
-            assert.equal(node.textContent, "bar");
-        }));
-        it("$html", () => __awaiter(void 0, void 0, void 0, function* () {
+    describe("$html", () => {
+        it("render simple HTML", () => __awaiter(void 0, void 0, void 0, function* () {
             const html = `<div $html="foo" />`;
             const fragment = jsdom_1.JSDOM.fragment(html);
             const node = fragment.firstElementChild;
@@ -498,6 +492,29 @@ describe("Mancha core module", () => {
             yield renderer.mount(fragment);
             assert.equal(node.innerHTML, inner);
             assert.equal(node.childElementCount, 1);
+        }));
+        it("render contents of HTML", () => __awaiter(void 0, void 0, void 0, function* () {
+            var _a, _b;
+            const html = `<div $html="foo"></div>`;
+            const fragment = jsdom_1.JSDOM.fragment(html);
+            const node = fragment.firstElementChild;
+            const inner = "<div>{{ bar }}</div>";
+            const renderer = new MockRenderer({ foo: inner, bar: "Hello World" });
+            yield renderer.mount(fragment);
+            assert.equal((_a = node.firstChild) === null || _a === void 0 ? void 0 : _a.textContent, "Hello World");
+            // Modify content and observe changes.
+            yield renderer.set("bar", "Goodbye World");
+            assert.equal((_b = node.firstChild) === null || _b === void 0 ? void 0 : _b.textContent, "Goodbye World");
+        }));
+    });
+    describe("shorthands", () => {
+        it("$text", () => __awaiter(void 0, void 0, void 0, function* () {
+            const html = `<div $text="foo" />`;
+            const fragment = jsdom_1.JSDOM.fragment(html);
+            const node = fragment.firstElementChild;
+            const renderer = new MockRenderer({ foo: "bar" });
+            yield renderer.mount(fragment);
+            assert.equal(node.textContent, "bar");
         }));
     });
 });

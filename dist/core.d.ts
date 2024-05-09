@@ -32,6 +32,7 @@ export declare abstract class IRenderer extends ReactiveProxyStore {
     resolveTextNode(node: ChildNode, params?: RendererParams): ReactiveProxy<any>[];
     resolveDataAttribute(node: ChildNode, params?: RendererParams): Promise<void>;
     resolveWatchAttribute(node: ChildNode, params?: RendererParams): Promise<void>;
+    resolveHtmlAttribute(node: ChildNode, params?: RendererParams): Promise<void>;
     resolvePropAttributes(node: ChildNode, params?: RendererParams): Promise<void>;
     resolveAttrAttributes(node: ChildNode, params?: RendererParams): Promise<void>;
     resolveEventAttributes(node: ChildNode, params?: RendererParams): Promise<void>;

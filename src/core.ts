@@ -2,11 +2,18 @@ import * as path from "path-browserify";
 import { ReactiveProxy, ReactiveProxyStore, proxify } from "./reactive";
 import { attributeNameToCamelCase, decodeHtmlAttrib } from "./attributes";
 
-const KW_ATTRIBUTES = new Set([":bind", ":bind-events", ":data", ":for", ":show", "@watch"]);
+const KW_ATTRIBUTES = new Set([
+  ":bind",
+  ":bind-events",
+  ":data",
+  ":for",
+  ":show",
+  "@watch",
+  "$html",
+]);
 const ATTR_SHORTHANDS: { [key: string]: string } = {
-  // ":class": ":class-name",
   $text: "$text-content",
-  $html: "$inner-HTML",
+  // $html: "$inner-HTML",
 };
 
 export function* traverse(
@@ -238,6 +245,29 @@ export abstract class IRenderer extends ReactiveProxyStore {
       const fn = () => this.eval(watchAttr, { $elem: node }, params);
       const [result, dependencies] = await this.trace(fn);
       this.log(params, "@watch", watchAttr, "=>", result);
+
+      // Watch for updates, and re-execute function if needed.
+      this.watch(dependencies, fn);
+    }
+  }
+
+  async resolveHtmlAttribute(node: ChildNode, params?: RendererParams) {
+    if (this.skipNodes.has(node)) return;
+    const elem = node as Element;
+    const htmlAttr = elem.getAttribute?.("$html");
+    if (htmlAttr) {
+      this.log(params, "$html attribute found in:\n", node);
+
+      // Remove the attribute from the node.
+      elem.removeAttribute("$html");
+
+      // Compute the function's result and trace dependencies.
+      const fn = async () => {
+        const html = await this.eval(htmlAttr, { $elem: node }, params);
+        elem.replaceChildren(await this.renderString(html, params));
+      };
+      const [result, dependencies] = await this.trace(fn);
+      this.log(params, "$html", htmlAttr, "=>", result);
 
       // Watch for updates, and re-execute function if needed.
       this.watch(dependencies, fn);
@@ -485,12 +515,14 @@ export abstract class IRenderer extends ReactiveProxyStore {
       this.log(params, "Processing node:\n", node);
       // Resolve the :data attribute in the node.
       await this.resolveDataAttribute(node, params);
+      // Resolve the :for attribute in the node.
+      await this.resolveForAttribute(node, params);
+      // Resolve the :$html attribute in the node.
+      await this.resolveHtmlAttribute(node, params);
       // Resolve the :show attribute in the node.
       await this.resolveShowAttribute(node, params);
       // Resolve the @watch attribute in the node.
       await this.resolveWatchAttribute(node, params);
-      // Resolve the :for attribute in the node.
-      await this.resolveForAttribute(node, params);
       // Resolve the :bind attribute in the node.
       await this.resolveBindAttribute(node, params);
       // Resolve all $attributes in the node.
