@@ -593,6 +593,22 @@ describe("Mancha core module", () => {
       await renderer.set("bar", "Goodbye World");
       assert.equal(node.firstChild?.textContent, "Goodbye World");
     });
+
+    it("render HTML within a :for", async () => {
+      const html = `<div :for="item in items" $html="inner"></div>`;
+      const fragment = JSDOM.fragment(html);
+
+      const renderer = new MockRenderer({
+        items: [{ text: "foo" }, { text: "bar" }],
+        inner: `<span :data="{ item: { text: null, ...this.item } }">{{ item.text }}</span>`,
+      });
+      await renderer.mount(fragment);
+
+      const children = Array.from(fragment.childNodes).slice(1);
+      assert.equal(children.length, 2);
+      assert.equal(children[0].firstChild?.textContent, "foo");
+      assert.equal(children[1].firstChild?.textContent, "bar");
+    });
   });
 
   describe("shorthands", () => {

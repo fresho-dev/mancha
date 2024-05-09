@@ -506,6 +506,20 @@ describe("Mancha core module", () => {
             yield renderer.set("bar", "Goodbye World");
             assert.equal((_b = node.firstChild) === null || _b === void 0 ? void 0 : _b.textContent, "Goodbye World");
         }));
+        it("render HTML within a :for", () => __awaiter(void 0, void 0, void 0, function* () {
+            var _c, _d;
+            const html = `<div :for="item in items" $html="inner"></div>`;
+            const fragment = jsdom_1.JSDOM.fragment(html);
+            const renderer = new MockRenderer({
+                items: [{ text: "foo" }, { text: "bar" }],
+                inner: `<span :data="{ item: { text: null, ...this.item } }">{{ item.text }}</span>`,
+            });
+            yield renderer.mount(fragment);
+            const children = Array.from(fragment.childNodes).slice(1);
+            assert.equal(children.length, 2);
+            assert.equal((_c = children[0].firstChild) === null || _c === void 0 ? void 0 : _c.textContent, "foo");
+            assert.equal((_d = children[1].firstChild) === null || _d === void 0 ? void 0 : _d.textContent, "bar");
+        }));
     });
     describe("shorthands", () => {
         it("$text", () => __awaiter(void 0, void 0, void 0, function* () {
