@@ -57,19 +57,9 @@ export function resolvePath(fpath: string): string {
   }
 }
 
-export function extractTextNodeKeys(content: string): [string, string, string[]][] {
-  const matcher = new RegExp(/{{ ([\w\.]+) }}/gm);
-  return Array.from(content.matchAll(matcher)).map((match) => {
-    const orig = match[0];
-    let key = match[1];
-    const props: string[] = [];
-    if (key.includes(".")) {
-      const parts = key.split(".");
-      key = parts[0];
-      props.push(...parts.slice(1));
-    }
-    return [orig, key, props];
-  });
+export function extractStringExpressions(content: string): string[] {
+  const matcher = new RegExp(/{{ ([^}]+) }}/gm);
+  return Array.from(content.matchAll(matcher)).map((match) => match[1]);
 }
 
 export function safeEval(
@@ -186,35 +176,28 @@ export abstract class IRenderer extends ReactiveProxyStore {
     }
   }
 
-  resolveTextNode(node: ChildNode, params?: RendererParams): ReactiveProxy<any>[] {
-    if (node.nodeType !== 3) return [];
+  async resolveTextNodeExpressions(node: ChildNode, params?: RendererParams) {
+    if (node.nodeType !== 3) return;
     const content = node.nodeValue || "";
 
-    // Identify all the context variables found in the content.
-    const keys = extractTextNodeKeys(content).filter(([, key]) => this.store.has(key));
+    // Identify all the expressions found in the content.
+    const expressions = extractStringExpressions(content);
 
-    // Early exit: no keys found in content.
-    if (keys.length === 0) return [];
-    this.log(params, keys, "keys found in node:", node);
-
-    // Apply the context variables to the content, iteratively.
-    const updateNode = () => {
+    const fn = async () => {
       let updatedContent = content;
-      keys.forEach(([match, key, props]) => {
-        updatedContent = updatedContent.replace(match, String(this.get(key, ...props) ?? ""));
-      });
+      for (const expr of expressions) {
+        const result = await this.eval(expr, { $elem: node }, params);
+        updatedContent = updatedContent.replace(`{{ ${expr} }}`, String(result));
+      }
       node.nodeValue = updatedContent;
     };
 
     // Update the content now, and set up the listeners for future updates.
-    updateNode();
-    this.watch(
-      keys.map(([, key]) => key),
-      updateNode
-    );
+    const [result, dependencies] = await this.trace(fn);
+    this.log(params, content, "=>", result);
 
-    // Return all the proxies found in the content.
-    return keys.map(([, key]) => this.store.get(key)!!);
+    // Watch for updates, and re-execute function if needed.
+    this.watch(dependencies, fn);
   }
 
   async resolveDataAttribute(node: ChildNode, params?: RendererParams) {
@@ -499,8 +482,7 @@ export abstract class IRenderer extends ReactiveProxyStore {
 
       // Watch the dependencies, and re-evaluate the expression.
       this.watch(dependencies, async () => {
-        if ((await fn()) && elem.style.display === "none") elem.style.display = display;
-        else if (elem.style.display !== "none") elem.style.display = "none";
+        elem.style.display = (await fn()) ? display : "none";
       });
     }
   }
@@ -535,7 +517,7 @@ export abstract class IRenderer extends ReactiveProxyStore {
       // Resolve all @attributes in the node.
       await this.resolveEventAttributes(node, params);
       // Replace all the {{ variables }} in the text.
-      this.resolveTextNode(node, params);
+      await this.resolveTextNodeExpressions(node, params);
     }
 
     return this;

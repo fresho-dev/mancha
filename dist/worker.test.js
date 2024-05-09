@@ -53,28 +53,32 @@ describe("Mancha worker module", () => {
             assert.equal(expected, serialized);
         });
     });
-    describe("applyContext", () => {
-        it("set, update and get context string value", () => {
-            const renderer = new worker_1.RendererImpl();
+    describe("resolveTextNodeExpressions", () => {
+        it("set, update and get context string value", () => __awaiter(void 0, void 0, void 0, function* () {
+            const renderer = new worker_1.RendererImpl({ name: null });
             const fragment = jsdom_1.JSDOM.fragment("<span>Hello {{ name }}</span>");
             const textNode = Array.from((0, core_1.traverse)(fragment)).filter((node) => node.nodeType === 3)[0];
             // Set the initial value and render node.
-            renderer.set("name", "World");
-            renderer.resolveTextNode(textNode);
+            yield renderer.set("name", "World");
+            yield renderer.resolveTextNodeExpressions(textNode);
             assert.equal(textNode.nodeValue, "Hello World");
             // Update the value and observe the change.
-            renderer.set("name", "Stranger");
+            yield renderer.set("name", "Stranger");
+            yield new Promise((resolve) => setTimeout(resolve, 10));
             assert.equal(textNode.nodeValue, "Hello Stranger");
-        });
-        it("sets object, gets object property", () => {
+        }));
+        it("sets object, gets object property", () => __awaiter(void 0, void 0, void 0, function* () {
             const renderer = new worker_1.RendererImpl();
             const fragment = jsdom_1.JSDOM.fragment("<span>Hello {{ user.name }}</span>");
             const textNode = Array.from((0, core_1.traverse)(fragment)).filter((node) => node.nodeType === 3)[0];
             // Set the initial value and render node.
-            renderer.set("user", { name: "World" });
-            renderer.resolveTextNode(textNode);
+            yield renderer.set("user", { name: "World" });
+            yield renderer.resolveTextNodeExpressions(textNode);
             assert.equal(textNode.nodeValue, "Hello World");
-        });
+            // Update the value and observe the change.
+            yield renderer.set("user", { name: "Stranger" });
+            assert.equal(textNode.nodeValue, "Hello Stranger");
+        }));
     });
     describe("mount", () => {
         it("set, update and get context string value", () => __awaiter(void 0, void 0, void 0, function* () {
@@ -82,11 +86,11 @@ describe("Mancha worker module", () => {
             const fragment = jsdom_1.JSDOM.fragment("<span>Hello {{ name }}</span>");
             const textNode = Array.from((0, core_1.traverse)(fragment)).filter((node) => node.nodeType === 3)[0];
             // Set the initial value and render node.
-            renderer.set("name", "World");
+            yield renderer.set("name", "World");
             yield renderer.mount(fragment);
             assert.equal(textNode.nodeValue, "Hello World");
             // Update the value and observe the change.
-            renderer.set("name", "Stranger");
+            yield renderer.set("name", "Stranger");
             assert.equal(textNode.nodeValue, "Hello Stranger");
         }));
     });
@@ -95,12 +99,12 @@ describe("Mancha worker module", () => {
             const renderer = new worker_1.RendererImpl();
             const fragment = jsdom_1.JSDOM.fragment("<span>Hello {{ name }}</span>");
             const textNode = Array.from((0, core_1.traverse)(fragment)).filter((node) => node.nodeType === 3)[0];
-            renderer.set("name", "World");
+            yield renderer.set("name", "World");
             yield renderer.mount(fragment);
             assert.equal(textNode.nodeValue, "Hello World");
             // Listen to the next update.
             const updatePromise = new Promise((resolve) => renderer.watch(["name"], (name) => resolve(name)));
-            renderer.set("name", "Stranger");
+            yield renderer.set("name", "Stranger");
             const updatedValue = yield updatePromise;
             assert.equal(updatedValue, "Stranger");
         }));
@@ -108,13 +112,13 @@ describe("Mancha worker module", () => {
             const renderer = new worker_1.RendererImpl();
             const fragment = jsdom_1.JSDOM.fragment("<span>Hello {{ name }}, it's {{ weather }}</span>");
             const textNode = Array.from((0, core_1.traverse)(fragment)).filter((node) => node.nodeType === 3)[0];
-            renderer.set("name", "World");
-            renderer.set("weather", "sunny");
+            yield renderer.set("name", "World");
+            yield renderer.set("weather", "sunny");
             yield renderer.mount(fragment);
             assert.equal(textNode.nodeValue, "Hello World, it's sunny");
             // Listen to the next update.
             const updatePromise = new Promise((resolve) => renderer.watch(["name", "weather"], (...values) => resolve([...values])));
-            renderer.set("name", "Stranger");
+            yield renderer.set("name", "Stranger");
             const [currName, currWeather] = yield updatePromise;
             assert.equal(currName, "Stranger");
             assert.equal(currWeather, "sunny");

@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.IRenderer = exports.safeEval = exports.extractTextNodeKeys = exports.resolvePath = exports.folderPath = exports.traverse = void 0;
+exports.IRenderer = exports.safeEval = exports.extractStringExpressions = exports.resolvePath = exports.folderPath = exports.traverse = void 0;
 const path = require("path-browserify");
 const reactive_1 = require("./reactive");
 const attributes_1 = require("./attributes");
@@ -64,21 +64,11 @@ function resolvePath(fpath) {
     }
 }
 exports.resolvePath = resolvePath;
-function extractTextNodeKeys(content) {
-    const matcher = new RegExp(/{{ ([\w\.]+) }}/gm);
-    return Array.from(content.matchAll(matcher)).map((match) => {
-        const orig = match[0];
-        let key = match[1];
-        const props = [];
-        if (key.includes(".")) {
-            const parts = key.split(".");
-            key = parts[0];
-            props.push(...parts.slice(1));
-        }
-        return [orig, key, props];
-    });
+function extractStringExpressions(content) {
+    const matcher = new RegExp(/{{ ([^}]+) }}/gm);
+    return Array.from(content.matchAll(matcher)).map((match) => match[1]);
 }
-exports.extractTextNodeKeys = extractTextNodeKeys;
+exports.extractStringExpressions = extractStringExpressions;
 function safeEval(code, context, args = {}) {
     const inner = `with (this) { return (async () => (${code}))(); }`;
     return new Function(...Object.keys(args), inner).call(context, ...Object.values(args));
@@ -165,30 +155,27 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
             }
         });
     }
-    resolveTextNode(node, params) {
-        if (node.nodeType !== 3)
-            return [];
-        const content = node.nodeValue || "";
-        // Identify all the context variables found in the content.
-        const keys = extractTextNodeKeys(content).filter(([, key]) => this.store.has(key));
-        // Early exit: no keys found in content.
-        if (keys.length === 0)
-            return [];
-        this.log(params, keys, "keys found in node:", node);
-        // Apply the context variables to the content, iteratively.
-        const updateNode = () => {
-            let updatedContent = content;
-            keys.forEach(([match, key, props]) => {
-                var _a;
-                updatedContent = updatedContent.replace(match, String((_a = this.get(key, ...props)) !== null && _a !== void 0 ? _a : ""));
+    resolveTextNodeExpressions(node, params) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (node.nodeType !== 3)
+                return;
+            const content = node.nodeValue || "";
+            // Identify all the expressions found in the content.
+            const expressions = extractStringExpressions(content);
+            const fn = () => __awaiter(this, void 0, void 0, function* () {
+                let updatedContent = content;
+                for (const expr of expressions) {
+                    const result = yield this.eval(expr, { $elem: node }, params);
+                    updatedContent = updatedContent.replace(`{{ ${expr} }}`, String(result));
+                }
+                node.nodeValue = updatedContent;
             });
-            node.nodeValue = updatedContent;
-        };
-        // Update the content now, and set up the listeners for future updates.
-        updateNode();
-        this.watch(keys.map(([, key]) => key), updateNode);
-        // Return all the proxies found in the content.
-        return keys.map(([, key]) => this.store.get(key));
+            // Update the content now, and set up the listeners for future updates.
+            const [result, dependencies] = yield this.trace(fn);
+            this.log(params, content, "=>", result);
+            // Watch for updates, and re-execute function if needed.
+            this.watch(dependencies, fn);
+        });
     }
     resolveDataAttribute(node, params) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -449,10 +436,7 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
                     elem.style.display = "none";
                 // Watch the dependencies, and re-evaluate the expression.
                 this.watch(dependencies, () => __awaiter(this, void 0, void 0, function* () {
-                    if ((yield fn()) && elem.style.display === "none")
-                        elem.style.display = display;
-                    else if (elem.style.display !== "none")
-                        elem.style.display = "none";
+                    elem.style.display = (yield fn()) ? display : "none";
                 }));
             }
         });
@@ -484,7 +468,7 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
                 // Resolve all @attributes in the node.
                 yield this.resolveEventAttributes(node, params);
                 // Replace all the {{ variables }} in the text.
-                this.resolveTextNode(node, params);
+                yield this.resolveTextNodeExpressions(node, params);
             }
             return this;
         });

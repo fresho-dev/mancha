@@ -36,7 +36,7 @@ export declare class ReactiveProxyStore {
     update(data: {
         [key: string]: any;
     }): Promise<void>;
-    watch(keys: string | string[], listener: (...value: any[]) => void): void;
+    watch(keys: string | string[], listener: (...value: any[]) => any): void;
     trigger(keys: string | string[]): Promise<void>;
     trace<T>(callback: () => T | Promise<T>): Promise<[T, string[]]>;
     /**

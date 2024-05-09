@@ -88,8 +88,8 @@ class ReactiveProxy {
         return __awaiter(this, void 0, void 0, function* () {
             if (this.value !== value) {
                 const prev = this.value;
+                // Convert value to a proxy if it's an object.
                 if (value != null && typeof value === "object") {
-                    // Convert value to a proxy if it's an object.
                     value = proxifyObject(value, () => this.trigger());
                 }
                 this.value = value;
@@ -140,8 +140,6 @@ class ReactiveProxyStore {
         this.tracing = false;
         this.traced = new Set();
         this.lock = Promise.resolve();
-        // this.update(data || {});
-        // Object.entries(data || {}).forEach(([key, value]) => this.set(key, value));
         for (const [key, value] of Object.entries(data || {})) {
             this.store.set(key, ReactiveProxy.from(this.wrapFnValue(value)));
         }

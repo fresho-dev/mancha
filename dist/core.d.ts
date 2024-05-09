@@ -1,9 +1,9 @@
 /// <reference types="node" />
-import { ReactiveProxy, ReactiveProxyStore } from "./reactive";
+import { ReactiveProxyStore } from "./reactive";
 export declare function traverse(root: Node | DocumentFragment | Document, skip?: Set<Node>): Generator<ChildNode>;
 export declare function folderPath(fpath: string): string;
 export declare function resolvePath(fpath: string): string;
-export declare function extractTextNodeKeys(content: string): [string, string, string[]][];
+export declare function extractStringExpressions(content: string): string[];
 export declare function safeEval(code: string, context: any, args?: {
     [key: string]: any;
 }): Promise<any>;
@@ -29,7 +29,7 @@ export declare abstract class IRenderer extends ReactiveProxyStore {
         [key: string]: any;
     }, params?: RendererParams): Promise<any>;
     resolveIncludes(root: Document | DocumentFragment | Node, params?: RendererParams): Promise<IRenderer>;
-    resolveTextNode(node: ChildNode, params?: RendererParams): ReactiveProxy<any>[];
+    resolveTextNodeExpressions(node: ChildNode, params?: RendererParams): Promise<void>;
     resolveDataAttribute(node: ChildNode, params?: RendererParams): Promise<void>;
     resolveWatchAttribute(node: ChildNode, params?: RendererParams): Promise<void>;
     resolveHtmlAttribute(node: ChildNode, params?: RendererParams): Promise<void>;

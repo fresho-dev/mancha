@@ -162,7 +162,7 @@ export class ReactiveProxyStore {
     }
   }
 
-  watch(keys: string | string[], listener: (...value: any[]) => void): void {
+  watch(keys: string | string[], listener: (...value: any[]) => any): void {
     keys = Array.isArray(keys) ? keys : [keys];
     keys.forEach((key) =>
       this.store.get(key)!!.watch(() => {

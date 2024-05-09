@@ -1,5 +1,4 @@
 import { folderPath, IRenderer, ParserParams, RendererParams } from "./core";
-import { proxify } from "./reactive";
 
 class RendererImpl extends IRenderer {
   protected readonly fsroot: string = folderPath(self.location.href);
@@ -23,7 +22,7 @@ class RendererImpl extends IRenderer {
   }
 }
 
-const Mancha = proxify(new RendererImpl());
+const Mancha = new RendererImpl();
 (self as any)["Mancha"] = Mancha;
 const currentScript = self.document?.currentScript;
 

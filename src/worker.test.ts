@@ -48,31 +48,36 @@ describe("Mancha worker module", () => {
     });
   });
 
-  describe("applyContext", () => {
-    it("set, update and get context string value", () => {
-      const renderer = new RendererImpl();
+  describe("resolveTextNodeExpressions", () => {
+    it("set, update and get context string value", async () => {
+      const renderer = new RendererImpl({ name: null });
       const fragment = JSDOM.fragment("<span>Hello {{ name }}</span>");
       const textNode = Array.from(traverse(fragment)).filter((node) => node.nodeType === 3)[0];
 
       // Set the initial value and render node.
-      renderer.set("name", "World");
-      renderer.resolveTextNode(textNode);
+      await renderer.set("name", "World");
+      await renderer.resolveTextNodeExpressions(textNode);
       assert.equal(textNode.nodeValue, "Hello World");
 
       // Update the value and observe the change.
-      renderer.set("name", "Stranger");
+      await renderer.set("name", "Stranger");
+      await new Promise((resolve) => setTimeout(resolve, 10));
       assert.equal(textNode.nodeValue, "Hello Stranger");
     });
 
-    it("sets object, gets object property", () => {
+    it("sets object, gets object property", async () => {
       const renderer = new RendererImpl();
       const fragment = JSDOM.fragment("<span>Hello {{ user.name }}</span>");
       const textNode = Array.from(traverse(fragment)).filter((node) => node.nodeType === 3)[0];
 
       // Set the initial value and render node.
-      renderer.set("user", { name: "World" });
-      renderer.resolveTextNode(textNode);
+      await renderer.set("user", { name: "World" });
+      await renderer.resolveTextNodeExpressions(textNode);
       assert.equal(textNode.nodeValue, "Hello World");
+
+      // Update the value and observe the change.
+      await renderer.set("user", { name: "Stranger" });
+      assert.equal(textNode.nodeValue, "Hello Stranger");
     });
   });
 
@@ -83,12 +88,12 @@ describe("Mancha worker module", () => {
       const textNode = Array.from(traverse(fragment)).filter((node) => node.nodeType === 3)[0];
 
       // Set the initial value and render node.
-      renderer.set("name", "World");
+      await renderer.set("name", "World");
       await renderer.mount(fragment);
       assert.equal(textNode.nodeValue, "Hello World");
 
       // Update the value and observe the change.
-      renderer.set("name", "Stranger");
+      await renderer.set("name", "Stranger");
       assert.equal(textNode.nodeValue, "Hello Stranger");
     });
   });
@@ -99,7 +104,7 @@ describe("Mancha worker module", () => {
       const fragment = JSDOM.fragment("<span>Hello {{ name }}</span>");
       const textNode = Array.from(traverse(fragment)).filter((node) => node.nodeType === 3)[0];
 
-      renderer.set("name", "World");
+      await renderer.set("name", "World");
       await renderer.mount(fragment);
       assert.equal(textNode.nodeValue, "Hello World");
 
@@ -108,7 +113,7 @@ describe("Mancha worker module", () => {
         renderer.watch(["name"], (name) => resolve(name))
       );
 
-      renderer.set("name", "Stranger");
+      await renderer.set("name", "Stranger");
       const updatedValue = await updatePromise;
       assert.equal(updatedValue, "Stranger");
     });
@@ -118,8 +123,8 @@ describe("Mancha worker module", () => {
       const fragment = JSDOM.fragment("<span>Hello {{ name }}, it's {{ weather }}</span>");
       const textNode = Array.from(traverse(fragment)).filter((node) => node.nodeType === 3)[0];
 
-      renderer.set("name", "World");
-      renderer.set("weather", "sunny");
+      await renderer.set("name", "World");
+      await renderer.set("weather", "sunny");
       await renderer.mount(fragment);
       assert.equal(textNode.nodeValue, "Hello World, it's sunny");
 
@@ -128,7 +133,7 @@ describe("Mancha worker module", () => {
         renderer.watch(["name", "weather"], (...values) => resolve([...values]))
       );
 
-      renderer.set("name", "Stranger");
+      await renderer.set("name", "Stranger");
       const [currName, currWeather] = await updatePromise;
       assert.equal(currName, "Stranger");
       assert.equal(currWeather, "sunny");

@@ -63,60 +63,20 @@ describe("Mancha core module", () => {
             assert.equal(nodes.length, 2);
         });
     });
-    describe("extractNodeTextVariables", () => {
-        it("single variable", () => {
-            const content = "Hello {{ name }}";
-            const variables = (0, core_1.extractTextNodeKeys)(content);
-            assert.equal(variables.length, 1);
-            assert.equal(variables[0][0], "{{ name }}");
-            assert.equal(variables[0][1], "name");
-            assert.equal(variables[0][2].length, 0);
-        });
-        it("multiple variables", () => {
-            const content = "Hello {{ name }}, today is {{ weather }}";
-            const variables = (0, core_1.extractTextNodeKeys)(content);
-            assert.equal(variables.length, 2);
-            assert.equal(variables[0][0], "{{ name }}");
-            assert.equal(variables[0][1], "name");
-            assert.equal(variables[0][2].length, 0);
-            assert.equal(variables[1][0], "{{ weather }}");
-            assert.equal(variables[1][1], "weather");
-            assert.equal(variables[1][2].length, 0);
-        });
-        it("variable with single property", () => {
-            const content = "Hello {{ user.name }}";
-            const variables = (0, core_1.extractTextNodeKeys)(content);
-            assert.equal(variables.length, 1);
-            assert.equal(variables[0][0], "{{ user.name }}");
-            assert.equal(variables[0][1], "user");
-            assert.equal(variables[0][2].length, 1);
-            assert.equal(variables[0][2][0], "name");
-        });
-        it("variable with nested properties", () => {
-            const content = "Hello {{ user.name.first }}";
-            const variables = (0, core_1.extractTextNodeKeys)(content);
-            assert.equal(variables.length, 1);
-            assert.equal(variables[0][0], "{{ user.name.first }}");
-            assert.equal(variables[0][1], "user");
-            assert.equal(variables[0][2].length, 2);
-            assert.equal(variables[0][2][0], "name");
-            assert.equal(variables[0][2][1], "first");
-        });
-    });
-    describe("resolveTextNode", () => {
-        it("resolves single variable", () => {
+    describe("resolveTextNodeExpressions", () => {
+        it("resolves single variable", () => __awaiter(void 0, void 0, void 0, function* () {
             const content = "Hello {{ name }}";
             const renderer = new MockRenderer({ name: "World" });
             const fragment = jsdom_1.JSDOM.fragment(content);
             const textNode = fragment.childNodes[0];
             assert.equal(textNode.textContent, "Hello {{ name }}");
-            const proxies = renderer.resolveTextNode(textNode);
+            yield renderer.resolveTextNodeExpressions(textNode);
             assert.equal(textNode.textContent, "Hello World");
-            proxies[0].set("Stranger");
+            yield renderer.set("name", "Stranger");
             assert.equal(textNode.textContent, "Hello Stranger");
-            renderer.set("name", "John");
+            yield renderer.set("name", "John");
             assert.equal(textNode.textContent, "Hello John");
-        });
+        }));
     });
     describe("safeEval", () => {
         it("simple sum", () => __awaiter(void 0, void 0, void 0, function* () {
