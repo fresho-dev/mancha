@@ -422,6 +422,10 @@ export abstract class IRenderer extends ReactiveProxyStore {
       const defaultEvents = ["change", "input"];
       const updateEvents = elem.getAttribute?.(":bind-events")?.split(",") || defaultEvents;
 
+      // Remove the processed attributes from node.
+      elem.removeAttribute(":bind");
+      elem.removeAttribute(":bind-events");
+
       // If the element is of type checkbox, we bind to the "checked" property.
       const prop = elem.getAttribute("type") === "checkbox" ? "checked" : "value";
 
@@ -438,10 +442,6 @@ export abstract class IRenderer extends ReactiveProxyStore {
 
       // Watch for updates in the store.
       this.watch([bindKey], () => ((elem as any)[prop] = this.get(bindKey)));
-
-      // Remove the processed attributes from node.
-      elem.removeAttribute(":bind");
-      elem.removeAttribute(":bind-events");
     }
   }
 
@@ -450,13 +450,18 @@ export abstract class IRenderer extends ReactiveProxyStore {
     const elem = node as HTMLElement;
     const showExpr = elem.getAttribute?.(":show");
     if (showExpr) {
+      this.log(params, ":show attribute found in:\n", node);
+
+      // Remove the processed attributes from node.
+      elem.removeAttribute(":show");
+
       // Compute the function's result and trace dependencies.
       const fn = () => this.eval(showExpr, { $elem: node }, params);
       const [result, dependencies] = await this.trace(fn);
       this.log(params, ":show", showExpr, "=>", result, `[${dependencies}]`);
 
       // If the result is false, set the node's display to none.
-      const display = elem.style.display;
+      const display = elem.style.display === "none" ? "" : elem.style.display;
       if (!result) elem.style.display = "none";
 
       // Watch the dependencies, and re-evaluate the expression.
@@ -464,9 +469,6 @@ export abstract class IRenderer extends ReactiveProxyStore {
         if ((await fn()) && elem.style.display === "none") elem.style.display = display;
         else if (elem.style.display !== "none") elem.style.display = "none";
       });
-
-      // Remove the processed attributes from node.
-      elem.removeAttribute(":show");
     }
   }
 

@@ -377,6 +377,9 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
                 // The change events we listen for can be overriden by user.
                 const defaultEvents = ["change", "input"];
                 const updateEvents = ((_c = (_b = elem.getAttribute) === null || _b === void 0 ? void 0 : _b.call(elem, ":bind-events")) === null || _c === void 0 ? void 0 : _c.split(",")) || defaultEvents;
+                // Remove the processed attributes from node.
+                elem.removeAttribute(":bind");
+                elem.removeAttribute(":bind-events");
                 // If the element is of type checkbox, we bind to the "checked" property.
                 const prop = elem.getAttribute("type") === "checkbox" ? "checked" : "value";
                 // If the key is not found in our store, create it and initialize it with the node's value.
@@ -390,9 +393,6 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
                 }
                 // Watch for updates in the store.
                 this.watch([bindKey], () => (elem[prop] = this.get(bindKey)));
-                // Remove the processed attributes from node.
-                elem.removeAttribute(":bind");
-                elem.removeAttribute(":bind-events");
             }
         });
     }
@@ -404,12 +404,15 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
             const elem = node;
             const showExpr = (_a = elem.getAttribute) === null || _a === void 0 ? void 0 : _a.call(elem, ":show");
             if (showExpr) {
+                this.log(params, ":show attribute found in:\n", node);
+                // Remove the processed attributes from node.
+                elem.removeAttribute(":show");
                 // Compute the function's result and trace dependencies.
                 const fn = () => this.eval(showExpr, { $elem: node }, params);
                 const [result, dependencies] = yield this.trace(fn);
                 this.log(params, ":show", showExpr, "=>", result, `[${dependencies}]`);
                 // If the result is false, set the node's display to none.
-                const display = elem.style.display;
+                const display = elem.style.display === "none" ? "" : elem.style.display;
                 if (!result)
                     elem.style.display = "none";
                 // Watch the dependencies, and re-evaluate the expression.
@@ -419,8 +422,6 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
                     else if (elem.style.display !== "none")
                         elem.style.display = "none";
                 }));
-                // Remove the processed attributes from node.
-                elem.removeAttribute(":show");
             }
         });
     }
