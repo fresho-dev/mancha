@@ -372,7 +372,7 @@ export abstract class IRenderer extends ReactiveProxyStore {
               // Remove all the previously added children, if any.
               children.splice(0, children.length).forEach((child) => {
                 parent.removeChild(child);
-                // this.skipNodes.delete(child);
+                this.skipNodes.delete(child);
               });
 
               // Loop through the container items in reverse, because we insert from back to front.
@@ -447,22 +447,22 @@ export abstract class IRenderer extends ReactiveProxyStore {
 
   async resolveShowAttribute(node: ChildNode, params?: RendererParams) {
     if (this.skipNodes.has(node)) return;
-    const elem = node as Element;
-    const showExpr = (node as Element).getAttribute?.(":show");
+    const elem = node as HTMLElement;
+    const showExpr = elem.getAttribute?.(":show");
     if (showExpr) {
       // Compute the function's result and trace dependencies.
       const fn = () => this.eval(showExpr, { $elem: node }, params);
       const [result, dependencies] = await this.trace(fn);
       this.log(params, ":show", showExpr, "=>", result, `[${dependencies}]`);
 
-      // If the result is false, remove the element from the DOM.
-      const parent = node.parentNode!!;
-      if (!result) parent.removeChild(node);
+      // If the result is false, set the node's display to none.
+      const display = elem.style.display;
+      if (!result) elem.style.display = "none";
 
       // Watch the dependencies, and re-evaluate the expression.
       this.watch(dependencies, async () => {
-        if ((await fn()) && node.parentNode !== parent) parent.append(node);
-        else if (Array.from(parent.childNodes).includes(node)) node.remove();
+        if ((await fn()) && elem.style.display === "none") elem.style.display = display;
+        else if (elem.style.display !== "none") elem.style.display = "none";
       });
 
       // Remove the processed attributes from node.

@@ -335,7 +335,7 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
                         // Remove all the previously added children, if any.
                         children.splice(0, children.length).forEach((child) => {
                             parent.removeChild(child);
-                            // this.skipNodes.delete(child);
+                            this.skipNodes.delete(child);
                         });
                         // Loop through the container items in reverse, because we insert from back to front.
                         for (const item of items.slice(0).reverse()) {
@@ -398,26 +398,26 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
     }
     resolveShowAttribute(node, params) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b;
+            var _a;
             if (this.skipNodes.has(node))
                 return;
             const elem = node;
-            const showExpr = (_b = (_a = node).getAttribute) === null || _b === void 0 ? void 0 : _b.call(_a, ":show");
+            const showExpr = (_a = elem.getAttribute) === null || _a === void 0 ? void 0 : _a.call(elem, ":show");
             if (showExpr) {
                 // Compute the function's result and trace dependencies.
                 const fn = () => this.eval(showExpr, { $elem: node }, params);
                 const [result, dependencies] = yield this.trace(fn);
                 this.log(params, ":show", showExpr, "=>", result, `[${dependencies}]`);
-                // If the result is false, remove the element from the DOM.
-                const parent = node.parentNode;
+                // If the result is false, set the node's display to none.
+                const display = elem.style.display;
                 if (!result)
-                    parent.removeChild(node);
+                    elem.style.display = "none";
                 // Watch the dependencies, and re-evaluate the expression.
                 this.watch(dependencies, () => __awaiter(this, void 0, void 0, function* () {
-                    if ((yield fn()) && node.parentNode !== parent)
-                        parent.append(node);
-                    else if (Array.from(parent.childNodes).includes(node))
-                        node.remove();
+                    if ((yield fn()) && elem.style.display === "none")
+                        elem.style.display = display;
+                    else if (elem.style.display !== "none")
+                        elem.style.display = "none";
                 }));
                 // Remove the processed attributes from node.
                 elem.removeAttribute(":show");

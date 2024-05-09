@@ -502,22 +502,19 @@ describe("Mancha core module", () => {
       const html = `<div :show="foo" />`;
       const fragment = JSDOM.fragment(html);
       const node = fragment.firstElementChild as HTMLElement;
-      const parent = node.parentNode;
 
       const renderer = new MockRenderer({ foo: true });
       await renderer.mount(fragment);
 
-      assert.ok(node.parentNode === parent);
-      assert.ok(node.parentNode?.firstElementChild === node);
       assert.ok(!node.hasAttribute(":show"));
+      assert.notEqual((node as HTMLElement).style.display, "none");
 
       await renderer.set("foo", false);
-      assert.ok(node.parentNode !== parent);
-      assert.ok(!Array.from(node.parentNode?.childNodes || []).includes(node));
+      assert.equal((node as HTMLElement).style.display, "none");
     });
 
     it("hides then shows an element", async () => {
-      const html = `<div :show="foo" />`;
+      const html = `<div :show="foo" style="display: bar" />`;
       const fragment = JSDOM.fragment(html);
       const node = fragment.firstElementChild as HTMLElement;
       const parent = node.parentNode;
@@ -525,31 +522,26 @@ describe("Mancha core module", () => {
       const renderer = new MockRenderer({ foo: false });
       await renderer.mount(fragment);
 
-      assert.ok(node.parentNode !== parent);
-      assert.ok(!Array.from(node.parentNode?.childNodes || []).includes(node));
       assert.ok(!node.hasAttribute(":show"));
+      assert.equal((node as HTMLElement).style.display, "none");
 
       await renderer.set("foo", true);
-      assert.ok(node.parentNode === parent);
-      assert.ok(node.parentNode?.firstElementChild === node);
+      assert.equal((node as HTMLElement).style.display, "bar");
     });
 
     it("hides an element based on data from the same element", async () => {
       const html = `<div :data="{show: false}" :show="show" />`;
       const fragment = JSDOM.fragment(html);
       const node = fragment.firstElementChild as HTMLElement;
-      const parent = node.parentNode;
 
       const renderer = new MockRenderer();
       await renderer.mount(fragment);
-      assert.ok(!node.hasAttribute(":show"));
 
-      assert.equal(parent?.childNodes.length, 0);
-      assert.notEqual(node.parentNode, parent);
+      assert.ok(!node.hasAttribute(":show"));
+      assert.equal((node as HTMLElement).style.display, "none");
 
       await renderer.set("show", true);
-      assert.equal(node.parentNode, parent);
-      assert.equal(node.parentNode?.firstElementChild, node);
+      assert.notEqual((node as HTMLElement).style.display, "none");
     });
   });
 

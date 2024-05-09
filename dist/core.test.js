@@ -430,49 +430,38 @@ describe("Mancha core module", () => {
     });
     describe(":show", () => {
         it("shows then hides an element", () => __awaiter(void 0, void 0, void 0, function* () {
-            var _a, _b;
             const html = `<div :show="foo" />`;
             const fragment = jsdom_1.JSDOM.fragment(html);
             const node = fragment.firstElementChild;
-            const parent = node.parentNode;
             const renderer = new MockRenderer({ foo: true });
             yield renderer.mount(fragment);
-            assert.ok(node.parentNode === parent);
-            assert.ok(((_a = node.parentNode) === null || _a === void 0 ? void 0 : _a.firstElementChild) === node);
             assert.ok(!node.hasAttribute(":show"));
+            assert.notEqual(node.style.display, "none");
             yield renderer.set("foo", false);
-            assert.ok(node.parentNode !== parent);
-            assert.ok(!Array.from(((_b = node.parentNode) === null || _b === void 0 ? void 0 : _b.childNodes) || []).includes(node));
+            assert.equal(node.style.display, "none");
         }));
         it("hides then shows an element", () => __awaiter(void 0, void 0, void 0, function* () {
-            var _c, _d;
-            const html = `<div :show="foo" />`;
+            const html = `<div :show="foo" style="display: bar" />`;
             const fragment = jsdom_1.JSDOM.fragment(html);
             const node = fragment.firstElementChild;
             const parent = node.parentNode;
             const renderer = new MockRenderer({ foo: false });
             yield renderer.mount(fragment);
-            assert.ok(node.parentNode !== parent);
-            assert.ok(!Array.from(((_c = node.parentNode) === null || _c === void 0 ? void 0 : _c.childNodes) || []).includes(node));
             assert.ok(!node.hasAttribute(":show"));
+            assert.equal(node.style.display, "none");
             yield renderer.set("foo", true);
-            assert.ok(node.parentNode === parent);
-            assert.ok(((_d = node.parentNode) === null || _d === void 0 ? void 0 : _d.firstElementChild) === node);
+            assert.equal(node.style.display, "bar");
         }));
         it("hides an element based on data from the same element", () => __awaiter(void 0, void 0, void 0, function* () {
-            var _e;
             const html = `<div :data="{show: false}" :show="show" />`;
             const fragment = jsdom_1.JSDOM.fragment(html);
             const node = fragment.firstElementChild;
-            const parent = node.parentNode;
             const renderer = new MockRenderer();
             yield renderer.mount(fragment);
             assert.ok(!node.hasAttribute(":show"));
-            assert.equal(parent === null || parent === void 0 ? void 0 : parent.childNodes.length, 0);
-            assert.notEqual(node.parentNode, parent);
+            assert.equal(node.style.display, "none");
             yield renderer.set("show", true);
-            assert.equal(node.parentNode, parent);
-            assert.equal((_e = node.parentNode) === null || _e === void 0 ? void 0 : _e.firstElementChild, node);
+            assert.notEqual(node.style.display, "none");
         }));
     });
     describe("shorthands", () => {
