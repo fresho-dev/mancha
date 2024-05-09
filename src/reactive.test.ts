@@ -110,6 +110,26 @@ describe("Mancha reactive module", () => {
       assert.equal(store.get("b", "c"), 2);
     });
 
+    it("watch nested property", async () => {
+      const store = new ReactiveProxyStore({ x: { a: 1, b: 2 } });
+      assert.equal(store.get("x", "a"), 1);
+      assert.equal(store.get("x", "b"), 2);
+
+      let ops = 0;
+      store.watch(["x"], () => ops++);
+
+      ops = 0;
+      await store.set("x", { a: 1, b: 3 });
+      assert.ok(ops > 0);
+      assert.equal(store.get("x", "b"), 3);
+
+      ops = 0;
+      store.get("x").b = 2;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      assert.ok(ops > 0);
+      assert.equal(store.get("x", "b"), 2);
+    });
+
     it("manually trigger listeners", async () => {
       const arr = [1, 2, 3];
       let join = arr.join(",");

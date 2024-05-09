@@ -243,6 +243,25 @@ describe("Mancha core module", () => {
       await renderer.set("bar", "qux");
       assert.equal(renderer.get("foobar"), "bazqux");
     });
+
+    it("watch nested property", async () => {
+      const html = `<div @watch="foobar = foo.bar"></div>`;
+      const fragment = JSDOM.fragment(html);
+      const node = fragment.firstElementChild as Element;
+      const renderer = new MockRenderer({ foo: { bar: "bar" }, foobar: null });
+      await renderer.mount(fragment);
+      assert.equal(node.getAttribute("@watch"), null);
+      assert.equal(renderer.get("foobar"), "bar");
+
+      // Set subproperty directly.
+      renderer.get("foo").bar = "baz";
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      assert.equal(renderer.get("foobar"), "baz");
+
+      // Replace parent object.
+      await renderer.set("foo", { bar: "qux" });
+      assert.equal(renderer.get("foobar"), "qux");
+    });
   });
 
   describe(":attribute", () => {
