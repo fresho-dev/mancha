@@ -11,6 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 var _a, _b, _c, _d;
 Object.defineProperty(exports, "__esModule", { value: true });
 const core_1 = require("./core");
+const reactive_1 = require("./reactive");
 class RendererImpl extends core_1.IRenderer {
     constructor() {
         super(...arguments);
@@ -33,7 +34,7 @@ class RendererImpl extends core_1.IRenderer {
         throw new Error("Not implemented.");
     }
 }
-const Mancha = new RendererImpl();
+const Mancha = (0, reactive_1.proxify)(new RendererImpl());
 self["Mancha"] = Mancha;
 const currentScript = (_a = self.document) === null || _a === void 0 ? void 0 : _a.currentScript;
 if ((_c = (_b = self.document) === null || _b === void 0 ? void 0 : _b.currentScript) === null || _c === void 0 ? void 0 : _c.hasAttribute("init")) {
@@ -41,12 +42,9 @@ if ((_c = (_b = self.document) === null || _b === void 0 ? void 0 : _b.currentSc
     const debug = currentScript === null || currentScript === void 0 ? void 0 : currentScript.hasAttribute("debug");
     const cachePolicy = currentScript === null || currentScript === void 0 ? void 0 : currentScript.getAttribute("cache");
     const targets = ((_d = currentScript === null || currentScript === void 0 ? void 0 : currentScript.getAttribute("target")) === null || _d === void 0 ? void 0 : _d.split(",")) || ["body"];
-    const renderings = targets.map((target) => __awaiter(void 0, void 0, void 0, function* () {
+    targets.map((target) => __awaiter(void 0, void 0, void 0, function* () {
         const fragment = self.document.querySelector(target);
         yield Mancha.mount(fragment, { cache: cachePolicy, debug });
     }));
-    Promise.all(renderings).then(() => {
-        dispatchEvent(new Event("mancha-render", { bubbles: true }));
-    });
 }
 exports.default = Mancha;

@@ -1,4 +1,5 @@
-import { folderPath, resolvePath, IRenderer, ParserParams, RendererParams } from "./core";
+import { folderPath, IRenderer, ParserParams, RendererParams } from "./core";
+import { proxify } from "./reactive";
 
 class RendererImpl extends IRenderer {
   protected readonly fsroot: string = folderPath(self.location.href);
@@ -22,7 +23,7 @@ class RendererImpl extends IRenderer {
   }
 }
 
-const Mancha = new RendererImpl();
+const Mancha = proxify(new RendererImpl());
 (self as any)["Mancha"] = Mancha;
 const currentScript = self.document?.currentScript;
 
@@ -31,13 +32,9 @@ if (self.document?.currentScript?.hasAttribute("init")) {
   const debug = currentScript?.hasAttribute("debug");
   const cachePolicy = currentScript?.getAttribute("cache") as RequestCache | null;
   const targets = currentScript?.getAttribute("target")?.split(",") || ["body"];
-  const renderings = targets.map(async (target: string) => {
+  targets.map(async (target: string) => {
     const fragment = self.document.querySelector(target) as unknown as DocumentFragment;
     await Mancha.mount(fragment, { cache: cachePolicy, debug });
-  });
-
-  Promise.all(renderings).then(() => {
-    dispatchEvent(new Event("mancha-render", { bubbles: true }));
   });
 }
 

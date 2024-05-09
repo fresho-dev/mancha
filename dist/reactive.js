@@ -88,8 +88,8 @@ class ReactiveProxy {
         return __awaiter(this, void 0, void 0, function* () {
             if (this.value !== value) {
                 const prev = this.value;
-                // Convert value to a proxy if it's an object.
                 if (value != null && typeof value === "object") {
+                    // Convert value to a proxy if it's an object.
                     value = proxifyObject(value, () => this.trigger());
                 }
                 this.value = value;
@@ -129,6 +129,12 @@ class InertProxy extends ReactiveProxy {
 }
 exports.InertProxy = InertProxy;
 class ReactiveProxyStore {
+    wrapFnValue(value) {
+        if (!value || typeof value !== "function")
+            return value;
+        else
+            return (...args) => value.call(proxify(this), ...args);
+    }
     constructor(data) {
         this.store = new Map();
         this.tracing = false;
@@ -137,7 +143,7 @@ class ReactiveProxyStore {
         // this.update(data || {});
         // Object.entries(data || {}).forEach(([key, value]) => this.set(key, value));
         for (const [key, value] of Object.entries(data || {})) {
-            this.store.set(key, ReactiveProxy.from(value));
+            this.store.set(key, ReactiveProxy.from(this.wrapFnValue(value)));
         }
     }
     entries() {
@@ -152,10 +158,10 @@ class ReactiveProxyStore {
     set(key, value) {
         return __awaiter(this, void 0, void 0, function* () {
             if (this.store.has(key)) {
-                yield this.store.get(key).set(value);
+                yield this.store.get(key).set(this.wrapFnValue(value));
             }
             else {
-                this.store.set(key, ReactiveProxy.from(value));
+                this.store.set(key, ReactiveProxy.from(this.wrapFnValue(value)));
             }
         });
     }
@@ -222,8 +228,8 @@ class ReactiveProxyStore {
      */
     computed(key, callback) {
         return __awaiter(this, void 0, void 0, function* () {
-            const [result, dependencies] = yield this.trace(() => callback());
-            this.watch(dependencies, () => __awaiter(this, void 0, void 0, function* () { return this.set(key, yield callback()); }));
+            const [result, dependencies] = yield this.trace(() => callback.call(proxify(this)));
+            this.watch(dependencies, () => __awaiter(this, void 0, void 0, function* () { return this.set(key, yield callback.call(proxify(this))); }));
             this.set(key, result);
         });
     }

@@ -119,11 +119,14 @@ export class ReactiveProxyStore {
   protected readonly traced = new Set<string>();
   protected lock: Promise<void> = Promise.resolve();
 
+  private wrapFnValue(value: any): any {
+    if (!value || typeof value !== "function") return value;
+    else return (...args: any[]) => value.call(proxify(this), ...args);
+  }
+
   constructor(data?: { [key: string]: any }) {
-    // this.update(data || {});
-    // Object.entries(data || {}).forEach(([key, value]) => this.set(key, value));
     for (const [key, value] of Object.entries(data || {})) {
-      this.store.set(key, ReactiveProxy.from(value));
+      this.store.set(key, ReactiveProxy.from(this.wrapFnValue(value)));
     }
   }
 
@@ -138,9 +141,9 @@ export class ReactiveProxyStore {
 
   async set<K extends string>(key: K, value: any): Promise<void> {
     if (this.store.has(key)) {
-      await this.store.get(key)!!.set(value);
+      await this.store.get(key)!!.set(this.wrapFnValue(value));
     } else {
-      this.store.set(key, ReactiveProxy.from(value));
+      this.store.set(key, ReactiveProxy.from(this.wrapFnValue(value)));
     }
   }
 
@@ -204,9 +207,9 @@ export class ReactiveProxyStore {
    * @param key key of the computed property
    * @param callback function that computes property
    */
-  async computed<T>(key: string, callback: () => T | Promise<T>) {
-    const [result, dependencies] = await this.trace(() => callback());
-    this.watch(dependencies, async () => this.set(key, await callback()));
+  async computed<T>(key: string, callback: (this: { [key: string]: any }) => T | Promise<T>) {
+    const [result, dependencies] = await this.trace(() => callback.call(proxify(this)));
+    this.watch(dependencies, async () => this.set(key, await callback.call(proxify(this))));
     this.set(key, result);
   }
 }

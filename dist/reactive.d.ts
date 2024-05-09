@@ -21,6 +21,7 @@ export declare class ReactiveProxyStore {
     protected tracing: boolean;
     protected readonly traced: Set<string>;
     protected lock: Promise<void>;
+    private wrapFnValue;
     constructor(data?: {
         [key: string]: any;
     });
@@ -44,7 +45,9 @@ export declare class ReactiveProxyStore {
      * @param key key of the computed property
      * @param callback function that computes property
      */
-    computed<T>(key: string, callback: () => T | Promise<T>): Promise<void>;
+    computed<T>(key: string, callback: (this: {
+        [key: string]: any;
+    }) => T | Promise<T>): Promise<void>;
 }
 export declare function proxify(store: ReactiveProxyStore): {
     [key: string]: any;

@@ -197,6 +197,26 @@ describe("Mancha reactive module", () => {
             yield new Promise((resolve) => setTimeout(resolve, 1));
             assert.equal(store.get("sum"), 4);
         }));
+        it("computed callback can use `this` to reference store", () => __awaiter(void 0, void 0, void 0, function* () {
+            const store = new reactive_1.ReactiveProxyStore({ a: 1, b: 2 });
+            yield store.computed("sum", function () {
+                return this.a + this.b;
+            });
+            assert.equal(store.get("sum"), 3);
+            store.set("b", 3);
+            yield new Promise((resolve) => setTimeout(resolve, 1));
+            assert.equal(store.get("sum"), 4);
+        }));
+        it("property of type function automatically binds to `this`", () => {
+            const store = new reactive_1.ReactiveProxyStore({
+                a: 1,
+                b: 2,
+                fn: function () {
+                    return this.a + this.b;
+                },
+            });
+            assert.equal(store.get("fn")(), 3);
+        });
     });
     describe("proxify", () => {
         it("creates a proxy for ReactiveProxyStore", () => {
