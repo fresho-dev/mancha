@@ -1,45 +1,27 @@
-/// <reference types="node" />
 import { ReactiveProxyStore } from "./reactive";
+import { ParserParams, RenderParams } from "./interfaces";
 export declare function traverse(root: Node | DocumentFragment | Document, skip?: Set<Node>): Generator<ChildNode>;
-export declare function folderPath(fpath: string): string;
-export declare function resolvePath(fpath: string): string;
-export declare function extractStringExpressions(content: string): string[];
+export declare function dirname(fpath: string): string;
+export declare function isRelativePath(fpath: string): boolean;
 export declare function safeEval(code: string, context: any, args?: {
     [key: string]: any;
 }): Promise<any>;
-export interface ParserParams {
-    isRoot?: boolean;
-    encoding?: BufferEncoding;
-}
-export interface RendererParams {
-    fsroot?: string;
-    maxdepth?: number;
-    cache?: RequestCache | null;
-    debug?: boolean;
-}
 export declare abstract class IRenderer extends ReactiveProxyStore {
-    protected readonly fsroot: string;
-    protected readonly skipNodes: Set<Node>;
+    protected readonly dirpath: string;
+    readonly skipNodes: Set<Node>;
     abstract parseHTML(content: string, params?: ParserParams): DocumentFragment;
     abstract serializeHTML(root: DocumentFragment | Node): string;
-    abstract renderLocalPath(fpath: string, params?: RendererParams & ParserParams): Promise<DocumentFragment>;
+    fetchRemote(fpath: string, params?: RenderParams): Promise<string>;
+    fetchLocal(fpath: string, params?: RenderParams): Promise<string>;
+    preprocessString(content: string, params?: RenderParams & ParserParams): Promise<DocumentFragment>;
+    preprocessLocal(fpath: string, params?: RenderParams & ParserParams): Promise<DocumentFragment>;
+    preprocessRemote(fpath: string, params?: RenderParams & ParserParams): Promise<DocumentFragment>;
     clone(): IRenderer;
-    log(params?: RendererParams, ...args: any[]): void;
+    log(params?: RenderParams, ...args: any[]): void;
     eval(expr: string, args?: {
         [key: string]: any;
-    }, params?: RendererParams): Promise<any>;
-    resolveIncludes(root: Document | DocumentFragment | Node, params?: RendererParams): Promise<IRenderer>;
-    resolveTextNodeExpressions(node: ChildNode, params?: RendererParams): Promise<void>;
-    resolveDataAttribute(node: ChildNode, params?: RendererParams): Promise<void>;
-    resolveWatchAttribute(node: ChildNode, params?: RendererParams): Promise<void>;
-    resolveHtmlAttribute(node: ChildNode, params?: RendererParams): Promise<void>;
-    resolvePropAttributes(node: ChildNode, params?: RendererParams): Promise<void>;
-    resolveAttrAttributes(node: ChildNode, params?: RendererParams): Promise<void>;
-    resolveEventAttributes(node: ChildNode, params?: RendererParams): Promise<void>;
-    resolveForAttribute(node: ChildNode, params?: RendererParams): Promise<void>;
-    resolveBindAttribute(node: ChildNode, params?: RendererParams): Promise<void>;
-    resolveShowAttribute(node: ChildNode, params?: RendererParams): Promise<void>;
-    mount(root: Document | DocumentFragment | Node, params?: RendererParams): Promise<IRenderer>;
-    renderString(content: string, params?: RendererParams & ParserParams): Promise<DocumentFragment>;
-    renderRemotePath(fpath: string, params?: RendererParams & ParserParams): Promise<DocumentFragment>;
+    }, params?: RenderParams): Promise<any>;
+    preprocessNode(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void>;
+    renderNode(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void>;
+    mount(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void>;
 }

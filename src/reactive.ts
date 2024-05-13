@@ -1,9 +1,29 @@
 // Type shorthand for the listeners.
 type Listener<T> = (curr: T | null, prev: T | null) => any | Promise<any>;
 
+abstract class IDebouncer {
+  timeout: ReturnType<typeof setTimeout> | null = null;
+
+  debounce<T>(millis: number, callback: () => T): Promise<T> {
+    return new Promise((resolve, reject) => {
+      if (this.timeout) clearTimeout(this.timeout);
+      this.timeout = setTimeout(() => {
+        try {
+          resolve(callback());
+        } catch (exc) {
+          reject(exc);
+        }
+      }, millis);
+    });
+  }
+}
+
 function isProxified<T extends object>(object: T) {
   return object instanceof ReactiveProxy || (object as any)["__is_proxy__"];
 }
+
+/** Default debouncer time in millis. */
+export const REACTIVE_DEBOUNCE_MILLIS = 25;
 
 export function proxifyObject<T extends object>(object: T, callback: () => void, deep = true): T {
   // If this object is already a proxy, return it as-is.
@@ -42,14 +62,15 @@ export function proxifyObject<T extends object>(object: T, callback: () => void,
   });
 }
 
-export class ReactiveProxy<T> {
+export class ReactiveProxy<T> extends IDebouncer {
   private value: T | null = null;
   private listeners: Listener<T>[] = [];
   protected constructor(value: T | null = null, ...listeners: Listener<T>[]) {
-    // this.value = value;
+    super();
     this.set(value);
     listeners.forEach((x) => this.watch(x));
   }
+
   static from<T>(value: T | ReactiveProxy<T>, ...listeners: Listener<T>[]): ReactiveProxy<T> {
     if (value instanceof ReactiveProxy) {
       listeners.forEach(value.watch);
@@ -58,9 +79,11 @@ export class ReactiveProxy<T> {
       return new ReactiveProxy(value, ...listeners);
     }
   }
+
   get() {
     return this.value;
   }
+
   async set(value: T | null): Promise<void> {
     if (this.value !== value) {
       const prev = this.value;
@@ -72,17 +95,19 @@ export class ReactiveProxy<T> {
       await this.trigger(prev);
     }
   }
+
   watch(listener: Listener<T>) {
     this.listeners.push(listener);
   }
+
   unwatch(listener: Listener<T>) {
     this.listeners = this.listeners.filter((x) => x !== listener);
   }
+
   async trigger(prev: T | null = null): Promise<void> {
-    // Listeners are triggered one at a time to avoid potential race conditions.
-    for (const listener of this.listeners) {
-      await listener(this.value, prev);
-    }
+    await this.debounce(REACTIVE_DEBOUNCE_MILLIS, () =>
+      Promise.all(this.listeners.map((x) => x(this.value, prev)))
+    );
   }
 }
 
@@ -94,18 +119,18 @@ export class InertProxy<T> extends ReactiveProxy<T> {
       return new InertProxy(value, ...listeners);
     }
   }
-  watch(listener: Listener<T>) {}
-  trigger(prev?: T | null): Promise<void> {
+  watch(_: Listener<T>) {}
+  trigger(_?: T | null): Promise<void> {
     return Promise.resolve();
   }
 }
 
-export class ReactiveProxyStore {
+export class ReactiveProxyStore extends IDebouncer {
   protected readonly store = new Map<string, ReactiveProxy<any>>();
 
   protected tracing = false;
   protected readonly traced = new Set<string>();
-  protected lock: Promise<void> = Promise.resolve();
+  lock: Promise<void> = Promise.resolve();
 
   private wrapFnValue(value: any): any {
     if (!value || typeof value !== "function") return value;
@@ -113,9 +138,14 @@ export class ReactiveProxyStore {
   }
 
   constructor(data?: { [key: string]: any }) {
+    super();
     for (const [key, value] of Object.entries(data || {})) {
       this.store.set(key, ReactiveProxy.from(this.wrapFnValue(value)));
     }
+  }
+
+  get $() {
+    return proxify(this);
   }
 
   entries() {
@@ -139,15 +169,16 @@ export class ReactiveProxyStore {
     return this.store.delete(key);
   }
 
+  has<K extends string>(key: K): boolean {
+    return this.store.has(key);
+  }
+
   /**
    * Updates the internal store with the provided data.
    * @param data data to add to the internal store.
    */
   async update(data: { [key: string]: any }): Promise<void> {
-    // Keys are set one at a time to avoid any potential race conditions.
-    for (const [key, value] of Object.entries(data)) {
-      await this.set(key, value);
-    }
+    await Promise.all(Object.entries(data).map(([key, value]) => this.set(key, value)));
   }
 
   watch(keys: string | string[], listener: (...value: any[]) => any): void {
@@ -161,12 +192,8 @@ export class ReactiveProxyStore {
   }
 
   async trigger(keys: string | string[]): Promise<void> {
-    // Triggers are called one at a time to avoid potential race conditions.
-    for (const key of Array.isArray(keys) ? keys : [keys]) {
-      await this.store.get(key)!!.trigger();
-    }
-    // keys = Array.isArray(keys) ? keys : [keys];
-    // return Promise.all(keys.map((key) => this.store.get(key)!!.trigger())).then();
+    keys = Array.isArray(keys) ? keys : [keys];
+    await Promise.all(keys.map((key) => this.store.get(key)!!.trigger()));
   }
 
   async trace<T>(callback: () => T | Promise<T>) {
@@ -202,17 +229,30 @@ export class ReactiveProxyStore {
   }
 }
 
-export function proxify(store: ReactiveProxyStore): { [key: string]: any } {
+/**
+ * Proxifies a ReactiveProxyStore object, allowing for direct access to its keys.
+ * Calls to existing methods should still work, e.g.
+ * ```
+ * const store = new ReactiveProxyStore();
+ * const proxy = proxify(store);
+ * // The following two lines are equivalent.
+ * proxy.key = "value";
+ * proxy.set("key", "value");
+ * ```
+ * @param store ReactiveProxyStore object to proxify.
+ * @returns Proxified object.
+ */
+export function proxify(store: ReactiveProxyStore): ReactiveProxyStore & { [key: string]: any } {
   const keys = Array.from(store.entries()).map(([key]) => key);
-  const keyset = new Set(keys);
-  return new Proxy(Object.fromEntries(keys.map((key) => [key, undefined])), {
-    get: (target: any, prop: string, receiver: any) => {
-      if (keyset.has(prop)) return store.get(prop);
-      else return Reflect.get(target, prop, receiver);
+  const keyval = Object.fromEntries(keys.map((key) => [key, undefined]));
+  return new Proxy(Object.assign({}, store, keyval), {
+    get: (_, prop, receiver) => {
+      if (typeof prop === "string" && store.has(prop)) return store.get(prop);
+      else return Reflect.get(store, prop, receiver);
     },
-    set: (target: any, prop: string, value: any, receiver: any) => {
-      if (keyset.has(prop)) store.set(prop, value);
-      else Reflect.set(target, prop, value, receiver);
+    set: (_, prop, value, receiver) => {
+      if (typeof prop !== "string" || prop in store) Reflect.set(store, prop, value, receiver);
+      else store.set(prop, value);
       return true;
     },
   });

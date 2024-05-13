@@ -5,30 +5,31 @@ import * as File from "vinyl";
 import * as gulp from "gulp";
 // @ts-ignore
 import * as StaticServer from "static-server";
+import { describe, it } from "mocha";
 
 import { RendererImpl } from "./index";
-import { folderPath, resolvePath } from "./index";
 import gulpMancha from "./gulp";
 
 /**
  * Helper function used to test a transformation of string elements.
  * @param fname file name to test
  */
-function testContentRender(fname: string, compare = "Hello World", vars: any = {}) {
+function testRenderString(fname: string, compare = "Hello World", vars: any = {}) {
   return new Promise<void>(async (resolve, reject) => {
     const content = fs.readFileSync(fname).toString("utf8");
 
-    const fsroot = path.dirname(fname);
+    const dirpath = path.dirname(fname);
     const wwwroot = path.join(__dirname, "fixtures");
     const relpath = path.relative(fname, wwwroot) || ".";
     const context = Object.assign({ wwwroot: relpath }, vars);
 
     try {
       const renderer = new RendererImpl(context);
-      const fragment = await renderer.renderString(content, {
-        fsroot,
-        isRoot: !fname.endsWith(".tpl.html"),
+      const fragment = await renderer.preprocessString(content, {
+        dirpath,
+        root: !fname.endsWith(".tpl.html"),
       });
+      await renderer.renderNode(fragment);
       const result = renderer.serializeHTML(fragment);
       resolve(assert.equal(result, compare, String(result)));
     } catch (exc) {
@@ -42,14 +43,15 @@ function testContentRender(fname: string, compare = "Hello World", vars: any = {
  * Helper function used to test a transformation of local file paths.
  * @param fname file name to test
  */
-function testLocalPathRender(fname: string, compare = "Hello World", vars: any = {}) {
+function testRenderLocal(fname: string, compare = "Hello World", vars: any = {}) {
   return new Promise<void>(async (resolve, reject) => {
     const wwwroot = path.join(__dirname, "fixtures");
     const relpath = path.relative(fname, wwwroot) || ".";
     const context = Object.assign({ wwwroot: relpath }, vars);
     try {
       const renderer = new RendererImpl(context);
-      const fragment = await renderer.renderLocalPath(fname);
+      const fragment = await renderer.preprocessLocal(fname);
+      await renderer.renderNode(fragment);
       const result = renderer.serializeHTML(fragment);
       resolve(assert.equal(result, compare, String(result)));
     } catch (exc) {
@@ -63,7 +65,7 @@ function testLocalPathRender(fname: string, compare = "Hello World", vars: any =
  * Helper function used to test a transformation of local file paths.
  * @param fname file name to test
  */
-function testRemotePathRender(fname: string, compare = "Hello World", vars: any = {}) {
+function testRenderRemote(fname: string, compare = "Hello World", vars: any = {}) {
   return new Promise<void>(async (resolve, reject) => {
     const wwwroot = path.join(__dirname, "fixtures");
     const relpath = path.relative(fname, wwwroot) || ".";
@@ -71,7 +73,8 @@ function testRemotePathRender(fname: string, compare = "Hello World", vars: any 
     const context = Object.assign({ wwwroot: relpath }, vars);
     try {
       const renderer = new RendererImpl(context);
-      const fragment = await renderer.renderRemotePath(remotePath);
+      const fragment = await renderer.preprocessRemote(remotePath);
+      await renderer.renderNode(fragment);
       const result = renderer.serializeHTML(fragment);
       resolve(assert.equal(result, compare, String(result)));
     } catch (exc) {
@@ -203,13 +206,13 @@ function testGulpedTransform(
 
 function testAllMethods(fname: string, compare = "Hello World", vars: any = {}): void {
   it("content render", async () => {
-    await testContentRender(fname, compare, vars);
+    await testRenderString(fname, compare, vars);
   });
   it("local path render", async () => {
-    await testLocalPathRender(fname, compare, vars);
+    await testRenderLocal(fname, compare, vars);
   });
   it("remote path render", async () => {
-    await testRemotePathRender(fname, compare, vars);
+    await testRenderRemote(fname, compare, vars);
   });
   it("buffered transform", async () => {
     await testBufferedTransform(fname, compare, vars);
@@ -270,13 +273,6 @@ describe("Mancha index module", () => {
       testAllMethods(fname, hello_vars, { name: name });
     });
 
-    describe("with vars override", () => {
-      const name = "Vars";
-      const hello_override = `Hello Override`;
-      const fname = path.join(__dirname, "fixtures", "render-include-vars-override.tpl.html");
-      testAllMethods(fname, hello_override, { name: name });
-    });
-
     describe("with comments", () => {
       const fname = path.join(__dirname, "fixtures", "render-include-with-comments.tpl.html");
       testAllMethods(fname, "<!-- This is a comment node -->\nHello World");
@@ -300,69 +296,31 @@ describe("Mancha index module", () => {
     });
 
     describe("pass through root var #1", () => {
-      const fsroot = path.join(__dirname, "fixtures");
-      const fpath = path.join(fsroot, "render-wwwroot.tpl.html");
-      const expected = path.relative(fpath, fsroot);
+      const dirpath = path.join(__dirname, "fixtures");
+      const fpath = path.join(dirpath, "render-wwwroot.tpl.html");
+      const expected = path.relative(fpath, dirpath);
       testAllMethods(fpath, expected);
     });
 
     describe("pass through root var #2", () => {
-      const fsroot = path.join(__dirname, "fixtures");
-      const fpath = path.join(fsroot, "subfolder/render-wwwroot.tpl.html");
-      const expected = path.relative(fpath, fsroot);
+      const dirpath = path.join(__dirname, "fixtures");
+      const fpath = path.join(dirpath, "subfolder/render-wwwroot.tpl.html");
+      const expected = path.relative(fpath, dirpath);
       testAllMethods(fpath, expected);
     });
 
     describe("pass through root var #3", () => {
-      const fsroot = path.join(__dirname, "fixtures");
-      const fpath = path.join(fsroot, "subfolder/subsubfolder/render-wwwroot.tpl.html");
-      const expected = path.relative(fpath, fsroot);
+      const dirpath = path.join(__dirname, "fixtures");
+      const fpath = path.join(dirpath, "subfolder/subsubfolder/render-wwwroot.tpl.html");
+      const expected = path.relative(fpath, dirpath);
       testAllMethods(fpath, expected);
     });
 
     describe("pass through root var #4", () => {
-      const fsroot = path.join(__dirname, "fixtures");
-      const fpath = path.join(fsroot, "render-include-subsubfolder.tpl.html");
-      const expected = path.relative(fpath, fsroot);
+      const dirpath = path.join(__dirname, "fixtures");
+      const fpath = path.join(dirpath, "render-include-subsubfolder.tpl.html");
+      const expected = path.relative(fpath, dirpath);
       testAllMethods(fpath, expected);
-    });
-  });
-
-  describe("paths", () => {
-    it("folderPath no-op", () => {
-      const expected = "https://example.com/subpath";
-      const url = "https://example.com/subpath/";
-      assert.equal(folderPath(url), expected);
-    });
-
-    it("folderPath with file name", () => {
-      const expected = "https://example.com/subpath";
-      const url = "https://example.com/subpath/index.html";
-      assert.equal(folderPath(url), expected);
-    });
-
-    it("folderPath with query string", () => {
-      const expected = "https://example.com/subpath";
-      const url = "https://example.com/subpath/?q=1";
-      assert.equal(folderPath(url), expected);
-    });
-
-    it("resolvePath no-op", () => {
-      const expected = "https://example.com/subpath/index.html";
-      const url = "https://example.com/subpath/index.html";
-      assert.equal(resolvePath(url), expected);
-    });
-
-    it("resolvePath subdir", () => {
-      const expected = "https://example.com/index.html";
-      const url = "https://example.com/subpath/../index.html";
-      assert.equal(resolvePath(url), expected);
-    });
-
-    it("resolvePath subdir + updir", () => {
-      const expected = "https://example.com/subpath/index.html";
-      const url = "https://example.com/subpath/../subpath/index.html";
-      assert.equal(resolvePath(url), expected);
     });
   });
 });

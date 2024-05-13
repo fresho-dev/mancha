@@ -11,7 +11,7 @@ const args = (0, yargs_1.default)((0, helpers_1.hideBin)(process.argv))
     .describe("vars", "JSON-formatted variables")
     .demand(["input"])
     .parse();
-index_1.Mancha.renderLocalPath(args["input"], JSON.parse(args.vars || "{}")).then((result) => {
+index_1.Mancha.preprocessLocal(args["input"], JSON.parse(args.vars || "{}")).then((result) => {
     if (!args.output || args.output === "-") {
         console.log(result + "\n");
     }

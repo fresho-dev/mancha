@@ -1,20 +1,20 @@
-import * as path from "path-browserify";
-import { ReactiveProxy, ReactiveProxyStore, proxify } from "./reactive";
-import { attributeNameToCamelCase, decodeHtmlAttrib } from "./attributes";
-
-const KW_ATTRIBUTES = new Set([
-  ":bind",
-  ":bind-events",
-  ":data",
-  ":for",
-  ":show",
-  "@watch",
-  "$html",
-]);
-const ATTR_SHORTHANDS: { [key: string]: string } = {
-  $text: "$text-content",
-  // $html: "$inner-HTML",
-};
+import { ReactiveProxyStore, proxify } from "./reactive";
+import { ParserParams, RenderParams } from "./interfaces";
+import { Iterator } from "./iterator";
+import {
+  rebaseRelativePaths,
+  resolveAttrAttributes,
+  resolveBindAttribute,
+  resolveDataAttribute,
+  resolveEventAttributes,
+  resolveForAttribute,
+  resolveHtmlAttribute,
+  resolveIncludes,
+  resolvePropAttributes,
+  resolveShowAttribute,
+  resolveTextNodeExpressions,
+  resolveWatchAttribute,
+} from "./plugins";
 
 export function* traverse(
   root: Node | DocumentFragment | Document,
@@ -40,26 +40,21 @@ export function* traverse(
   }
 }
 
-export function folderPath(fpath: string): string {
-  if (fpath.endsWith("/")) {
-    return fpath.slice(0, -1);
+export function dirname(fpath: string): string {
+  if (!fpath.includes("/")) {
+    return "";
   } else {
-    return path.dirname(fpath);
+    return fpath.split("/").slice(0, -1).join("/");
   }
 }
 
-export function resolvePath(fpath: string): string {
-  if (fpath.includes("://")) {
-    const [scheme, remotePath] = fpath.split("://", 2);
-    return `${scheme}://${resolvePath("/" + remotePath).substring(1)}`;
-  } else {
-    return path.resolve(fpath);
-  }
-}
-
-export function extractStringExpressions(content: string): string[] {
-  const matcher = new RegExp(/{{ ([^}]+) }}/gm);
-  return Array.from(content.matchAll(matcher)).map((match) => match[1]);
+export function isRelativePath(fpath: string): boolean {
+  return (
+    !fpath.includes("://") &&
+    !fpath.startsWith("/") &&
+    !fpath.startsWith("#") &&
+    !fpath.startsWith("data:")
+  );
 }
 
 export function safeEval(
@@ -71,477 +66,121 @@ export function safeEval(
   return new Function(...Object.keys(args), inner).call(context, ...Object.values(args));
 }
 
-export interface ParserParams {
-  isRoot?: boolean;
-  encoding?: BufferEncoding;
-}
-
-export interface RendererParams {
-  fsroot?: string;
-  maxdepth?: number;
-  cache?: RequestCache | null;
-  debug?: boolean;
-}
-
-const _DEFAULT_RENDERER_PARAMS: RendererParams = { maxdepth: 10 };
-
 export abstract class IRenderer extends ReactiveProxyStore {
-  protected readonly fsroot: string = ".";
-  protected readonly skipNodes: Set<Node> = new Set();
+  protected readonly dirpath: string = "";
+  readonly skipNodes: Set<Node> = new Set();
   abstract parseHTML(content: string, params?: ParserParams): DocumentFragment;
   abstract serializeHTML(root: DocumentFragment | Node): string;
-  abstract renderLocalPath(
+
+  async fetchRemote(fpath: string, params?: RenderParams): Promise<string> {
+    return fetch(fpath, { cache: params?.cache ?? "default" }).then((res) => res.text());
+  }
+
+  async fetchLocal(fpath: string, params?: RenderParams): Promise<string> {
+    return this.fetchRemote(fpath, params);
+  }
+
+  async preprocessString(
+    content: string,
+    params?: RenderParams & ParserParams
+  ): Promise<DocumentFragment> {
+    this.log(params, "Preprocessing string content with params:\n", params);
+    const fragment = this.parseHTML(content, params);
+    await this.preprocessNode(fragment, params);
+    return fragment;
+  }
+
+  async preprocessLocal(
     fpath: string,
-    params?: RendererParams & ParserParams
-  ): Promise<DocumentFragment>;
+    params?: RenderParams & ParserParams
+  ): Promise<DocumentFragment> {
+    const content = await this.fetchLocal(fpath, params);
+    return this.preprocessString(content, {
+      ...params,
+      dirpath: dirname(fpath),
+      root: params?.root ?? !fpath.endsWith(".tpl.html"),
+    });
+  }
+
+  async preprocessRemote(
+    fpath: string,
+    params?: RenderParams & ParserParams
+  ): Promise<DocumentFragment> {
+    const cache = params?.cache || "default";
+    const content = await fetch(fpath, { cache }).then((res) => res.text());
+    return this.preprocessString(content, {
+      ...params,
+      dirpath: dirname(fpath),
+      root: params?.root ?? !fpath.endsWith(".tpl.html"),
+    });
+  }
 
   clone(): IRenderer {
     return new (this.constructor as any)(Object.fromEntries(this.store.entries()));
   }
 
-  log(params?: RendererParams, ...args: any[]): void {
+  log(params?: RenderParams, ...args: any[]): void {
     if (params?.debug) console.debug(...args);
   }
 
-  async eval(expr: string, args: { [key: string]: any } = {}, params?: RendererParams) {
+  async eval(expr: string, args: { [key: string]: any } = {}, params?: RenderParams) {
     const proxy = proxify(this);
     const result = await safeEval(expr, proxy, { ...args });
     this.log(params, `eval \`${expr}\` => `, result);
     return result;
   }
 
-  async resolveIncludes(
+  async preprocessNode(
     root: Document | DocumentFragment | Node,
-    params?: RendererParams
-  ): Promise<IRenderer> {
-    params = Object.assign({ fsroot: this.fsroot }, _DEFAULT_RENDERER_PARAMS, params);
+    params?: RenderParams
+  ): Promise<void> {
+    params = Object.assign({ dirpath: this.dirpath, maxdepth: 10 }, params);
 
-    const includes = Array.from(traverse(root, this.skipNodes))
-      .map((node) => node as Element)
-      .filter((node) => node.tagName?.toLocaleLowerCase() === "include")
-      .map(async (node) => {
-        const src = node.getAttribute?.("src");
-        const dataset = { ...(node as HTMLElement).dataset };
-
-        // Add all the data-* attributes as properties to current context.
-        // NOTE: this will propagate to all subsequent render calls, including nested calls.
-        Object.entries(dataset).forEach(([key, attr]) => this.set(key, decodeHtmlAttrib(attr)));
-
-        // Early exit: <include> tags must have a src attribute.
-        if (!src) {
-          throw new Error(`"src" attribute missing from ${node}.`);
-        }
-
-        // The included file will replace this tag.
-        const handler = (fragment: DocumentFragment) => {
-          node.replaceWith(...Array.from(fragment.childNodes));
-        };
-
-        // Decrement the maxdepth param.
-        params.maxdepth!!--;
-
-        // Case 1: Absolute remote path.
-        if (src.indexOf("://") !== -1) {
-          await this.renderRemotePath(src, { ...params, isRoot: false }).then(handler);
-
-          // Case 2: Relative remote path.
-        } else if (params.fsroot?.indexOf("://") !== -1) {
-          const relpath = `${params.fsroot}/${src}`;
-          await this.renderRemotePath(relpath, { ...params, isRoot: false }).then(handler);
-
-          // Case 3: Local absolute path.
-        } else if (src.charAt(0) === "/") {
-          await this.renderLocalPath(src, { ...params, isRoot: false }).then(handler);
-
-          // Case 4: Local relative path.
-        } else {
-          const relpath = path.join(params.fsroot, src);
-          await this.renderLocalPath(relpath, { ...params, isRoot: false }).then(handler);
-        }
-      });
+    const promises = new Iterator(traverse(root, this.skipNodes)).map(async (node) => {
+      this.log(params, "Preprocessing node:\n", node);
+      // Resolve all the includes in the node.
+      await resolveIncludes.call(this, node, params);
+      // Resolve all the relative paths in the node.
+      await rebaseRelativePaths.call(this, node, params);
+    });
 
     // Wait for all the rendering operations to complete.
-    await Promise.all(includes);
-
-    // Re-render until no changes are made.
-    if (includes.length === 0) {
-      return this;
-    } else if (params.maxdepth === 0) {
-      throw new Error("Maximum recursion depth reached.");
-    } else {
-      return this.resolveIncludes(root, {
-        fsroot: params.fsroot,
-        maxdepth: params.maxdepth!! - 1,
-      });
-    }
+    await Promise.all(promises.generator());
   }
 
-  async resolveTextNodeExpressions(node: ChildNode, params?: RendererParams) {
-    if (node.nodeType !== 3) return;
-    const content = node.nodeValue || "";
-
-    // Identify all the expressions found in the content.
-    const expressions = extractStringExpressions(content);
-
-    const fn = async () => {
-      let updatedContent = content;
-      for (const expr of expressions) {
-        const result = await this.eval(expr, { $elem: node }, params);
-        updatedContent = updatedContent.replace(`{{ ${expr} }}`, String(result));
-      }
-      node.nodeValue = updatedContent;
-    };
-
-    // Update the content now, and set up the listeners for future updates.
-    const [result, dependencies] = await this.trace(fn);
-    this.log(params, content, "=>", result);
-
-    // Watch for updates, and re-execute function if needed.
-    this.watch(dependencies, fn);
-  }
-
-  async resolveDataAttribute(node: ChildNode, params?: RendererParams) {
-    if (this.skipNodes.has(node)) return;
-    const elem = node as Element;
-    const dataAttr = elem.getAttribute?.(":data");
-    if (dataAttr) {
-      this.log(params, ":data attribute found in:\n", node);
-
-      elem.removeAttribute(":data");
-      const result = await this.eval(dataAttr, { $elem: node }, params);
-      this.log(params, ":data", dataAttr, "=>", result);
-      await this.update(result);
-    }
-  }
-
-  async resolveWatchAttribute(node: ChildNode, params?: RendererParams) {
-    if (this.skipNodes.has(node)) return;
-    const elem = node as Element;
-    const watchAttr = elem.getAttribute?.("@watch");
-    if (watchAttr) {
-      this.log(params, "@watch attribute found in:\n", node);
-
-      // Remove the attribute from the node.
-      elem.removeAttribute("@watch");
-
-      // Compute the function's result and trace dependencies.
-      const fn = () => this.eval(watchAttr, { $elem: node }, params);
-      const [result, dependencies] = await this.trace(fn);
-      this.log(params, "@watch", watchAttr, "=>", result);
-
-      // Watch for updates, and re-execute function if needed.
-      this.watch(dependencies, fn);
-    }
-  }
-
-  async resolveHtmlAttribute(node: ChildNode, params?: RendererParams) {
-    if (this.skipNodes.has(node)) return;
-    const elem = node as Element;
-    const htmlAttr = elem.getAttribute?.("$html");
-    if (htmlAttr) {
-      this.log(params, "$html attribute found in:\n", node);
-
-      // Remove the attribute from the node.
-      elem.removeAttribute("$html");
-
-      // Obtain a subrenderer for the node contents.
-      const subrenderer = this.clone();
-
-      // Compute the function's result and trace dependencies.
-      const fn = async () => {
-        const html = await this.eval(htmlAttr, { $elem: node }, params);
-        elem.replaceChildren(await subrenderer.renderString(html, params));
-      };
-      const [result, dependencies] = await this.trace(fn);
-      this.log(params, "$html", htmlAttr, "=>", result);
-
-      // Watch for updates, and re-execute function if needed.
-      this.watch(dependencies, fn);
-    }
-  }
-
-  async resolvePropAttributes(node: ChildNode, params?: RendererParams) {
-    if (this.skipNodes.has(node)) return;
-    const elem = node as Element;
-    for (const attr of Array.from(elem.attributes || [])) {
-      if (attr.name.startsWith("$") && !KW_ATTRIBUTES.has(attr.name)) {
-        this.log(params, attr.name, "attribute found in:\n", node);
-
-        // Remove the attribute from the node.
-        elem.removeAttribute(attr.name);
-
-        // Apply any shorthand conversions if necessary.
-        const propName = (ATTR_SHORTHANDS[attr.name] || attr.name).slice(1);
-
-        // Compute the function's result and trace dependencies.
-        const fn = () => this.eval(attr.value, { $elem: node }, params);
-        const [result, dependencies] = await this.trace(fn);
-        this.log(params, attr.name, attr.value, "=>", result, `[${dependencies}]`);
-
-        // Set the requested property value on the original node, and watch for updates.
-        const prop = attributeNameToCamelCase(propName);
-        this.watch(dependencies, async () => ((node as any)[prop] = await fn()));
-        (node as any)[prop] = result;
-      }
-    }
-  }
-
-  async resolveAttrAttributes(node: ChildNode, params?: RendererParams) {
-    if (this.skipNodes.has(node)) return;
-    const elem = node as Element;
-    for (const attr of Array.from(elem.attributes || [])) {
-      if (attr.name.startsWith(":") && !KW_ATTRIBUTES.has(attr.name)) {
-        this.log(params, attr.name, "attribute found in:\n", node);
-
-        // Remove the processed attributes from node.
-        elem.removeAttribute(attr.name);
-
-        // Apply any shorthand conversions if necessary.
-        const attrName = (ATTR_SHORTHANDS[attr.name] || attr.name).slice(1);
-
-        // Compute the function's result and trace dependencies.
-        const fn = () => this.eval(attr.value, { $elem: node }, params);
-        const [result, dependencies] = await this.trace(fn);
-        this.log(params, attr.name, attr.value, "=>", result, `[${dependencies}]`);
-
-        // Set the requested property value on the original node, and watch for updates.
-        this.watch(dependencies, async () => elem.setAttribute(attrName, await fn()));
-        elem.setAttribute(attrName, result);
-      }
-    }
-  }
-
-  async resolveEventAttributes(node: ChildNode, params?: RendererParams) {
-    if (this.skipNodes.has(node)) return;
-    const elem = node as Element;
-    for (const attr of Array.from(elem.attributes || [])) {
-      if (attr.name.startsWith("@") && !KW_ATTRIBUTES.has(attr.name)) {
-        this.log(params, attr.name, "attribute found in:\n", node);
-
-        // Remove the processed attributes from node.
-        elem.removeAttribute(attr.name);
-
-        node.addEventListener?.(attr.name.substring(1), (event) =>
-          this.eval(attr.value, { $elem: node, $event: event }, params)
-        );
-      }
-    }
-  }
-
-  async resolveForAttribute(node: ChildNode, params?: RendererParams) {
-    if (this.skipNodes.has(node)) return;
-    const elem = node as Element;
-    const forAttr = elem.getAttribute?.(":for");
-    if (forAttr) {
-      this.log(params, ":for attribute found in:\n", node);
-
-      // Remove the processed attributes from node.
-      elem.removeAttribute(":for");
-
-      // Ensure the node and its children are not processed by subsequent steps.
-      for (const child of traverse(node, this.skipNodes)) {
-        this.skipNodes.add(child);
-      }
-
-      // Place the template node into a template element.
-      const parent = node.parentNode!!;
-      const template = node.ownerDocument!!.createElement("template");
-      parent.insertBefore(template, node);
-      template.append(node);
-      this.log(params, ":for template:\n", template);
-
-      // Tokenize the input by splitting it based on the format "{key} in {expression}".
-      const tokens = forAttr.split(" in ", 2);
-      if (tokens.length !== 2) {
-        throw new Error(`Invalid :for format: \`${forAttr}\`. Expected "{key} in {expression}".`);
-      }
-
-      // Compute the container expression and trace dependencies.
-      let items: any[] = [];
-      let deps: string[] = [];
-      const [loopKey, itemsExpr] = tokens;
-      try {
-        [items, deps] = await this.trace(() => this.eval(itemsExpr, { $elem: node }, params));
-        this.log(params, itemsExpr, "=>", items, `[${deps}]`);
-      } catch (exc) {
-        console.error(exc);
-        return;
-      }
-
-      // Keep track of all the child nodes added.
-      const children: Node[] = [];
-
-      // Define the function that will update the DOM.
-      const fn = async (items: any[]) => {
-        this.log(params, ":for list items:", items);
-
-        // Validate that the expression returns a list of items.
-        if (!Array.isArray(items)) {
-          console.error(`Expression did not yield a list: \`${itemsExpr}\` => \`${items}\``);
-          return;
-        }
-
-        // Acquire the lock atomically.
-        this.lock = this.lock.then(
-          () =>
-            new Promise(async (resolve) => {
-              // Remove all the previously added children, if any.
-              children.splice(0, children.length).forEach((child) => {
-                parent.removeChild(child);
-                this.skipNodes.delete(child);
-              });
-
-              // Loop through the container items in reverse, because we insert from back to front.
-              for (const item of items.slice(0).reverse()) {
-                // Create a subrenderer that will hold the loop item and all node descendants.
-                const subrenderer = this.clone();
-                await subrenderer.set(loopKey, item);
-
-                // Create a new HTML element for each item and add them to parent node.
-                const copy = node.cloneNode(true);
-                parent.insertBefore(copy, template.nextSibling);
-
-                // Also add the new element to the store.
-                children.push(copy);
-
-                // Since the element will be handled by a subrenderer, skip it in the source.
-                this.skipNodes.add(copy);
-
-                // Render the element using the subrenderer.
-                await subrenderer.mount(copy, params);
-                this.log(params, "Rendered list child:\n", copy);
-              }
-
-              // Release the lock.
-              resolve();
-            })
-        );
-
-        // Return the lock so the whole operation can be awaited.
-        return this.lock;
-      };
-
-      // Apply changes, and watch for updates in the dependencies.
-      this.watch(deps, async () => fn(await this.eval(itemsExpr, { $elem: node }, params)));
-      return fn(items);
-    }
-  }
-
-  async resolveBindAttribute(node: ChildNode, params?: RendererParams) {
-    if (this.skipNodes.has(node)) return;
-    const elem = node as Element;
-    const bindKey = elem.getAttribute?.(":bind");
-    if (bindKey) {
-      this.log(params, ":bind attribute found in:\n", node);
-
-      // The change events we listen for can be overriden by user.
-      const defaultEvents = ["change", "input"];
-      const updateEvents = elem.getAttribute?.(":bind-events")?.split(",") || defaultEvents;
-
-      // Remove the processed attributes from node.
-      elem.removeAttribute(":bind");
-      elem.removeAttribute(":bind-events");
-
-      // If the element is of type checkbox, we bind to the "checked" property.
-      const prop = elem.getAttribute("type") === "checkbox" ? "checked" : "value";
-
-      // If the key is not found in our store, create it and initialize it with the node's value.
-      if (!this.store.has(bindKey)) await this.set(bindKey, (elem as any)[prop]);
-
-      // Set the node's value to our current value.
-      (elem as any)[prop] = this.get(bindKey);
-
-      // Watch for updates in the node's value.
-      for (const event of updateEvents) {
-        node.addEventListener(event, () => this.set(bindKey, (elem as any)[prop]));
-      }
-
-      // Watch for updates in the store.
-      this.watch([bindKey], () => ((elem as any)[prop] = this.get(bindKey)));
-    }
-  }
-
-  async resolveShowAttribute(node: ChildNode, params?: RendererParams) {
-    if (this.skipNodes.has(node)) return;
-    const elem = node as HTMLElement;
-    const showExpr = elem.getAttribute?.(":show");
-    if (showExpr) {
-      this.log(params, ":show attribute found in:\n", node);
-
-      // Remove the processed attributes from node.
-      elem.removeAttribute(":show");
-
-      // Compute the function's result and trace dependencies.
-      const fn = () => this.eval(showExpr, { $elem: node }, params);
-      const [result, dependencies] = await this.trace(fn);
-      this.log(params, ":show", showExpr, "=>", result, `[${dependencies}]`);
-
-      // If the result is false, set the node's display to none.
-      const display = elem.style.display === "none" ? "" : elem.style.display;
-      if (!result) elem.style.display = "none";
-
-      // Watch the dependencies, and re-evaluate the expression.
-      this.watch(dependencies, async () => {
-        elem.style.display = (await fn()) ? display : "none";
-      });
-    }
-  }
-
-  async mount(
-    root: Document | DocumentFragment | Node,
-    params?: RendererParams
-  ): Promise<IRenderer> {
-    // Resolve all the includes recursively first.
-    await this.resolveIncludes(root, params);
-
+  async renderNode(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void> {
     // Iterate over all the nodes and apply appropriate handlers.
     // Do these steps one at a time to avoid any potential race conditions.
     for (const node of traverse(root, this.skipNodes)) {
-      this.log(params, "Processing node:\n", node);
+      this.log(params, "Rendering node:\n", node);
       // Resolve the :data attribute in the node.
-      await this.resolveDataAttribute(node, params);
+      await resolveDataAttribute.call(this, node, params);
       // Resolve the :for attribute in the node.
-      await this.resolveForAttribute(node, params);
-      // Resolve the :$html attribute in the node.
-      await this.resolveHtmlAttribute(node, params);
+      await resolveForAttribute.call(this, node, params);
+      // Resolve the $html attribute in the node.
+      await resolveHtmlAttribute.call(this, node, params);
       // Resolve the :show attribute in the node.
-      await this.resolveShowAttribute(node, params);
+      await resolveShowAttribute.call(this, node, params);
       // Resolve the @watch attribute in the node.
-      await this.resolveWatchAttribute(node, params);
+      await resolveWatchAttribute.call(this, node, params);
       // Resolve the :bind attribute in the node.
-      await this.resolveBindAttribute(node, params);
+      await resolveBindAttribute.call(this, node, params);
       // Resolve all $attributes in the node.
-      await this.resolvePropAttributes(node, params);
+      await resolvePropAttributes.call(this, node, params);
       // Resolve all :attributes in the node.
-      await this.resolveAttrAttributes(node, params);
+      await resolveAttrAttributes.call(this, node, params);
       // Resolve all @attributes in the node.
-      await this.resolveEventAttributes(node, params);
+      await resolveEventAttributes.call(this, node, params);
       // Replace all the {{ variables }} in the text.
-      await this.resolveTextNodeExpressions(node, params);
+      await resolveTextNodeExpressions.call(this, node, params);
     }
-
-    return this;
   }
 
-  async renderString(
-    content: string,
-    params?: RendererParams & ParserParams
-  ): Promise<DocumentFragment> {
-    const fragment = this.parseHTML(content, params);
-    await this.mount(fragment, params);
-    return fragment;
-  }
+  async mount(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void> {
+    // Preprocess all the elements recursively first.
+    await this.preprocessNode(root, params);
 
-  async renderRemotePath(
-    fpath: string,
-    params?: RendererParams & ParserParams
-  ): Promise<DocumentFragment> {
-    const cache = params?.cache || "default";
-    const content = await fetch(fpath, { cache }).then((res) => res.text());
-    return this.renderString(content, {
-      ...params,
-      fsroot: folderPath(fpath),
-      isRoot: params?.isRoot || !fpath.endsWith(".tpl.html"),
-    });
+    // Now that the DOM is complete, render all the nodes.
+    await this.renderNode(root, params);
   }
 }

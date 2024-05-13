@@ -19,14 +19,13 @@ function mancha(
   wwwroot: string = process.cwd()
 ): stream.Transform {
   const renderer = new RendererImpl(context);
-  // Mancha.update(context);
   return through.obj(function (file: File, encoding: BufferEncoding, callback: Function) {
     const catcher = (err: Error) => {
       console.log(err);
       callback(err, file);
     };
 
-    const fsroot = path.dirname(file.path);
+    const dirpath = path.dirname(file.path);
 
     if (file.isNull()) {
       callback(null, file);
@@ -34,8 +33,9 @@ function mancha(
       if (file.isBuffer()) {
         const chunk = file.contents.toString(encoding);
         renderer
-          .renderString(chunk, { fsroot, isRoot: !file.path.endsWith(".tpl.html") })
-          .then((fragment) => {
+          .preprocessString(chunk, { dirpath, root: !file.path.endsWith(".tpl.html") })
+          .then(async (fragment) => {
+            await renderer.renderNode(fragment);
             const content = renderer.serializeHTML(fragment);
             file.contents = Buffer.from(content, encoding);
             callback(null, file);
@@ -53,8 +53,9 @@ function mancha(
           })
           .on("end", () => {
             renderer
-              .renderString(docstr, { fsroot, isRoot: !file.path.endsWith(".tpl.html") })
-              .then((document) => {
+              .preprocessString(docstr, { dirpath, root: !file.path.endsWith(".tpl.html") })
+              .then(async (document) => {
+                await renderer.renderNode(document);
                 const content = renderer.serializeHTML(document);
                 const readable = new stream.Readable();
                 readable._read = function () {};

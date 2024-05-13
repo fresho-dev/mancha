@@ -1,5 +1,13 @@
 import * as assert from "assert";
-import { InertProxy, ReactiveProxy, ReactiveProxyStore, proxify, proxifyObject } from "./reactive";
+import { describe, it } from "mocha";
+import {
+  InertProxy,
+  REACTIVE_DEBOUNCE_MILLIS,
+  ReactiveProxy,
+  ReactiveProxyStore,
+  proxify,
+  proxifyObject,
+} from "./reactive";
 
 describe("Mancha reactive module", () => {
   describe("ReactiveProxy", () => {
@@ -29,7 +37,7 @@ describe("Mancha reactive module", () => {
       let join = arr.join(",");
       const proxy = ReactiveProxy.from(arr);
       proxy.watch(async (val) => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, 20));
         join = val!!.join(",");
       });
 
@@ -45,7 +53,7 @@ describe("Mancha reactive module", () => {
       const proxy = ReactiveProxy.from(0);
       let value: number | null = proxy.get();
       proxy.watch(async (val) => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, 20));
         value = val;
       });
       const promise = proxy.set(1);
@@ -119,7 +127,7 @@ describe("Mancha reactive module", () => {
 
       ops = 0;
       store.get("x").b = 2;
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 50));
       assert.ok(ops > 0);
       assert.equal(store.get("x")?.b, 2);
     });
@@ -129,7 +137,7 @@ describe("Mancha reactive module", () => {
       let join = arr.join(",");
       const store = new ReactiveProxyStore({ arr: arr });
       store.watch(["arr"], async (val) => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
+        await new Promise((resolve) => setTimeout(resolve, 50));
         join = val!!.join(",");
       });
 
@@ -206,7 +214,7 @@ describe("Mancha reactive module", () => {
       await store.computed("sum", () => store.get("a") + store.get("b"));
       assert.equal(store.get("sum"), 3);
       store.set("b", 3);
-      await new Promise((resolve) => setTimeout(resolve, 1));
+      await new Promise((resolve) => setTimeout(resolve, 50));
       assert.equal(store.get("sum"), 4);
     });
 
@@ -217,7 +225,7 @@ describe("Mancha reactive module", () => {
       });
       assert.equal(store.get("sum"), 3);
       store.set("b", 3);
-      await new Promise((resolve) => setTimeout(resolve, 1));
+      await new Promise((resolve) => setTimeout(resolve, 50));
       assert.equal(store.get("sum"), 4);
     });
 
@@ -230,6 +238,52 @@ describe("Mancha reactive module", () => {
         },
       });
       assert.equal(store.get("fn")(), 3);
+    });
+
+    it("references proxy via $", async () => {
+      const store = new ReactiveProxyStore({ a: 1, b: 2 });
+      store.$.a++;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      assert.equal(store.$.a, 2);
+      assert.equal(store.get("a"), 2);
+    });
+
+    it("adds new properties via $", async () => {
+      const store = new ReactiveProxyStore({ a: 1 });
+      store.$.b = 2;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      assert.equal(store.$.b, 2);
+      assert.equal(store.get("b"), 2);
+    });
+
+    it("calls methods via $", async () => {
+      const { $ } = new ReactiveProxyStore();
+      await $.set("a", 1);
+      assert.equal($.a, 1);
+    });
+
+    it("sets a debouncer for property watches", async () => {
+      const store = new ReactiveProxyStore({ a: 1, b: 2 });
+      let ops = 0;
+      store.watch(["a"], () => ops++);
+      store.set("a", 2);
+      store.set("a", 3);
+      store.set("a", 4);
+      assert.equal(ops, 0);
+      await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
+      assert.ok(ops > 0);
+    });
+
+    it('debounces arbitrary functions', async () => {
+      const store = new ReactiveProxyStore({ a: 1, b: 2 });
+      let ops = 0;
+      const millis = 50;
+      store.debounce(millis, () => ops++);
+      assert.equal(ops, 0);
+      await new Promise((resolve) => setTimeout(resolve, millis / 2));
+      assert.equal(ops, 0);
+      await new Promise((resolve) => setTimeout(resolve, millis / 2));
+      assert.equal(ops, 1);
     });
   });
 

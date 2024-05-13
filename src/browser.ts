@@ -1,9 +1,10 @@
-import { folderPath, IRenderer, ParserParams, RendererParams } from "./core";
+import { dirname, IRenderer } from "./core";
+import { ParserParams, RenderParams } from "./interfaces";
 
 class RendererImpl extends IRenderer {
-  protected readonly fsroot: string = folderPath(self.location.href);
-  parseHTML(content: string, params: ParserParams = { isRoot: false }): DocumentFragment {
-    if (params.isRoot) {
+  protected readonly dirpath: string = dirname(self.location.href);
+  parseHTML(content: string, params: ParserParams = { root: false }): DocumentFragment {
+    if (params.root) {
       return new DOMParser().parseFromString(content, "text/html") as unknown as DocumentFragment;
     } else {
       const range = document.createRange();
@@ -14,11 +15,9 @@ class RendererImpl extends IRenderer {
   serializeHTML(root: Node | DocumentFragment): string {
     return new XMLSerializer().serializeToString(root).replace(/\s?xmlns="[^"]+"/gm, "");
   }
-  renderLocalPath(
-    fpath: string,
-    params?: RendererParams & ParserParams
-  ): Promise<DocumentFragment> {
-    throw new Error("Not implemented.");
+  preprocessLocal(fpath: string, params?: RenderParams & ParserParams): Promise<DocumentFragment> {
+    // In the browser, "local" paths (i.e., relative) can still be fetched.
+    return this.preprocessRemote(fpath, params);
   }
 }
 

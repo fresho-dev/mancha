@@ -14,10 +14,10 @@ const core_1 = require("./core");
 class RendererImpl extends core_1.IRenderer {
     constructor() {
         super(...arguments);
-        this.fsroot = (0, core_1.folderPath)(self.location.href);
+        this.dirpath = (0, core_1.dirname)(self.location.href);
     }
-    parseHTML(content, params = { isRoot: false }) {
-        if (params.isRoot) {
+    parseHTML(content, params = { root: false }) {
+        if (params.root) {
             return new DOMParser().parseFromString(content, "text/html");
         }
         else {
@@ -29,8 +29,9 @@ class RendererImpl extends core_1.IRenderer {
     serializeHTML(root) {
         return new XMLSerializer().serializeToString(root).replace(/\s?xmlns="[^"]+"/gm, "");
     }
-    renderLocalPath(fpath, params) {
-        throw new Error("Not implemented.");
+    preprocessLocal(fpath, params) {
+        // In the browser, "local" paths (i.e., relative) can still be fetched.
+        return this.preprocessRemote(fpath, params);
     }
 }
 const Mancha = new RendererImpl();

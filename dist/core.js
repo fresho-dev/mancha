@@ -9,23 +9,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.IRenderer = exports.safeEval = exports.extractStringExpressions = exports.resolvePath = exports.folderPath = exports.traverse = void 0;
-const path = require("path-browserify");
+exports.IRenderer = exports.safeEval = exports.isRelativePath = exports.dirname = exports.traverse = void 0;
 const reactive_1 = require("./reactive");
-const attributes_1 = require("./attributes");
-const KW_ATTRIBUTES = new Set([
-    ":bind",
-    ":bind-events",
-    ":data",
-    ":for",
-    ":show",
-    "@watch",
-    "$html",
-]);
-const ATTR_SHORTHANDS = {
-    $text: "$text-content",
-    // $html: "$inner-HTML",
-};
+const iterator_1 = require("./iterator");
+const plugins_1 = require("./plugins");
 function* traverse(root, skip = new Set()) {
     const explored = new Set();
     const frontier = Array.from(root.childNodes).filter((node) => !skip.has(node));
@@ -45,41 +32,66 @@ function* traverse(root, skip = new Set()) {
     }
 }
 exports.traverse = traverse;
-function folderPath(fpath) {
-    if (fpath.endsWith("/")) {
-        return fpath.slice(0, -1);
+function dirname(fpath) {
+    if (!fpath.includes("/")) {
+        return "";
     }
     else {
-        return path.dirname(fpath);
+        return fpath.split("/").slice(0, -1).join("/");
     }
 }
-exports.folderPath = folderPath;
-function resolvePath(fpath) {
-    if (fpath.includes("://")) {
-        const [scheme, remotePath] = fpath.split("://", 2);
-        return `${scheme}://${resolvePath("/" + remotePath).substring(1)}`;
-    }
-    else {
-        return path.resolve(fpath);
-    }
+exports.dirname = dirname;
+function isRelativePath(fpath) {
+    return (!fpath.includes("://") &&
+        !fpath.startsWith("/") &&
+        !fpath.startsWith("#") &&
+        !fpath.startsWith("data:"));
 }
-exports.resolvePath = resolvePath;
-function extractStringExpressions(content) {
-    const matcher = new RegExp(/{{ ([^}]+) }}/gm);
-    return Array.from(content.matchAll(matcher)).map((match) => match[1]);
-}
-exports.extractStringExpressions = extractStringExpressions;
+exports.isRelativePath = isRelativePath;
 function safeEval(code, context, args = {}) {
     const inner = `with (this) { return (async () => (${code}))(); }`;
     return new Function(...Object.keys(args), inner).call(context, ...Object.values(args));
 }
 exports.safeEval = safeEval;
-const _DEFAULT_RENDERER_PARAMS = { maxdepth: 10 };
 class IRenderer extends reactive_1.ReactiveProxyStore {
     constructor() {
         super(...arguments);
-        this.fsroot = ".";
+        this.dirpath = "";
         this.skipNodes = new Set();
+    }
+    fetchRemote(fpath, params) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            return fetch(fpath, { cache: (_a = params === null || params === void 0 ? void 0 : params.cache) !== null && _a !== void 0 ? _a : "default" }).then((res) => res.text());
+        });
+    }
+    fetchLocal(fpath, params) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.fetchRemote(fpath, params);
+        });
+    }
+    preprocessString(content, params) {
+        return __awaiter(this, void 0, void 0, function* () {
+            this.log(params, "Preprocessing string content with params:\n", params);
+            const fragment = this.parseHTML(content, params);
+            yield this.preprocessNode(fragment, params);
+            return fragment;
+        });
+    }
+    preprocessLocal(fpath, params) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const content = yield this.fetchLocal(fpath, params);
+            return this.preprocessString(content, Object.assign(Object.assign({}, params), { dirpath: dirname(fpath), root: (_a = params === null || params === void 0 ? void 0 : params.root) !== null && _a !== void 0 ? _a : !fpath.endsWith(".tpl.html") }));
+        });
+    }
+    preprocessRemote(fpath, params) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const cache = (params === null || params === void 0 ? void 0 : params.cache) || "default";
+            const content = yield fetch(fpath, { cache }).then((res) => res.text());
+            return this.preprocessString(content, Object.assign(Object.assign({}, params), { dirpath: dirname(fpath), root: (_a = params === null || params === void 0 ? void 0 : params.root) !== null && _a !== void 0 ? _a : !fpath.endsWith(".tpl.html") }));
+        });
     }
     clone() {
         return new this.constructor(Object.fromEntries(this.store.entries()));
@@ -96,395 +108,55 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
             return result;
         });
     }
-    resolveIncludes(root, params) {
+    preprocessNode(root, params) {
         return __awaiter(this, void 0, void 0, function* () {
-            params = Object.assign({ fsroot: this.fsroot }, _DEFAULT_RENDERER_PARAMS, params);
-            const includes = Array.from(traverse(root, this.skipNodes))
-                .map((node) => node)
-                .filter((node) => { var _a; return ((_a = node.tagName) === null || _a === void 0 ? void 0 : _a.toLocaleLowerCase()) === "include"; })
-                .map((node) => __awaiter(this, void 0, void 0, function* () {
-                var _a, _b;
-                const src = (_a = node.getAttribute) === null || _a === void 0 ? void 0 : _a.call(node, "src");
-                const dataset = Object.assign({}, node.dataset);
-                // Add all the data-* attributes as properties to current context.
-                // NOTE: this will propagate to all subsequent render calls, including nested calls.
-                Object.entries(dataset).forEach(([key, attr]) => this.set(key, (0, attributes_1.decodeHtmlAttrib)(attr)));
-                // Early exit: <include> tags must have a src attribute.
-                if (!src) {
-                    throw new Error(`"src" attribute missing from ${node}.`);
-                }
-                // The included file will replace this tag.
-                const handler = (fragment) => {
-                    node.replaceWith(...Array.from(fragment.childNodes));
-                };
-                // Decrement the maxdepth param.
-                params.maxdepth--;
-                // Case 1: Absolute remote path.
-                if (src.indexOf("://") !== -1) {
-                    yield this.renderRemotePath(src, Object.assign(Object.assign({}, params), { isRoot: false })).then(handler);
-                    // Case 2: Relative remote path.
-                }
-                else if (((_b = params.fsroot) === null || _b === void 0 ? void 0 : _b.indexOf("://")) !== -1) {
-                    const relpath = `${params.fsroot}/${src}`;
-                    yield this.renderRemotePath(relpath, Object.assign(Object.assign({}, params), { isRoot: false })).then(handler);
-                    // Case 3: Local absolute path.
-                }
-                else if (src.charAt(0) === "/") {
-                    yield this.renderLocalPath(src, Object.assign(Object.assign({}, params), { isRoot: false })).then(handler);
-                    // Case 4: Local relative path.
-                }
-                else {
-                    const relpath = path.join(params.fsroot, src);
-                    yield this.renderLocalPath(relpath, Object.assign(Object.assign({}, params), { isRoot: false })).then(handler);
-                }
+            params = Object.assign({ dirpath: this.dirpath, maxdepth: 10 }, params);
+            const promises = new iterator_1.Iterator(traverse(root, this.skipNodes)).map((node) => __awaiter(this, void 0, void 0, function* () {
+                this.log(params, "Preprocessing node:\n", node);
+                // Resolve all the includes in the node.
+                yield plugins_1.resolveIncludes.call(this, node, params);
+                // Resolve all the relative paths in the node.
+                yield plugins_1.rebaseRelativePaths.call(this, node, params);
             }));
             // Wait for all the rendering operations to complete.
-            yield Promise.all(includes);
-            // Re-render until no changes are made.
-            if (includes.length === 0) {
-                return this;
-            }
-            else if (params.maxdepth === 0) {
-                throw new Error("Maximum recursion depth reached.");
-            }
-            else {
-                return this.resolveIncludes(root, {
-                    fsroot: params.fsroot,
-                    maxdepth: params.maxdepth - 1,
-                });
-            }
+            yield Promise.all(promises.generator());
         });
     }
-    resolveTextNodeExpressions(node, params) {
+    renderNode(root, params) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (node.nodeType !== 3)
-                return;
-            const content = node.nodeValue || "";
-            // Identify all the expressions found in the content.
-            const expressions = extractStringExpressions(content);
-            const fn = () => __awaiter(this, void 0, void 0, function* () {
-                let updatedContent = content;
-                for (const expr of expressions) {
-                    const result = yield this.eval(expr, { $elem: node }, params);
-                    updatedContent = updatedContent.replace(`{{ ${expr} }}`, String(result));
-                }
-                node.nodeValue = updatedContent;
-            });
-            // Update the content now, and set up the listeners for future updates.
-            const [result, dependencies] = yield this.trace(fn);
-            this.log(params, content, "=>", result);
-            // Watch for updates, and re-execute function if needed.
-            this.watch(dependencies, fn);
-        });
-    }
-    resolveDataAttribute(node, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            var _a;
-            if (this.skipNodes.has(node))
-                return;
-            const elem = node;
-            const dataAttr = (_a = elem.getAttribute) === null || _a === void 0 ? void 0 : _a.call(elem, ":data");
-            if (dataAttr) {
-                this.log(params, ":data attribute found in:\n", node);
-                elem.removeAttribute(":data");
-                const result = yield this.eval(dataAttr, { $elem: node }, params);
-                this.log(params, ":data", dataAttr, "=>", result);
-                yield this.update(result);
-            }
-        });
-    }
-    resolveWatchAttribute(node, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            var _a;
-            if (this.skipNodes.has(node))
-                return;
-            const elem = node;
-            const watchAttr = (_a = elem.getAttribute) === null || _a === void 0 ? void 0 : _a.call(elem, "@watch");
-            if (watchAttr) {
-                this.log(params, "@watch attribute found in:\n", node);
-                // Remove the attribute from the node.
-                elem.removeAttribute("@watch");
-                // Compute the function's result and trace dependencies.
-                const fn = () => this.eval(watchAttr, { $elem: node }, params);
-                const [result, dependencies] = yield this.trace(fn);
-                this.log(params, "@watch", watchAttr, "=>", result);
-                // Watch for updates, and re-execute function if needed.
-                this.watch(dependencies, fn);
-            }
-        });
-    }
-    resolveHtmlAttribute(node, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            var _a;
-            if (this.skipNodes.has(node))
-                return;
-            const elem = node;
-            const htmlAttr = (_a = elem.getAttribute) === null || _a === void 0 ? void 0 : _a.call(elem, "$html");
-            if (htmlAttr) {
-                this.log(params, "$html attribute found in:\n", node);
-                // Remove the attribute from the node.
-                elem.removeAttribute("$html");
-                // Obtain a subrenderer for the node contents.
-                const subrenderer = this.clone();
-                // Compute the function's result and trace dependencies.
-                const fn = () => __awaiter(this, void 0, void 0, function* () {
-                    const html = yield this.eval(htmlAttr, { $elem: node }, params);
-                    elem.replaceChildren(yield subrenderer.renderString(html, params));
-                });
-                const [result, dependencies] = yield this.trace(fn);
-                this.log(params, "$html", htmlAttr, "=>", result);
-                // Watch for updates, and re-execute function if needed.
-                this.watch(dependencies, fn);
-            }
-        });
-    }
-    resolvePropAttributes(node, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (this.skipNodes.has(node))
-                return;
-            const elem = node;
-            for (const attr of Array.from(elem.attributes || [])) {
-                if (attr.name.startsWith("$") && !KW_ATTRIBUTES.has(attr.name)) {
-                    this.log(params, attr.name, "attribute found in:\n", node);
-                    // Remove the attribute from the node.
-                    elem.removeAttribute(attr.name);
-                    // Apply any shorthand conversions if necessary.
-                    const propName = (ATTR_SHORTHANDS[attr.name] || attr.name).slice(1);
-                    // Compute the function's result and trace dependencies.
-                    const fn = () => this.eval(attr.value, { $elem: node }, params);
-                    const [result, dependencies] = yield this.trace(fn);
-                    this.log(params, attr.name, attr.value, "=>", result, `[${dependencies}]`);
-                    // Set the requested property value on the original node, and watch for updates.
-                    const prop = (0, attributes_1.attributeNameToCamelCase)(propName);
-                    this.watch(dependencies, () => __awaiter(this, void 0, void 0, function* () { return (node[prop] = yield fn()); }));
-                    node[prop] = result;
-                }
-            }
-        });
-    }
-    resolveAttrAttributes(node, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (this.skipNodes.has(node))
-                return;
-            const elem = node;
-            for (const attr of Array.from(elem.attributes || [])) {
-                if (attr.name.startsWith(":") && !KW_ATTRIBUTES.has(attr.name)) {
-                    this.log(params, attr.name, "attribute found in:\n", node);
-                    // Remove the processed attributes from node.
-                    elem.removeAttribute(attr.name);
-                    // Apply any shorthand conversions if necessary.
-                    const attrName = (ATTR_SHORTHANDS[attr.name] || attr.name).slice(1);
-                    // Compute the function's result and trace dependencies.
-                    const fn = () => this.eval(attr.value, { $elem: node }, params);
-                    const [result, dependencies] = yield this.trace(fn);
-                    this.log(params, attr.name, attr.value, "=>", result, `[${dependencies}]`);
-                    // Set the requested property value on the original node, and watch for updates.
-                    this.watch(dependencies, () => __awaiter(this, void 0, void 0, function* () { return elem.setAttribute(attrName, yield fn()); }));
-                    elem.setAttribute(attrName, result);
-                }
-            }
-        });
-    }
-    resolveEventAttributes(node, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            var _a;
-            if (this.skipNodes.has(node))
-                return;
-            const elem = node;
-            for (const attr of Array.from(elem.attributes || [])) {
-                if (attr.name.startsWith("@") && !KW_ATTRIBUTES.has(attr.name)) {
-                    this.log(params, attr.name, "attribute found in:\n", node);
-                    // Remove the processed attributes from node.
-                    elem.removeAttribute(attr.name);
-                    (_a = node.addEventListener) === null || _a === void 0 ? void 0 : _a.call(node, attr.name.substring(1), (event) => this.eval(attr.value, { $elem: node, $event: event }, params));
-                }
-            }
-        });
-    }
-    resolveForAttribute(node, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            var _a;
-            if (this.skipNodes.has(node))
-                return;
-            const elem = node;
-            const forAttr = (_a = elem.getAttribute) === null || _a === void 0 ? void 0 : _a.call(elem, ":for");
-            if (forAttr) {
-                this.log(params, ":for attribute found in:\n", node);
-                // Remove the processed attributes from node.
-                elem.removeAttribute(":for");
-                // Ensure the node and its children are not processed by subsequent steps.
-                for (const child of traverse(node, this.skipNodes)) {
-                    this.skipNodes.add(child);
-                }
-                // Place the template node into a template element.
-                const parent = node.parentNode;
-                const template = node.ownerDocument.createElement("template");
-                parent.insertBefore(template, node);
-                template.append(node);
-                this.log(params, ":for template:\n", template);
-                // Tokenize the input by splitting it based on the format "{key} in {expression}".
-                const tokens = forAttr.split(" in ", 2);
-                if (tokens.length !== 2) {
-                    throw new Error(`Invalid :for format: \`${forAttr}\`. Expected "{key} in {expression}".`);
-                }
-                // Compute the container expression and trace dependencies.
-                let items = [];
-                let deps = [];
-                const [loopKey, itemsExpr] = tokens;
-                try {
-                    [items, deps] = yield this.trace(() => this.eval(itemsExpr, { $elem: node }, params));
-                    this.log(params, itemsExpr, "=>", items, `[${deps}]`);
-                }
-                catch (exc) {
-                    console.error(exc);
-                    return;
-                }
-                // Keep track of all the child nodes added.
-                const children = [];
-                // Define the function that will update the DOM.
-                const fn = (items) => __awaiter(this, void 0, void 0, function* () {
-                    this.log(params, ":for list items:", items);
-                    // Validate that the expression returns a list of items.
-                    if (!Array.isArray(items)) {
-                        console.error(`Expression did not yield a list: \`${itemsExpr}\` => \`${items}\``);
-                        return;
-                    }
-                    // Acquire the lock atomically.
-                    this.lock = this.lock.then(() => new Promise((resolve) => __awaiter(this, void 0, void 0, function* () {
-                        // Remove all the previously added children, if any.
-                        children.splice(0, children.length).forEach((child) => {
-                            parent.removeChild(child);
-                            this.skipNodes.delete(child);
-                        });
-                        // Loop through the container items in reverse, because we insert from back to front.
-                        for (const item of items.slice(0).reverse()) {
-                            // Create a subrenderer that will hold the loop item and all node descendants.
-                            const subrenderer = this.clone();
-                            yield subrenderer.set(loopKey, item);
-                            // Create a new HTML element for each item and add them to parent node.
-                            const copy = node.cloneNode(true);
-                            parent.insertBefore(copy, template.nextSibling);
-                            // Also add the new element to the store.
-                            children.push(copy);
-                            // Since the element will be handled by a subrenderer, skip it in the source.
-                            this.skipNodes.add(copy);
-                            // Render the element using the subrenderer.
-                            yield subrenderer.mount(copy, params);
-                            this.log(params, "Rendered list child:\n", copy);
-                        }
-                        // Release the lock.
-                        resolve();
-                    })));
-                    // Return the lock so the whole operation can be awaited.
-                    return this.lock;
-                });
-                // Apply changes, and watch for updates in the dependencies.
-                this.watch(deps, () => __awaiter(this, void 0, void 0, function* () { return fn(yield this.eval(itemsExpr, { $elem: node }, params)); }));
-                return fn(items);
-            }
-        });
-    }
-    resolveBindAttribute(node, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c;
-            if (this.skipNodes.has(node))
-                return;
-            const elem = node;
-            const bindKey = (_a = elem.getAttribute) === null || _a === void 0 ? void 0 : _a.call(elem, ":bind");
-            if (bindKey) {
-                this.log(params, ":bind attribute found in:\n", node);
-                // The change events we listen for can be overriden by user.
-                const defaultEvents = ["change", "input"];
-                const updateEvents = ((_c = (_b = elem.getAttribute) === null || _b === void 0 ? void 0 : _b.call(elem, ":bind-events")) === null || _c === void 0 ? void 0 : _c.split(",")) || defaultEvents;
-                // Remove the processed attributes from node.
-                elem.removeAttribute(":bind");
-                elem.removeAttribute(":bind-events");
-                // If the element is of type checkbox, we bind to the "checked" property.
-                const prop = elem.getAttribute("type") === "checkbox" ? "checked" : "value";
-                // If the key is not found in our store, create it and initialize it with the node's value.
-                if (!this.store.has(bindKey))
-                    yield this.set(bindKey, elem[prop]);
-                // Set the node's value to our current value.
-                elem[prop] = this.get(bindKey);
-                // Watch for updates in the node's value.
-                for (const event of updateEvents) {
-                    node.addEventListener(event, () => this.set(bindKey, elem[prop]));
-                }
-                // Watch for updates in the store.
-                this.watch([bindKey], () => (elem[prop] = this.get(bindKey)));
-            }
-        });
-    }
-    resolveShowAttribute(node, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            var _a;
-            if (this.skipNodes.has(node))
-                return;
-            const elem = node;
-            const showExpr = (_a = elem.getAttribute) === null || _a === void 0 ? void 0 : _a.call(elem, ":show");
-            if (showExpr) {
-                this.log(params, ":show attribute found in:\n", node);
-                // Remove the processed attributes from node.
-                elem.removeAttribute(":show");
-                // Compute the function's result and trace dependencies.
-                const fn = () => this.eval(showExpr, { $elem: node }, params);
-                const [result, dependencies] = yield this.trace(fn);
-                this.log(params, ":show", showExpr, "=>", result, `[${dependencies}]`);
-                // If the result is false, set the node's display to none.
-                const display = elem.style.display === "none" ? "" : elem.style.display;
-                if (!result)
-                    elem.style.display = "none";
-                // Watch the dependencies, and re-evaluate the expression.
-                this.watch(dependencies, () => __awaiter(this, void 0, void 0, function* () {
-                    elem.style.display = (yield fn()) ? display : "none";
-                }));
+            // Iterate over all the nodes and apply appropriate handlers.
+            // Do these steps one at a time to avoid any potential race conditions.
+            for (const node of traverse(root, this.skipNodes)) {
+                this.log(params, "Rendering node:\n", node);
+                // Resolve the :data attribute in the node.
+                yield plugins_1.resolveDataAttribute.call(this, node, params);
+                // Resolve the :for attribute in the node.
+                yield plugins_1.resolveForAttribute.call(this, node, params);
+                // Resolve the $html attribute in the node.
+                yield plugins_1.resolveHtmlAttribute.call(this, node, params);
+                // Resolve the :show attribute in the node.
+                yield plugins_1.resolveShowAttribute.call(this, node, params);
+                // Resolve the @watch attribute in the node.
+                yield plugins_1.resolveWatchAttribute.call(this, node, params);
+                // Resolve the :bind attribute in the node.
+                yield plugins_1.resolveBindAttribute.call(this, node, params);
+                // Resolve all $attributes in the node.
+                yield plugins_1.resolvePropAttributes.call(this, node, params);
+                // Resolve all :attributes in the node.
+                yield plugins_1.resolveAttrAttributes.call(this, node, params);
+                // Resolve all @attributes in the node.
+                yield plugins_1.resolveEventAttributes.call(this, node, params);
+                // Replace all the {{ variables }} in the text.
+                yield plugins_1.resolveTextNodeExpressions.call(this, node, params);
             }
         });
     }
     mount(root, params) {
         return __awaiter(this, void 0, void 0, function* () {
-            // Resolve all the includes recursively first.
-            yield this.resolveIncludes(root, params);
-            // Iterate over all the nodes and apply appropriate handlers.
-            // Do these steps one at a time to avoid any potential race conditions.
-            for (const node of traverse(root, this.skipNodes)) {
-                this.log(params, "Processing node:\n", node);
-                // Resolve the :data attribute in the node.
-                yield this.resolveDataAttribute(node, params);
-                // Resolve the :for attribute in the node.
-                yield this.resolveForAttribute(node, params);
-                // Resolve the :$html attribute in the node.
-                yield this.resolveHtmlAttribute(node, params);
-                // Resolve the :show attribute in the node.
-                yield this.resolveShowAttribute(node, params);
-                // Resolve the @watch attribute in the node.
-                yield this.resolveWatchAttribute(node, params);
-                // Resolve the :bind attribute in the node.
-                yield this.resolveBindAttribute(node, params);
-                // Resolve all $attributes in the node.
-                yield this.resolvePropAttributes(node, params);
-                // Resolve all :attributes in the node.
-                yield this.resolveAttrAttributes(node, params);
-                // Resolve all @attributes in the node.
-                yield this.resolveEventAttributes(node, params);
-                // Replace all the {{ variables }} in the text.
-                yield this.resolveTextNodeExpressions(node, params);
-            }
-            return this;
-        });
-    }
-    renderString(content, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const fragment = this.parseHTML(content, params);
-            yield this.mount(fragment, params);
-            return fragment;
-        });
-    }
-    renderRemotePath(fpath, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const cache = (params === null || params === void 0 ? void 0 : params.cache) || "default";
-            const content = yield fetch(fpath, { cache }).then((res) => res.text());
-            return this.renderString(content, Object.assign(Object.assign({}, params), { fsroot: folderPath(fpath), isRoot: (params === null || params === void 0 ? void 0 : params.isRoot) || !fpath.endsWith(".tpl.html") }));
+            // Preprocess all the elements recursively first.
+            yield this.preprocessNode(root, params);
+            // Now that the DOM is complete, render all the nodes.
+            yield this.renderNode(root, params);
         });
     }
 }

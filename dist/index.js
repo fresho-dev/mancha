@@ -9,27 +9,17 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Mancha = exports.resolvePath = exports.folderPath = exports.RendererImpl = void 0;
+exports.Mancha = exports.RendererImpl = void 0;
 const fs = require("fs/promises");
-const core_1 = require("./core");
 const worker_1 = require("./worker");
 /** The Node Mancha renderer is just like the worker renderer, but it also uses the filesystem. */
 class RendererImpl extends worker_1.RendererImpl {
-    renderLocalPath(fpath_1) {
-        return __awaiter(this, arguments, void 0, function* (fpath, params = { encoding: "utf8" }) {
-            const content = yield fs.readFile(fpath, { encoding: params.encoding });
-            return this.renderString(content.toString(), {
-                fsroot: (0, core_1.folderPath)(fpath),
-                // Determine whether a root node is needed based on filename.
-                isRoot: params.isRoot || !fpath.endsWith(".tpl.html"),
-            });
+    fetchLocal(fpath, params) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return fs.readFile(fpath, { encoding: (params === null || params === void 0 ? void 0 : params.encoding) || "utf8" });
         });
     }
 }
 exports.RendererImpl = RendererImpl;
-// Re-exports from core.
-var core_2 = require("./core");
-Object.defineProperty(exports, "folderPath", { enumerable: true, get: function () { return core_2.folderPath; } });
-Object.defineProperty(exports, "resolvePath", { enumerable: true, get: function () { return core_2.resolvePath; } });
 // Export the renderer instance directly.
 exports.Mancha = new RendererImpl();

@@ -1,11 +1,11 @@
 import { JSDOM } from "jsdom";
-import { IRenderer, ParserParams, RendererParams } from "./core";
+import { IRenderer } from "./core";
+import { ParserParams, RenderParams } from "./interfaces";
 
 export class RendererImpl extends IRenderer {
-  parseHTML(content: string, params: ParserParams = { isRoot: false }): DocumentFragment {
-    // return JSDOM.fragment(content) as unknown as DocumentFragment;
+  parseHTML(content: string, params: ParserParams = { root: false }): DocumentFragment {
     const dom = new JSDOM();
-    if (params.isRoot) {
+    if (params.root) {
       const DOMParser = dom.window.DOMParser;
       return new DOMParser().parseFromString(content, "text/html") as unknown as DocumentFragment;
     } else {
@@ -14,21 +14,12 @@ export class RendererImpl extends IRenderer {
       return range.createContextualFragment(content);
     }
   }
-  serializeHTML(root: Node | DocumentFragment): string {
+  serializeHTML(root: Node | DocumentFragment | Document): string {
     const dom = new JSDOM();
     const XMLSerializer = dom.window.XMLSerializer;
     return new XMLSerializer().serializeToString(root).replace(/\s?xmlns="[^"]+"/gm, "");
   }
-  renderLocalPath(
-    fpath: string,
-    params?: RendererParams & ParserParams
-  ): Promise<DocumentFragment> {
-    throw new Error("Not implemented.");
-  }
 }
-
-// Re-exports from core.
-export { folderPath, resolvePath } from "./core";
 
 // Export the renderer instance directly.
 export const Mancha = new RendererImpl();

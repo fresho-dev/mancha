@@ -12,7 +12,7 @@ const args = yargs(hideBin(process.argv))
   .demand(["input"])
   .parse() as any;
 
-Mancha.renderLocalPath(args["input"], JSON.parse(args.vars || "{}")).then((result) => {
+Mancha.preprocessLocal(args["input"], JSON.parse(args.vars || "{}")).then((result) => {
   if (!args.output || args.output === "-") {
     console.log(result + "\n");
   } else {
