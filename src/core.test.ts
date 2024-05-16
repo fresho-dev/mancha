@@ -94,6 +94,22 @@ describe("Core", () => {
       const result = await safeEval(fn, null);
       assert.equal(result, 1);
     });
+
+    [
+      { expression: "a && b", expected: false },
+      { expression: "!a && !b", expected: false },
+      { expression: "!a && b", expected: true },
+      { expression: "a && !b", expected: false },
+      { expression: "a || b", expected: true },
+      { expression: "!a || !b", expected: true },
+      { expression: "!a || b", expected: true },
+      { expression: "a || !b", expected: false },
+    ].forEach(({ expression, expected }) => {
+      it(`boolean expressions with multiple variables: ${expression}`, async () => {
+        const result = await safeEval(expression, null, { a: false, b: true });
+        assert.equal(result, expected);
+      });
+    });
   });
 
   describe("eval", () => {
@@ -126,6 +142,40 @@ describe("Core", () => {
       (global as any).foo = "bar";
       const result = await renderer.eval("global.foo");
       assert.equal(result, "bar");
+    });
+
+    [
+      { expression: "a && b", expected: false },
+      { expression: "!a && !b", expected: false },
+      { expression: "!a && b", expected: true },
+      { expression: "a && !b", expected: false },
+      { expression: "a || b", expected: true },
+      { expression: "!a || !b", expected: true },
+      { expression: "!a || b", expected: true },
+      { expression: "a || !b", expected: false },
+    ].forEach(({ expression, expected }) => {
+      it(`boolean expressions with multiple variables: ${expression}`, async () => {
+        const renderer = new MockRenderer({ a: false, b: true });
+        const result = await renderer.eval(expression);
+        assert.equal(result, expected);
+      });
+    });
+
+    it("mutating boolean expression with multiple variables", async () => {
+      const renderer = new MockRenderer({ a: false, b: false });
+      const expression = "a || b";
+      assert.equal(await renderer.eval(expression), false);
+
+      await renderer.set("a", true);
+      assert.equal(await renderer.eval(expression), true);
+
+      await renderer.set("a", false);
+      await renderer.set("b", true);
+      assert.equal(await renderer.eval(expression), true);
+
+      await renderer.set("a", true);
+      await renderer.set("b", true);
+      assert.equal(await renderer.eval(expression), true);
     });
   });
 });

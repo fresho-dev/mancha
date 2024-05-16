@@ -230,6 +230,20 @@ describe("Plugins", () => {
       await renderer.set("foo", { bar: "qux" });
       assert.equal(renderer.get("foobar"), "qux");
     });
+
+    it("watch boolean expression with two variables", async () => {
+      const html = `<div @watch="foobar = !foo && !bar"></div>`;
+      const fragment = JSDOM.fragment(html);
+      const node = fragment.firstElementChild as Element;
+      const renderer = new MockRenderer({ foo: true, bar: false, foobar: null });
+      await renderer.mount(fragment);
+
+      assert.equal(node.getAttribute("@watch"), null);
+      assert.equal(renderer.get("foobar"), false);
+
+      await renderer.set("foo", false);
+      assert.equal(renderer.get("foobar"), true);
+    })
   });
 
   describe(":attribute", () => {

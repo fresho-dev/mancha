@@ -92,6 +92,21 @@ class MockRenderer extends core_1.IRenderer {
             const result = yield (0, core_1.safeEval)(fn, null);
             assert.equal(result, 1);
         }));
+        [
+            { expression: "a && b", expected: false },
+            { expression: "!a && !b", expected: false },
+            { expression: "!a && b", expected: true },
+            { expression: "a && !b", expected: false },
+            { expression: "a || b", expected: true },
+            { expression: "!a || !b", expected: true },
+            { expression: "!a || b", expected: true },
+            { expression: "a || !b", expected: false },
+        ].forEach(({ expression, expected }) => {
+            (0, mocha_1.it)(`boolean expressions with multiple variables: ${expression}`, () => __awaiter(void 0, void 0, void 0, function* () {
+                const result = yield (0, core_1.safeEval)(expression, null, { a: false, b: true });
+                assert.equal(result, expected);
+            }));
+        });
     });
     (0, mocha_1.describe)("eval", () => {
         (0, mocha_1.it)("using implicit `this` in function", () => __awaiter(void 0, void 0, void 0, function* () {
@@ -121,6 +136,35 @@ class MockRenderer extends core_1.IRenderer {
             global.foo = "bar";
             const result = yield renderer.eval("global.foo");
             assert.equal(result, "bar");
+        }));
+        [
+            { expression: "a && b", expected: false },
+            { expression: "!a && !b", expected: false },
+            { expression: "!a && b", expected: true },
+            { expression: "a && !b", expected: false },
+            { expression: "a || b", expected: true },
+            { expression: "!a || !b", expected: true },
+            { expression: "!a || b", expected: true },
+            { expression: "a || !b", expected: false },
+        ].forEach(({ expression, expected }) => {
+            (0, mocha_1.it)(`boolean expressions with multiple variables: ${expression}`, () => __awaiter(void 0, void 0, void 0, function* () {
+                const renderer = new MockRenderer({ a: false, b: true });
+                const result = yield renderer.eval(expression);
+                assert.equal(result, expected);
+            }));
+        });
+        (0, mocha_1.it)("mutating boolean expression with multiple variables", () => __awaiter(void 0, void 0, void 0, function* () {
+            const renderer = new MockRenderer({ a: false, b: false });
+            const expression = "a || b";
+            assert.equal(yield renderer.eval(expression), false);
+            yield renderer.set("a", true);
+            assert.equal(yield renderer.eval(expression), true);
+            yield renderer.set("a", false);
+            yield renderer.set("b", true);
+            assert.equal(yield renderer.eval(expression), true);
+            yield renderer.set("a", true);
+            yield renderer.set("b", true);
+            assert.equal(yield renderer.eval(expression), true);
         }));
     });
 });

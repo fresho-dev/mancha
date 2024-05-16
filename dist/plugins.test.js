@@ -209,6 +209,17 @@ class MockRenderer extends core_1.IRenderer {
             yield renderer.set("foo", { bar: "qux" });
             assert.equal(renderer.get("foobar"), "qux");
         }));
+        (0, mocha_1.it)("watch boolean expression with two variables", () => __awaiter(void 0, void 0, void 0, function* () {
+            const html = `<div @watch="foobar = !foo && !bar"></div>`;
+            const fragment = jsdom_1.JSDOM.fragment(html);
+            const node = fragment.firstElementChild;
+            const renderer = new MockRenderer({ foo: true, bar: false, foobar: null });
+            yield renderer.mount(fragment);
+            assert.equal(node.getAttribute("@watch"), null);
+            assert.equal(renderer.get("foobar"), false);
+            yield renderer.set("foo", false);
+            assert.equal(renderer.get("foobar"), true);
+        }));
     });
     (0, mocha_1.describe)(":attribute", () => {
         (0, mocha_1.it)("class", () => __awaiter(void 0, void 0, void 0, function* () {
