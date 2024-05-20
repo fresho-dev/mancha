@@ -269,7 +269,7 @@ export const resolveEventAttributes: RendererPlugin = async function (node, para
 export const resolveForAttribute: RendererPlugin = async function (node, params) {
   if (this.skipNodes.has(node)) return;
   const elem = node as Element;
-  const forAttr = elem.getAttribute?.(":for");
+  const forAttr = elem.getAttribute?.(":for")?.trim();
   if (forAttr) {
     this.log(params, ":for attribute found in:\n", node);
 

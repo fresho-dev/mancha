@@ -291,11 +291,11 @@ const resolveEventAttributes = function (node, params) {
 exports.resolveEventAttributes = resolveEventAttributes;
 const resolveForAttribute = function (node, params) {
     return __awaiter(this, void 0, void 0, function* () {
-        var _a;
+        var _a, _b;
         if (this.skipNodes.has(node))
             return;
         const elem = node;
-        const forAttr = (_a = elem.getAttribute) === null || _a === void 0 ? void 0 : _a.call(elem, ":for");
+        const forAttr = (_b = (_a = elem.getAttribute) === null || _a === void 0 ? void 0 : _a.call(elem, ":for")) === null || _b === void 0 ? void 0 : _b.trim();
         if (forAttr) {
             this.log(params, ":for attribute found in:\n", node);
             // Remove the processed attributes from node.
