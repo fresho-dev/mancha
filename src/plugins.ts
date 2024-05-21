@@ -114,7 +114,7 @@ export const rebaseRelativePaths: RendererPlugin = async function (node, params)
 export const resolveTextNodeExpressions: RendererPlugin = async function (node, params) {
   if (node.nodeType !== 3) return;
   const content = node.nodeValue || "";
-  this.log(`processing node content value:\n`, content);
+  this.log(`Processing node content value:\n`, content);
 
   // Identify all the expressions found in the content.
   const matcher = new RegExp(/{{ ([^}]+) }}/gm);
@@ -236,9 +236,9 @@ export const resolveEventAttributes: RendererPlugin = async function (node, para
       // Remove the processed attributes from node.
       elem.removeAttribute(attr.name);
 
-      node.addEventListener?.(attr.name.substring(1), (event) =>
-        this.eval(attr.value, { $elem: node, $event: event })
-      );
+      node.addEventListener?.(attr.name.substring(1), (event) => {
+        this.eval(attr.value, { $elem: node, $event: event });
+      });
     }
   }
 };
@@ -274,7 +274,7 @@ export const resolveForAttribute: RendererPlugin = async function (node, params)
     // Compute the container expression and trace dependencies.
     // Keep track of all the child nodes added.
     const children: Node[] = [];
-    
+
     // Define the function that will update the DOM.
     const [loopKey, itemsExpr] = tokens;
     await this.eval(itemsExpr, { $elem: node }, (items) => {

@@ -138,7 +138,7 @@ const resolveTextNodeExpressions = function (node, params) {
         if (node.nodeType !== 3)
             return;
         const content = node.nodeValue || "";
-        this.log(`processing node content value:\n`, content);
+        this.log(`Processing node content value:\n`, content);
         // Identify all the expressions found in the content.
         const matcher = new RegExp(/{{ ([^}]+) }}/gm);
         const expressions = Array.from(content.matchAll(matcher)).map((match) => match[1]);
@@ -263,7 +263,9 @@ const resolveEventAttributes = function (node, params) {
                 this.log(attr.name, "attribute found in:\n", node);
                 // Remove the processed attributes from node.
                 elem.removeAttribute(attr.name);
-                (_a = node.addEventListener) === null || _a === void 0 ? void 0 : _a.call(node, attr.name.substring(1), (event) => this.eval(attr.value, { $elem: node, $event: event }));
+                (_a = node.addEventListener) === null || _a === void 0 ? void 0 : _a.call(node, attr.name.substring(1), (event) => {
+                    this.eval(attr.value, { $elem: node, $event: event });
+                });
             }
         }
     });

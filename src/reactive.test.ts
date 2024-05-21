@@ -32,6 +32,20 @@ describe("Reactive", () => {
       assert.equal(proxy.get()?.b, 3);
     });
 
+    it("unwatch a property", async () => {
+      const proxy = ReactiveProxy.from(0);
+      let ops = 0;
+      const listener = () => ops++;
+      proxy.watch(listener);
+      await proxy.set(1);
+      assert.ok(ops > 0);
+
+      ops = 0;
+      proxy.unwatch(listener);
+      await proxy.set(2);
+      assert.equal(ops, 0);
+    });
+
     it("manually trigger listeners", async () => {
       const arr = [1, 2, 3];
       let join = arr.join(",");
@@ -131,6 +145,20 @@ describe("Reactive", () => {
       await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
       assert.equal(ops, 1);
       assert.equal(store.get("x")?.b, 2);
+    });
+
+    it("unwatch a property", async () => {
+      const store = new ReactiveProxyStore({ a: 1, b: 2 });
+      let ops = 0;
+      const listener = () => ops++;
+      store.watch(["a"], listener);
+      await store.set("a", 2);
+      assert.equal(ops, 1);
+
+      ops = 0;
+      store.unwatch(["a"], listener);
+      await store.set("a", 3);
+      assert.equal(ops, 0);
     });
 
     it("manually trigger listeners", async () => {

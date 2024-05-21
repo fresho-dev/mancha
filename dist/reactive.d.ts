@@ -1,4 +1,5 @@
-type Listener<T> = (curr: T | null, prev: T | null) => any | Promise<any>;
+type ProxyValueListener<T> = (curr: T | null, prev: T | null) => any | Promise<any>;
+type ProxyStoreListener = (...values: any[]) => any | Promise<any>;
 declare abstract class IDebouncer {
     timeouts: Map<Function, ReturnType<typeof setTimeout>>;
     debounce<T>(millis: number, callback: () => T | Promise<T>): Promise<T>;
@@ -9,22 +10,23 @@ export declare function proxifyObject<T extends object>(object: T, callback: () 
 export declare class ReactiveProxy<T> extends IDebouncer {
     private value;
     private listeners;
-    protected constructor(value?: T | null, ...listeners: Listener<T>[]);
-    static from<T>(value: T | ReactiveProxy<T>, ...listeners: Listener<T>[]): ReactiveProxy<T>;
+    protected constructor(value?: T | null, ...listeners: ProxyValueListener<T>[]);
+    static from<T>(value: T | ReactiveProxy<T>, ...listeners: ProxyValueListener<T>[]): ReactiveProxy<T>;
     private wrapObjValue;
     get(): T;
     set(value: T | null): Promise<void>;
-    watch(listener: Listener<T>): void;
-    unwatch(listener: Listener<T>): void;
+    watch(listener: ProxyValueListener<T>): void;
+    unwatch(listener: ProxyValueListener<T>): void;
     trigger(prev?: T | null): Promise<void>;
 }
 export declare class InertProxy<T> extends ReactiveProxy<T> {
-    static from<T>(value: T | InertProxy<T>, ...listeners: Listener<T>[]): InertProxy<T>;
-    watch(_: Listener<T>): void;
+    static from<T>(value: T | InertProxy<T>, ...listeners: ProxyValueListener<T>[]): InertProxy<T>;
+    watch(_: ProxyValueListener<T>): void;
     trigger(_?: T | null): Promise<void>;
 }
 export declare class ReactiveProxyStore extends IDebouncer {
     protected readonly store: Map<string, ReactiveProxy<any>>;
+    protected readonly debouncedListeners: Map<Function, ProxyValueListener<any>>;
     lock: Promise<void>;
     constructor(data?: {
         [key: string]: any;
@@ -45,8 +47,8 @@ export declare class ReactiveProxyStore extends IDebouncer {
     update(data: {
         [key: string]: any;
     }): Promise<void>;
-    watch(keys: string | string[], listener: (...value: any[]) => any): void;
-    unwatch(keys: string | string[], listener: (...value: any[]) => any): void;
+    watch(keys: string | string[], listener: ProxyStoreListener): void;
+    unwatch(keys: string | string[], listener: ProxyStoreListener): void;
     trigger(keys: string | string[]): Promise<void>;
     trace<T>(callback: (this: {
         [key: string]: any;

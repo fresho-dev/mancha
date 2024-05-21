@@ -144,6 +144,7 @@ class ReactiveProxyStore extends IDebouncer {
     constructor(data) {
         super();
         this.store = new Map();
+        this.debouncedListeners = new Map();
         this.lock = Promise.resolve();
         for (const [key, value] of Object.entries(data || {})) {
             this.store.set(key, ReactiveProxy.from(this.wrapFnValue(value)));
@@ -194,14 +195,16 @@ class ReactiveProxyStore extends IDebouncer {
         keys = Array.isArray(keys) ? keys : [keys];
         // Ignore the listener's specific value and retrieve all current values from store.
         const debounceFunction = () => listener(...keys.map((key) => this.store.get(key).get()));
-        keys.forEach((key) => this.store.get(key).watch(() => {
-            // Debounce the inner listener to avoid multiple calls when several dependencies change.
-            return this.debounce(exports.REACTIVE_DEBOUNCE_MILLIS, debounceFunction);
-        }));
+        // Create a wrapper listener that debounces the inner listener.
+        const debouncedListener = () => this.debounce(exports.REACTIVE_DEBOUNCE_MILLIS, debounceFunction);
+        keys.forEach((key) => this.store.get(key).watch(debouncedListener));
+        // The caller will not have access to the wrapped listener, so to unwatch we need to store it.
+        this.debouncedListeners.set(listener, debouncedListener);
     }
     unwatch(keys, listener) {
         keys = Array.isArray(keys) ? keys : [keys];
-        keys.forEach((key) => this.store.get(key).unwatch(listener));
+        keys.forEach((key) => this.store.get(key).unwatch(this.debouncedListeners.get(listener)));
+        this.debouncedListeners.delete(listener);
     }
     trigger(keys) {
         return __awaiter(this, void 0, void 0, function* () {

@@ -44,7 +44,7 @@ if ((_c = (_b = self.document) === null || _b === void 0 ? void 0 : _b.currentSc
     const targets = ((_d = currentScript === null || currentScript === void 0 ? void 0 : currentScript.getAttribute("target")) === null || _d === void 0 ? void 0 : _d.split(",")) || ["body"];
     targets.map((target) => __awaiter(void 0, void 0, void 0, function* () {
         const fragment = self.document.querySelector(target);
-        yield Mancha.mount(fragment, { cache: cachePolicy, debug });
+        yield Mancha.debug(debug).mount(fragment, { cache: cachePolicy });
     }));
 }
 exports.default = Mancha;

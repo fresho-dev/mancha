@@ -14,7 +14,5 @@ export interface RenderParams {
     maxdepth?: number;
     /** Cache policy used when resolving remote paths. */
     cache?: RequestCache | null;
-    /** Whether to print debug information. */
-    debug?: boolean;
 }
 export type RendererPlugin = (this: IRenderer, node: ChildNode, params: RenderParams) => Promise<void>;

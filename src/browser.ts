@@ -32,7 +32,7 @@ if (self.document?.currentScript?.hasAttribute("init")) {
   const targets = currentScript?.getAttribute("target")?.split(",") || ["body"];
   targets.map(async (target: string) => {
     const fragment = self.document.querySelector(target) as unknown as DocumentFragment;
-    await Mancha.mount(fragment, { cache: cachePolicy, debug });
+    await Mancha.debug(debug!!).mount(fragment, { cache: cachePolicy });
   });
 }
 

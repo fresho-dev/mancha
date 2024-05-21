@@ -117,12 +117,15 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
                     });
                 });
                 this.log(`eval \`${expr}\` => `, result, `[ ${dependencies.join(", ")} ]`);
-                // Watch all the dependencies for changes.
-                if (prevdeps.length > 0)
-                    this.unwatch(prevdeps, inner);
-                prevdeps.splice(0, prevdeps.length, ...dependencies);
-                this.watch(dependencies, inner);
-                yield (callback === null || callback === void 0 ? void 0 : callback(result, dependencies));
+                // Watch all the dependencies for changes when a callback is provided.
+                if (callback) {
+                    if (prevdeps.length > 0)
+                        this.unwatch(prevdeps, inner);
+                    prevdeps.splice(0, prevdeps.length, ...dependencies);
+                    this.watch(dependencies, inner);
+                    yield (callback === null || callback === void 0 ? void 0 : callback(result, dependencies));
+                }
+                // Return the result and the dependencies directly for convenience.
                 return [result, dependencies];
             });
             return inner();

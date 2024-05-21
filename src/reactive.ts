@@ -1,5 +1,6 @@
 // Type shorthand for the listeners.
-type Listener<T> = (curr: T | null, prev: T | null) => any | Promise<any>;
+type ProxyValueListener<T> = (curr: T | null, prev: T | null) => any | Promise<any>;
+type ProxyStoreListener = (...values: any[]) => any | Promise<any>;
 
 abstract class IDebouncer {
   timeouts: Map<Function, ReturnType<typeof setTimeout>> = new Map();
@@ -69,14 +70,17 @@ export function proxifyObject<T extends object>(object: T, callback: () => void,
 
 export class ReactiveProxy<T> extends IDebouncer {
   private value: T | null = null;
-  private listeners: Listener<T>[] = [];
-  protected constructor(value: T | null = null, ...listeners: Listener<T>[]) {
+  private listeners: ProxyValueListener<T>[] = [];
+  protected constructor(value: T | null = null, ...listeners: ProxyValueListener<T>[]) {
     super();
     this.value = this.wrapObjValue(value);
     listeners.forEach((x) => this.watch(x));
   }
 
-  static from<T>(value: T | ReactiveProxy<T>, ...listeners: Listener<T>[]): ReactiveProxy<T> {
+  static from<T>(
+    value: T | ReactiveProxy<T>,
+    ...listeners: ProxyValueListener<T>[]
+  ): ReactiveProxy<T> {
     if (value instanceof ReactiveProxy) {
       listeners.forEach(value.watch);
       return value;
@@ -103,11 +107,11 @@ export class ReactiveProxy<T> extends IDebouncer {
     }
   }
 
-  watch(listener: Listener<T>) {
+  watch(listener: ProxyValueListener<T>) {
     this.listeners.push(listener);
   }
 
-  unwatch(listener: Listener<T>) {
+  unwatch(listener: ProxyValueListener<T>) {
     this.listeners = this.listeners.filter((x) => x !== listener);
   }
 
@@ -122,14 +126,14 @@ export class ReactiveProxy<T> extends IDebouncer {
 }
 
 export class InertProxy<T> extends ReactiveProxy<T> {
-  static from<T>(value: T | InertProxy<T>, ...listeners: Listener<T>[]): InertProxy<T> {
+  static from<T>(value: T | InertProxy<T>, ...listeners: ProxyValueListener<T>[]): InertProxy<T> {
     if (value instanceof ReactiveProxy) {
       return value;
     } else {
       return new InertProxy(value, ...listeners);
     }
   }
-  watch(_: Listener<T>) {}
+  watch(_: ProxyValueListener<T>) {}
   trigger(_?: T | null): Promise<void> {
     return Promise.resolve();
   }
@@ -137,6 +141,7 @@ export class InertProxy<T> extends ReactiveProxy<T> {
 
 export class ReactiveProxyStore extends IDebouncer {
   protected readonly store = new Map<string, ReactiveProxy<any>>();
+  protected readonly debouncedListeners = new Map<Function, ProxyValueListener<any>>();
 
   lock: Promise<void> = Promise.resolve();
 
@@ -188,21 +193,21 @@ export class ReactiveProxyStore extends IDebouncer {
     await Promise.all(Object.entries(data).map(([key, value]) => this.set(key, value)));
   }
 
-  watch(keys: string | string[], listener: (...value: any[]) => any): void {
+  watch(keys: string | string[], listener: ProxyStoreListener): void {
     keys = Array.isArray(keys) ? keys : [keys];
     // Ignore the listener's specific value and retrieve all current values from store.
     const debounceFunction = () => listener(...keys.map((key) => this.store.get(key)!!.get()));
-    keys.forEach((key) =>
-      this.store.get(key)!!.watch(() => {
-        // Debounce the inner listener to avoid multiple calls when several dependencies change.
-        return this.debounce(REACTIVE_DEBOUNCE_MILLIS, debounceFunction);
-      })
-    );
+    // Create a wrapper listener that debounces the inner listener.
+    const debouncedListener = () => this.debounce(REACTIVE_DEBOUNCE_MILLIS, debounceFunction);
+    keys.forEach((key) => this.store.get(key)!!.watch(debouncedListener));
+    // The caller will not have access to the wrapped listener, so to unwatch we need to store it.
+    this.debouncedListeners.set(listener, debouncedListener);
   }
 
-  unwatch(keys: string | string[], listener: (...value: any[]) => any): void {
+  unwatch(keys: string | string[], listener: ProxyStoreListener): void {
     keys = Array.isArray(keys) ? keys : [keys];
-    keys.forEach((key) => this.store.get(key)!!.unwatch(listener));
+    keys.forEach((key) => this.store.get(key)!!.unwatch(this.debouncedListeners.get(listener)!!));
+    this.debouncedListeners.delete(listener);
   }
 
   async trigger(keys: string | string[]): Promise<void> {

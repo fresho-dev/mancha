@@ -190,7 +190,7 @@ class MockRenderer extends core_1.IRenderer {
             yield renderer.set("a", 3);
             assert.equal(called, 2);
         }));
-        (0, mocha_1.it)("tracks unseen dependencies from short-circuiting expressions", () => __awaiter(void 0, void 0, void 0, function* () {
+        (0, mocha_1.it)("tracks unseen dependencies from short-circuit expressions", () => __awaiter(void 0, void 0, void 0, function* () {
             const renderer = new MockRenderer({ a: false, b: false });
             const expression = "a && b";
             assert.deepEqual(yield renderer.eval(expression), [false, ["a"]]);

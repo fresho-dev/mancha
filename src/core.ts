@@ -142,12 +142,15 @@ export abstract class IRenderer extends ReactiveProxyStore {
       });
       this.log(`eval \`${expr}\` => `, result, `[ ${dependencies.join(", ")} ]`);
 
-      // Watch all the dependencies for changes.
-      if (prevdeps.length > 0) this.unwatch(prevdeps, inner);
-      prevdeps.splice(0, prevdeps.length, ...dependencies);
-      this.watch(dependencies, inner);
+      // Watch all the dependencies for changes when a callback is provided.
+      if (callback) {
+        if (prevdeps.length > 0) this.unwatch(prevdeps, inner);
+        prevdeps.splice(0, prevdeps.length, ...dependencies);
+        this.watch(dependencies, inner);
+        await callback?.(result, dependencies);
+      }
 
-      await callback?.(result, dependencies);
+      // Return the result and the dependencies directly for convenience.
       return [result, dependencies];
     };
 

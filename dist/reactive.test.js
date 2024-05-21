@@ -33,6 +33,18 @@ const reactive_1 = require("./reactive");
             assert.ok(ops > 0);
             assert.equal((_c = proxy.get()) === null || _c === void 0 ? void 0 : _c.b, 3);
         }));
+        (0, mocha_1.it)("unwatch a property", () => __awaiter(void 0, void 0, void 0, function* () {
+            const proxy = reactive_1.ReactiveProxy.from(0);
+            let ops = 0;
+            const listener = () => ops++;
+            proxy.watch(listener);
+            yield proxy.set(1);
+            assert.ok(ops > 0);
+            ops = 0;
+            proxy.unwatch(listener);
+            yield proxy.set(2);
+            assert.equal(ops, 0);
+        }));
         (0, mocha_1.it)("manually trigger listeners", () => __awaiter(void 0, void 0, void 0, function* () {
             const arr = [1, 2, 3];
             let join = arr.join(",");
@@ -119,6 +131,18 @@ const reactive_1 = require("./reactive");
             yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS * 3));
             assert.equal(ops, 1);
             assert.equal((_d = store.get("x")) === null || _d === void 0 ? void 0 : _d.b, 2);
+        }));
+        (0, mocha_1.it)("unwatch a property", () => __awaiter(void 0, void 0, void 0, function* () {
+            const store = new reactive_1.ReactiveProxyStore({ a: 1, b: 2 });
+            let ops = 0;
+            const listener = () => ops++;
+            store.watch(["a"], listener);
+            yield store.set("a", 2);
+            assert.equal(ops, 1);
+            ops = 0;
+            store.unwatch(["a"], listener);
+            yield store.set("a", 3);
+            assert.equal(ops, 0);
         }));
         (0, mocha_1.it)("manually trigger listeners", () => __awaiter(void 0, void 0, void 0, function* () {
             const arr = [1, 2, 3];
