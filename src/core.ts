@@ -47,7 +47,7 @@ export function isRelativePath(fpath: string): boolean {
 }
 
 export function makeEvalFunction(code: string, args: string[] = []): Function {
-  return new Function(...args, `with (this) { return (${code}); }`);
+  return new Function(...args, `with (this) { return (async () => (${code}))(); }`);
 }
 
 export function safeEval(

@@ -40,7 +40,7 @@ function isRelativePath(fpath) {
 }
 exports.isRelativePath = isRelativePath;
 function makeEvalFunction(code, args = []) {
-    return new Function(...args, `with (this) { return (${code}); }`);
+    return new Function(...args, `with (this) { return (async () => (${code}))(); }`);
 }
 exports.makeEvalFunction = makeEvalFunction;
 function safeEval(context, code, args = {}) {
