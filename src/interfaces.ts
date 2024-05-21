@@ -20,5 +20,5 @@ export interface RenderParams {
 export type RendererPlugin = (
   this: IRenderer,
   node: ChildNode,
-  params: RenderParams
+  params?: RenderParams
 ) => Promise<void>;

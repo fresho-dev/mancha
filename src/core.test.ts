@@ -186,8 +186,8 @@ describe("Core", () => {
         assert.deepEqual(dependencies, ["a", "b"]);
         called = true;
       };
-      await renderer.eval(fn, {}, callback);
-      assert(called);
+      await renderer.watchExpr(fn, {}, callback);
+      assert.ok(called);
     });
 
     it("runs callback after dependency changes", async () => {
@@ -198,7 +198,7 @@ describe("Core", () => {
         assert.deepEqual(dependencies, ["a", "b"]);
         called++;
       };
-      await renderer.eval(fn, {}, callback);
+      await renderer.watchExpr(fn, {}, callback);
       assert.equal(called, 1);
       await renderer.set("a", 3);
       assert.equal(called, 2);
@@ -211,6 +211,35 @@ describe("Core", () => {
 
       await renderer.set("a", true);
       assert.deepEqual(await renderer.eval(expression), [false, ["a", "b"]]);
+    });
+  });
+
+  describe("watchExpr", () => {
+    it("watches an expression for changes", async () => {
+      const renderer = new MockRenderer({ a: 1, b: 2 });
+      const fn = "a + b";
+      let called = 0;
+      const callback = (result: any, dependencies: string[]) => {
+        assert.deepEqual(dependencies, ["a", "b"]);
+        called++;
+      };
+      await renderer.watchExpr(fn, {}, callback);
+      assert.equal(called, 1);
+      await renderer.set("a", 3);
+      assert.equal(called, 2);
+    });
+
+    it("multiple listeners watch the same expression for changes", async () => {
+      const renderer = new MockRenderer({ a: 1, b: 2 });
+      const fn = "a + b";
+      let called = 0;
+      const callback1 = () => called++;
+      const callback2 = () => called++;
+      await renderer.watchExpr(fn, {}, callback1);
+      await renderer.watchExpr(fn, {}, callback2);
+      assert.equal(called, 2);
+      await renderer.set("a", 3);
+      assert.equal(called, 4);
     });
   });
 });

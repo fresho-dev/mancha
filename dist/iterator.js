@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Iterator = void 0;
 class Iterator {
+    iterable;
     constructor(iter) {
         this.iterable = iter;
     }

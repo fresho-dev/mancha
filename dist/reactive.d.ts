@@ -13,7 +13,7 @@ export declare class ReactiveProxy<T> extends IDebouncer {
     protected constructor(value?: T | null, ...listeners: ProxyValueListener<T>[]);
     static from<T>(value: T | ReactiveProxy<T>, ...listeners: ProxyValueListener<T>[]): ReactiveProxy<T>;
     private wrapObjValue;
-    get(): T;
+    get(): T | null;
     set(value: T | null): Promise<void>;
     watch(listener: ProxyValueListener<T>): void;
     unwatch(listener: ProxyValueListener<T>): void;
@@ -50,7 +50,7 @@ export declare class ReactiveProxyStore extends IDebouncer {
     watch(keys: string | string[], listener: ProxyStoreListener): void;
     unwatch(keys: string | string[], listener: ProxyStoreListener): void;
     trigger(keys: string | string[]): Promise<void>;
-    trace<T>(callback: (this: {
+    trace<T>(callback: (this: ReactiveProxyStore & {
         [key: string]: any;
     }) => T | Promise<T>): Promise<[T, string[]]>;
     /**

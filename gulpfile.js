@@ -11,18 +11,7 @@ gulp.task("clean", function (done) {
 
 gulp.task("ts", function () {
   const ts = require("gulp-typescript");
-  return gulp
-    .src("src/**/*.ts")
-    .pipe(
-      ts({
-        target: "es2015",
-        module: "commonjs",
-        declaration: true,
-        noImplicitAny: true,
-        skipLibCheck: true,
-      })
-    )
-    .pipe(gulp.dest("dist"));
+  return gulp.src("src/**/*.ts").pipe(ts.createProject("tsconfig.json")()).pipe(gulp.dest("dist"));
 });
 
 gulp.task("fixtures", function () {

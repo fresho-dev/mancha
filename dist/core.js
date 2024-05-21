@@ -1,15 +1,6 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.IRenderer = exports.safeEval = exports.isRelativePath = exports.dirname = exports.traverse = void 0;
+exports.IRenderer = exports.safeEval = exports.makeEvalFunction = exports.isRelativePath = exports.dirname = exports.traverse = void 0;
 const reactive_1 = require("./reactive");
 const iterator_1 = require("./iterator");
 const plugins_1 = require("./plugins");
@@ -48,54 +39,52 @@ function isRelativePath(fpath) {
         !fpath.startsWith("data:"));
 }
 exports.isRelativePath = isRelativePath;
+function makeEvalFunction(code, args = {}) {
+    return new Function(...Object.keys(args), `with (this) { return (${code}); }`);
+}
+exports.makeEvalFunction = makeEvalFunction;
 function safeEval(code, context, args = {}) {
     const inner = `with (this) { return (async () => (${code}))(); }`;
     return new Function(...Object.keys(args), inner).call(context, ...Object.values(args));
 }
 exports.safeEval = safeEval;
 class IRenderer extends reactive_1.ReactiveProxyStore {
-    constructor() {
-        super(...arguments);
-        this.debugging = false;
-        this.dirpath = "";
-        this.skipNodes = new Set();
-    }
+    debugging = false;
+    dirpath = "";
+    expressionCache = new Map();
+    evalCallbacks = new Map();
+    skipNodes = new Set();
     debug(flag) {
         this.debugging = flag;
         return this;
     }
-    fetchRemote(fpath, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            var _a;
-            return fetch(fpath, { cache: (_a = params === null || params === void 0 ? void 0 : params.cache) !== null && _a !== void 0 ? _a : "default" }).then((res) => res.text());
+    async fetchRemote(fpath, params) {
+        return fetch(fpath, { cache: params?.cache ?? "default" }).then((res) => res.text());
+    }
+    async fetchLocal(fpath, params) {
+        return this.fetchRemote(fpath, params);
+    }
+    async preprocessString(content, params) {
+        this.log("Preprocessing string content with params:\n", params);
+        const fragment = this.parseHTML(content, params);
+        await this.preprocessNode(fragment, params);
+        return fragment;
+    }
+    async preprocessLocal(fpath, params) {
+        const content = await this.fetchLocal(fpath, params);
+        return this.preprocessString(content, {
+            ...params,
+            dirpath: dirname(fpath),
+            root: params?.root ?? !fpath.endsWith(".tpl.html"),
         });
     }
-    fetchLocal(fpath, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return this.fetchRemote(fpath, params);
-        });
-    }
-    preprocessString(content, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            this.log("Preprocessing string content with params:\n", params);
-            const fragment = this.parseHTML(content, params);
-            yield this.preprocessNode(fragment, params);
-            return fragment;
-        });
-    }
-    preprocessLocal(fpath, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            var _a;
-            const content = yield this.fetchLocal(fpath, params);
-            return this.preprocessString(content, Object.assign(Object.assign({}, params), { dirpath: dirname(fpath), root: (_a = params === null || params === void 0 ? void 0 : params.root) !== null && _a !== void 0 ? _a : !fpath.endsWith(".tpl.html") }));
-        });
-    }
-    preprocessRemote(fpath, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            var _a;
-            const cache = (params === null || params === void 0 ? void 0 : params.cache) || "default";
-            const content = yield fetch(fpath, { cache }).then((res) => res.text());
-            return this.preprocessString(content, Object.assign(Object.assign({}, params), { dirpath: dirname(fpath), root: (_a = params === null || params === void 0 ? void 0 : params.root) !== null && _a !== void 0 ? _a : !fpath.endsWith(".tpl.html") }));
+    async preprocessRemote(fpath, params) {
+        const cache = params?.cache || "default";
+        const content = await fetch(fpath, { cache }).then((res) => res.text());
+        return this.preprocessString(content, {
+            ...params,
+            dirpath: dirname(fpath),
+            root: params?.root ?? !fpath.endsWith(".tpl.html"),
         });
     }
     clone() {
@@ -105,82 +94,88 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
         if (this.debugging)
             console.debug(...args);
     }
-    eval(expr_1) {
-        return __awaiter(this, arguments, void 0, function* (expr, args = {}, callback) {
-            // TODO: Add expression to cache.
-            const prevdeps = [];
-            const inner = () => __awaiter(this, void 0, void 0, function* () {
-                const [result, dependencies] = yield this.trace(function () {
-                    return __awaiter(this, void 0, void 0, function* () {
-                        const result = yield safeEval(expr, this, Object.assign({}, args));
-                        return result;
-                    });
-                });
-                this.log(`eval \`${expr}\` => `, result, `[ ${dependencies.join(", ")} ]`);
-                // Watch all the dependencies for changes when a callback is provided.
-                if (callback) {
-                    if (prevdeps.length > 0)
-                        this.unwatch(prevdeps, inner);
-                    prevdeps.splice(0, prevdeps.length, ...dependencies);
-                    this.watch(dependencies, inner);
-                    yield (callback === null || callback === void 0 ? void 0 : callback(result, dependencies));
-                }
-                // Return the result and the dependencies directly for convenience.
-                return [result, dependencies];
-            });
-            return inner();
-        });
+    cachedExpressionFunction(expr, args) {
+        if (!this.expressionCache.has(expr)) {
+            this.expressionCache.set(expr, makeEvalFunction(expr, args));
+        }
+        return this.expressionCache.get(expr)?.call(this, ...Object.values(args));
     }
-    preprocessNode(root, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            params = Object.assign({ dirpath: this.dirpath, maxdepth: 10 }, params);
-            const promises = new iterator_1.Iterator(traverse(root, this.skipNodes)).map((node) => __awaiter(this, void 0, void 0, function* () {
-                this.log("Preprocessing node:\n", node);
-                // Resolve all the includes in the node.
-                yield plugins_1.resolveIncludes.call(this, node, params);
-                // Resolve all the relative paths in the node.
-                yield plugins_1.rebaseRelativePaths.call(this, node, params);
-            }));
-            // Wait for all the rendering operations to complete.
-            yield Promise.all(promises.generator());
+    async eval(expr, args = {}) {
+        const [result, dependencies] = await this.trace(async function () {
+            return this.cachedExpressionFunction(expr, args);
         });
+        this.log(`eval \`${expr}\` => `, result, `[ ${dependencies.join(", ")} ]`);
+        return [result, dependencies];
     }
-    renderNode(root, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            // Iterate over all the nodes and apply appropriate handlers.
-            // Do these steps one at a time to avoid any potential race conditions.
-            for (const node of traverse(root, this.skipNodes)) {
-                this.log("Rendering node:\n", node);
-                // Resolve the :data attribute in the node.
-                yield plugins_1.resolveDataAttribute.call(this, node, params);
-                // Resolve the :for attribute in the node.
-                yield plugins_1.resolveForAttribute.call(this, node, params);
-                // Resolve the $html attribute in the node.
-                yield plugins_1.resolveHtmlAttribute.call(this, node, params);
-                // Resolve the :show attribute in the node.
-                yield plugins_1.resolveShowAttribute.call(this, node, params);
-                // Resolve the @watch attribute in the node.
-                yield plugins_1.resolveWatchAttribute.call(this, node, params);
-                // Resolve the :bind attribute in the node.
-                yield plugins_1.resolveBindAttribute.call(this, node, params);
-                // Resolve all $attributes in the node.
-                yield plugins_1.resolvePropAttributes.call(this, node, params);
-                // Resolve all :attributes in the node.
-                yield plugins_1.resolveAttrAttributes.call(this, node, params);
-                // Resolve all @attributes in the node.
-                yield plugins_1.resolveEventAttributes.call(this, node, params);
-                // Replace all the {{ variables }} in the text.
-                yield plugins_1.resolveTextNodeExpressions.call(this, node, params);
-            }
-        });
+    async watchExpr(expr, args, callback) {
+        // Early exit: this eval has already been registered, we just need to add our callback.
+        if (this.evalCallbacks.has(expr)) {
+            this.evalCallbacks.get(expr)?.push(callback);
+            // Trigger the eval manually upon registration, to ensure the callback is called immediately.
+            return this.eval(expr, args).then(([result, dependencies]) => callback(result, dependencies));
+        }
+        // Otherwise, register the callback provided.
+        this.evalCallbacks.set(expr, [callback]);
+        // Keep track of dependencies each evaluation.
+        const prevdeps = [];
+        const inner = async () => {
+            // Evaluate the expression first.
+            const [result, dependencies] = await this.eval(expr, args);
+            // Trigger all registered callbacks.
+            const callbacks = this.evalCallbacks.get(expr) || [];
+            await Promise.all(callbacks.map((x) => x(result, dependencies)));
+            // Watch the dependencies for changes.
+            if (prevdeps.length > 0)
+                this.unwatch(prevdeps, inner);
+            prevdeps.splice(0, prevdeps.length, ...dependencies);
+            this.watch(dependencies, inner);
+        };
+        return inner();
     }
-    mount(root, params) {
-        return __awaiter(this, void 0, void 0, function* () {
-            // Preprocess all the elements recursively first.
-            yield this.preprocessNode(root, params);
-            // Now that the DOM is complete, render all the nodes.
-            yield this.renderNode(root, params);
+    async preprocessNode(root, params) {
+        params = Object.assign({ dirpath: this.dirpath, maxdepth: 10 }, params);
+        const promises = new iterator_1.Iterator(traverse(root, this.skipNodes)).map(async (node) => {
+            this.log("Preprocessing node:\n", node);
+            // Resolve all the includes in the node.
+            await plugins_1.RendererPlugins.resolveIncludes.call(this, node, params);
+            // Resolve all the relative paths in the node.
+            await plugins_1.RendererPlugins.rebaseRelativePaths.call(this, node, params);
         });
+        // Wait for all the rendering operations to complete.
+        await Promise.all(promises.generator());
+    }
+    async renderNode(root, params) {
+        // Iterate over all the nodes and apply appropriate handlers.
+        // Do these steps one at a time to avoid any potential race conditions.
+        for (const node of traverse(root, this.skipNodes)) {
+            this.log("Rendering node:\n", node);
+            // Resolve the :data attribute in the node.
+            await plugins_1.RendererPlugins.resolveDataAttribute.call(this, node, params);
+            // Resolve the :for attribute in the node.
+            await plugins_1.RendererPlugins.resolveForAttribute.call(this, node, params);
+            // Resolve the $html attribute in the node.
+            await plugins_1.RendererPlugins.resolveHtmlAttribute.call(this, node, params);
+            // Resolve the :show attribute in the node.
+            await plugins_1.RendererPlugins.resolveShowAttribute.call(this, node, params);
+            // Resolve the @watch attribute in the node.
+            await plugins_1.RendererPlugins.resolveWatchAttribute.call(this, node, params);
+            // Resolve the :bind attribute in the node.
+            await plugins_1.RendererPlugins.resolveBindAttribute.call(this, node, params);
+            // Resolve all $attributes in the node.
+            await plugins_1.RendererPlugins.resolvePropAttributes.call(this, node, params);
+            // Resolve all :attributes in the node.
+            await plugins_1.RendererPlugins.resolveAttrAttributes.call(this, node, params);
+            // Resolve all @attributes in the node.
+            await plugins_1.RendererPlugins.resolveEventAttributes.call(this, node, params);
+            // Replace all the {{ variables }} in the text.
+            await plugins_1.RendererPlugins.resolveTextNodeExpressions.call(this, node, params);
+        }
+    }
+    async mount(root, params) {
+        // Preprocess all the elements recursively first.
+        await this.preprocessNode(root, params);
+        // Now that the DOM is complete, render all the nodes.
+        await this.renderNode(root, params);
     }
 }
 exports.IRenderer = IRenderer;

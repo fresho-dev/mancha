@@ -1,13 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const assert = require("assert");
 const mocha_1 = require("mocha");
@@ -55,73 +46,73 @@ const core_1 = require("./core");
         });
     });
     (0, mocha_1.describe)("{{ expressions }}", () => {
-        (0, mocha_1.it)("set, update and get context string value", () => __awaiter(void 0, void 0, void 0, function* () {
+        (0, mocha_1.it)("set, update and get context string value", async () => {
             const renderer = new worker_1.RendererImpl({ name: null });
             const fragment = jsdom_1.JSDOM.fragment("<span>Hello {{ name }}</span>");
             const textNode = Array.from((0, core_1.traverse)(fragment)).filter((node) => node.nodeType === 3)[0];
             // Set the initial value and render node.
-            yield renderer.set("name", "World");
-            yield renderer.mount(fragment);
+            await renderer.set("name", "World");
+            await renderer.mount(fragment);
             assert.equal(textNode.nodeValue, "Hello World");
             // Update the value and observe the change.
-            yield renderer.set("name", "Stranger");
+            await renderer.set("name", "Stranger");
             assert.equal(textNode.nodeValue, "Hello Stranger");
-        }));
-        (0, mocha_1.it)("sets object, gets object property", () => __awaiter(void 0, void 0, void 0, function* () {
+        });
+        (0, mocha_1.it)("sets object, gets object property", async () => {
             const renderer = new worker_1.RendererImpl();
             const fragment = jsdom_1.JSDOM.fragment("<span>Hello {{ user.name }}</span>");
             const textNode = Array.from((0, core_1.traverse)(fragment)).filter((node) => node.nodeType === 3)[0];
             // Set the initial value and render node.
-            yield renderer.set("user", { name: "World" });
-            yield renderer.mount(fragment);
+            await renderer.set("user", { name: "World" });
+            await renderer.mount(fragment);
             assert.equal(textNode.nodeValue, "Hello World");
             // Update the value and observe the change.
-            yield renderer.set("user", { name: "Stranger" });
+            await renderer.set("user", { name: "Stranger" });
             assert.equal(textNode.nodeValue, "Hello Stranger");
-        }));
+        });
     });
     (0, mocha_1.describe)("mount", () => {
-        (0, mocha_1.it)("set, update and get context string value", () => __awaiter(void 0, void 0, void 0, function* () {
+        (0, mocha_1.it)("set, update and get context string value", async () => {
             const renderer = new worker_1.RendererImpl();
             const fragment = jsdom_1.JSDOM.fragment("<span>Hello {{ name }}</span>");
             const textNode = Array.from((0, core_1.traverse)(fragment)).filter((node) => node.nodeType === 3)[0];
             // Set the initial value and render node.
-            yield renderer.set("name", "World");
-            yield renderer.mount(fragment);
+            await renderer.set("name", "World");
+            await renderer.mount(fragment);
             assert.equal(textNode.nodeValue, "Hello World");
             // Update the value and observe the change.
-            yield renderer.set("name", "Stranger");
+            await renderer.set("name", "Stranger");
             assert.equal(textNode.nodeValue, "Hello Stranger");
-        }));
+        });
     });
     (0, mocha_1.describe)("watch", () => {
-        (0, mocha_1.it)("watch a single value", () => __awaiter(void 0, void 0, void 0, function* () {
+        (0, mocha_1.it)("watch a single value", async () => {
             const renderer = new worker_1.RendererImpl();
             const fragment = jsdom_1.JSDOM.fragment("<span>Hello {{ name }}</span>");
             const textNode = Array.from((0, core_1.traverse)(fragment)).filter((node) => node.nodeType === 3)[0];
-            yield renderer.set("name", "World");
-            yield renderer.mount(fragment);
+            await renderer.set("name", "World");
+            await renderer.mount(fragment);
             assert.equal(textNode.nodeValue, "Hello World");
             // Listen to the next update.
             const watched = new Promise((resolve) => renderer.watch(["name"], resolve));
-            yield renderer.set("name", "Stranger");
-            assert.equal(yield watched, "Stranger");
+            await renderer.set("name", "Stranger");
+            assert.equal(await watched, "Stranger");
             assert.equal(renderer.get("name"), "Stranger");
-        }));
-        (0, mocha_1.it)("watch multiple values", () => __awaiter(void 0, void 0, void 0, function* () {
+        });
+        (0, mocha_1.it)("watch multiple values", async () => {
             const renderer = new worker_1.RendererImpl();
             const fragment = jsdom_1.JSDOM.fragment("<span>Hello {{ name }}, it's {{ weather }}</span>");
             const textNode = Array.from((0, core_1.traverse)(fragment)).filter((node) => node.nodeType === 3)[0];
-            yield renderer.set("name", "World");
-            yield renderer.set("weather", "sunny");
-            yield renderer.mount(fragment);
+            await renderer.set("name", "World");
+            await renderer.set("weather", "sunny");
+            await renderer.mount(fragment);
             assert.equal(textNode.nodeValue, "Hello World, it's sunny");
             // Listen to the next update.
             const watched = new Promise((resolve) => renderer.watch(["name", "weather"], (...values) => resolve([...values])));
-            yield renderer.set("name", "Stranger");
-            const [currName, currWeather] = yield watched;
+            await renderer.set("name", "Stranger");
+            const [currName, currWeather] = await watched;
             assert.equal(currName, "Stranger");
             assert.equal(currWeather, "sunny");
-        }));
+        });
     });
 });

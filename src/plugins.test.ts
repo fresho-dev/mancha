@@ -322,7 +322,6 @@ describe("Plugins", () => {
       assert.notEqual(parent, null);
 
       // Create array with no elements.
-      // const container: string[] = [];
       const renderer = new MockRenderer({ items: [] });
       await renderer.mount(fragment);
 
@@ -384,15 +383,13 @@ describe("Plugins", () => {
     });
 
     it("template node with attributes and properties", async () => {
-      const html = `
-        <div $myprop="item" :myattr="item" :for="item in items">
-          {{ item }}
-        </div>`.trim();
+      const html = `<div $myprop="item" :myattr="item" :for="item in items">{{ item }}</div>`;
       const fragment = JSDOM.fragment(html);
 
       const renderer = new MockRenderer({ items: ["1", "2"] });
       await renderer.mount(fragment);
 
+      // await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 4));
       const children12 = Array.from(fragment.childNodes).slice(1);
       assert.equal(children12.length, 2);
       assert.equal(children12[0].textContent?.trim(), "1");

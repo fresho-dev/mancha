@@ -15,4 +15,4 @@ export interface RenderParams {
     /** Cache policy used when resolving remote paths. */
     cache?: RequestCache | null;
 }
-export type RendererPlugin = (this: IRenderer, node: ChildNode, params: RenderParams) => Promise<void>;
+export type RendererPlugin = (this: IRenderer, node: ChildNode, params?: RenderParams) => Promise<void>;

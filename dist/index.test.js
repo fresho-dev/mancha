@@ -1,13 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const assert = require("assert");
 const fs = require("fs");
@@ -24,7 +15,7 @@ const gulp_1 = require("./gulp");
  * @param fname file name to test
  */
 function testRenderString(fname, compare = "Hello World", vars = {}) {
-    return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+    return new Promise(async (resolve, reject) => {
         const content = fs.readFileSync(fname).toString("utf8");
         const dirpath = path.dirname(fname);
         const wwwroot = path.join(__dirname, "fixtures");
@@ -32,11 +23,11 @@ function testRenderString(fname, compare = "Hello World", vars = {}) {
         const context = Object.assign({ wwwroot: relpath }, vars);
         try {
             const renderer = new index_1.RendererImpl(context);
-            const fragment = yield renderer.preprocessString(content, {
+            const fragment = await renderer.preprocessString(content, {
                 dirpath,
                 root: !fname.endsWith(".tpl.html"),
             });
-            yield renderer.renderNode(fragment);
+            await renderer.renderNode(fragment);
             const result = renderer.serializeHTML(fragment);
             resolve(assert.equal(result, compare, String(result)));
         }
@@ -44,21 +35,21 @@ function testRenderString(fname, compare = "Hello World", vars = {}) {
             console.error(exc);
             reject(exc);
         }
-    }));
+    });
 }
 /**
  * Helper function used to test a transformation of local file paths.
  * @param fname file name to test
  */
 function testRenderLocal(fname, compare = "Hello World", vars = {}) {
-    return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+    return new Promise(async (resolve, reject) => {
         const wwwroot = path.join(__dirname, "fixtures");
         const relpath = path.relative(fname, wwwroot) || ".";
         const context = Object.assign({ wwwroot: relpath }, vars);
         try {
             const renderer = new index_1.RendererImpl(context);
-            const fragment = yield renderer.preprocessLocal(fname);
-            yield renderer.renderNode(fragment);
+            const fragment = await renderer.preprocessLocal(fname);
+            await renderer.renderNode(fragment);
             const result = renderer.serializeHTML(fragment);
             resolve(assert.equal(result, compare, String(result)));
         }
@@ -66,22 +57,22 @@ function testRenderLocal(fname, compare = "Hello World", vars = {}) {
             console.error(exc);
             reject(exc);
         }
-    }));
+    });
 }
 /**
  * Helper function used to test a transformation of local file paths.
  * @param fname file name to test
  */
 function testRenderRemote(fname, compare = "Hello World", vars = {}) {
-    return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+    return new Promise(async (resolve, reject) => {
         const wwwroot = path.join(__dirname, "fixtures");
         const relpath = path.relative(fname, wwwroot) || ".";
         const remotePath = `http://127.0.0.1:${port}/${path.relative(wwwroot, fname)}`;
         const context = Object.assign({ wwwroot: relpath }, vars);
         try {
             const renderer = new index_1.RendererImpl(context);
-            const fragment = yield renderer.preprocessRemote(remotePath);
-            yield renderer.renderNode(fragment);
+            const fragment = await renderer.preprocessRemote(remotePath);
+            await renderer.renderNode(fragment);
             const result = renderer.serializeHTML(fragment);
             resolve(assert.equal(result, compare, String(result)));
         }
@@ -89,7 +80,7 @@ function testRenderRemote(fname, compare = "Hello World", vars = {}) {
             console.error(exc);
             reject(exc);
         }
-    }));
+    });
 }
 /**
  * Helper function used to test a transformation after reading `fname` into a Buffer.
@@ -131,7 +122,6 @@ function testStreamedTransform(fname, compare = "Hello World", vars = {}) {
             contents: fs.createReadStream(fname),
         });
         (0, gulp_1.default)(context, path.join(__dirname, "fixtures"))._transform(file, "utf8", (err, file) => {
-            var _a, _b;
             if (err) {
                 reject(err);
             }
@@ -147,14 +137,16 @@ function testStreamedTransform(fname, compare = "Hello World", vars = {}) {
                     }
                 }
                 else {
-                    (_b = (_a = file.contents) === null || _a === void 0 ? void 0 : _a.on("data", (chunk) => {
+                    file.contents
+                        ?.on("data", (chunk) => {
                         if (Buffer.isBuffer(chunk)) {
                             content += chunk.toString("utf8");
                         }
                         else {
                             content += chunk.toString();
                         }
-                    })) === null || _b === void 0 ? void 0 : _b.on("end", () => {
+                    })
+                        ?.on("end", () => {
                         try {
                             resolve(assert.equal(content, compare, content));
                         }
@@ -197,26 +189,26 @@ function testGulpedTransform(fname, compare = "Hello World", vars = {}) {
     });
 }
 function testAllMethods(fname, compare = "Hello World", vars = {}) {
-    (0, mocha_1.it)("content render", () => __awaiter(this, void 0, void 0, function* () {
-        yield testRenderString(fname, compare, vars);
-    }));
-    (0, mocha_1.it)("local path render", () => __awaiter(this, void 0, void 0, function* () {
-        yield testRenderLocal(fname, compare, vars);
-    }));
-    (0, mocha_1.it)("remote path render", () => __awaiter(this, void 0, void 0, function* () {
-        yield testRenderRemote(fname, compare, vars);
-    }));
-    (0, mocha_1.it)("buffered transform", () => __awaiter(this, void 0, void 0, function* () {
-        yield testBufferedTransform(fname, compare, vars);
-    }));
-    (0, mocha_1.it)("streamed transform", () => __awaiter(this, void 0, void 0, function* () {
-        yield testStreamedTransform(fname, compare, vars);
-    }));
-    (0, mocha_1.it)("gulped transform", () => __awaiter(this, void 0, void 0, function* () {
-        yield testGulpedTransform(fname, compare, vars);
-    }));
+    (0, mocha_1.it)("content render", async () => {
+        await testRenderString(fname, compare, vars);
+    });
+    (0, mocha_1.it)("local path render", async () => {
+        await testRenderLocal(fname, compare, vars);
+    });
+    (0, mocha_1.it)("remote path render", async () => {
+        await testRenderRemote(fname, compare, vars);
+    });
+    (0, mocha_1.it)("buffered transform", async () => {
+        await testBufferedTransform(fname, compare, vars);
+    });
+    (0, mocha_1.it)("streamed transform", async () => {
+        await testStreamedTransform(fname, compare, vars);
+    });
+    (0, mocha_1.it)("gulped transform", async () => {
+        await testGulpedTransform(fname, compare, vars);
+    });
 }
-const port = Math.floor(1024 + Math.random() * (Math.pow(2, 16) - 1024));
+const port = Math.floor(1_024 + Math.random() * (Math.pow(2, 16) - 1_024));
 const server = new StaticServer({
     port: port,
     host: "127.0.0.1",

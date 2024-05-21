@@ -216,7 +216,7 @@ export class ReactiveProxyStore extends IDebouncer {
   }
 
   async trace<T>(
-    callback: (this: { [key: string]: any }) => T | Promise<T>
+    callback: (this: ReactiveProxyStore & { [key: string]: any }) => T | Promise<T>
   ): Promise<[T, string[]]> {
     // Track the dependencies by adding a hook to the proxified store.
     const dependencies: Set<string> = new Set();

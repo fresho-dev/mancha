@@ -1,19 +1,8 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.proxifyStore = exports.ReactiveProxyStore = exports.InertProxy = exports.ReactiveProxy = exports.proxifyObject = exports.REACTIVE_DEBOUNCE_MILLIS = void 0;
 class IDebouncer {
-    constructor() {
-        this.timeouts = new Map();
-    }
+    timeouts = new Map();
     debounce(millis, callback) {
         return new Promise((resolve, reject) => {
             const timeout = this.timeouts.get(callback);
@@ -76,10 +65,10 @@ function proxifyObject(object, callback, deep = true) {
 }
 exports.proxifyObject = proxifyObject;
 class ReactiveProxy extends IDebouncer {
+    value = null;
+    listeners = [];
     constructor(value = null, ...listeners) {
         super();
-        this.value = null;
-        this.listeners = [];
         this.value = this.wrapObjValue(value);
         listeners.forEach((x) => this.watch(x));
     }
@@ -101,15 +90,13 @@ class ReactiveProxy extends IDebouncer {
     get() {
         return this.value;
     }
-    set(value) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (this.value !== value) {
-                const prev = this.value;
-                // Convert value to a proxy if it's an object.
-                this.value = this.wrapObjValue(value);
-                yield this.trigger(prev);
-            }
-        });
+    async set(value) {
+        if (this.value !== value) {
+            const prev = this.value;
+            // Convert value to a proxy if it's an object.
+            this.value = this.wrapObjValue(value);
+            await this.trigger(prev);
+        }
     }
     watch(listener) {
         this.listeners.push(listener);
@@ -141,11 +128,11 @@ class InertProxy extends ReactiveProxy {
 }
 exports.InertProxy = InertProxy;
 class ReactiveProxyStore extends IDebouncer {
+    store = new Map();
+    debouncedListeners = new Map();
+    lock = Promise.resolve();
     constructor(data) {
         super();
-        this.store = new Map();
-        this.debouncedListeners = new Map();
-        this.lock = Promise.resolve();
         for (const [key, value] of Object.entries(data || {})) {
             this.store.set(key, ReactiveProxy.from(this.wrapFnValue(value)));
         }
@@ -163,18 +150,15 @@ class ReactiveProxyStore extends IDebouncer {
         return this.store.entries();
     }
     get(key) {
-        var _a;
-        return (_a = this.store.get(key)) === null || _a === void 0 ? void 0 : _a.get();
+        return this.store.get(key)?.get();
     }
-    set(key, value) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (this.store.has(key)) {
-                yield this.store.get(key).set(this.wrapFnValue(value));
-            }
-            else {
-                this.store.set(key, ReactiveProxy.from(this.wrapFnValue(value)));
-            }
-        });
+    async set(key, value) {
+        if (this.store.has(key)) {
+            await this.store.get(key).set(this.wrapFnValue(value));
+        }
+        else {
+            this.store.set(key, ReactiveProxy.from(this.wrapFnValue(value)));
+        }
     }
     del(key) {
         return this.store.delete(key);
@@ -186,10 +170,8 @@ class ReactiveProxyStore extends IDebouncer {
      * Updates the internal store with the provided data.
      * @param data data to add to the internal store.
      */
-    update(data) {
-        return __awaiter(this, void 0, void 0, function* () {
-            yield Promise.all(Object.entries(data).map(([key, value]) => this.set(key, value)));
-        });
+    async update(data) {
+        await Promise.all(Object.entries(data).map(([key, value]) => this.set(key, value)));
     }
     watch(keys, listener) {
         keys = Array.isArray(keys) ? keys : [keys];
@@ -206,24 +188,20 @@ class ReactiveProxyStore extends IDebouncer {
         keys.forEach((key) => this.store.get(key).unwatch(this.debouncedListeners.get(listener)));
         this.debouncedListeners.delete(listener);
     }
-    trigger(keys) {
-        return __awaiter(this, void 0, void 0, function* () {
-            keys = Array.isArray(keys) ? keys : [keys];
-            yield Promise.all(keys.map((key) => this.store.get(key).trigger()));
-        });
+    async trigger(keys) {
+        keys = Array.isArray(keys) ? keys : [keys];
+        await Promise.all(keys.map((key) => this.store.get(key).trigger()));
     }
-    trace(callback) {
-        return __awaiter(this, void 0, void 0, function* () {
-            // Track the dependencies by adding a hook to the proxified store.
-            const dependencies = new Set();
-            const proxy = proxifyStore(this, (event, key) => {
-                if (event === "get")
-                    dependencies.add(key);
-            });
-            // Execute the callback and return the result and dependencies.
-            const result = yield callback.call(proxy);
-            return [result, Array.from(dependencies)];
+    async trace(callback) {
+        // Track the dependencies by adding a hook to the proxified store.
+        const dependencies = new Set();
+        const proxy = proxifyStore(this, (event, key) => {
+            if (event === "get")
+                dependencies.add(key);
         });
+        // Execute the callback and return the result and dependencies.
+        const result = await callback.call(proxy);
+        return [result, Array.from(dependencies)];
     }
     /**
      * Computes the result of `callback` and stores it as `key` in the store. If any of the other
@@ -231,12 +209,10 @@ class ReactiveProxyStore extends IDebouncer {
      * @param key key of the computed property
      * @param callback function that computes property
      */
-    computed(key, callback) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const [result, dependencies] = yield this.trace(callback);
-            this.watch(dependencies, () => __awaiter(this, void 0, void 0, function* () { return this.set(key, yield callback.call(proxifyStore(this))); }));
-            this.set(key, result);
-        });
+    async computed(key, callback) {
+        const [result, dependencies] = await this.trace(callback);
+        this.watch(dependencies, async () => this.set(key, await callback.call(proxifyStore(this))));
+        this.set(key, result);
     }
 }
 exports.ReactiveProxyStore = ReactiveProxyStore;

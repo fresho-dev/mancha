@@ -1,13 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const assert = require("assert");
 const mocha_1 = require("mocha");
@@ -15,7 +6,7 @@ const jsdom_1 = require("jsdom");
 const core_1 = require("./core");
 class MockRenderer extends core_1.IRenderer {
     parseHTML(content, params) {
-        return (params === null || params === void 0 ? void 0 : params.root)
+        return params?.root
             ? new jsdom_1.JSDOM(content).window.document
             : jsdom_1.JSDOM.fragment(content);
     }
@@ -65,33 +56,33 @@ class MockRenderer extends core_1.IRenderer {
         });
     });
     (0, mocha_1.describe)("safeEval", () => {
-        (0, mocha_1.it)("simple sum", () => __awaiter(void 0, void 0, void 0, function* () {
+        (0, mocha_1.it)("simple sum", async () => {
             const fn = "a + b";
-            const result = yield (0, core_1.safeEval)(fn, null, { a: 1, b: 2 });
+            const result = await (0, core_1.safeEval)(fn, null, { a: 1, b: 2 });
             assert.equal(result, 3);
-        }));
-        (0, mocha_1.it)("sum with nested properties", () => __awaiter(void 0, void 0, void 0, function* () {
+        });
+        (0, mocha_1.it)("sum with nested properties", async () => {
             const fn = "x.a + x.b";
-            const result = yield (0, core_1.safeEval)(fn, null, { x: { a: 1, b: 2 } });
+            const result = await (0, core_1.safeEval)(fn, null, { x: { a: 1, b: 2 } });
             assert.equal(result, 3);
-        }));
-        (0, mocha_1.it)("modifies variables", () => __awaiter(void 0, void 0, void 0, function* () {
+        });
+        (0, mocha_1.it)("modifies variables", async () => {
             const object = { x: { a: 1 } };
             const fn = "x.a++";
-            yield (0, core_1.safeEval)(fn, null, object);
+            await (0, core_1.safeEval)(fn, null, object);
             assert.equal(object.x.a, 2);
-        }));
-        (0, mocha_1.it)('passing "this" to function', () => __awaiter(void 0, void 0, void 0, function* () {
+        });
+        (0, mocha_1.it)('passing "this" to function', async () => {
             const object = { x: { a: 1 } };
             const fn = "this.x.a++";
-            yield (0, core_1.safeEval)(fn, object);
+            await (0, core_1.safeEval)(fn, object);
             assert.equal(object.x.a, 2);
-        }));
-        (0, mocha_1.it)("async call within function", () => __awaiter(void 0, void 0, void 0, function* () {
+        });
+        (0, mocha_1.it)("async call within function", async () => {
             const fn = "await Promise.resolve(1)";
-            const result = yield (0, core_1.safeEval)(fn, null);
+            const result = await (0, core_1.safeEval)(fn, null);
             assert.equal(result, 1);
-        }));
+        });
         [
             { expression: "a && b", expected: false },
             { expression: "!a && !b", expected: false },
@@ -102,40 +93,39 @@ class MockRenderer extends core_1.IRenderer {
             { expression: "!a || b", expected: true },
             { expression: "a || !b", expected: false },
         ].forEach(({ expression, expected }) => {
-            (0, mocha_1.it)(`boolean expressions with multiple variables: ${expression}`, () => __awaiter(void 0, void 0, void 0, function* () {
-                const result = yield (0, core_1.safeEval)(expression, null, { a: false, b: true });
+            (0, mocha_1.it)(`boolean expressions with multiple variables: ${expression}`, async () => {
+                const result = await (0, core_1.safeEval)(expression, null, { a: false, b: true });
                 assert.equal(result, expected);
-            }));
+            });
         });
     });
     (0, mocha_1.describe)("eval", () => {
-        (0, mocha_1.it)("using implicit `this` in function", () => __awaiter(void 0, void 0, void 0, function* () {
+        (0, mocha_1.it)("using implicit `this` in function", async () => {
             const renderer = new MockRenderer({ a: 1 });
             const fn = "++a";
-            const [result] = yield renderer.eval(fn);
+            const [result] = await renderer.eval(fn);
             assert.equal(result, 2);
             assert.equal(renderer.get("a"), 2);
-        }));
-        (0, mocha_1.it)("using implicit `this` and nested values", () => __awaiter(void 0, void 0, void 0, function* () {
-            var _a;
+        });
+        (0, mocha_1.it)("using implicit `this` and nested values", async () => {
             const renderer = new MockRenderer({ x: { a: 1 } });
             const fn = "++x.a";
-            const [result] = yield renderer.eval(fn);
+            const [result] = await renderer.eval(fn);
             assert.equal(result, 2);
-            assert.equal((_a = renderer.get("x")) === null || _a === void 0 ? void 0 : _a.a, 2);
-        }));
-        (0, mocha_1.it)("tracing works as expected", () => __awaiter(void 0, void 0, void 0, function* () {
+            assert.equal(renderer.get("x")?.a, 2);
+        });
+        (0, mocha_1.it)("tracing works as expected", async () => {
             const renderer = new MockRenderer({ a: 1, b: 2, c: 3 });
-            const [result, dependencies] = yield renderer.eval("a + b");
+            const [result, dependencies] = await renderer.eval("a + b");
             assert.equal(result, 3);
             assert.deepEqual(dependencies, ["a", "b"]);
-        }));
-        (0, mocha_1.it)("use `global` in function", () => __awaiter(void 0, void 0, void 0, function* () {
+        });
+        (0, mocha_1.it)("use `global` in function", async () => {
             const renderer = new MockRenderer();
             global.foo = "bar";
-            const [result] = yield renderer.eval("global.foo");
+            const [result] = await renderer.eval("global.foo");
             assert.equal(result, "bar");
-        }));
+        });
         [
             { expression: "a && b", expected: false },
             { expression: "!a && !b", expected: false },
@@ -146,26 +136,26 @@ class MockRenderer extends core_1.IRenderer {
             { expression: "!a || b", expected: true },
             { expression: "a || !b", expected: false },
         ].forEach(({ expression, expected }) => {
-            (0, mocha_1.it)(`boolean expressions with multiple variables: ${expression}`, () => __awaiter(void 0, void 0, void 0, function* () {
+            (0, mocha_1.it)(`boolean expressions with multiple variables: ${expression}`, async () => {
                 const renderer = new MockRenderer({ a: false, b: true });
-                const [result] = yield renderer.eval(expression);
+                const [result] = await renderer.eval(expression);
                 assert.equal(result, expected);
-            }));
+            });
         });
-        (0, mocha_1.it)("mutating boolean expression with multiple variables", () => __awaiter(void 0, void 0, void 0, function* () {
+        (0, mocha_1.it)("mutating boolean expression with multiple variables", async () => {
             const renderer = new MockRenderer({ a: false, b: false });
             const expression = "a || b";
-            assert.deepEqual(yield renderer.eval(expression), [false, ["a", "b"]]);
-            yield renderer.set("a", true);
-            assert.deepEqual(yield renderer.eval(expression), [true, ["a"]]);
-            yield renderer.set("a", false);
-            yield renderer.set("b", true);
-            assert.deepEqual(yield renderer.eval(expression), [true, ["a", "b"]]);
-            yield renderer.set("a", true);
-            yield renderer.set("b", true);
-            assert.deepEqual(yield renderer.eval(expression), [true, ["a"]]);
-        }));
-        (0, mocha_1.it)("runs callback after evaluation", () => __awaiter(void 0, void 0, void 0, function* () {
+            assert.deepEqual(await renderer.eval(expression), [false, ["a", "b"]]);
+            await renderer.set("a", true);
+            assert.deepEqual(await renderer.eval(expression), [true, ["a"]]);
+            await renderer.set("a", false);
+            await renderer.set("b", true);
+            assert.deepEqual(await renderer.eval(expression), [true, ["a", "b"]]);
+            await renderer.set("a", true);
+            await renderer.set("b", true);
+            assert.deepEqual(await renderer.eval(expression), [true, ["a"]]);
+        });
+        (0, mocha_1.it)("runs callback after evaluation", async () => {
             const renderer = new MockRenderer({ a: 1, b: 2 });
             const fn = "a + b";
             let called = false;
@@ -174,10 +164,10 @@ class MockRenderer extends core_1.IRenderer {
                 assert.deepEqual(dependencies, ["a", "b"]);
                 called = true;
             };
-            yield renderer.eval(fn, {}, callback);
-            assert(called);
-        }));
-        (0, mocha_1.it)("runs callback after dependency changes", () => __awaiter(void 0, void 0, void 0, function* () {
+            await renderer.watchExpr(fn, {}, callback);
+            assert.ok(called);
+        });
+        (0, mocha_1.it)("runs callback after dependency changes", async () => {
             const renderer = new MockRenderer({ a: 1, b: 2 });
             const fn = "a + b";
             let called = 0;
@@ -185,17 +175,44 @@ class MockRenderer extends core_1.IRenderer {
                 assert.deepEqual(dependencies, ["a", "b"]);
                 called++;
             };
-            yield renderer.eval(fn, {}, callback);
+            await renderer.watchExpr(fn, {}, callback);
             assert.equal(called, 1);
-            yield renderer.set("a", 3);
+            await renderer.set("a", 3);
             assert.equal(called, 2);
-        }));
-        (0, mocha_1.it)("tracks unseen dependencies from short-circuit expressions", () => __awaiter(void 0, void 0, void 0, function* () {
+        });
+        (0, mocha_1.it)("tracks unseen dependencies from short-circuit expressions", async () => {
             const renderer = new MockRenderer({ a: false, b: false });
             const expression = "a && b";
-            assert.deepEqual(yield renderer.eval(expression), [false, ["a"]]);
-            yield renderer.set("a", true);
-            assert.deepEqual(yield renderer.eval(expression), [false, ["a", "b"]]);
-        }));
+            assert.deepEqual(await renderer.eval(expression), [false, ["a"]]);
+            await renderer.set("a", true);
+            assert.deepEqual(await renderer.eval(expression), [false, ["a", "b"]]);
+        });
+    });
+    (0, mocha_1.describe)("watchExpr", () => {
+        (0, mocha_1.it)("watches an expression for changes", async () => {
+            const renderer = new MockRenderer({ a: 1, b: 2 });
+            const fn = "a + b";
+            let called = 0;
+            const callback = (result, dependencies) => {
+                assert.deepEqual(dependencies, ["a", "b"]);
+                called++;
+            };
+            await renderer.watchExpr(fn, {}, callback);
+            assert.equal(called, 1);
+            await renderer.set("a", 3);
+            assert.equal(called, 2);
+        });
+        (0, mocha_1.it)("multiple listeners watch the same expression for changes", async () => {
+            const renderer = new MockRenderer({ a: 1, b: 2 });
+            const fn = "a + b";
+            let called = 0;
+            const callback1 = () => called++;
+            const callback2 = () => called++;
+            await renderer.watchExpr(fn, {}, callback1);
+            await renderer.watchExpr(fn, {}, callback2);
+            assert.equal(called, 2);
+            await renderer.set("a", 3);
+            assert.equal(called, 4);
+        });
     });
 });

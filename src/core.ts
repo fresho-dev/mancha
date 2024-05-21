@@ -1,20 +1,9 @@
 import { ReactiveProxyStore } from "./reactive";
 import { ParserParams, RenderParams } from "./interfaces";
 import { Iterator } from "./iterator";
-import {
-  rebaseRelativePaths,
-  resolveAttrAttributes,
-  resolveBindAttribute,
-  resolveDataAttribute,
-  resolveEventAttributes,
-  resolveForAttribute,
-  resolveHtmlAttribute,
-  resolveIncludes,
-  resolvePropAttributes,
-  resolveShowAttribute,
-  resolveTextNodeExpressions,
-  resolveWatchAttribute,
-} from "./plugins";
+import { RendererPlugins } from "./plugins";
+
+export type EvalListener = (result: any, dependencies: string[]) => any;
 
 export function* traverse(
   root: Node | DocumentFragment | Document,
@@ -57,6 +46,10 @@ export function isRelativePath(fpath: string): boolean {
   );
 }
 
+export function makeEvalFunction(code: string, args: { [key: string]: any } = {}): Function {
+  return new Function(...Object.keys(args), `with (this) { return (${code}); }`);
+}
+
 export function safeEval(
   code: string,
   context: any,
@@ -67,8 +60,10 @@ export function safeEval(
 }
 
 export abstract class IRenderer extends ReactiveProxyStore {
-  private debugging: boolean = false;
+  protected debugging: boolean = false;
   protected readonly dirpath: string = "";
+  protected readonly expressionCache: Map<string, Function> = new Map();
+  protected readonly evalCallbacks: Map<string, EvalListener[]> = new Map();
   readonly skipNodes: Set<Node> = new Set();
   abstract parseHTML(content: string, params?: ParserParams): DocumentFragment;
   abstract serializeHTML(root: DocumentFragment | Node): string;
@@ -128,33 +123,54 @@ export abstract class IRenderer extends ReactiveProxyStore {
   log(...args: any[]): void {
     if (this.debugging) console.debug(...args);
   }
-  async eval(
+
+  private cachedExpressionFunction(expr: string, args: { [key: string]: any }): any {
+    if (!this.expressionCache.has(expr)) {
+      this.expressionCache.set(expr, makeEvalFunction(expr, args));
+    }
+    return this.expressionCache.get(expr)?.call(this, ...Object.values(args));
+  }
+
+  async eval(expr: string, args: { [key: string]: any } = {}): Promise<[any, string[]]> {
+    const [result, dependencies] = await this.trace(async function () {
+      return this.cachedExpressionFunction(expr, args);
+    });
+    this.log(`eval \`${expr}\` => `, result, `[ ${dependencies.join(", ")} ]`);
+    return [result, dependencies];
+  }
+
+  async watchExpr(
     expr: string,
-    args: { [key: string]: any } = {},
-    callback?: (result: any, dependencies: string[]) => void | Promise<void>
-  ): Promise<[any, string[]]> {
-    // TODO: Add expression to cache.
+    args: { [key: string]: any },
+    callback: EvalListener
+  ): Promise<void> {
+    // Early exit: this eval has already been registered, we just need to add our callback.
+    if (this.evalCallbacks.has(expr)) {
+      this.evalCallbacks.get(expr)?.push(callback);
+      // Trigger the eval manually upon registration, to ensure the callback is called immediately.
+      return this.eval(expr, args).then(([result, dependencies]) => callback(result, dependencies));
+    }
+
+    // Otherwise, register the callback provided.
+    this.evalCallbacks.set(expr, [callback]);
+
+    // Keep track of dependencies each evaluation.
     const prevdeps: string[] = [];
     const inner = async () => {
-      const [result, dependencies] = await this.trace(async function () {
-        const result = await safeEval(expr, this, { ...args });
-        return result;
-      });
-      this.log(`eval \`${expr}\` => `, result, `[ ${dependencies.join(", ")} ]`);
+      // Evaluate the expression first.
+      const [result, dependencies] = await this.eval(expr, args);
 
-      // Watch all the dependencies for changes when a callback is provided.
-      if (callback) {
-        if (prevdeps.length > 0) this.unwatch(prevdeps, inner);
-        prevdeps.splice(0, prevdeps.length, ...dependencies);
-        this.watch(dependencies, inner);
-        await callback?.(result, dependencies);
-      }
+      // Trigger all registered callbacks.
+      const callbacks = this.evalCallbacks.get(expr) || [];
+      await Promise.all(callbacks.map((x: EvalListener) => x(result, dependencies)));
 
-      // Return the result and the dependencies directly for convenience.
-      return [result, dependencies];
+      // Watch the dependencies for changes.
+      if (prevdeps.length > 0) this.unwatch(prevdeps, inner);
+      prevdeps.splice(0, prevdeps.length, ...dependencies);
+      this.watch(dependencies, inner);
     };
 
-    return inner() as Promise<[any, string[]]>;
+    return inner();
   }
 
   async preprocessNode(
@@ -166,9 +182,9 @@ export abstract class IRenderer extends ReactiveProxyStore {
     const promises = new Iterator(traverse(root, this.skipNodes)).map(async (node) => {
       this.log("Preprocessing node:\n", node);
       // Resolve all the includes in the node.
-      await resolveIncludes.call(this, node, params);
+      await RendererPlugins.resolveIncludes.call(this, node, params);
       // Resolve all the relative paths in the node.
-      await rebaseRelativePaths.call(this, node, params);
+      await RendererPlugins.rebaseRelativePaths.call(this, node, params);
     });
 
     // Wait for all the rendering operations to complete.
@@ -181,25 +197,25 @@ export abstract class IRenderer extends ReactiveProxyStore {
     for (const node of traverse(root, this.skipNodes)) {
       this.log("Rendering node:\n", node);
       // Resolve the :data attribute in the node.
-      await resolveDataAttribute.call(this, node, params);
+      await RendererPlugins.resolveDataAttribute.call(this, node, params);
       // Resolve the :for attribute in the node.
-      await resolveForAttribute.call(this, node, params);
+      await RendererPlugins.resolveForAttribute.call(this, node, params);
       // Resolve the $html attribute in the node.
-      await resolveHtmlAttribute.call(this, node, params);
+      await RendererPlugins.resolveHtmlAttribute.call(this, node, params);
       // Resolve the :show attribute in the node.
-      await resolveShowAttribute.call(this, node, params);
+      await RendererPlugins.resolveShowAttribute.call(this, node, params);
       // Resolve the @watch attribute in the node.
-      await resolveWatchAttribute.call(this, node, params);
+      await RendererPlugins.resolveWatchAttribute.call(this, node, params);
       // Resolve the :bind attribute in the node.
-      await resolveBindAttribute.call(this, node, params);
+      await RendererPlugins.resolveBindAttribute.call(this, node, params);
       // Resolve all $attributes in the node.
-      await resolvePropAttributes.call(this, node, params);
+      await RendererPlugins.resolvePropAttributes.call(this, node, params);
       // Resolve all :attributes in the node.
-      await resolveAttrAttributes.call(this, node, params);
+      await RendererPlugins.resolveAttrAttributes.call(this, node, params);
       // Resolve all @attributes in the node.
-      await resolveEventAttributes.call(this, node, params);
+      await RendererPlugins.resolveEventAttributes.call(this, node, params);
       // Replace all the {{ variables }} in the text.
-      await resolveTextNodeExpressions.call(this, node, params);
+      await RendererPlugins.resolveTextNodeExpressions.call(this, node, params);
     }
   }
 
