@@ -133,12 +133,13 @@ export abstract class IRenderer extends ReactiveProxyStore {
   }
 
   async eval(expr: string, args: { [key: string]: any } = {}): Promise<[any, string[]]> {
-    const fn = this.cachedExpressionFunction(expr);
+    // const fn = this.cachedExpressionFunction(expr);
     const vals = this.evalkeys.map((key) => args[key]);
     if (Object.keys(args).some((key) => !this.evalkeys.includes(key))) {
       throw new Error(`Invalid argument key, must be one of: ${this.evalkeys.join(", ")}`);
     }
     const [result, dependencies] = await this.trace(async function () {
+      const fn = makeEvalFunction(expr, this.evalkeys);
       return fn.call(this, ...vals);
     });
     this.log(`eval \`${expr}\` => `, result, `[ ${dependencies.join(", ")} ]`);
