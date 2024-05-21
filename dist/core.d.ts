@@ -4,15 +4,14 @@ export type EvalListener = (result: any, dependencies: string[]) => any;
 export declare function traverse(root: Node | DocumentFragment | Document, skip?: Set<Node>): Generator<ChildNode>;
 export declare function dirname(fpath: string): string;
 export declare function isRelativePath(fpath: string): boolean;
-export declare function makeEvalFunction(code: string, args?: {
-    [key: string]: any;
-}): Function;
+export declare function makeEvalFunction(code: string, args?: string[]): Function;
 export declare function safeEval(context: any, code: string, args?: {
     [key: string]: any;
 }): Promise<any>;
 export declare abstract class IRenderer extends ReactiveProxyStore {
     protected debugging: boolean;
     protected readonly dirpath: string;
+    protected readonly evalkeys: string[];
     protected readonly expressionCache: Map<string, Function>;
     protected readonly evalCallbacks: Map<string, EvalListener[]>;
     readonly skipNodes: Set<Node>;

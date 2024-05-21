@@ -46,8 +46,8 @@ export function isRelativePath(fpath: string): boolean {
   );
 }
 
-export function makeEvalFunction(code: string, args: { [key: string]: any } = {}): Function {
-  return new Function(...Object.keys(args), `with (this) { return (${code}); }`);
+export function makeEvalFunction(code: string, args: string[] = []): Function {
+  return new Function(...args, `with (this) { return (${code}); }`);
 }
 
 export function safeEval(
@@ -62,6 +62,7 @@ export function safeEval(
 export abstract class IRenderer extends ReactiveProxyStore {
   protected debugging: boolean = false;
   protected readonly dirpath: string = "";
+  protected readonly evalkeys: string[] = ["$elem", "$event"];
   protected readonly expressionCache: Map<string, Function> = new Map();
   protected readonly evalCallbacks: Map<string, EvalListener[]> = new Map();
   readonly skipNodes: Set<Node> = new Set();
@@ -124,16 +125,21 @@ export abstract class IRenderer extends ReactiveProxyStore {
     if (this.debugging) console.debug(...args);
   }
 
-  private cachedExpressionFunction(expr: string, args: { [key: string]: any }): any {
+  private cachedExpressionFunction(expr: string): any {
     if (!this.expressionCache.has(expr)) {
-      this.expressionCache.set(expr, makeEvalFunction(expr, args));
+      this.expressionCache.set(expr, makeEvalFunction(expr, this.evalkeys));
     }
-    return this.expressionCache.get(expr)?.call(this, ...Object.values(args));
+    return this.expressionCache.get(expr);
   }
 
   async eval(expr: string, args: { [key: string]: any } = {}): Promise<[any, string[]]> {
+    const fn = this.cachedExpressionFunction(expr);
+    const vals = this.evalkeys.map((key) => args[key]);
+    if (Object.keys(args).some((key) => !this.evalkeys.includes(key))) {
+      throw new Error(`Invalid argument key, must be one of: ${this.evalkeys.join(", ")}`);
+    }
     const [result, dependencies] = await this.trace(async function () {
-      return safeEval(this as any, expr, args);
+      return fn.call(this, ...vals);
     });
     this.log(`eval \`${expr}\` => `, result, `[ ${dependencies.join(", ")} ]`);
     return [result, dependencies];

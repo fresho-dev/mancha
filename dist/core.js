@@ -39,8 +39,8 @@ function isRelativePath(fpath) {
         !fpath.startsWith("data:"));
 }
 exports.isRelativePath = isRelativePath;
-function makeEvalFunction(code, args = {}) {
-    return new Function(...Object.keys(args), `with (this) { return (${code}); }`);
+function makeEvalFunction(code, args = []) {
+    return new Function(...args, `with (this) { return (${code}); }`);
 }
 exports.makeEvalFunction = makeEvalFunction;
 function safeEval(context, code, args = {}) {
@@ -51,6 +51,7 @@ exports.safeEval = safeEval;
 class IRenderer extends reactive_1.ReactiveProxyStore {
     debugging = false;
     dirpath = "";
+    evalkeys = ["$elem", "$event"];
     expressionCache = new Map();
     evalCallbacks = new Map();
     skipNodes = new Set();
@@ -94,15 +95,20 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
         if (this.debugging)
             console.debug(...args);
     }
-    cachedExpressionFunction(expr, args) {
+    cachedExpressionFunction(expr) {
         if (!this.expressionCache.has(expr)) {
-            this.expressionCache.set(expr, makeEvalFunction(expr, args));
+            this.expressionCache.set(expr, makeEvalFunction(expr, this.evalkeys));
         }
-        return this.expressionCache.get(expr)?.call(this, ...Object.values(args));
+        return this.expressionCache.get(expr);
     }
     async eval(expr, args = {}) {
+        const fn = this.cachedExpressionFunction(expr);
+        const vals = this.evalkeys.map((key) => args[key]);
+        if (Object.keys(args).some((key) => !this.evalkeys.includes(key))) {
+            throw new Error(`Invalid argument key, must be one of: ${this.evalkeys.join(", ")}`);
+        }
         const [result, dependencies] = await this.trace(async function () {
-            return safeEval(this, expr, args);
+            return fn.call(this, ...vals);
         });
         this.log(`eval \`${expr}\` => `, result, `[ ${dependencies.join(", ")} ]`);
         return [result, dependencies];
