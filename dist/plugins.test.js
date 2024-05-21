@@ -14,6 +14,7 @@ const path = require("path");
 const mocha_1 = require("mocha");
 const jsdom_1 = require("jsdom");
 const core_1 = require("./core");
+const reactive_1 = require("./reactive");
 class MockRenderer extends core_1.IRenderer {
     parseHTML(content, params) {
         return (params === null || params === void 0 ? void 0 : params.root)
@@ -203,7 +204,7 @@ class MockRenderer extends core_1.IRenderer {
             assert.equal(renderer.get("foobar"), "bar");
             // Set subproperty directly.
             renderer.get("foo").bar = "baz";
-            yield new Promise((resolve) => setTimeout(resolve, 50));
+            yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS * 3));
             assert.equal(renderer.get("foobar"), "baz");
             // Replace parent object.
             yield renderer.set("foo", { bar: "qux" });
@@ -255,7 +256,7 @@ class MockRenderer extends core_1.IRenderer {
             yield renderer.mount(fragment);
             assert.equal(renderer.get("counter"), 0);
             (_a = node.click) === null || _a === void 0 ? void 0 : _a.call(node);
-            yield new Promise((resolve) => setTimeout(resolve, 50));
+            yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS * 3));
             assert.equal(renderer.get("counter"), 1);
         }));
     });
@@ -299,13 +300,13 @@ class MockRenderer extends core_1.IRenderer {
             // Add a single item.
             renderer.get("items").push("foo");
             // renderer.get("items").push("foo");
-            yield new Promise((resolve) => setTimeout(resolve, 50));
+            yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS * 3));
             const children1 = Array.from((parent === null || parent === void 0 ? void 0 : parent.childNodes) || []);
             assert.equal(children1.length, renderer.get("items").length + 1);
             assert.equal(children1[1].textContent, "foo");
             // Add multiple items.
             renderer.get("items").push("bar", "baz");
-            yield new Promise((resolve) => setTimeout(resolve, 50));
+            yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS * 3));
             const children2 = Array.from((parent === null || parent === void 0 ? void 0 : parent.childNodes) || []);
             assert.equal(children2.length, renderer.get("items").length + 1);
             assert.equal(children2[1].textContent, "foo");
@@ -313,7 +314,7 @@ class MockRenderer extends core_1.IRenderer {
             assert.equal(children2[3].textContent, "baz");
             // Remove one item.
             renderer.get("items").pop();
-            yield new Promise((resolve) => setTimeout(resolve, 50));
+            yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS * 3));
             const children3 = Array.from((parent === null || parent === void 0 ? void 0 : parent.childNodes) || []);
             assert.equal(children3.length, renderer.get("items").length + 1);
             assert.equal(children3[1].textContent, "foo");
@@ -325,8 +326,11 @@ class MockRenderer extends core_1.IRenderer {
             const node = fragment.firstElementChild;
             const parent = node.parentNode;
             assert.notEqual(parent, null);
-            // Create array with no elements.
+            // Create renderer with no array => fails.
             const renderer = new MockRenderer();
+            assert.rejects(renderer.mount(fragment), /ReferenceError: items is not defined/);
+            // Add a placeholder for the array, but it's not array type.
+            yield renderer.set("items", null);
             yield renderer.mount(fragment);
             assert.equal(renderer.get("item"), null);
             assert.equal(node.getAttribute(":for"), null);
@@ -354,7 +358,7 @@ class MockRenderer extends core_1.IRenderer {
             assert.equal(children12[0].getAttribute("myattr"), "1");
             assert.equal(children12[1].getAttribute("myattr"), "2");
             yield renderer.update({ items: ["a", "b"] });
-            yield new Promise((resolve) => setTimeout(resolve, 50));
+            yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS * 3));
             const childrenAB = Array.from(fragment.childNodes).slice(1);
             assert.equal(childrenAB.length, 2);
             assert.equal((_c = childrenAB[0].textContent) === null || _c === void 0 ? void 0 : _c.trim(), "a");
@@ -384,7 +388,7 @@ class MockRenderer extends core_1.IRenderer {
             // Update the node value, and watch the store value react.
             node.value = "qux";
             node.dispatchEvent(new dom.window.Event("change"));
-            yield new Promise((resolve) => setTimeout(resolve, 50));
+            yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS * 3));
             assert.equal(renderer.get("foo"), "qux");
         }));
         (0, mocha_1.it)("binds a text input value with new store key", () => __awaiter(void 0, void 0, void 0, function* () {
@@ -407,7 +411,7 @@ class MockRenderer extends core_1.IRenderer {
             // Update the node value, and watch the store value react.
             node.value = "qux";
             node.dispatchEvent(new dom.window.Event("change"));
-            yield new Promise((resolve) => setTimeout(resolve, 50));
+            yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS * 3));
             assert.equal(renderer.get("foo"), "qux");
         }));
         (0, mocha_1.it)("binds a text input value with custom events", () => __awaiter(void 0, void 0, void 0, function* () {
@@ -428,10 +432,10 @@ class MockRenderer extends core_1.IRenderer {
             // Update the node value, and watch the store value react only to the right event.
             node.value = "qux";
             node.dispatchEvent(new dom.window.Event("change"));
-            yield new Promise((resolve) => setTimeout(resolve, 50));
+            yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS * 3));
             assert.equal(renderer.get("foo"), "baz");
             node.dispatchEvent(new dom.window.Event("my-custom-event"));
-            yield new Promise((resolve) => setTimeout(resolve, 50));
+            yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS * 3));
             assert.equal(renderer.get("foo"), "qux");
         }));
     });
@@ -451,7 +455,6 @@ class MockRenderer extends core_1.IRenderer {
             const html = `<div :show="foo" style="display: bar" />`;
             const fragment = jsdom_1.JSDOM.fragment(html);
             const node = fragment.firstElementChild;
-            const parent = node.parentNode;
             const renderer = new MockRenderer({ foo: false });
             yield renderer.mount(fragment);
             assert.ok(!node.hasAttribute(":show"));

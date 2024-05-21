@@ -1,4 +1,4 @@
-import { ReactiveProxyStore, proxify } from "./reactive";
+import { ReactiveProxyStore } from "./reactive";
 import { ParserParams, RenderParams } from "./interfaces";
 import { Iterator } from "./iterator";
 import {
@@ -67,10 +67,16 @@ export function safeEval(
 }
 
 export abstract class IRenderer extends ReactiveProxyStore {
+  private debugging: boolean = false;
   protected readonly dirpath: string = "";
   readonly skipNodes: Set<Node> = new Set();
   abstract parseHTML(content: string, params?: ParserParams): DocumentFragment;
   abstract serializeHTML(root: DocumentFragment | Node): string;
+
+  debug(flag: boolean): this {
+    this.debugging = flag;
+    return this;
+  }
 
   async fetchRemote(fpath: string, params?: RenderParams): Promise<string> {
     return fetch(fpath, { cache: params?.cache ?? "default" }).then((res) => res.text());
@@ -84,7 +90,7 @@ export abstract class IRenderer extends ReactiveProxyStore {
     content: string,
     params?: RenderParams & ParserParams
   ): Promise<DocumentFragment> {
-    this.log(params, "Preprocessing string content with params:\n", params);
+    this.log("Preprocessing string content with params:\n", params);
     const fragment = this.parseHTML(content, params);
     await this.preprocessNode(fragment, params);
     return fragment;
@@ -119,15 +125,33 @@ export abstract class IRenderer extends ReactiveProxyStore {
     return new (this.constructor as any)(Object.fromEntries(this.store.entries()));
   }
 
-  log(params?: RenderParams, ...args: any[]): void {
-    if (params?.debug) console.debug(...args);
+  log(...args: any[]): void {
+    if (this.debugging) console.debug(...args);
   }
+  async eval(
+    expr: string,
+    args: { [key: string]: any } = {},
+    callback?: (result: any, dependencies: string[]) => void | Promise<void>
+  ): Promise<[any, string[]]> {
+    // TODO: Add expression to cache.
+    const prevdeps: string[] = [];
+    const inner = async () => {
+      const [result, dependencies] = await this.trace(async function () {
+        const result = await safeEval(expr, this, { ...args });
+        return result;
+      });
+      this.log(`eval \`${expr}\` => `, result, `[ ${dependencies.join(", ")} ]`);
 
-  async eval(expr: string, args: { [key: string]: any } = {}, params?: RenderParams) {
-    const proxy = proxify(this);
-    const result = await safeEval(expr, proxy, { ...args });
-    this.log(params, `eval \`${expr}\` => `, result);
-    return result;
+      // Watch all the dependencies for changes.
+      if (prevdeps.length > 0) this.unwatch(prevdeps, inner);
+      prevdeps.splice(0, prevdeps.length, ...dependencies);
+      this.watch(dependencies, inner);
+
+      await callback?.(result, dependencies);
+      return [result, dependencies];
+    };
+
+    return inner() as Promise<[any, string[]]>;
   }
 
   async preprocessNode(
@@ -137,7 +161,7 @@ export abstract class IRenderer extends ReactiveProxyStore {
     params = Object.assign({ dirpath: this.dirpath, maxdepth: 10 }, params);
 
     const promises = new Iterator(traverse(root, this.skipNodes)).map(async (node) => {
-      this.log(params, "Preprocessing node:\n", node);
+      this.log("Preprocessing node:\n", node);
       // Resolve all the includes in the node.
       await resolveIncludes.call(this, node, params);
       // Resolve all the relative paths in the node.
@@ -152,7 +176,7 @@ export abstract class IRenderer extends ReactiveProxyStore {
     // Iterate over all the nodes and apply appropriate handlers.
     // Do these steps one at a time to avoid any potential race conditions.
     for (const node of traverse(root, this.skipNodes)) {
-      this.log(params, "Rendering node:\n", node);
+      this.log("Rendering node:\n", node);
       // Resolve the :data attribute in the node.
       await resolveDataAttribute.call(this, node, params);
       // Resolve the :for attribute in the node.

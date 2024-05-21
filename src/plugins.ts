@@ -21,8 +21,8 @@ export const resolveIncludes: RendererPlugin = async function (node, params) {
 
   // Early exit: node must be an <include> element.
   if (elem.tagName?.toLocaleLowerCase() !== "include") return;
-  this.log(params, "<include> tag found in:\n", node);
-  this.log(params, "<include> params:", params);
+  this.log("<include> tag found in:\n", node);
+  this.log("<include> params:", params);
 
   // Early exit: <include> tags must have a src attribute.
   const src = elem.getAttribute?.("src");
@@ -41,24 +41,24 @@ export const resolveIncludes: RendererPlugin = async function (node, params) {
 
   // Case 1: Absolute remote path.
   if (src.includes("://") || src.startsWith("//")) {
-    this.log(params, "Including remote file from absolute path:", src);
+    this.log("Including remote file from absolute path:", src);
     await this.preprocessRemote(src, subparameters).then(handler);
 
     // Case 2: Relative remote path.
   } else if (params.dirpath?.includes("://") || params.dirpath?.startsWith("//")) {
     const relpath = params.dirpath && params.dirpath !== "." ? `${params.dirpath}/${src}` : src;
-    this.log(params, "Including remote file from relative path:", relpath);
+    this.log("Including remote file from relative path:", relpath);
     await this.preprocessRemote(relpath, subparameters).then(handler);
 
     // Case 3: Local absolute path.
   } else if (src.charAt(0) === "/") {
-    this.log(params, "Including local file from absolute path:", src);
+    this.log("Including local file from absolute path:", src);
     await this.preprocessLocal(src, subparameters).then(handler);
 
     // Case 4: Local relative path.
   } else {
     const relpath = params.dirpath && params.dirpath !== "." ? `${params.dirpath}/${src}` : src;
-    this.log(params, "Including local file from relative path:", relpath);
+    this.log("Including local file from relative path:", relpath);
     await this.preprocessLocal(relpath, subparameters).then(handler);
   }
 };
@@ -79,7 +79,7 @@ export const rebaseRelativePaths: RendererPlugin = async function (node, params)
   const anyattr = src || href || data;
   if (!anyattr) return;
   if (anyattr && isRelativePath(anyattr)) {
-    this.log(params, "Rebasing relative path as:", params.dirpath, "/", anyattr);
+    this.log("Rebasing relative path as:", params.dirpath, "/", anyattr);
   }
 
   if (tagName === "img" && src && isRelativePath(src)) {
@@ -114,26 +114,25 @@ export const rebaseRelativePaths: RendererPlugin = async function (node, params)
 export const resolveTextNodeExpressions: RendererPlugin = async function (node, params) {
   if (node.nodeType !== 3) return;
   const content = node.nodeValue || "";
+  this.log(`processing node content value:\n`, content);
 
   // Identify all the expressions found in the content.
   const matcher = new RegExp(/{{ ([^}]+) }}/gm);
   const expressions = Array.from(content.matchAll(matcher)).map((match) => match[1]);
 
-  const fn = async () => {
+  // To update the node, we have to re-evaluate all of the expressions since that's much simpler
+  // than caching results.
+  const updateNode = async () => {
     let updatedContent = content;
     for (const expr of expressions) {
-      const result = await this.eval(expr, { $elem: node }, params);
+      const [result] = await this.eval(expr, { $elem: node });
       updatedContent = updatedContent.replace(`{{ ${expr} }}`, String(result));
     }
     node.nodeValue = updatedContent;
   };
 
-  // Update the content now, and set up the listeners for future updates.
-  const [result, dependencies] = await this.trace(fn);
-  this.log(params, content, "=>", result);
-
-  // Watch for updates, and re-execute function if needed.
-  this.watch(dependencies, fn);
+  // Trigger the eval and pass our full node update function as the callback.
+  await Promise.all(expressions.map((expr) => this.eval(expr, { $elem: node }, updateNode)));
 };
 
 export const resolveDataAttribute: RendererPlugin = async function (node, params) {
@@ -141,11 +140,10 @@ export const resolveDataAttribute: RendererPlugin = async function (node, params
   const elem = node as Element;
   const dataAttr = elem.getAttribute?.(":data");
   if (dataAttr) {
-    this.log(params, ":data attribute found in:\n", node);
+    this.log(":data attribute found in:\n", node);
 
     elem.removeAttribute(":data");
-    const result = await this.eval(dataAttr, { $elem: node }, params);
-    this.log(params, ":data", dataAttr, "=>", result);
+    const [result] = await this.eval(dataAttr, { $elem: node });
     await this.update(result);
   }
 };
@@ -155,18 +153,13 @@ export const resolveWatchAttribute: RendererPlugin = async function (node, param
   const elem = node as Element;
   const watchAttr = elem.getAttribute?.("@watch");
   if (watchAttr) {
-    this.log(params, "@watch attribute found in:\n", node);
+    this.log("@watch attribute found in:\n", node);
 
     // Remove the attribute from the node.
     elem.removeAttribute("@watch");
 
-    // Compute the function's result and trace dependencies.
-    const fn = () => this.eval(watchAttr, { $elem: node }, params);
-    const [result, dependencies] = await this.trace(fn);
-    this.log(params, "@watch", watchAttr, "=>", result);
-
-    // Watch for updates, and re-execute function if needed.
-    this.watch(dependencies, fn);
+    // Compute the function's result and leave callback empty since we just care about execution.
+    await this.eval(watchAttr, { $elem: node }, () => {});
   }
 };
 
@@ -175,7 +168,7 @@ export const resolveHtmlAttribute: RendererPlugin = async function (node, params
   const elem = node as Element;
   const htmlAttr = elem.getAttribute?.("$html");
   if (htmlAttr) {
-    this.log(params, "$html attribute found in:\n", node);
+    this.log("$html attribute found in:\n", node);
 
     // Remove the attribute from the node.
     elem.removeAttribute("$html");
@@ -183,18 +176,12 @@ export const resolveHtmlAttribute: RendererPlugin = async function (node, params
     // Obtain a subrenderer for the node contents.
     const subrenderer = this.clone();
 
-    // Compute the function's result and trace dependencies.
-    const fn = async () => {
-      const html = await this.eval(htmlAttr, { $elem: node }, params);
-      const fragment = await subrenderer.preprocessString(html, params);
+    // Compute the function's result and track dependencies.
+    await this.eval(htmlAttr, { $elem: node }, async (result) => {
+      const fragment = await subrenderer.preprocessString(result, params);
       await subrenderer.renderNode(fragment, params);
       elem.replaceChildren(fragment);
-    };
-    const [result, dependencies] = await this.trace(fn);
-    this.log(params, "$html", htmlAttr, "=>", result);
-
-    // Watch for updates, and re-execute function if needed.
-    this.watch(dependencies, fn);
+    });
   }
 };
 
@@ -203,7 +190,7 @@ export const resolvePropAttributes: RendererPlugin = async function (node, param
   const elem = node as Element;
   for (const attr of Array.from(elem.attributes || [])) {
     if (attr.name.startsWith("$") && !KW_ATTRIBUTES.has(attr.name)) {
-      this.log(params, attr.name, "attribute found in:\n", node);
+      this.log(attr.name, "attribute found in:\n", node);
 
       // Remove the attribute from the node.
       elem.removeAttribute(attr.name);
@@ -211,15 +198,9 @@ export const resolvePropAttributes: RendererPlugin = async function (node, param
       // Apply any shorthand conversions if necessary.
       const propName = (ATTR_SHORTHANDS[attr.name] || attr.name).slice(1);
 
-      // Compute the function's result and trace dependencies.
-      const fn = () => this.eval(attr.value, { $elem: node }, params);
-      const [result, dependencies] = await this.trace(fn);
-      this.log(params, attr.name, attr.value, "=>", result, `[${dependencies}]`);
-
-      // Set the requested property value on the original node, and watch for updates.
+      // Compute the function's result and track dependencies.
       const prop = attributeNameToCamelCase(propName);
-      this.watch(dependencies, async () => ((node as any)[prop] = await fn()));
-      (node as any)[prop] = result;
+      await this.eval(attr.value, { $elem: node }, (result) => ((node as any)[prop] = result));
     }
   }
 };
@@ -229,7 +210,7 @@ export const resolveAttrAttributes: RendererPlugin = async function (node, param
   const elem = node as Element;
   for (const attr of Array.from(elem.attributes || [])) {
     if (attr.name.startsWith(":") && !KW_ATTRIBUTES.has(attr.name)) {
-      this.log(params, attr.name, "attribute found in:\n", node);
+      this.log(attr.name, "attribute found in:\n", node);
 
       // Remove the processed attributes from node.
       elem.removeAttribute(attr.name);
@@ -237,14 +218,10 @@ export const resolveAttrAttributes: RendererPlugin = async function (node, param
       // Apply any shorthand conversions if necessary.
       const attrName = (ATTR_SHORTHANDS[attr.name] || attr.name).slice(1);
 
-      // Compute the function's result and trace dependencies.
-      const fn = () => this.eval(attr.value, { $elem: node }, params);
-      const [result, dependencies] = await this.trace(fn);
-      this.log(params, attr.name, attr.value, "=>", result, `[${dependencies}]`);
-
-      // Set the requested property value on the original node, and watch for updates.
-      this.watch(dependencies, async () => elem.setAttribute(attrName, await fn()));
-      elem.setAttribute(attrName, result);
+      // Compute the function's result and track dependencies.
+      await this.eval(attr.value, { $elem: node }, (result) =>
+        elem.setAttribute(attrName, result as string)
+      );
     }
   }
 };
@@ -254,13 +231,13 @@ export const resolveEventAttributes: RendererPlugin = async function (node, para
   const elem = node as Element;
   for (const attr of Array.from(elem.attributes || [])) {
     if (attr.name.startsWith("@") && !KW_ATTRIBUTES.has(attr.name)) {
-      this.log(params, attr.name, "attribute found in:\n", node);
+      this.log(attr.name, "attribute found in:\n", node);
 
       // Remove the processed attributes from node.
       elem.removeAttribute(attr.name);
 
       node.addEventListener?.(attr.name.substring(1), (event) =>
-        this.eval(attr.value, { $elem: node, $event: event }, params)
+        this.eval(attr.value, { $elem: node, $event: event })
       );
     }
   }
@@ -271,7 +248,7 @@ export const resolveForAttribute: RendererPlugin = async function (node, params)
   const elem = node as Element;
   const forAttr = elem.getAttribute?.(":for")?.trim();
   if (forAttr) {
-    this.log(params, ":for attribute found in:\n", node);
+    this.log(":for attribute found in:\n", node);
 
     // Remove the processed attributes from node.
     elem.removeAttribute(":for");
@@ -286,7 +263,7 @@ export const resolveForAttribute: RendererPlugin = async function (node, params)
     const template = node.ownerDocument!!.createElement("template");
     parent.insertBefore(template, node);
     template.append(node);
-    this.log(params, ":for template:\n", template);
+    this.log(":for template:\n", template);
 
     // Tokenize the input by splitting it based on the format "{key} in {expression}".
     const tokens = forAttr.split(" in ", 2);
@@ -295,29 +272,13 @@ export const resolveForAttribute: RendererPlugin = async function (node, params)
     }
 
     // Compute the container expression and trace dependencies.
-    let items: any[] = [];
-    let deps: string[] = [];
-    const [loopKey, itemsExpr] = tokens;
-    try {
-      [items, deps] = await this.trace(() => this.eval(itemsExpr, { $elem: node }, params));
-      this.log(params, itemsExpr, "=>", items, `[${deps}]`);
-    } catch (exc) {
-      console.error(exc);
-      return;
-    }
-
     // Keep track of all the child nodes added.
     const children: Node[] = [];
-
+    
     // Define the function that will update the DOM.
-    const fn = async (items: any[]) => {
-      this.log(params, ":for list items:", items);
-
-      // Validate that the expression returns a list of items.
-      if (!Array.isArray(items)) {
-        console.error(`Expression did not yield a list: \`${itemsExpr}\` => \`${items}\``);
-        return;
-      }
+    const [loopKey, itemsExpr] = tokens;
+    await this.eval(itemsExpr, { $elem: node }, (items) => {
+      this.log(":for list items:", items);
 
       // Acquire the lock atomically.
       this.lock = this.lock.then(
@@ -328,6 +289,12 @@ export const resolveForAttribute: RendererPlugin = async function (node, params)
               parent.removeChild(child);
               this.skipNodes.delete(child);
             });
+
+            // Validate that the expression returns a list of items.
+            if (!Array.isArray(items)) {
+              console.error(`Expression did not yield a list: \`${itemsExpr}\` => \`${items}\``);
+              return resolve();
+            }
 
             // Loop through the container items in reverse, because we insert from back to front.
             for (const item of items.slice(0).reverse()) {
@@ -347,7 +314,7 @@ export const resolveForAttribute: RendererPlugin = async function (node, params)
 
               // Render the element using the subrenderer.
               await subrenderer.mount(copy, params);
-              this.log(params, "Rendered list child:\n", copy);
+              this.log("Rendered list child:\n", copy);
             }
 
             // Release the lock.
@@ -357,11 +324,7 @@ export const resolveForAttribute: RendererPlugin = async function (node, params)
 
       // Return the lock so the whole operation can be awaited.
       return this.lock;
-    };
-
-    // Apply changes, and watch for updates in the dependencies.
-    this.watch(deps, async () => fn(await this.eval(itemsExpr, { $elem: node }, params)));
-    return fn(items);
+    });
   }
 };
 
@@ -370,7 +333,7 @@ export const resolveBindAttribute: RendererPlugin = async function (node, params
   const elem = node as Element;
   const bindKey = elem.getAttribute?.(":bind");
   if (bindKey) {
-    this.log(params, ":bind attribute found in:\n", node);
+    this.log(":bind attribute found in:\n", node);
 
     // The change events we listen for can be overriden by user.
     const defaultEvents = ["change", "input"];
@@ -404,23 +367,21 @@ export const resolveShowAttribute: RendererPlugin = async function (node, params
   const elem = node as HTMLElement;
   const showExpr = elem.getAttribute?.(":show");
   if (showExpr) {
-    this.log(params, ":show attribute found in:\n", node);
+    this.log(":show attribute found in:\n", node);
 
     // Remove the processed attributes from node.
     elem.removeAttribute(":show");
 
-    // Compute the function's result and trace dependencies.
-    const fn = () => this.eval(showExpr, { $elem: node }, params);
-    const [result, dependencies] = await this.trace(fn);
-    this.log(params, ":show", showExpr, "=>", result, `[${dependencies}]`);
+    // TODO: Instead of using element display, insert a dummy <template> to track position of child,
+    // then replace it with the original child when needed.
 
-    // If the result is false, set the node's display to none.
+    // Store the original display value to reset it later if needed.
     const display = elem.style.display === "none" ? "" : elem.style.display;
-    if (!result) elem.style.display = "none";
 
-    // Watch the dependencies, and re-evaluate the expression.
-    this.watch(dependencies, async () => {
-      elem.style.display = (await fn()) ? display : "none";
+    // Compute the function's result and track dependencies.
+    await this.eval(showExpr, { $elem: node }, (result) => {
+      // If the result is false, set the node's display to none.
+      elem.style.display = result ? display : "none";
     });
   }
 };

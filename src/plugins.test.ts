@@ -4,6 +4,7 @@ import { describe, it } from "mocha";
 import { JSDOM } from "jsdom";
 import { ParserParams, RenderParams } from "./interfaces";
 import { IRenderer } from "./core";
+import { REACTIVE_DEBOUNCE_MILLIS } from "./reactive";
 
 class MockRenderer extends IRenderer {
   parseHTML(content: string, params?: ParserParams): DocumentFragment {
@@ -223,7 +224,7 @@ describe("Plugins", () => {
 
       // Set subproperty directly.
       renderer.get("foo")!!.bar = "baz";
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
       assert.equal(renderer.get("foobar"), "baz");
 
       // Replace parent object.
@@ -243,7 +244,7 @@ describe("Plugins", () => {
 
       await renderer.set("foo", false);
       assert.equal(renderer.get("foobar"), true);
-    })
+    });
   });
 
   describe(":attribute", () => {
@@ -282,7 +283,7 @@ describe("Plugins", () => {
       assert.equal(renderer.get("counter"), 0);
 
       node.click?.();
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
       assert.equal(renderer.get("counter"), 1);
     });
   });
@@ -334,14 +335,14 @@ describe("Plugins", () => {
       // Add a single item.
       renderer.get("items").push("foo");
       // renderer.get("items").push("foo");
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
       const children1 = Array.from(parent?.childNodes || []);
       assert.equal(children1.length, renderer.get("items").length + 1);
       assert.equal((children1[1] as HTMLElement).textContent, "foo");
 
       // Add multiple items.
       renderer.get("items").push("bar", "baz");
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
       const children2 = Array.from(parent?.childNodes || []);
       assert.equal(children2.length, renderer.get("items").length + 1);
       assert.equal((children2[1] as HTMLElement).textContent, "foo");
@@ -350,7 +351,7 @@ describe("Plugins", () => {
 
       // Remove one item.
       renderer.get("items").pop();
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
       const children3 = Array.from(parent?.childNodes || []);
       assert.equal(children3.length, renderer.get("items").length + 1);
       assert.equal((children3[1] as HTMLElement).textContent, "foo");
@@ -364,8 +365,12 @@ describe("Plugins", () => {
       const parent = node.parentNode;
       assert.notEqual(parent, null);
 
-      // Create array with no elements.
+      // Create renderer with no array => fails.
       const renderer = new MockRenderer();
+      assert.rejects(renderer.mount(fragment), /ReferenceError: items is not defined/);
+
+      // Add a placeholder for the array, but it's not array type.
+      await renderer.set("items", null);
       await renderer.mount(fragment);
 
       assert.equal(renderer.get("item"), null);
@@ -398,7 +403,7 @@ describe("Plugins", () => {
       assert.equal((children12[1] as HTMLElement).getAttribute("myattr"), "2");
 
       await renderer.update({ items: ["a", "b"] });
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
       const childrenAB = Array.from(fragment.childNodes).slice(1);
       assert.equal(childrenAB.length, 2);
       assert.equal(childrenAB[0].textContent?.trim(), "a");
@@ -434,7 +439,7 @@ describe("Plugins", () => {
       // Update the node value, and watch the store value react.
       node.value = "qux";
       node.dispatchEvent(new dom.window.Event("change"));
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
       assert.equal(renderer.get("foo"), "qux");
     });
 
@@ -463,7 +468,7 @@ describe("Plugins", () => {
       // Update the node value, and watch the store value react.
       node.value = "qux";
       node.dispatchEvent(new dom.window.Event("change"));
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
       assert.equal(renderer.get("foo"), "qux");
     });
 
@@ -490,10 +495,10 @@ describe("Plugins", () => {
       // Update the node value, and watch the store value react only to the right event.
       node.value = "qux";
       node.dispatchEvent(new dom.window.Event("change"));
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
       assert.equal(renderer.get("foo"), "baz");
       node.dispatchEvent(new dom.window.Event("my-custom-event"));
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
       assert.equal(renderer.get("foo"), "qux");
     });
   });
@@ -518,7 +523,6 @@ describe("Plugins", () => {
       const html = `<div :show="foo" style="display: bar" />`;
       const fragment = JSDOM.fragment(html);
       const node = fragment.firstElementChild as HTMLElement;
-      const parent = node.parentNode;
 
       const renderer = new MockRenderer({ foo: false });
       await renderer.mount(fragment);

@@ -112,7 +112,7 @@ class MockRenderer extends core_1.IRenderer {
         (0, mocha_1.it)("using implicit `this` in function", () => __awaiter(void 0, void 0, void 0, function* () {
             const renderer = new MockRenderer({ a: 1 });
             const fn = "++a";
-            const result = yield renderer.eval(fn);
+            const [result] = yield renderer.eval(fn);
             assert.equal(result, 2);
             assert.equal(renderer.get("a"), 2);
         }));
@@ -120,21 +120,20 @@ class MockRenderer extends core_1.IRenderer {
             var _a;
             const renderer = new MockRenderer({ x: { a: 1 } });
             const fn = "++x.a";
-            const result = yield renderer.eval(fn);
+            const [result] = yield renderer.eval(fn);
             assert.equal(result, 2);
             assert.equal((_a = renderer.get("x")) === null || _a === void 0 ? void 0 : _a.a, 2);
         }));
         (0, mocha_1.it)("tracing works as expected", () => __awaiter(void 0, void 0, void 0, function* () {
             const renderer = new MockRenderer({ a: 1, b: 2, c: 3 });
-            const fn = () => renderer.eval("a + b");
-            const [result, dependencies] = yield renderer.trace(fn);
+            const [result, dependencies] = yield renderer.eval("a + b");
             assert.equal(result, 3);
             assert.deepEqual(dependencies, ["a", "b"]);
         }));
         (0, mocha_1.it)("use `global` in function", () => __awaiter(void 0, void 0, void 0, function* () {
             const renderer = new MockRenderer();
             global.foo = "bar";
-            const result = yield renderer.eval("global.foo");
+            const [result] = yield renderer.eval("global.foo");
             assert.equal(result, "bar");
         }));
         [
@@ -149,22 +148,54 @@ class MockRenderer extends core_1.IRenderer {
         ].forEach(({ expression, expected }) => {
             (0, mocha_1.it)(`boolean expressions with multiple variables: ${expression}`, () => __awaiter(void 0, void 0, void 0, function* () {
                 const renderer = new MockRenderer({ a: false, b: true });
-                const result = yield renderer.eval(expression);
+                const [result] = yield renderer.eval(expression);
                 assert.equal(result, expected);
             }));
         });
         (0, mocha_1.it)("mutating boolean expression with multiple variables", () => __awaiter(void 0, void 0, void 0, function* () {
             const renderer = new MockRenderer({ a: false, b: false });
             const expression = "a || b";
-            assert.equal(yield renderer.eval(expression), false);
+            assert.deepEqual(yield renderer.eval(expression), [false, ["a", "b"]]);
             yield renderer.set("a", true);
-            assert.equal(yield renderer.eval(expression), true);
+            assert.deepEqual(yield renderer.eval(expression), [true, ["a"]]);
             yield renderer.set("a", false);
             yield renderer.set("b", true);
-            assert.equal(yield renderer.eval(expression), true);
+            assert.deepEqual(yield renderer.eval(expression), [true, ["a", "b"]]);
             yield renderer.set("a", true);
             yield renderer.set("b", true);
-            assert.equal(yield renderer.eval(expression), true);
+            assert.deepEqual(yield renderer.eval(expression), [true, ["a"]]);
+        }));
+        (0, mocha_1.it)("runs callback after evaluation", () => __awaiter(void 0, void 0, void 0, function* () {
+            const renderer = new MockRenderer({ a: 1, b: 2 });
+            const fn = "a + b";
+            let called = false;
+            const callback = (result, dependencies) => {
+                assert.equal(result, 3);
+                assert.deepEqual(dependencies, ["a", "b"]);
+                called = true;
+            };
+            yield renderer.eval(fn, {}, callback);
+            assert(called);
+        }));
+        (0, mocha_1.it)("runs callback after dependency changes", () => __awaiter(void 0, void 0, void 0, function* () {
+            const renderer = new MockRenderer({ a: 1, b: 2 });
+            const fn = "a + b";
+            let called = 0;
+            const callback = (result, dependencies) => {
+                assert.deepEqual(dependencies, ["a", "b"]);
+                called++;
+            };
+            yield renderer.eval(fn, {}, callback);
+            assert.equal(called, 1);
+            yield renderer.set("a", 3);
+            assert.equal(called, 2);
+        }));
+        (0, mocha_1.it)("tracks unseen dependencies from short-circuiting expressions", () => __awaiter(void 0, void 0, void 0, function* () {
+            const renderer = new MockRenderer({ a: false, b: false });
+            const expression = "a && b";
+            assert.deepEqual(yield renderer.eval(expression), [false, ["a"]]);
+            yield renderer.set("a", true);
+            assert.deepEqual(yield renderer.eval(expression), [false, ["a", "b"]]);
         }));
     });
 });

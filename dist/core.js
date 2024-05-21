@@ -56,8 +56,13 @@ exports.safeEval = safeEval;
 class IRenderer extends reactive_1.ReactiveProxyStore {
     constructor() {
         super(...arguments);
+        this.debugging = false;
         this.dirpath = "";
         this.skipNodes = new Set();
+    }
+    debug(flag) {
+        this.debugging = flag;
+        return this;
     }
     fetchRemote(fpath, params) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -72,7 +77,7 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
     }
     preprocessString(content, params) {
         return __awaiter(this, void 0, void 0, function* () {
-            this.log(params, "Preprocessing string content with params:\n", params);
+            this.log("Preprocessing string content with params:\n", params);
             const fragment = this.parseHTML(content, params);
             yield this.preprocessNode(fragment, params);
             return fragment;
@@ -96,23 +101,38 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
     clone() {
         return new this.constructor(Object.fromEntries(this.store.entries()));
     }
-    log(params, ...args) {
-        if (params === null || params === void 0 ? void 0 : params.debug)
+    log(...args) {
+        if (this.debugging)
             console.debug(...args);
     }
     eval(expr_1) {
-        return __awaiter(this, arguments, void 0, function* (expr, args = {}, params) {
-            const proxy = (0, reactive_1.proxify)(this);
-            const result = yield safeEval(expr, proxy, Object.assign({}, args));
-            this.log(params, `eval \`${expr}\` => `, result);
-            return result;
+        return __awaiter(this, arguments, void 0, function* (expr, args = {}, callback) {
+            // TODO: Add expression to cache.
+            const prevdeps = [];
+            const inner = () => __awaiter(this, void 0, void 0, function* () {
+                const [result, dependencies] = yield this.trace(function () {
+                    return __awaiter(this, void 0, void 0, function* () {
+                        const result = yield safeEval(expr, this, Object.assign({}, args));
+                        return result;
+                    });
+                });
+                this.log(`eval \`${expr}\` => `, result, `[ ${dependencies.join(", ")} ]`);
+                // Watch all the dependencies for changes.
+                if (prevdeps.length > 0)
+                    this.unwatch(prevdeps, inner);
+                prevdeps.splice(0, prevdeps.length, ...dependencies);
+                this.watch(dependencies, inner);
+                yield (callback === null || callback === void 0 ? void 0 : callback(result, dependencies));
+                return [result, dependencies];
+            });
+            return inner();
         });
     }
     preprocessNode(root, params) {
         return __awaiter(this, void 0, void 0, function* () {
             params = Object.assign({ dirpath: this.dirpath, maxdepth: 10 }, params);
             const promises = new iterator_1.Iterator(traverse(root, this.skipNodes)).map((node) => __awaiter(this, void 0, void 0, function* () {
-                this.log(params, "Preprocessing node:\n", node);
+                this.log("Preprocessing node:\n", node);
                 // Resolve all the includes in the node.
                 yield plugins_1.resolveIncludes.call(this, node, params);
                 // Resolve all the relative paths in the node.
@@ -127,7 +147,7 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
             // Iterate over all the nodes and apply appropriate handlers.
             // Do these steps one at a time to avoid any potential race conditions.
             for (const node of traverse(root, this.skipNodes)) {
-                this.log(params, "Rendering node:\n", node);
+                this.log("Rendering node:\n", node);
                 // Resolve the :data attribute in the node.
                 yield plugins_1.resolveDataAttribute.call(this, node, params);
                 // Resolve the :for attribute in the node.

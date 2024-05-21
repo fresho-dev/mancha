@@ -7,20 +7,22 @@ export declare function safeEval(code: string, context: any, args?: {
     [key: string]: any;
 }): Promise<any>;
 export declare abstract class IRenderer extends ReactiveProxyStore {
+    private debugging;
     protected readonly dirpath: string;
     readonly skipNodes: Set<Node>;
     abstract parseHTML(content: string, params?: ParserParams): DocumentFragment;
     abstract serializeHTML(root: DocumentFragment | Node): string;
+    debug(flag: boolean): this;
     fetchRemote(fpath: string, params?: RenderParams): Promise<string>;
     fetchLocal(fpath: string, params?: RenderParams): Promise<string>;
     preprocessString(content: string, params?: RenderParams & ParserParams): Promise<DocumentFragment>;
     preprocessLocal(fpath: string, params?: RenderParams & ParserParams): Promise<DocumentFragment>;
     preprocessRemote(fpath: string, params?: RenderParams & ParserParams): Promise<DocumentFragment>;
     clone(): IRenderer;
-    log(params?: RenderParams, ...args: any[]): void;
+    log(...args: any[]): void;
     eval(expr: string, args?: {
         [key: string]: any;
-    }, params?: RenderParams): Promise<any>;
+    }, callback?: (result: any, dependencies: string[]) => void | Promise<void>): Promise<[any, string[]]>;
     preprocessNode(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void>;
     renderNode(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void>;
     mount(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void>;

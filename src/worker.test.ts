@@ -62,7 +62,6 @@ describe("Worker", () => {
 
       // Update the value and observe the change.
       await renderer.set("name", "Stranger");
-      await new Promise((resolve) => setTimeout(resolve, 50));
       assert.equal(textNode.nodeValue, "Hello Stranger");
     });
 

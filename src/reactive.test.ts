@@ -5,11 +5,11 @@ import {
   REACTIVE_DEBOUNCE_MILLIS,
   ReactiveProxy,
   ReactiveProxyStore,
-  proxify,
+  proxifyStore,
   proxifyObject,
 } from "./reactive";
 
-describe("Mancha reactive module", () => {
+describe("Reactive", () => {
   describe("ReactiveProxy", () => {
     it("get, set and watch", async () => {
       const proxy = ReactiveProxy.from(0);
@@ -37,7 +37,7 @@ describe("Mancha reactive module", () => {
       let join = arr.join(",");
       const proxy = ReactiveProxy.from(arr);
       proxy.watch(async (val) => {
-        await new Promise((resolve) => setTimeout(resolve, 20));
+        await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
         join = val!!.join(",");
       });
 
@@ -53,7 +53,7 @@ describe("Mancha reactive module", () => {
       const proxy = ReactiveProxy.from(0);
       let value: number | null = proxy.get();
       proxy.watch(async (val) => {
-        await new Promise((resolve) => setTimeout(resolve, 20));
+        await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
         value = val;
       });
       const promise = proxy.set(1);
@@ -122,13 +122,14 @@ describe("Mancha reactive module", () => {
 
       ops = 0;
       await store.set("x", { a: 1, b: 3 });
-      assert.ok(ops > 0);
+
+      assert.equal(ops, 1);
       assert.equal(store.get("x")?.b, 3);
 
       ops = 0;
       store.get("x").b = 2;
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      assert.ok(ops > 0);
+      await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
+      assert.equal(ops, 1);
       assert.equal(store.get("x")?.b, 2);
     });
 
@@ -137,7 +138,7 @@ describe("Mancha reactive module", () => {
       let join = arr.join(",");
       const store = new ReactiveProxyStore({ arr: arr });
       store.watch(["arr"], async (val) => {
-        await new Promise((resolve) => setTimeout(resolve, 50));
+        await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
         join = val!!.join(",");
       });
 
@@ -153,7 +154,7 @@ describe("Mancha reactive module", () => {
       const store = new ReactiveProxyStore({ a: 1, b: 2 });
       let value: number | null = store.get("b");
       store.watch(["b"], async (val) => {
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
         value = val;
       });
       const promise = store.set("b", 3);
@@ -176,25 +177,49 @@ describe("Mancha reactive module", () => {
       assert.deepEqual(Array.from(clone.entries()), Array.from(store.entries()));
     });
 
-    it("trace a single property", async () => {
+    it("trace a single property (direct access)", async () => {
       const store = new ReactiveProxyStore({ a: 1, b: 2 });
       store.get("b");
-      const [result, keys] = await store.trace(() => store.get("a"));
+      const [result, keys] = await store.trace(function () {
+        return this.a;
+      });
       store.get("b");
       assert.equal(result, 1);
       assert.deepEqual(keys, ["a"]);
     });
 
+    it("trace a single property (using getter)", async () => {
+      const store = new ReactiveProxyStore({ a: 1, b: 2 });
+      store.get("b");
+      const [result, keys] = await store.trace(function () {
+        return this.get("a");
+      });
+      store.get("b");
+      assert.equal(result, 1);
+      assert.deepEqual(keys, ["a"]);
+    });
+
+    it("trace a single property fails with arrow functions", async () => {
+      const store = new ReactiveProxyStore({ a: 1, b: 2 });
+      const [result, keys] = await store.trace(() => store.get("a"));
+      assert.equal(result, 1);
+      assert.deepEqual(keys, []);
+    });
+
     it("trace multiple properties", async () => {
       const store = new ReactiveProxyStore({ a: 1, b: 2 });
-      const [result, keys] = await store.trace(() => store.get("a") + store.get("b"));
+      const [result, keys] = await store.trace(function () {
+        return this.get("a") + this.get("b");
+      });
       assert.equal(result, 3);
       assert.deepEqual(keys, ["a", "b"]);
     });
 
     it("trace async function", async () => {
       const store = new ReactiveProxyStore({ a: 1, b: 2 });
-      const [result, keys] = await store.trace(async () => store.get("a") + store.get("b"));
+      const [result, keys] = await store.trace(async function () {
+        return this.get("a") + this.get("b");
+      });
       assert.equal(result, 3);
       assert.deepEqual(keys, ["a", "b"]);
     });
@@ -202,19 +227,29 @@ describe("Mancha reactive module", () => {
     it("trace function that throws", async () => {
       const store = new ReactiveProxyStore({ a: 1, b: 2 });
       assert.rejects(async () => {
-        await store.trace(() => {
-          store.get("a") + store.get("b");
+        await store.trace(function () {
+          this.get("a") + this.get("b");
           throw new Error();
         });
       });
     });
 
+    it("trace function with short-circuit behavior", async () => {
+      const store = new ReactiveProxyStore({ a: true, b: false });
+      const [result, keys] = await store.trace(function () {
+        return this.get("a") || this.get("b");
+      });
+      assert.equal(result, true);
+      assert.deepEqual(keys, ["a"]);
+    });
+
     it("automatically updates computed properties", async () => {
       const store = new ReactiveProxyStore({ a: 1, b: 2 });
-      await store.computed("sum", () => store.get("a") + store.get("b"));
+      await store.computed("sum", function () {
+        return this.get("a") + this.get("b");
+      });
       assert.equal(store.get("sum"), 3);
-      store.set("b", 3);
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await store.set("b", 3);
       assert.equal(store.get("sum"), 4);
     });
 
@@ -224,8 +259,7 @@ describe("Mancha reactive module", () => {
         return this.a + this.b;
       });
       assert.equal(store.get("sum"), 3);
-      store.set("b", 3);
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await store.set("b", 3);
       assert.equal(store.get("sum"), 4);
     });
 
@@ -243,7 +277,7 @@ describe("Mancha reactive module", () => {
     it("references proxy via $", async () => {
       const store = new ReactiveProxyStore({ a: 1, b: 2 });
       store.$.a++;
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
       assert.equal(store.$.a, 2);
       assert.equal(store.get("a"), 2);
     });
@@ -251,7 +285,7 @@ describe("Mancha reactive module", () => {
     it("adds new properties via $", async () => {
       const store = new ReactiveProxyStore({ a: 1 });
       store.$.b = 2;
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
       assert.equal(store.$.b, 2);
       assert.equal(store.get("b"), 2);
     });
@@ -270,11 +304,13 @@ describe("Mancha reactive module", () => {
       store.set("a", 3);
       store.set("a", 4);
       assert.equal(ops, 0);
-      await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
-      assert.ok(ops > 0);
+      await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS / 2));
+      assert.equal(ops, 0);
+      await store.set("a", 5);
+      assert.equal(ops, 1);
     });
 
-    it('debounces arbitrary functions', async () => {
+    it("debounces arbitrary functions", async () => {
       const store = new ReactiveProxyStore({ a: 1, b: 2 });
       let ops = 0;
       const millis = 50;
@@ -290,7 +326,7 @@ describe("Mancha reactive module", () => {
   describe("proxify", () => {
     it("creates a proxy for ReactiveProxyStore", () => {
       const store = new ReactiveProxyStore({ a: 1, b: 2 });
-      const proxy = proxify(store);
+      const proxy = proxifyStore(store);
 
       assert.equal(proxy.a, 1);
       assert.equal(proxy.b, 2);

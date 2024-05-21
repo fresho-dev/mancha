@@ -12,7 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const assert = require("assert");
 const mocha_1 = require("mocha");
 const reactive_1 = require("./reactive");
-(0, mocha_1.describe)("Mancha reactive module", () => {
+(0, mocha_1.describe)("Reactive", () => {
     (0, mocha_1.describe)("ReactiveProxy", () => {
         (0, mocha_1.it)("get, set and watch", () => __awaiter(void 0, void 0, void 0, function* () {
             const proxy = reactive_1.ReactiveProxy.from(0);
@@ -38,7 +38,7 @@ const reactive_1 = require("./reactive");
             let join = arr.join(",");
             const proxy = reactive_1.ReactiveProxy.from(arr);
             proxy.watch((val) => __awaiter(void 0, void 0, void 0, function* () {
-                yield new Promise((resolve) => setTimeout(resolve, 20));
+                yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS));
                 join = val.join(",");
             }));
             arr.push(4);
@@ -52,7 +52,7 @@ const reactive_1 = require("./reactive");
             const proxy = reactive_1.ReactiveProxy.from(0);
             let value = proxy.get();
             proxy.watch((val) => __awaiter(void 0, void 0, void 0, function* () {
-                yield new Promise((resolve) => setTimeout(resolve, 20));
+                yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS));
                 value = val;
             }));
             const promise = proxy.set(1);
@@ -112,12 +112,12 @@ const reactive_1 = require("./reactive");
             store.watch(["x"], () => ops++);
             ops = 0;
             yield store.set("x", { a: 1, b: 3 });
-            assert.ok(ops > 0);
+            assert.equal(ops, 1);
             assert.equal((_c = store.get("x")) === null || _c === void 0 ? void 0 : _c.b, 3);
             ops = 0;
             store.get("x").b = 2;
-            yield new Promise((resolve) => setTimeout(resolve, 50));
-            assert.ok(ops > 0);
+            yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS * 3));
+            assert.equal(ops, 1);
             assert.equal((_d = store.get("x")) === null || _d === void 0 ? void 0 : _d.b, 2);
         }));
         (0, mocha_1.it)("manually trigger listeners", () => __awaiter(void 0, void 0, void 0, function* () {
@@ -125,7 +125,7 @@ const reactive_1 = require("./reactive");
             let join = arr.join(",");
             const store = new reactive_1.ReactiveProxyStore({ arr: arr });
             store.watch(["arr"], (val) => __awaiter(void 0, void 0, void 0, function* () {
-                yield new Promise((resolve) => setTimeout(resolve, 50));
+                yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS));
                 join = val.join(",");
             }));
             arr.push(4);
@@ -139,7 +139,7 @@ const reactive_1 = require("./reactive");
             const store = new reactive_1.ReactiveProxyStore({ a: 1, b: 2 });
             let value = store.get("b");
             store.watch(["b"], (val) => __awaiter(void 0, void 0, void 0, function* () {
-                yield new Promise((resolve) => setTimeout(resolve, 100));
+                yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS));
                 value = val;
             }));
             const promise = store.set("b", 3);
@@ -159,41 +159,74 @@ const reactive_1 = require("./reactive");
             const clone = new reactive_1.ReactiveProxyStore(Object.fromEntries(store.entries()));
             assert.deepEqual(Array.from(clone.entries()), Array.from(store.entries()));
         });
-        (0, mocha_1.it)("trace a single property", () => __awaiter(void 0, void 0, void 0, function* () {
+        (0, mocha_1.it)("trace a single property (direct access)", () => __awaiter(void 0, void 0, void 0, function* () {
             const store = new reactive_1.ReactiveProxyStore({ a: 1, b: 2 });
             store.get("b");
-            const [result, keys] = yield store.trace(() => store.get("a"));
+            const [result, keys] = yield store.trace(function () {
+                return this.a;
+            });
             store.get("b");
             assert.equal(result, 1);
             assert.deepEqual(keys, ["a"]);
         }));
+        (0, mocha_1.it)("trace a single property (using getter)", () => __awaiter(void 0, void 0, void 0, function* () {
+            const store = new reactive_1.ReactiveProxyStore({ a: 1, b: 2 });
+            store.get("b");
+            const [result, keys] = yield store.trace(function () {
+                return this.get("a");
+            });
+            store.get("b");
+            assert.equal(result, 1);
+            assert.deepEqual(keys, ["a"]);
+        }));
+        (0, mocha_1.it)("trace a single property fails with arrow functions", () => __awaiter(void 0, void 0, void 0, function* () {
+            const store = new reactive_1.ReactiveProxyStore({ a: 1, b: 2 });
+            const [result, keys] = yield store.trace(() => store.get("a"));
+            assert.equal(result, 1);
+            assert.deepEqual(keys, []);
+        }));
         (0, mocha_1.it)("trace multiple properties", () => __awaiter(void 0, void 0, void 0, function* () {
             const store = new reactive_1.ReactiveProxyStore({ a: 1, b: 2 });
-            const [result, keys] = yield store.trace(() => store.get("a") + store.get("b"));
+            const [result, keys] = yield store.trace(function () {
+                return this.get("a") + this.get("b");
+            });
             assert.equal(result, 3);
             assert.deepEqual(keys, ["a", "b"]);
         }));
         (0, mocha_1.it)("trace async function", () => __awaiter(void 0, void 0, void 0, function* () {
             const store = new reactive_1.ReactiveProxyStore({ a: 1, b: 2 });
-            const [result, keys] = yield store.trace(() => __awaiter(void 0, void 0, void 0, function* () { return store.get("a") + store.get("b"); }));
+            const [result, keys] = yield store.trace(function () {
+                return __awaiter(this, void 0, void 0, function* () {
+                    return this.get("a") + this.get("b");
+                });
+            });
             assert.equal(result, 3);
             assert.deepEqual(keys, ["a", "b"]);
         }));
         (0, mocha_1.it)("trace function that throws", () => __awaiter(void 0, void 0, void 0, function* () {
             const store = new reactive_1.ReactiveProxyStore({ a: 1, b: 2 });
             assert.rejects(() => __awaiter(void 0, void 0, void 0, function* () {
-                yield store.trace(() => {
-                    store.get("a") + store.get("b");
+                yield store.trace(function () {
+                    this.get("a") + this.get("b");
                     throw new Error();
                 });
             }));
         }));
+        (0, mocha_1.it)("trace function with short-circuit behavior", () => __awaiter(void 0, void 0, void 0, function* () {
+            const store = new reactive_1.ReactiveProxyStore({ a: true, b: false });
+            const [result, keys] = yield store.trace(function () {
+                return this.get("a") || this.get("b");
+            });
+            assert.equal(result, true);
+            assert.deepEqual(keys, ["a"]);
+        }));
         (0, mocha_1.it)("automatically updates computed properties", () => __awaiter(void 0, void 0, void 0, function* () {
             const store = new reactive_1.ReactiveProxyStore({ a: 1, b: 2 });
-            yield store.computed("sum", () => store.get("a") + store.get("b"));
+            yield store.computed("sum", function () {
+                return this.get("a") + this.get("b");
+            });
             assert.equal(store.get("sum"), 3);
-            store.set("b", 3);
-            yield new Promise((resolve) => setTimeout(resolve, 50));
+            yield store.set("b", 3);
             assert.equal(store.get("sum"), 4);
         }));
         (0, mocha_1.it)("computed callback can use `this` to reference store", () => __awaiter(void 0, void 0, void 0, function* () {
@@ -202,8 +235,7 @@ const reactive_1 = require("./reactive");
                 return this.a + this.b;
             });
             assert.equal(store.get("sum"), 3);
-            store.set("b", 3);
-            yield new Promise((resolve) => setTimeout(resolve, 50));
+            yield store.set("b", 3);
             assert.equal(store.get("sum"), 4);
         }));
         (0, mocha_1.it)("property of type function automatically binds to `this`", () => {
@@ -219,14 +251,14 @@ const reactive_1 = require("./reactive");
         (0, mocha_1.it)("references proxy via $", () => __awaiter(void 0, void 0, void 0, function* () {
             const store = new reactive_1.ReactiveProxyStore({ a: 1, b: 2 });
             store.$.a++;
-            yield new Promise((resolve) => setTimeout(resolve, 50));
+            yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS));
             assert.equal(store.$.a, 2);
             assert.equal(store.get("a"), 2);
         }));
         (0, mocha_1.it)("adds new properties via $", () => __awaiter(void 0, void 0, void 0, function* () {
             const store = new reactive_1.ReactiveProxyStore({ a: 1 });
             store.$.b = 2;
-            yield new Promise((resolve) => setTimeout(resolve, 50));
+            yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS));
             assert.equal(store.$.b, 2);
             assert.equal(store.get("b"), 2);
         }));
@@ -243,10 +275,12 @@ const reactive_1 = require("./reactive");
             store.set("a", 3);
             store.set("a", 4);
             assert.equal(ops, 0);
-            yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS));
-            assert.ok(ops > 0);
+            yield new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS / 2));
+            assert.equal(ops, 0);
+            yield store.set("a", 5);
+            assert.equal(ops, 1);
         }));
-        (0, mocha_1.it)('debounces arbitrary functions', () => __awaiter(void 0, void 0, void 0, function* () {
+        (0, mocha_1.it)("debounces arbitrary functions", () => __awaiter(void 0, void 0, void 0, function* () {
             const store = new reactive_1.ReactiveProxyStore({ a: 1, b: 2 });
             let ops = 0;
             const millis = 50;
@@ -261,7 +295,7 @@ const reactive_1 = require("./reactive");
     (0, mocha_1.describe)("proxify", () => {
         (0, mocha_1.it)("creates a proxy for ReactiveProxyStore", () => {
             const store = new reactive_1.ReactiveProxyStore({ a: 1, b: 2 });
-            const proxy = (0, reactive_1.proxify)(store);
+            const proxy = (0, reactive_1.proxifyStore)(store);
             assert.equal(proxy.a, 1);
             assert.equal(proxy.b, 2);
             proxy.a++;

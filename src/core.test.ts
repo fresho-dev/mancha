@@ -116,7 +116,7 @@ describe("Core", () => {
     it("using implicit `this` in function", async () => {
       const renderer = new MockRenderer({ a: 1 });
       const fn = "++a";
-      const result = await renderer.eval(fn);
+      const [result] = await renderer.eval(fn);
       assert.equal(result, 2);
       assert.equal(renderer.get("a"), 2);
     });
@@ -124,15 +124,14 @@ describe("Core", () => {
     it("using implicit `this` and nested values", async () => {
       const renderer = new MockRenderer({ x: { a: 1 } });
       const fn = "++x.a";
-      const result = await renderer.eval(fn);
+      const [result] = await renderer.eval(fn);
       assert.equal(result, 2);
       assert.equal(renderer.get("x")?.a, 2);
     });
 
     it("tracing works as expected", async () => {
       const renderer = new MockRenderer({ a: 1, b: 2, c: 3 });
-      const fn = () => renderer.eval("a + b");
-      const [result, dependencies] = await renderer.trace(fn);
+      const [result, dependencies] = await renderer.eval("a + b");
       assert.equal(result, 3);
       assert.deepEqual(dependencies, ["a", "b"]);
     });
@@ -140,7 +139,7 @@ describe("Core", () => {
     it("use `global` in function", async () => {
       const renderer = new MockRenderer();
       (global as any).foo = "bar";
-      const result = await renderer.eval("global.foo");
+      const [result] = await renderer.eval("global.foo");
       assert.equal(result, "bar");
     });
 
@@ -156,7 +155,7 @@ describe("Core", () => {
     ].forEach(({ expression, expected }) => {
       it(`boolean expressions with multiple variables: ${expression}`, async () => {
         const renderer = new MockRenderer({ a: false, b: true });
-        const result = await renderer.eval(expression);
+        const [result] = await renderer.eval(expression);
         assert.equal(result, expected);
       });
     });
@@ -164,18 +163,54 @@ describe("Core", () => {
     it("mutating boolean expression with multiple variables", async () => {
       const renderer = new MockRenderer({ a: false, b: false });
       const expression = "a || b";
-      assert.equal(await renderer.eval(expression), false);
+      assert.deepEqual(await renderer.eval(expression), [false, ["a", "b"]]);
 
       await renderer.set("a", true);
-      assert.equal(await renderer.eval(expression), true);
+      assert.deepEqual(await renderer.eval(expression), [true, ["a"]]);
 
       await renderer.set("a", false);
       await renderer.set("b", true);
-      assert.equal(await renderer.eval(expression), true);
+      assert.deepEqual(await renderer.eval(expression), [true, ["a", "b"]]);
 
       await renderer.set("a", true);
       await renderer.set("b", true);
-      assert.equal(await renderer.eval(expression), true);
+      assert.deepEqual(await renderer.eval(expression), [true, ["a"]]);
+    });
+
+    it("runs callback after evaluation", async () => {
+      const renderer = new MockRenderer({ a: 1, b: 2 });
+      const fn = "a + b";
+      let called = false;
+      const callback = (result: any, dependencies: string[]) => {
+        assert.equal(result, 3);
+        assert.deepEqual(dependencies, ["a", "b"]);
+        called = true;
+      };
+      await renderer.eval(fn, {}, callback);
+      assert(called);
+    });
+
+    it("runs callback after dependency changes", async () => {
+      const renderer = new MockRenderer({ a: 1, b: 2 });
+      const fn = "a + b";
+      let called = 0;
+      const callback = (result: any, dependencies: string[]) => {
+        assert.deepEqual(dependencies, ["a", "b"]);
+        called++;
+      };
+      await renderer.eval(fn, {}, callback);
+      assert.equal(called, 1);
+      await renderer.set("a", 3);
+      assert.equal(called, 2);
+    });
+
+    it("tracks unseen dependencies from short-circuit expressions", async () => {
+      const renderer = new MockRenderer({ a: false, b: false });
+      const expression = "a && b";
+      assert.deepEqual(await renderer.eval(expression), [false, ["a"]]);
+
+      await renderer.set("a", true);
+      assert.deepEqual(await renderer.eval(expression), [false, ["a", "b"]]);
     });
   });
 });

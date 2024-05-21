@@ -65,7 +65,6 @@ const core_1 = require("./core");
             assert.equal(textNode.nodeValue, "Hello World");
             // Update the value and observe the change.
             yield renderer.set("name", "Stranger");
-            yield new Promise((resolve) => setTimeout(resolve, 50));
             assert.equal(textNode.nodeValue, "Hello Stranger");
         }));
         (0, mocha_1.it)("sets object, gets object property", () => __awaiter(void 0, void 0, void 0, function* () {

@@ -28,4 +28,17 @@ export class Iterator<T> {
       yield fn(val);
     }
   }
+
+  static equals<T>(a: Iterable<T>, b: Iterable<T>): boolean {
+    const aIter = a[Symbol.iterator]();
+    const bIter = b[Symbol.iterator]();
+    let aVal = aIter.next();
+    let bVal = bIter.next();
+    while (!aVal.done && !bVal.done) {
+      if (aVal.value !== bVal.value) return false;
+      aVal = aIter.next();
+      bVal = bIter.next();
+    }
+    return aVal.done === bVal.done;
+  }
 }
