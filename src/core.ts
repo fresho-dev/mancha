@@ -51,8 +51,8 @@ export function makeEvalFunction(code: string, args: { [key: string]: any } = {}
 }
 
 export function safeEval(
-  code: string,
   context: any,
+  code: string,
   args: { [key: string]: any } = {}
 ): Promise<any> {
   const inner = `with (this) { return (async () => (${code}))(); }`;
@@ -133,7 +133,7 @@ export abstract class IRenderer extends ReactiveProxyStore {
 
   async eval(expr: string, args: { [key: string]: any } = {}): Promise<[any, string[]]> {
     const [result, dependencies] = await this.trace(async function () {
-      return this.cachedExpressionFunction(expr, args);
+      return safeEval(this as any, expr, args);
     });
     this.log(`eval \`${expr}\` => `, result, `[ ${dependencies.join(", ")} ]`);
     return [result, dependencies];

@@ -58,29 +58,29 @@ class MockRenderer extends core_1.IRenderer {
     (0, mocha_1.describe)("safeEval", () => {
         (0, mocha_1.it)("simple sum", async () => {
             const fn = "a + b";
-            const result = await (0, core_1.safeEval)(fn, null, { a: 1, b: 2 });
+            const result = await (0, core_1.safeEval)(null, fn, { a: 1, b: 2 });
             assert.equal(result, 3);
         });
         (0, mocha_1.it)("sum with nested properties", async () => {
             const fn = "x.a + x.b";
-            const result = await (0, core_1.safeEval)(fn, null, { x: { a: 1, b: 2 } });
+            const result = await (0, core_1.safeEval)(null, fn, { x: { a: 1, b: 2 } });
             assert.equal(result, 3);
         });
         (0, mocha_1.it)("modifies variables", async () => {
             const object = { x: { a: 1 } };
             const fn = "x.a++";
-            await (0, core_1.safeEval)(fn, null, object);
+            await (0, core_1.safeEval)(null, fn, object);
             assert.equal(object.x.a, 2);
         });
         (0, mocha_1.it)('passing "this" to function', async () => {
             const object = { x: { a: 1 } };
             const fn = "this.x.a++";
-            await (0, core_1.safeEval)(fn, object);
+            await (0, core_1.safeEval)(object, fn);
             assert.equal(object.x.a, 2);
         });
         (0, mocha_1.it)("async call within function", async () => {
             const fn = "await Promise.resolve(1)";
-            const result = await (0, core_1.safeEval)(fn, null);
+            const result = await (0, core_1.safeEval)(null, fn);
             assert.equal(result, 1);
         });
         [
@@ -94,7 +94,7 @@ class MockRenderer extends core_1.IRenderer {
             { expression: "a || !b", expected: false },
         ].forEach(({ expression, expected }) => {
             (0, mocha_1.it)(`boolean expressions with multiple variables: ${expression}`, async () => {
-                const result = await (0, core_1.safeEval)(expression, null, { a: false, b: true });
+                const result = await (0, core_1.safeEval)(null, expression, { a: false, b: true });
                 assert.equal(result, expected);
             });
         });

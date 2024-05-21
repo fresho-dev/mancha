@@ -43,7 +43,7 @@ function makeEvalFunction(code, args = {}) {
     return new Function(...Object.keys(args), `with (this) { return (${code}); }`);
 }
 exports.makeEvalFunction = makeEvalFunction;
-function safeEval(code, context, args = {}) {
+function safeEval(context, code, args = {}) {
     const inner = `with (this) { return (async () => (${code}))(); }`;
     return new Function(...Object.keys(args), inner).call(context, ...Object.values(args));
 }
@@ -102,7 +102,7 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
     }
     async eval(expr, args = {}) {
         const [result, dependencies] = await this.trace(async function () {
-            return this.cachedExpressionFunction(expr, args);
+            return safeEval(this, expr, args);
         });
         this.log(`eval \`${expr}\` => `, result, `[ ${dependencies.join(", ")} ]`);
         return [result, dependencies];
