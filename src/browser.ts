@@ -26,13 +26,14 @@ const Mancha = new RendererImpl();
 const currentScript = self.document?.currentScript;
 
 if (self.document?.currentScript?.hasAttribute("init")) {
-  Mancha.update({ ...currentScript?.dataset });
   const debug = currentScript?.hasAttribute("debug");
   const cachePolicy = currentScript?.getAttribute("cache") as RequestCache | null;
   const targets = currentScript?.getAttribute("target")?.split(",") || ["body"];
-  targets.map(async (target: string) => {
-    const fragment = self.document.querySelector(target) as unknown as DocumentFragment;
-    await Mancha.debug(debug!!).mount(fragment, { cache: cachePolicy });
+  window.addEventListener("load", () => {
+    targets.map(async (target: string) => {
+      const fragment = self.document.querySelector(target) as unknown as DocumentFragment;
+      await Mancha.debug(debug!!).mount(fragment, { cache: cachePolicy });
+    });
   });
 }
 

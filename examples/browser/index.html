@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 
-<head>
+<head :data="{name: 'Stranger'}">
   <title>Hello {{ name }}!</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="mancha.js" target="body,head" cache="no-store" init debug></script>
   <style>
     .underline {
       text-decoration: underline;
@@ -13,5 +14,3 @@
 <body>
   <include src="./body.tpl.html" />
 </body>
-
-<script src="mancha.js" data-name="Stranger" target="body,head" cache="no-store" init debug></script>
