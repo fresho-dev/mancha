@@ -24,7 +24,7 @@ function isProxified(object) {
     return object instanceof ReactiveProxy || object["__is_proxy__"];
 }
 /** Default debouncer time in millis. */
-exports.REACTIVE_DEBOUNCE_MILLIS = 25;
+exports.REACTIVE_DEBOUNCE_MILLIS = 10;
 function proxifyObject(object, callback, deep = true) {
     // If this object is already a proxy, return it as-is.
     if (object == null || isProxified(object))

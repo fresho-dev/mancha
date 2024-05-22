@@ -29,7 +29,7 @@ function isProxified<T extends object>(object: T) {
 }
 
 /** Default debouncer time in millis. */
-export const REACTIVE_DEBOUNCE_MILLIS = 25;
+export const REACTIVE_DEBOUNCE_MILLIS = 10;
 
 export function proxifyObject<T extends object>(object: T, callback: () => void, deep = true): T {
   // If this object is already a proxy, return it as-is.
