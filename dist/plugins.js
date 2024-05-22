@@ -314,13 +314,13 @@ var RendererPlugins;
             // If the element is of type checkbox, we bind to the "checked" property.
             const prop = elem.getAttribute("type") === "checkbox" ? "checked" : "value";
             // Watch for updates in the store and bind our property ==> node value.
-            const expr = `$elem.${prop} = ${bindExpr}`;
-            await this.watchExpr(expr, { $elem: node }, (result) => (elem[prop] = result));
+            const propExpr = `$elem.${prop} = ${bindExpr}`;
+            await this.watchExpr(propExpr, { $elem: node }, (result) => (elem[prop] = result));
+            // Bind node value ==> our property.
+            const nodeExpr = `${bindExpr} = $elem.${prop}`;
             // Watch for updates in the node's value.
             for (const event of updateEvents) {
-                // Bind node value ==> our property.
-                const expr = `${bindExpr} = $elem.${prop}`;
-                node.addEventListener(event, () => this.eval(expr, { $elem: node }));
+                node.addEventListener(event, () => this.eval(nodeExpr, { $elem: node }));
             }
         }
     };
@@ -333,8 +333,8 @@ var RendererPlugins;
             this.log(":show attribute found in:\n", node);
             // Remove the processed attributes from node.
             elem.removeAttribute(":show");
-            // TODO: Instead of using element display, insert a dummy <template> to track position of child,
-            // then replace it with the original child when needed.
+            // TODO: Instead of using element display, insert a dummy <template> to track position of
+            // child, then replace it with the original child when needed.
             // Store the original display value to reset it later if needed.
             const display = elem.style.display === "none" ? "" : elem.style.display;
             // Compute the function's result and track dependencies.
