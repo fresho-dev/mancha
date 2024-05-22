@@ -254,7 +254,7 @@ describe("Reactive", () => {
 
     it("trace function that throws", async () => {
       const store = new ReactiveProxyStore({ a: 1, b: 2 });
-      assert.rejects(async () => {
+      await assert.rejects(async () => {
         await store.trace(function () {
           this.get("a") + this.get("b");
           throw new Error();

@@ -141,6 +141,7 @@ describe("Core", () => {
       (global as any).foo = "bar";
       const [result] = await renderer.eval("global.foo");
       assert.equal(result, "bar");
+      delete (global as any).foo;
     });
 
     [

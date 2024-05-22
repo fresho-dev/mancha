@@ -125,6 +125,7 @@ class MockRenderer extends core_1.IRenderer {
             global.foo = "bar";
             const [result] = await renderer.eval("global.foo");
             assert.equal(result, "bar");
+            delete global.foo;
         });
         [
             { expression: "a && b", expected: false },

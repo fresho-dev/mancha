@@ -215,7 +215,7 @@ const reactive_1 = require("./reactive");
         });
         (0, mocha_1.it)("trace function that throws", async () => {
             const store = new reactive_1.ReactiveProxyStore({ a: 1, b: 2 });
-            assert.rejects(async () => {
+            await assert.rejects(async () => {
                 await store.trace(function () {
                     this.get("a") + this.get("b");
                     throw new Error();

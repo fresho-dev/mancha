@@ -313,7 +313,7 @@ class MockRenderer extends core_1.IRenderer {
             assert.notEqual(parent, null);
             // Create renderer with no array => fails.
             const renderer = new MockRenderer();
-            assert.rejects(renderer.mount(fragment), /ReferenceError: items is not defined/);
+            await assert.rejects(renderer.mount(fragment), /ReferenceError: items is not defined/);
             // Add a placeholder for the array, but it's not array type.
             await renderer.set("items", null);
             await renderer.mount(fragment);
@@ -356,9 +356,10 @@ class MockRenderer extends core_1.IRenderer {
             // Since we're dealing with events, we need to create a full document.
             const html = `<input :bind="foo" />`;
             const dom = new jsdom_1.JSDOM(html);
-            const node = dom.window.document.body.firstElementChild;
+            const doc = dom.window.document;
+            const node = doc.body.firstElementChild;
             const renderer = new MockRenderer({ foo: "bar" });
-            await renderer.mount(dom.window.document.body);
+            await renderer.mount(doc.body);
             // Processed attributes are removed.
             assert.equal(node.getAttribute(":bind"), null);
             // Initial value is set.
@@ -370,39 +371,28 @@ class MockRenderer extends core_1.IRenderer {
             // Update the node value, and watch the store value react.
             node.value = "qux";
             node.dispatchEvent(new dom.window.Event("change"));
-            await new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS * 3));
+            await new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS));
             assert.equal(renderer.get("foo"), "qux");
         });
-        (0, mocha_1.it)("binds a text input value with new store key", async () => {
+        (0, mocha_1.it)("fails to bind a text input value with undefined variable", async () => {
             // Since we're dealing with events, we need to create a full document.
-            const html = `<input :bind="foo" value="bar" />`;
-            const dom = new jsdom_1.JSDOM(html);
-            const node = dom.window.document.body.firstElementChild;
+            const html = `<input :bind="foo" />`;
+            const dom = new jsdom_1.JSDOM(html, {});
+            const doc = dom.window.document;
+            console.log(doc.body.firstElementChild?.outerHTML);
             // Value does not exist in store before mount().
             const renderer = new MockRenderer();
-            assert.equal(renderer.get("foo"), null);
-            await renderer.mount(dom.window.document.body);
-            // Processed attributes are removed.
-            assert.equal(node.getAttribute(":bind"), null);
-            // Initial value is set.
-            assert.equal(renderer.get("foo"), "bar");
-            assert.equal(node.value, "bar");
-            // Update the store value, and watch the node value react.
-            await renderer.set("foo", "baz");
-            assert.equal(node.value, "baz");
-            // Update the node value, and watch the store value react.
-            node.value = "qux";
-            node.dispatchEvent(new dom.window.Event("change"));
-            await new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS * 3));
-            assert.equal(renderer.get("foo"), "qux");
+            assert.equal(renderer.has("foo"), false);
+            await assert.rejects(renderer.mount(doc.body), /ReferenceError: foo is not defined/);
         });
         (0, mocha_1.it)("binds a text input value with custom events", async () => {
             // Since we're dealing with events, we need to create a full document.
             const html = `<input :bind="foo" :bind-events="my-custom-event" />`;
             const dom = new jsdom_1.JSDOM(html);
-            const node = dom.window.document.body.firstElementChild;
+            const doc = dom.window.document;
+            const node = doc.body.firstElementChild;
             const renderer = new MockRenderer({ foo: "bar" });
-            await renderer.mount(dom.window.document.body);
+            await renderer.mount(doc.body);
             // Processed attributes are removed.
             assert.equal(node.getAttribute(":bind"), null);
             // Initial value is set.
@@ -414,10 +404,10 @@ class MockRenderer extends core_1.IRenderer {
             // Update the node value, and watch the store value react only to the right event.
             node.value = "qux";
             node.dispatchEvent(new dom.window.Event("change"));
-            await new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS * 3));
+            await new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS));
             assert.equal(renderer.get("foo"), "baz");
             node.dispatchEvent(new dom.window.Event("my-custom-event"));
-            await new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS * 3));
+            await new Promise((resolve) => setTimeout(resolve, reactive_1.REACTIVE_DEBOUNCE_MILLIS));
             assert.equal(renderer.get("foo"), "qux");
         });
     });

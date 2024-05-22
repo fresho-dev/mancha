@@ -113,7 +113,7 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
         this.log(`eval \`${expr}\` => `, result, `[ ${dependencies.join(", ")} ]`);
         return [result, dependencies];
     }
-    async watchExpr(expr, args, callback) {
+    watchExpr(expr, args, callback) {
         // Early exit: this eval has already been registered, we just need to add our callback.
         if (this.evalCallbacks.has(expr)) {
             this.evalCallbacks.get(expr)?.push(callback);

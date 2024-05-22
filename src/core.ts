@@ -145,11 +145,7 @@ export abstract class IRenderer extends ReactiveProxyStore {
     return [result, dependencies];
   }
 
-  async watchExpr(
-    expr: string,
-    args: { [key: string]: any },
-    callback: EvalListener
-  ): Promise<void> {
+  watchExpr(expr: string, args: { [key: string]: any }, callback: EvalListener): Promise<void> {
     // Early exit: this eval has already been registered, we just need to add our callback.
     if (this.evalCallbacks.has(expr)) {
       this.evalCallbacks.get(expr)?.push(callback);

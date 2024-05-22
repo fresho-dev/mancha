@@ -337,8 +337,8 @@ export namespace RendererPlugins {
   export const resolveBindAttribute: RendererPlugin = async function (node, params) {
     if (this.skipNodes.has(node)) return;
     const elem = node as Element;
-    const bindKey = elem.getAttribute?.(":bind");
-    if (bindKey) {
+    const bindExpr = elem.getAttribute?.(":bind");
+    if (bindExpr) {
       this.log(":bind attribute found in:\n", node);
 
       // The change events we listen for can be overriden by user.
@@ -352,19 +352,16 @@ export namespace RendererPlugins {
       // If the element is of type checkbox, we bind to the "checked" property.
       const prop = elem.getAttribute("type") === "checkbox" ? "checked" : "value";
 
-      // If the key is not found in our store, create it and initialize it with the node's value.
-      if (!this.has(bindKey)) await this.set(bindKey, (elem as any)[prop]);
-
-      // Set the node's value to our current value.
-      (elem as any)[prop] = this.get(bindKey);
+      // Watch for updates in the store and bind our property ==> node value.
+      const expr = `$elem.${prop} = ${bindExpr}`;
+      await this.watchExpr(expr, { $elem: node }, (result) => ((elem as any)[prop] = result));
 
       // Watch for updates in the node's value.
       for (const event of updateEvents) {
-        node.addEventListener(event, () => this.set(bindKey, (elem as any)[prop]));
+        // Bind node value ==> our property.
+        const expr = `${bindExpr} = $elem.${prop}`;
+        node.addEventListener(event, () => this.eval(expr, { $elem: node }));
       }
-
-      // Watch for updates in the store.
-      this.watch([bindKey], () => ((elem as any)[prop] = this.get(bindKey)));
     }
   };
 
