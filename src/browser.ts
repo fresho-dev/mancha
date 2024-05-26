@@ -1,5 +1,5 @@
-import { dirname, IRenderer } from "./core";
-import { ParserParams, RenderParams } from "./interfaces";
+import { dirname, IRenderer } from "./core.js";
+import { ParserParams, RenderParams } from "./interfaces.js";
 
 class RendererImpl extends IRenderer {
   protected readonly dirpath: string = dirname(self.location.href);

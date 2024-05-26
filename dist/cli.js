@@ -1,21 +1,24 @@
 #!/usr/bin/env node
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const yargs_1 = require("yargs");
-const helpers_1 = require("yargs/helpers");
-const index_1 = require("./index");
-const fs = require("fs/promises");
-const args = (0, yargs_1.default)((0, helpers_1.hideBin)(process.argv))
+import * as fs from "fs/promises";
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
+import { Mancha } from "./index.js";
+const args = yargs(hideBin(process.argv))
     .describe("input", "Input HMTL file to render")
     .describe("output", "Output file, defaults to stdout")
     .describe("vars", "JSON-formatted variables")
+    .describe("debug", "Print Mancha.js debugging information")
     .demand(["input"])
     .parse();
-index_1.Mancha.preprocessLocal(args["input"], JSON.parse(args.vars || "{}")).then((result) => {
+Mancha.debug(args.debug);
+new Promise(async (resolve, reject) => {
+    await Mancha.update(JSON.parse(args.vars || "{}"));
+    const fragment = await Mancha.preprocessLocal(args["input"]);
+    await Mancha.renderNode(fragment);
     if (!args.output || args.output === "-") {
-        console.log(result + "\n");
+        console.log(Mancha.serializeHTML(fragment) + "\n");
     }
     else {
-        return fs.writeFile(args.output, index_1.Mancha.serializeHTML(result));
+        await fs.writeFile(args.output, Mancha.serializeHTML(fragment));
     }
 });

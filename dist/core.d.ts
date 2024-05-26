@@ -1,5 +1,5 @@
-import { ReactiveProxyStore } from "./reactive";
-import { ParserParams, RenderParams } from "./interfaces";
+import { ReactiveProxyStore } from "./reactive.js";
+import { ParserParams, RenderParams } from "./interfaces.js";
 export type EvalListener = (result: any, dependencies: string[]) => any;
 export declare function traverse(root: Node | DocumentFragment | Document, skip?: Set<Node>): Generator<ChildNode>;
 export declare function dirname(fpath: string): string;
@@ -33,6 +33,6 @@ export declare abstract class IRenderer extends ReactiveProxyStore {
         [key: string]: any;
     }, callback: EvalListener): Promise<void>;
     preprocessNode(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void>;
-    renderNode(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void>;
+    renderNode(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<Document | DocumentFragment | Node>;
     mount(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void>;
 }

@@ -1,8 +1,5 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.RendererPlugins = void 0;
-const attributes_1 = require("./attributes");
-const core_1 = require("./core");
+import { attributeNameToCamelCase } from "./attributes.js";
+import { isRelativePath, traverse } from "./core.js";
 const KW_ATTRIBUTES = new Set([
     ":bind",
     ":bind-events",
@@ -17,7 +14,7 @@ const ATTR_SHORTHANDS = {
     // $html: "$inner-HTML",
 };
 /** @internal */
-var RendererPlugins;
+export var RendererPlugins;
 (function (RendererPlugins) {
     RendererPlugins.resolveIncludes = async function (node, params) {
         const elem = node;
@@ -76,46 +73,46 @@ var RendererPlugins;
         const anyattr = src || href || data;
         if (!anyattr)
             return;
-        if (anyattr && (0, core_1.isRelativePath)(anyattr)) {
+        if (anyattr && isRelativePath(anyattr)) {
             this.log("Rebasing relative path as:", params.dirpath, "/", anyattr);
         }
-        if (tagName === "img" && src && (0, core_1.isRelativePath)(src)) {
+        if (tagName === "img" && src && isRelativePath(src)) {
             elem.src = `${params.dirpath}/${src}`;
         }
-        else if (tagName === "a" && href && (0, core_1.isRelativePath)(href)) {
+        else if (tagName === "a" && href && isRelativePath(href)) {
             elem.href = `${params.dirpath}/${href}`;
         }
-        else if (tagName === "link" && href && (0, core_1.isRelativePath)(href)) {
+        else if (tagName === "link" && href && isRelativePath(href)) {
             elem.href = `${params.dirpath}/${href}`;
         }
-        else if (tagName === "script" && src && (0, core_1.isRelativePath)(src)) {
+        else if (tagName === "script" && src && isRelativePath(src)) {
             elem.src = `${params.dirpath}/${src}`;
         }
-        else if (tagName === "source" && src && (0, core_1.isRelativePath)(src)) {
+        else if (tagName === "source" && src && isRelativePath(src)) {
             elem.src = `${params.dirpath}/${src}`;
         }
-        else if (tagName === "audio" && src && (0, core_1.isRelativePath)(src)) {
+        else if (tagName === "audio" && src && isRelativePath(src)) {
             elem.src = `${params.dirpath}/${src}`;
         }
-        else if (tagName === "video" && src && (0, core_1.isRelativePath)(src)) {
+        else if (tagName === "video" && src && isRelativePath(src)) {
             elem.src = `${params.dirpath}/${src}`;
         }
-        else if (tagName === "track" && src && (0, core_1.isRelativePath)(src)) {
+        else if (tagName === "track" && src && isRelativePath(src)) {
             elem.src = `${params.dirpath}/${src}`;
         }
-        else if (tagName === "iframe" && src && (0, core_1.isRelativePath)(src)) {
+        else if (tagName === "iframe" && src && isRelativePath(src)) {
             elem.src = `${params.dirpath}/${src}`;
         }
-        else if (tagName === "object" && data && (0, core_1.isRelativePath)(data)) {
+        else if (tagName === "object" && data && isRelativePath(data)) {
             elem.data = `${params.dirpath}/${data}`;
         }
-        else if (tagName === "input" && src && (0, core_1.isRelativePath)(src)) {
+        else if (tagName === "input" && src && isRelativePath(src)) {
             elem.src = `${params.dirpath}/${src}`;
         }
-        else if (tagName === "area" && href && (0, core_1.isRelativePath)(href)) {
+        else if (tagName === "area" && href && isRelativePath(href)) {
             elem.href = `${params.dirpath}/${href}`;
         }
-        else if (tagName === "base" && href && (0, core_1.isRelativePath)(href)) {
+        else if (tagName === "base" && href && isRelativePath(href)) {
             elem.href = `${params.dirpath}/${href}`;
         }
     };
@@ -196,7 +193,7 @@ var RendererPlugins;
                 // Apply any shorthand conversions if necessary.
                 const propName = (ATTR_SHORTHANDS[attr.name] || attr.name).slice(1);
                 // Compute the function's result and track dependencies.
-                const prop = (0, attributes_1.attributeNameToCamelCase)(propName);
+                const prop = attributeNameToCamelCase(propName);
                 await this.watchExpr(attr.value, { $elem: node }, (result) => (node[prop] = result));
             }
         }
@@ -242,7 +239,7 @@ var RendererPlugins;
             // Remove the processed attributes from node.
             elem.removeAttribute(":for");
             // Ensure the node and its children are not processed by subsequent steps.
-            for (const child of (0, core_1.traverse)(node, this._skipNodes)) {
+            for (const child of traverse(node, this._skipNodes)) {
                 this._skipNodes.add(child);
             }
             // Place the template node into a template element.
@@ -344,4 +341,4 @@ var RendererPlugins;
             });
         }
     };
-})(RendererPlugins || (exports.RendererPlugins = RendererPlugins = {}));
+})(RendererPlugins || (RendererPlugins = {}));

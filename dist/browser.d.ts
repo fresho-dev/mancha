@@ -1,5 +1,5 @@
-import { IRenderer } from "./core";
-import { ParserParams, RenderParams } from "./interfaces";
+import { IRenderer } from "./core.js";
+import { ParserParams, RenderParams } from "./interfaces.js";
 declare class RendererImpl extends IRenderer {
     protected readonly dirpath: string;
     parseHTML(content: string, params?: ParserParams): DocumentFragment;

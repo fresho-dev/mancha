@@ -1,22 +1,24 @@
-const gulp = require("gulp");
+import * as fs from "fs/promises";
+import ts from "gulp-typescript";
+import GulpClient from "gulp";
 
 // Clean tasks
 
-gulp.task("clean", function (done) {
-  const fs = require("fs/promises");
+GulpClient.task("clean", function (done) {
   return fs.rm("dist", { recursive: true, force: true }).then(done);
 });
 
 // Build tasks
 
-gulp.task("ts", function () {
-  const ts = require("gulp-typescript");
-  return gulp.src("src/**/*.ts").pipe(ts.createProject("tsconfig.json")()).pipe(gulp.dest("dist"));
+GulpClient.task("ts", function () {
+  return GulpClient.src("src/**/*.ts")
+    .pipe(ts.createProject("tsconfig.json")())
+    .pipe(GulpClient.dest("dist"));
 });
 
-gulp.task("fixtures", function () {
-  return gulp.src("src/fixtures/**/*").pipe(gulp.dest("dist/fixtures"));
+GulpClient.task("fixtures", function () {
+  return GulpClient.src("src/fixtures/**/*").pipe(GulpClient.dest("dist/fixtures"));
 });
 
-gulp.task("build", gulp.series("ts", "fixtures"));
-gulp.task("default", gulp.series("build"));
+GulpClient.task("build", GulpClient.series("ts", "fixtures"));
+GulpClient.task("default", GulpClient.series("build"));

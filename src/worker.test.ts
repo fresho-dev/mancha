@@ -1,8 +1,8 @@
 import * as assert from "assert";
 import { describe, it } from "mocha";
 import { JSDOM } from "jsdom";
-import { RendererImpl } from "./worker";
-import { traverse } from "./core";
+import { RendererImpl } from "./worker.js";
+import { traverse } from "./core.js";
 
 describe("Worker", () => {
   describe("parse and serialize", () => {

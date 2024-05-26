@@ -1,6 +1,3 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.proxifyStore = exports.ReactiveProxyStore = exports.InertProxy = exports.ReactiveProxy = exports.proxifyObject = exports.REACTIVE_DEBOUNCE_MILLIS = void 0;
 class IDebouncer {
     timeouts = new Map();
     debounce(millis, callback) {
@@ -24,8 +21,8 @@ function isProxified(object) {
     return object instanceof ReactiveProxy || object["__is_proxy__"];
 }
 /** Default debouncer time in millis. */
-exports.REACTIVE_DEBOUNCE_MILLIS = 10;
-function proxifyObject(object, callback, deep = true) {
+export const REACTIVE_DEBOUNCE_MILLIS = 10;
+export function proxifyObject(object, callback, deep = true) {
     // If this object is already a proxy, return it as-is.
     if (object == null || isProxified(object))
         return object;
@@ -63,8 +60,7 @@ function proxifyObject(object, callback, deep = true) {
         },
     });
 }
-exports.proxifyObject = proxifyObject;
-class ReactiveProxy extends IDebouncer {
+export class ReactiveProxy extends IDebouncer {
     value = null;
     listeners = [];
     constructor(value = null, ...listeners) {
@@ -108,11 +104,10 @@ class ReactiveProxy extends IDebouncer {
         // Make a copy of the listeners, so that newly added listeners are not called.
         const listeners = this.listeners.slice();
         // Debounce the listeners to avoid multiple calls when the value changes rapidly.
-        return this.debounce(exports.REACTIVE_DEBOUNCE_MILLIS, () => Promise.all(listeners.map((x) => x(this.value, prev))).then(() => { }));
+        return this.debounce(REACTIVE_DEBOUNCE_MILLIS, () => Promise.all(listeners.map((x) => x(this.value, prev))).then(() => { }));
     }
 }
-exports.ReactiveProxy = ReactiveProxy;
-class InertProxy extends ReactiveProxy {
+export class InertProxy extends ReactiveProxy {
     static from(value, ...listeners) {
         if (value instanceof ReactiveProxy) {
             return value;
@@ -126,8 +121,7 @@ class InertProxy extends ReactiveProxy {
         return Promise.resolve();
     }
 }
-exports.InertProxy = InertProxy;
-class ReactiveProxyStore extends IDebouncer {
+export class ReactiveProxyStore extends IDebouncer {
     store = new Map();
     debouncedListeners = new Map();
     lock = Promise.resolve();
@@ -178,7 +172,7 @@ class ReactiveProxyStore extends IDebouncer {
         // Ignore the listener's specific value and retrieve all current values from store.
         const debounceFunction = () => listener(...keys.map((key) => this.store.get(key).get()));
         // Create a wrapper listener that debounces the inner listener.
-        const debouncedListener = () => this.debounce(exports.REACTIVE_DEBOUNCE_MILLIS, debounceFunction);
+        const debouncedListener = () => this.debounce(REACTIVE_DEBOUNCE_MILLIS, debounceFunction);
         keys.forEach((key) => this.store.get(key).watch(debouncedListener));
         // The caller will not have access to the wrapped listener, so to unwatch we need to store it.
         this.debouncedListeners.set(listener, debouncedListener);
@@ -215,7 +209,6 @@ class ReactiveProxyStore extends IDebouncer {
         this.set(key, result);
     }
 }
-exports.ReactiveProxyStore = ReactiveProxyStore;
 /**
  * Proxifies a ReactiveProxyStore object, allowing for direct access to its keys.
  * Calls to existing methods should still work, e.g.
@@ -229,7 +222,7 @@ exports.ReactiveProxyStore = ReactiveProxyStore;
  * @param store ReactiveProxyStore object to proxify.
  * @returns Proxified object.
  */
-function proxifyStore(store, callback = () => { }) {
+export function proxifyStore(store, callback = () => { }) {
     const keys = Array.from(store.entries()).map(([key]) => key);
     const keyval = Object.fromEntries(keys.map((key) => [key, undefined]));
     return new Proxy(Object.assign({}, store, keyval), {
@@ -261,4 +254,3 @@ function proxifyStore(store, callback = () => { }) {
         },
     });
 }
-exports.proxifyStore = proxifyStore;

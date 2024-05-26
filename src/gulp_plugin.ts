@@ -1,9 +1,9 @@
 import * as path from "path";
 import * as stream from "stream";
 import * as through from "through2";
-import * as File from "vinyl";
+import * as Vinyl from "vinyl";
 
-import { RendererImpl } from "./index";
+import { RendererImpl } from "./index.js";
 
 /**
  * Main entrypoint to be used in Gulp. Usage:
@@ -14,12 +14,9 @@ import { RendererImpl } from "./index";
  * @param context <key, value> pairs of literal string replacements. `key` will become `{{ key }}`
  * before replacing it with `value` in the processed files.
  */
-function mancha(
-  context: { [key: string]: string } = {},
-  wwwroot: string = process.cwd()
-): stream.Transform {
+function mancha(context: { [key: string]: string } = {}): stream.Transform {
   const renderer = new RendererImpl(context);
-  return through.obj(function (file: File, encoding: BufferEncoding, callback: Function) {
+  return through.obj(function (file: Vinyl, encoding: BufferEncoding, callback: Function) {
     const catcher = (err: Error) => {
       console.log(err);
       callback(err, file);

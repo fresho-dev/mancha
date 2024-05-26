@@ -1,7 +1,7 @@
-import { ReactiveProxyStore } from "./reactive";
-import { ParserParams, RenderParams } from "./interfaces";
-import { Iterator } from "./iterator";
-import { RendererPlugins } from "./plugins";
+import { ReactiveProxyStore } from "./reactive.js";
+import { ParserParams, RenderParams } from "./interfaces.js";
+import { Iterator } from "./iterator.js";
+import { RendererPlugins } from "./plugins.js";
 
 export type EvalListener = (result: any, dependencies: string[]) => any;
 
@@ -194,7 +194,10 @@ export abstract class IRenderer extends ReactiveProxyStore {
     await Promise.all(promises.generator());
   }
 
-  async renderNode(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void> {
+  async renderNode(
+    root: Document | DocumentFragment | Node,
+    params?: RenderParams
+  ): Promise<Document | DocumentFragment | Node> {
     // Iterate over all the nodes and apply appropriate handlers.
     // Do these steps one at a time to avoid any potential race conditions.
     for (const node of traverse(root, this._skipNodes)) {
@@ -220,6 +223,9 @@ export abstract class IRenderer extends ReactiveProxyStore {
       // Replace all the {{ variables }} in the text.
       await RendererPlugins.resolveTextNodeExpressions.call(this, node, params);
     }
+
+    // Return the input node, which should now be fully rendered.
+    return root;
   }
 
   async mount(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void> {

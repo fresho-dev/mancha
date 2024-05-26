@@ -1,10 +1,7 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.IRenderer = exports.safeEval = exports.makeEvalFunction = exports.isRelativePath = exports.dirname = exports.traverse = void 0;
-const reactive_1 = require("./reactive");
-const iterator_1 = require("./iterator");
-const plugins_1 = require("./plugins");
-function* traverse(root, skip = new Set()) {
+import { ReactiveProxyStore } from "./reactive.js";
+import { Iterator } from "./iterator.js";
+import { RendererPlugins } from "./plugins.js";
+export function* traverse(root, skip = new Set()) {
     const explored = new Set();
     const frontier = Array.from(root.childNodes).filter((node) => !skip.has(node));
     // Also yield the root node.
@@ -22,8 +19,7 @@ function* traverse(root, skip = new Set()) {
         }
     }
 }
-exports.traverse = traverse;
-function dirname(fpath) {
+export function dirname(fpath) {
     if (!fpath.includes("/")) {
         return "";
     }
@@ -31,24 +27,20 @@ function dirname(fpath) {
         return fpath.split("/").slice(0, -1).join("/");
     }
 }
-exports.dirname = dirname;
-function isRelativePath(fpath) {
+export function isRelativePath(fpath) {
     return (!fpath.includes("://") &&
         !fpath.startsWith("/") &&
         !fpath.startsWith("#") &&
         !fpath.startsWith("data:"));
 }
-exports.isRelativePath = isRelativePath;
-function makeEvalFunction(code, args = []) {
+export function makeEvalFunction(code, args = []) {
     return new Function(...args, `with (this) { return (async () => (${code}))(); }`);
 }
-exports.makeEvalFunction = makeEvalFunction;
-function safeEval(context, code, args = {}) {
+export function safeEval(context, code, args = {}) {
     const inner = `with (this) { return (async () => (${code}))(); }`;
     return new Function(...Object.keys(args), inner).call(context, ...Object.values(args));
 }
-exports.safeEval = safeEval;
-class IRenderer extends reactive_1.ReactiveProxyStore {
+export class IRenderer extends ReactiveProxyStore {
     debugging = false;
     dirpath = "";
     evalkeys = ["$elem", "$event"];
@@ -141,12 +133,12 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
     }
     async preprocessNode(root, params) {
         params = Object.assign({ dirpath: this.dirpath, maxdepth: 10 }, params);
-        const promises = new iterator_1.Iterator(traverse(root, this._skipNodes)).map(async (node) => {
+        const promises = new Iterator(traverse(root, this._skipNodes)).map(async (node) => {
             this.log("Preprocessing node:\n", node);
             // Resolve all the includes in the node.
-            await plugins_1.RendererPlugins.resolveIncludes.call(this, node, params);
+            await RendererPlugins.resolveIncludes.call(this, node, params);
             // Resolve all the relative paths in the node.
-            await plugins_1.RendererPlugins.rebaseRelativePaths.call(this, node, params);
+            await RendererPlugins.rebaseRelativePaths.call(this, node, params);
         });
         // Wait for all the rendering operations to complete.
         await Promise.all(promises.generator());
@@ -157,26 +149,28 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
         for (const node of traverse(root, this._skipNodes)) {
             this.log("Rendering node:\n", node);
             // Resolve the :data attribute in the node.
-            await plugins_1.RendererPlugins.resolveDataAttribute.call(this, node, params);
+            await RendererPlugins.resolveDataAttribute.call(this, node, params);
             // Resolve the :for attribute in the node.
-            await plugins_1.RendererPlugins.resolveForAttribute.call(this, node, params);
+            await RendererPlugins.resolveForAttribute.call(this, node, params);
             // Resolve the $html attribute in the node.
-            await plugins_1.RendererPlugins.resolveHtmlAttribute.call(this, node, params);
+            await RendererPlugins.resolveHtmlAttribute.call(this, node, params);
             // Resolve the :show attribute in the node.
-            await plugins_1.RendererPlugins.resolveShowAttribute.call(this, node, params);
+            await RendererPlugins.resolveShowAttribute.call(this, node, params);
             // Resolve the @watch attribute in the node.
-            await plugins_1.RendererPlugins.resolveWatchAttribute.call(this, node, params);
+            await RendererPlugins.resolveWatchAttribute.call(this, node, params);
             // Resolve the :bind attribute in the node.
-            await plugins_1.RendererPlugins.resolveBindAttribute.call(this, node, params);
+            await RendererPlugins.resolveBindAttribute.call(this, node, params);
             // Resolve all $attributes in the node.
-            await plugins_1.RendererPlugins.resolvePropAttributes.call(this, node, params);
+            await RendererPlugins.resolvePropAttributes.call(this, node, params);
             // Resolve all :attributes in the node.
-            await plugins_1.RendererPlugins.resolveAttrAttributes.call(this, node, params);
+            await RendererPlugins.resolveAttrAttributes.call(this, node, params);
             // Resolve all @attributes in the node.
-            await plugins_1.RendererPlugins.resolveEventAttributes.call(this, node, params);
+            await RendererPlugins.resolveEventAttributes.call(this, node, params);
             // Replace all the {{ variables }} in the text.
-            await plugins_1.RendererPlugins.resolveTextNodeExpressions.call(this, node, params);
+            await RendererPlugins.resolveTextNodeExpressions.call(this, node, params);
         }
+        // Return the input node, which should now be fully rendered.
+        return root;
     }
     async mount(root, params) {
         // Preprocess all the elements recursively first.
@@ -185,4 +179,3 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
         await this.renderNode(root, params);
     }
 }
-exports.IRenderer = IRenderer;

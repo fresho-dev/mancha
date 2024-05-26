@@ -1,8 +1,6 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-const core_1 = require("./core");
-class RendererImpl extends core_1.IRenderer {
-    dirpath = (0, core_1.dirname)(self.location.href);
+import { dirname, IRenderer } from "./core.js";
+class RendererImpl extends IRenderer {
+    dirpath = dirname(self.location.href);
     parseHTML(content, params = { root: false }) {
         if (params.root) {
             return new DOMParser().parseFromString(content, "text/html");
@@ -35,4 +33,4 @@ if (self.document?.currentScript?.hasAttribute("init")) {
         });
     });
 }
-exports.default = Mancha;
+export default Mancha;

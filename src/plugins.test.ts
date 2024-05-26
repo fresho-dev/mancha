@@ -2,9 +2,9 @@ import * as assert from "assert";
 import * as path from "path";
 import { describe, it } from "mocha";
 import { JSDOM } from "jsdom";
-import { ParserParams, RenderParams } from "./interfaces";
-import { IRenderer } from "./core";
-import { REACTIVE_DEBOUNCE_MILLIS } from "./reactive";
+import { ParserParams, RenderParams } from "./interfaces.js";
+import { IRenderer } from "./core.js";
+import { REACTIVE_DEBOUNCE_MILLIS } from "./reactive.js";
 
 class MockRenderer extends IRenderer {
   parseHTML(content: string, params?: ParserParams): DocumentFragment {

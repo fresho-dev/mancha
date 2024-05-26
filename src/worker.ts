@@ -1,6 +1,6 @@
 import { JSDOM } from "jsdom";
-import { IRenderer } from "./core";
-import { ParserParams, RenderParams } from "./interfaces";
+import { IRenderer } from "./core.js";
+import { ParserParams } from "./interfaces.js";
 
 export class RendererImpl extends IRenderer {
   parseHTML(content: string, params: ParserParams = { root: false }): DocumentFragment {

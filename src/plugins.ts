@@ -1,6 +1,6 @@
-import { attributeNameToCamelCase } from "./attributes";
-import { isRelativePath, traverse } from "./core";
-import { RendererPlugin } from "./interfaces";
+import { attributeNameToCamelCase } from "./attributes.js";
+import { isRelativePath, traverse } from "./core.js";
+import { RendererPlugin } from "./interfaces.js";
 
 const KW_ATTRIBUTES = new Set([
   ":bind",

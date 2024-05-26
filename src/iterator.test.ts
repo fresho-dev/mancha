@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import { describe, it } from "mocha";
-import { Iterator } from "./iterator";
+import { Iterator } from "./iterator.js";
 
 describe("Iterator", () => {
   describe("filterGenerator", () => {

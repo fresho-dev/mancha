@@ -1,12 +1,13 @@
 import express from "express";
-import { Mancha } from "mancha";
+import { RendererImpl } from "mancha";
 
 const app = express();
 
 app.get("/", async (req, res) => {
   const name = req.query.name || "Stranger";
-  const fragment = await Mancha.renderLocalPath("html/index.html", { name: name });
-  const html = Mancha.serializeDocumentFragment(fragment);
+  const renderer = new RendererImpl({ name });
+  const fragment = await renderer.preprocessLocal("html/index.html");
+  const html = renderer.serializeHTML(await renderer.renderNode(fragment));
   res.set("Content-Type", "text/html");
   res.send(html);
 });

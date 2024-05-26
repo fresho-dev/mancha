@@ -1,7 +1,7 @@
 import * as assert from "assert";
 import { describe, it } from "mocha";
 import { JSDOM } from "jsdom";
-import { attributeNameToCamelCase } from "./attributes";
+import { attributeNameToCamelCase } from "./attributes.js";
 
 describe("Mancha Element module", () => {
   describe("Attributes", () => {

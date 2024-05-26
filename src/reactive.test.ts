@@ -7,7 +7,7 @@ import {
   ReactiveProxyStore,
   proxifyStore,
   proxifyObject,
-} from "./reactive";
+} from "./reactive.js";
 
 describe("Reactive", () => {
   describe("ReactiveProxy", () => {

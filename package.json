@@ -2,8 +2,9 @@
   "name": "mancha",
   "version": "0.5.5",
   "description": "Javscript HTML rendering engine",
-  "main": "dist/index",
-  "typings": "dist/index",
+  "main": "dist/index.js",
+  "type": "module",
+  "types": "dist/index.d.ts",
   "unpkg": "dist/mancha.js",
   "scripts": {
     "clean": "gulp clean",
@@ -34,7 +35,6 @@
   "homepage": "https://gitlab.com/omtinez/mancha#README",
   "dependencies": {
     "jsdom": "^24.0.0",
-    "path-browserify": "^1.0.1",
     "through2": "^4.0.2",
     "yargs": "^17.7.2"
   },
@@ -46,7 +46,7 @@
     "@types/path-browserify": "^1.0.1",
     "@types/through2": "^2.0.36",
     "@types/yargs": "^17.0.29",
-    "gulp": "^4.0.2",
+    "gulp": "^5.0.0",
     "gulp-typescript": "^6.0.0-alpha.1",
     "mocha": "^10.2.0",
     "static-server": "^2.2.1",

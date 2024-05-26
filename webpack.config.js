@@ -1,4 +1,4 @@
-module.exports = {
+export default {
   target: "web",
   mode: "production",
   entry: "./dist/browser.js",

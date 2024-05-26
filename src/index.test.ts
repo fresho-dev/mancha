@@ -1,14 +1,19 @@
 import * as assert from "assert";
 import * as fs from "fs";
-import * as path from "path-browserify";
-import * as File from "vinyl";
+import * as path from "path";
+import * as Vinyl from "vinyl";
 import * as gulp from "gulp";
 // @ts-ignore
 import * as StaticServer from "static-server";
+import { fileURLToPath } from "url";
 import { describe, it } from "mocha";
 
-import { RendererImpl } from "./index";
-import gulpMancha from "./gulp";
+import { RendererImpl } from "./index.js";
+import gulpMancha from "./gulp_plugin.js";
+
+// Fix `__filename` and `__dirname`: https://stackoverflow.com/a/64383997.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Helper function used to test a transformation of string elements.
@@ -16,7 +21,7 @@ import gulpMancha from "./gulp";
  */
 function testRenderString(fname: string, compare = "Hello World", vars: any = {}) {
   return new Promise<void>(async (resolve, reject) => {
-    const content = fs.readFileSync(fname).toString("utf8");
+    const content = fs.readFileSync(fname);
 
     const dirpath = path.dirname(fname);
     const wwwroot = path.join(__dirname, "fixtures");
@@ -25,7 +30,7 @@ function testRenderString(fname: string, compare = "Hello World", vars: any = {}
 
     try {
       const renderer = new RendererImpl(context);
-      const fragment = await renderer.preprocessString(content, {
+      const fragment = await renderer.preprocessString(content.toString("utf8"), {
         dirpath,
         root: !fname.endsWith(".tpl.html"),
       });
@@ -94,23 +99,20 @@ function testBufferedTransform(fname: string, compare = "Hello World", vars: any
     const relpath = path.relative(fname, wwwroot) || ".";
     const context = Object.assign({ wwwroot: relpath }, vars);
 
-    const file = new File({ path: fname, contents: fs.readFileSync(fname) });
-    gulpMancha(context, path.join(__dirname, "fixtures"))._transform(
-      file,
-      "utf8",
-      (err: Error | null | undefined, file: File) => {
-        if (err) {
+    const ctor = (Vinyl as any).default || Vinyl;
+    const file = new ctor({ path: fname, contents: fs.readFileSync(fname) });
+    gulpMancha(context)._transform(file, "utf8", (err: Error | null | undefined, file: Vinyl) => {
+      if (err) {
+        reject(err);
+      } else {
+        const content = Buffer.isBuffer(file.contents) ? file.contents.toString("utf8") : null;
+        try {
+          resolve(assert.equal(content, compare, String(content)));
+        } catch (err) {
           reject(err);
-        } else {
-          const content = file.isBuffer() ? file.contents.toString("utf8") : null;
-          try {
-            resolve(assert.equal(content, compare, String(content)));
-          } catch (err) {
-            reject(err);
-          }
         }
       }
-    );
+    });
   });
 }
 
@@ -128,45 +130,42 @@ function testStreamedTransform(
   const context = Object.assign({ wwwroot: relpath }, vars);
 
   return new Promise<void>((resolve, reject) => {
-    const file = new File({
+    const ctor = (Vinyl as any).default || Vinyl;
+    const file = new ctor({
       path: fname,
       contents: fs.createReadStream(fname),
     });
-    gulpMancha(context, path.join(__dirname, "fixtures"))._transform(
-      file,
-      "utf8",
-      (err: Error | null | undefined, file: File) => {
-        if (err) {
-          reject(err);
-        } else {
-          let content: string = "";
-          if (Buffer.isBuffer(file.contents)) {
-            content = file.contents.toString("utf8");
-            try {
-              resolve(assert.equal(content, compare, content));
-            } catch (err) {
-              reject(err);
-            }
-          } else {
-            file.contents
-              ?.on("data", (chunk) => {
-                if (Buffer.isBuffer(chunk)) {
-                  content += chunk.toString("utf8");
-                } else {
-                  content += chunk.toString();
-                }
-              })
-              ?.on("end", () => {
-                try {
-                  resolve(assert.equal(content, compare, content));
-                } catch (err) {
-                  reject(err);
-                }
-              });
+    gulpMancha(context)._transform(file, "utf8", (err: Error | null | undefined, file: Vinyl) => {
+      if (err) {
+        reject(err);
+      } else {
+        let content: string = "";
+        if (Buffer.isBuffer(file.contents)) {
+          content = file.contents.toString("utf8");
+          try {
+            resolve(assert.equal(content, compare, content));
+          } catch (err) {
+            reject(err);
           }
+        } else {
+          file.contents
+            ?.on("data", (chunk) => {
+              if (Buffer.isBuffer(chunk)) {
+                content += chunk.toString("utf8");
+              } else {
+                content += chunk.toString();
+              }
+            })
+            ?.on("end", () => {
+              try {
+                resolve(assert.equal(content, compare, content));
+              } catch (err) {
+                reject(err);
+              }
+            });
         }
       }
-    );
+    });
   });
 }
 
@@ -187,11 +186,11 @@ function testGulpedTransform(
     let content: string | null = null;
     gulp
       .src(fname)
-      .pipe(gulpMancha(context, path.join(__dirname, "fixtures")))
-      .on("data", (chunk: File) => {
+      .pipe(gulpMancha(context))
+      .on("data", (chunk: Vinyl) => {
         content = chunk.isBuffer() ? chunk.contents.toString("utf8") : null;
       })
-      .on("error", (err) => {
+      .on("error", (err: Error) => {
         reject(err);
       })
       .on("end", () => {
@@ -226,7 +225,7 @@ function testAllMethods(fname: string, compare = "Hello World", vars: any = {}):
 }
 
 const port = Math.floor(1_024 + Math.random() * (Math.pow(2, 16) - 1_024));
-const server = new StaticServer({
+const server = new StaticServer.default({
   port: port,
   host: "127.0.0.1",
   rootPath: path.join(__dirname, "fixtures"),

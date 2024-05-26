@@ -1,4 +1,4 @@
-import { IRenderer } from "./core";
+import { IRenderer } from "./core.js";
 
 export interface ParserParams {
   /** Whether the file parsed is a root document, or a document fragment. */
