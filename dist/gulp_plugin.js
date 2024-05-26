@@ -1,7 +1,7 @@
 import * as path from "path";
 import * as stream from "stream";
 import * as through from "through2";
-import { RendererImpl } from "./index.js";
+import { Renderer } from "./index.js";
 /**
  * Main entrypoint to be used in Gulp. Usage:
  *
@@ -12,7 +12,7 @@ import { RendererImpl } from "./index.js";
  * before replacing it with `value` in the processed files.
  */
 function mancha(context = {}) {
-    const renderer = new RendererImpl(context);
+    const renderer = new Renderer(context);
     return through.obj(function (file, encoding, callback) {
         const catcher = (err) => {
             console.log(err);

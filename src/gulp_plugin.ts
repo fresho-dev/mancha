@@ -3,7 +3,7 @@ import * as stream from "stream";
 import * as through from "through2";
 import * as Vinyl from "vinyl";
 
-import { RendererImpl } from "./index.js";
+import { Renderer } from "./index.js";
 
 /**
  * Main entrypoint to be used in Gulp. Usage:
@@ -15,7 +15,7 @@ import { RendererImpl } from "./index.js";
  * before replacing it with `value` in the processed files.
  */
 function mancha(context: { [key: string]: string } = {}): stream.Transform {
-  const renderer = new RendererImpl(context);
+  const renderer = new Renderer(context);
   return through.obj(function (file: Vinyl, encoding: BufferEncoding, callback: Function) {
     const catcher = (err: Error) => {
       console.log(err);

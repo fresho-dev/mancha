@@ -1,25 +1,14 @@
-import { JSDOM } from "jsdom";
 import { IRenderer } from "./core.js";
 import { ParserParams } from "./interfaces.js";
 
-export class RendererImpl extends IRenderer {
+export class Renderer extends IRenderer {
   parseHTML(content: string, params: ParserParams = { root: false }): DocumentFragment {
-    const dom = new JSDOM();
-    if (params.root) {
-      const DOMParser = dom.window.DOMParser;
-      return new DOMParser().parseFromString(content, "text/html") as unknown as DocumentFragment;
-    } else {
-      const range = dom.window.document.createRange();
-      range.selectNodeContents(dom.window.document.body);
-      return range.createContextualFragment(content);
-    }
+    throw new Error("Not implemented.");
   }
   serializeHTML(root: Node | DocumentFragment | Document): string {
-    const dom = new JSDOM();
-    const XMLSerializer = dom.window.XMLSerializer;
-    return new XMLSerializer().serializeToString(root).replace(/\s?xmlns="[^"]+"/gm, "");
+    throw new Error("Not implemented.");
   }
 }
 
 // Export the renderer instance directly.
-export const Mancha = new RendererImpl();
+export const Mancha = new Renderer();

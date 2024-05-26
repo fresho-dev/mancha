@@ -6,9 +6,7 @@ import { ParserParams, RenderParams } from "./interfaces.js";
 
 class MockRenderer extends IRenderer {
   parseHTML(content: string, params?: ParserParams): DocumentFragment {
-    return params?.root
-      ? (new JSDOM(content).window.document as unknown as DocumentFragment)
-      : JSDOM.fragment(content);
+    throw new Error("Not implemented.");
   }
   serializeHTML(fragment: DocumentFragment): string {
     throw new Error("Not implemented.");

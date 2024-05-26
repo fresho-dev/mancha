@@ -4,9 +4,7 @@ import { JSDOM } from "jsdom";
 import { IRenderer, safeEval, traverse } from "./core.js";
 class MockRenderer extends IRenderer {
     parseHTML(content, params) {
-        return params?.root
-            ? new JSDOM(content).window.document
-            : JSDOM.fragment(content);
+        throw new Error("Not implemented.");
     }
     serializeHTML(fragment) {
         throw new Error("Not implemented.");

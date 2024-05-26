@@ -1,11 +1,11 @@
 import express from "express";
-import { RendererImpl } from "mancha";
+import { Renderer } from "mancha";
 
 const app = express();
 
 app.get("/", async (req, res) => {
   const name = req.query.name || "Stranger";
-  const renderer = new RendererImpl({ name });
+  const renderer = new Renderer({ name });
   const fragment = await renderer.preprocessLocal("html/index.html");
   const html = renderer.serializeHTML(await renderer.renderNode(fragment));
   res.set("Content-Type", "text/html");

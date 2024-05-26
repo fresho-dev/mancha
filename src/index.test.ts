@@ -8,7 +8,7 @@ import * as StaticServer from "static-server";
 import { fileURLToPath } from "url";
 import { describe, it } from "mocha";
 
-import { RendererImpl } from "./index.js";
+import { Renderer } from "./index.js";
 import gulpMancha from "./gulp_plugin.js";
 
 // Fix `__filename` and `__dirname`: https://stackoverflow.com/a/64383997.
@@ -29,7 +29,7 @@ function testRenderString(fname: string, compare = "Hello World", vars: any = {}
     const context = Object.assign({ wwwroot: relpath }, vars);
 
     try {
-      const renderer = new RendererImpl(context);
+      const renderer = new Renderer(context);
       const fragment = await renderer.preprocessString(content.toString("utf8"), {
         dirpath,
         root: !fname.endsWith(".tpl.html"),
@@ -54,7 +54,7 @@ function testRenderLocal(fname: string, compare = "Hello World", vars: any = {})
     const relpath = path.relative(fname, wwwroot) || ".";
     const context = Object.assign({ wwwroot: relpath }, vars);
     try {
-      const renderer = new RendererImpl(context);
+      const renderer = new Renderer(context);
       const fragment = await renderer.preprocessLocal(fname);
       await renderer.renderNode(fragment);
       const result = renderer.serializeHTML(fragment);
@@ -77,7 +77,7 @@ function testRenderRemote(fname: string, compare = "Hello World", vars: any = {}
     const remotePath = `http://127.0.0.1:${port}/${path.relative(wwwroot, fname)}`;
     const context = Object.assign({ wwwroot: relpath }, vars);
     try {
-      const renderer = new RendererImpl(context);
+      const renderer = new Renderer(context);
       const fragment = await renderer.preprocessRemote(remotePath);
       await renderer.renderNode(fragment);
       const result = renderer.serializeHTML(fragment);

@@ -1,13 +1,13 @@
 import * as assert from "assert";
 import { describe, it } from "mocha";
 import { JSDOM } from "jsdom";
-import { RendererImpl } from "./worker.js";
+import { Renderer } from "./worker.js";
 import { traverse } from "./core.js";
 
 describe("Worker", () => {
   describe("parse and serialize", () => {
     it("simple string", () => {
-      const renderer = new RendererImpl();
+      const renderer = new Renderer();
       const content = "Hello World";
       const fragment = renderer.parseHTML(content);
       const serialized = renderer.serializeHTML(fragment);
@@ -15,7 +15,7 @@ describe("Worker", () => {
     });
 
     it("single div element", () => {
-      const renderer = new RendererImpl();
+      const renderer = new Renderer();
       const content = "<div>Hello World</div>";
       const fragment = renderer.parseHTML(content);
       const serialized = renderer.serializeHTML(fragment);
@@ -23,7 +23,7 @@ describe("Worker", () => {
     });
 
     it("multiple div elements", () => {
-      const renderer = new RendererImpl();
+      const renderer = new Renderer();
       const content = "<div>Hello World</div><div>Hello World</div>";
       const fragment = renderer.parseHTML(content);
       const serialized = renderer.serializeHTML(fragment);
@@ -31,7 +31,7 @@ describe("Worker", () => {
     });
 
     it("root document with only body", () => {
-      const renderer = new RendererImpl();
+      const renderer = new Renderer();
       const content = "<body><div>Hello World</div></body>";
       const expected = "<html><head></head><body><div>Hello World</div></body></html>";
       const fragment = renderer.parseHTML(content, { root: true });
@@ -40,7 +40,7 @@ describe("Worker", () => {
     });
 
     it("root document with only head", () => {
-      const renderer = new RendererImpl();
+      const renderer = new Renderer();
       const content = "<head><title>Hello World</title></head>";
       const expected = "<html><head><title>Hello World</title></head><body></body></html>";
       const fragment = renderer.parseHTML(content, { root: true });
@@ -51,7 +51,7 @@ describe("Worker", () => {
 
   describe("{{ expressions }}", () => {
     it("set, update and get context string value", async () => {
-      const renderer = new RendererImpl({ name: null });
+      const renderer = new Renderer({ name: null });
       const fragment = JSDOM.fragment("<span>Hello {{ name }}</span>");
       const textNode = Array.from(traverse(fragment)).filter((node) => node.nodeType === 3)[0];
 
@@ -66,7 +66,7 @@ describe("Worker", () => {
     });
 
     it("sets object, gets object property", async () => {
-      const renderer = new RendererImpl();
+      const renderer = new Renderer();
       const fragment = JSDOM.fragment("<span>Hello {{ user.name }}</span>");
       const textNode = Array.from(traverse(fragment)).filter((node) => node.nodeType === 3)[0];
 
@@ -83,7 +83,7 @@ describe("Worker", () => {
 
   describe("mount", () => {
     it("set, update and get context string value", async () => {
-      const renderer = new RendererImpl();
+      const renderer = new Renderer();
       const fragment = JSDOM.fragment("<span>Hello {{ name }}</span>");
       const textNode = Array.from(traverse(fragment)).filter((node) => node.nodeType === 3)[0];
 
@@ -100,7 +100,7 @@ describe("Worker", () => {
 
   describe("watch", () => {
     it("watch a single value", async () => {
-      const renderer = new RendererImpl();
+      const renderer = new Renderer();
       const fragment = JSDOM.fragment("<span>Hello {{ name }}</span>");
       const textNode = Array.from(traverse(fragment)).filter((node) => node.nodeType === 3)[0];
 
@@ -116,7 +116,7 @@ describe("Worker", () => {
     });
 
     it("watch multiple values", async () => {
-      const renderer = new RendererImpl();
+      const renderer = new Renderer();
       const fragment = JSDOM.fragment("<span>Hello {{ name }}, it's {{ weather }}</span>");
       const textNode = Array.from(traverse(fragment)).filter((node) => node.nodeType === 3)[0];
 
