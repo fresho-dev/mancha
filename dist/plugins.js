@@ -141,7 +141,7 @@ var RendererPlugins;
         await Promise.all(expressions.map((expr) => this.watchExpr(expr, { $elem: node }, updateNode)));
     };
     RendererPlugins.resolveDataAttribute = async function (node, params) {
-        if (this.skipNodes.has(node))
+        if (this._skipNodes.has(node))
             return;
         const elem = node;
         const dataAttr = elem.getAttribute?.(":data");
@@ -153,7 +153,7 @@ var RendererPlugins;
         }
     };
     RendererPlugins.resolveWatchAttribute = async function (node, params) {
-        if (this.skipNodes.has(node))
+        if (this._skipNodes.has(node))
             return;
         const elem = node;
         const watchAttr = elem.getAttribute?.("@watch");
@@ -166,7 +166,7 @@ var RendererPlugins;
         }
     };
     RendererPlugins.resolveHtmlAttribute = async function (node, params) {
-        if (this.skipNodes.has(node))
+        if (this._skipNodes.has(node))
             return;
         const elem = node;
         const htmlAttr = elem.getAttribute?.("$html");
@@ -185,7 +185,7 @@ var RendererPlugins;
         }
     };
     RendererPlugins.resolvePropAttributes = async function (node, params) {
-        if (this.skipNodes.has(node))
+        if (this._skipNodes.has(node))
             return;
         const elem = node;
         for (const attr of Array.from(elem.attributes || [])) {
@@ -202,7 +202,7 @@ var RendererPlugins;
         }
     };
     RendererPlugins.resolveAttrAttributes = async function (node, params) {
-        if (this.skipNodes.has(node))
+        if (this._skipNodes.has(node))
             return;
         const elem = node;
         for (const attr of Array.from(elem.attributes || [])) {
@@ -218,7 +218,7 @@ var RendererPlugins;
         }
     };
     RendererPlugins.resolveEventAttributes = async function (node, params) {
-        if (this.skipNodes.has(node))
+        if (this._skipNodes.has(node))
             return;
         const elem = node;
         for (const attr of Array.from(elem.attributes || [])) {
@@ -233,7 +233,7 @@ var RendererPlugins;
         }
     };
     RendererPlugins.resolveForAttribute = async function (node, params) {
-        if (this.skipNodes.has(node))
+        if (this._skipNodes.has(node))
             return;
         const elem = node;
         const forAttr = elem.getAttribute?.(":for")?.trim();
@@ -242,8 +242,8 @@ var RendererPlugins;
             // Remove the processed attributes from node.
             elem.removeAttribute(":for");
             // Ensure the node and its children are not processed by subsequent steps.
-            for (const child of (0, core_1.traverse)(node, this.skipNodes)) {
-                this.skipNodes.add(child);
+            for (const child of (0, core_1.traverse)(node, this._skipNodes)) {
+                this._skipNodes.add(child);
             }
             // Place the template node into a template element.
             const parent = node.parentNode;
@@ -267,7 +267,7 @@ var RendererPlugins;
                     // Remove all the previously added children, if any.
                     children.splice(0, children.length).forEach((child) => {
                         parent.removeChild(child);
-                        this.skipNodes.delete(child);
+                        this._skipNodes.delete(child);
                     });
                     // Validate that the expression returns a list of items.
                     if (!Array.isArray(items)) {
@@ -285,7 +285,7 @@ var RendererPlugins;
                         // Also add the new element to the store.
                         children.push(copy);
                         // Since the element will be handled by a subrenderer, skip it in parent renderer.
-                        this.skipNodes.add(copy);
+                        this._skipNodes.add(copy);
                         // Render the element using the subrenderer.
                         await subrenderer.mount(copy, params);
                         this.log("Rendered list child:\n", copy, copy.outerHTML);
@@ -299,7 +299,7 @@ var RendererPlugins;
         }
     };
     RendererPlugins.resolveBindAttribute = async function (node, params) {
-        if (this.skipNodes.has(node))
+        if (this._skipNodes.has(node))
             return;
         const elem = node;
         const bindExpr = elem.getAttribute?.(":bind");
@@ -325,7 +325,7 @@ var RendererPlugins;
         }
     };
     RendererPlugins.resolveShowAttribute = async function (node, params) {
-        if (this.skipNodes.has(node))
+        if (this._skipNodes.has(node))
             return;
         const elem = node;
         const showExpr = elem.getAttribute?.(":show");

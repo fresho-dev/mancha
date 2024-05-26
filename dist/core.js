@@ -54,7 +54,7 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
     evalkeys = ["$elem", "$event"];
     expressionCache = new Map();
     evalCallbacks = new Map();
-    skipNodes = new Set();
+    _skipNodes = new Set();
     debug(flag) {
         this.debugging = flag;
         return this;
@@ -89,7 +89,8 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
         });
     }
     clone() {
-        return new this.constructor(Object.fromEntries(this.store.entries()));
+        const instance = new this.constructor(Object.fromEntries(this.store.entries()));
+        return instance.debug(this.debugging);
     }
     log(...args) {
         if (this.debugging)
@@ -140,7 +141,7 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
     }
     async preprocessNode(root, params) {
         params = Object.assign({ dirpath: this.dirpath, maxdepth: 10 }, params);
-        const promises = new iterator_1.Iterator(traverse(root, this.skipNodes)).map(async (node) => {
+        const promises = new iterator_1.Iterator(traverse(root, this._skipNodes)).map(async (node) => {
             this.log("Preprocessing node:\n", node);
             // Resolve all the includes in the node.
             await plugins_1.RendererPlugins.resolveIncludes.call(this, node, params);
@@ -153,7 +154,7 @@ class IRenderer extends reactive_1.ReactiveProxyStore {
     async renderNode(root, params) {
         // Iterate over all the nodes and apply appropriate handlers.
         // Do these steps one at a time to avoid any potential race conditions.
-        for (const node of traverse(root, this.skipNodes)) {
+        for (const node of traverse(root, this._skipNodes)) {
             this.log("Rendering node:\n", node);
             // Resolve the :data attribute in the node.
             await plugins_1.RendererPlugins.resolveDataAttribute.call(this, node, params);

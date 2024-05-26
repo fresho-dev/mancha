@@ -139,7 +139,7 @@ export namespace RendererPlugins {
   };
 
   export const resolveDataAttribute: RendererPlugin = async function (node, params) {
-    if (this.skipNodes.has(node)) return;
+    if (this._skipNodes.has(node)) return;
     const elem = node as Element;
     const dataAttr = elem.getAttribute?.(":data");
     if (dataAttr) {
@@ -152,7 +152,7 @@ export namespace RendererPlugins {
   };
 
   export const resolveWatchAttribute: RendererPlugin = async function (node, params) {
-    if (this.skipNodes.has(node)) return;
+    if (this._skipNodes.has(node)) return;
     const elem = node as Element;
     const watchAttr = elem.getAttribute?.("@watch");
     if (watchAttr) {
@@ -167,7 +167,7 @@ export namespace RendererPlugins {
   };
 
   export const resolveHtmlAttribute: RendererPlugin = async function (node, params) {
-    if (this.skipNodes.has(node)) return;
+    if (this._skipNodes.has(node)) return;
     const elem = node as Element;
     const htmlAttr = elem.getAttribute?.("$html");
     if (htmlAttr) {
@@ -189,7 +189,7 @@ export namespace RendererPlugins {
   };
 
   export const resolvePropAttributes: RendererPlugin = async function (node, params) {
-    if (this.skipNodes.has(node)) return;
+    if (this._skipNodes.has(node)) return;
     const elem = node as Element;
     for (const attr of Array.from(elem.attributes || [])) {
       if (attr.name.startsWith("$") && !KW_ATTRIBUTES.has(attr.name)) {
@@ -213,7 +213,7 @@ export namespace RendererPlugins {
   };
 
   export const resolveAttrAttributes: RendererPlugin = async function (node, params) {
-    if (this.skipNodes.has(node)) return;
+    if (this._skipNodes.has(node)) return;
     const elem = node as Element;
     for (const attr of Array.from(elem.attributes || [])) {
       if (attr.name.startsWith(":") && !KW_ATTRIBUTES.has(attr.name)) {
@@ -234,7 +234,7 @@ export namespace RendererPlugins {
   };
 
   export const resolveEventAttributes: RendererPlugin = async function (node, params) {
-    if (this.skipNodes.has(node)) return;
+    if (this._skipNodes.has(node)) return;
     const elem = node as Element;
     for (const attr of Array.from(elem.attributes || [])) {
       if (attr.name.startsWith("@") && !KW_ATTRIBUTES.has(attr.name)) {
@@ -251,7 +251,7 @@ export namespace RendererPlugins {
   };
 
   export const resolveForAttribute: RendererPlugin = async function (node, params) {
-    if (this.skipNodes.has(node)) return;
+    if (this._skipNodes.has(node)) return;
     const elem = node as Element;
     const forAttr = elem.getAttribute?.(":for")?.trim();
     if (forAttr) {
@@ -261,8 +261,8 @@ export namespace RendererPlugins {
       elem.removeAttribute(":for");
 
       // Ensure the node and its children are not processed by subsequent steps.
-      for (const child of traverse(node, this.skipNodes)) {
-        this.skipNodes.add(child);
+      for (const child of traverse(node, this._skipNodes)) {
+        this._skipNodes.add(child);
       }
 
       // Place the template node into a template element.
@@ -293,7 +293,7 @@ export namespace RendererPlugins {
               // Remove all the previously added children, if any.
               children.splice(0, children.length).forEach((child) => {
                 parent.removeChild(child);
-                this.skipNodes.delete(child);
+                this._skipNodes.delete(child);
               });
 
               // Validate that the expression returns a list of items.
@@ -316,7 +316,7 @@ export namespace RendererPlugins {
                 children.push(copy);
 
                 // Since the element will be handled by a subrenderer, skip it in parent renderer.
-                this.skipNodes.add(copy);
+                this._skipNodes.add(copy);
 
                 // Render the element using the subrenderer.
                 await subrenderer.mount(copy, params);
@@ -335,7 +335,7 @@ export namespace RendererPlugins {
   };
 
   export const resolveBindAttribute: RendererPlugin = async function (node, params) {
-    if (this.skipNodes.has(node)) return;
+    if (this._skipNodes.has(node)) return;
     const elem = node as Element;
     const bindExpr = elem.getAttribute?.(":bind");
     if (bindExpr) {
@@ -367,7 +367,7 @@ export namespace RendererPlugins {
   };
 
   export const resolveShowAttribute: RendererPlugin = async function (node, params) {
-    if (this.skipNodes.has(node)) return;
+    if (this._skipNodes.has(node)) return;
     const elem = node as HTMLElement;
     const showExpr = elem.getAttribute?.(":show");
     if (showExpr) {

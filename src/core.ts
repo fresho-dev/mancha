@@ -65,7 +65,7 @@ export abstract class IRenderer extends ReactiveProxyStore {
   protected readonly evalkeys: string[] = ["$elem", "$event"];
   protected readonly expressionCache: Map<string, Function> = new Map();
   protected readonly evalCallbacks: Map<string, EvalListener[]> = new Map();
-  readonly skipNodes: Set<Node> = new Set();
+  readonly _skipNodes: Set<Node> = new Set();
   abstract parseHTML(content: string, params?: ParserParams): DocumentFragment;
   abstract serializeHTML(root: DocumentFragment | Node): string;
 
@@ -118,7 +118,8 @@ export abstract class IRenderer extends ReactiveProxyStore {
   }
 
   clone(): IRenderer {
-    return new (this.constructor as any)(Object.fromEntries(this.store.entries()));
+    const instance = new (this.constructor as any)(Object.fromEntries(this.store.entries()));
+    return instance.debug(this.debugging);
   }
 
   log(...args: any[]): void {
@@ -181,7 +182,7 @@ export abstract class IRenderer extends ReactiveProxyStore {
   ): Promise<void> {
     params = Object.assign({ dirpath: this.dirpath, maxdepth: 10 }, params);
 
-    const promises = new Iterator(traverse(root, this.skipNodes)).map(async (node) => {
+    const promises = new Iterator(traverse(root, this._skipNodes)).map(async (node) => {
       this.log("Preprocessing node:\n", node);
       // Resolve all the includes in the node.
       await RendererPlugins.resolveIncludes.call(this, node, params);
@@ -196,7 +197,7 @@ export abstract class IRenderer extends ReactiveProxyStore {
   async renderNode(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void> {
     // Iterate over all the nodes and apply appropriate handlers.
     // Do these steps one at a time to avoid any potential race conditions.
-    for (const node of traverse(root, this.skipNodes)) {
+    for (const node of traverse(root, this._skipNodes)) {
       this.log("Rendering node:\n", node);
       // Resolve the :data attribute in the node.
       await RendererPlugins.resolveDataAttribute.call(this, node, params);
