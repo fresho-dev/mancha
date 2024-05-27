@@ -5,6 +5,7 @@ import { JSDOM } from "jsdom";
 import { ParserParams, RenderParams } from "./interfaces.js";
 import { IRenderer } from "./core.js";
 import { Renderer as NodeRenderer } from "./index.js";
+import { Renderer as WorkerRenderer } from "./worker.js";
 import { REACTIVE_DEBOUNCE_MILLIS } from "./reactive.js";
 
 class MockRenderer extends IRenderer {
