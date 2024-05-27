@@ -36,10 +36,6 @@ export function isRelativePath(fpath) {
 export function makeEvalFunction(code, args = []) {
     return new Function(...args, `with (this) { return (async () => (${code}))(); }`);
 }
-export function safeEval(context, code, args = {}) {
-    const inner = `with (this) { return (async () => (${code}))(); }`;
-    return new Function(...Object.keys(args), inner).call(context, ...Object.values(args));
-}
 export class IRenderer extends ReactiveProxyStore {
     debugging = false;
     dirpath = "";

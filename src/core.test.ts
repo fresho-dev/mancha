@@ -1,7 +1,7 @@
 import * as assert from "assert";
 import { describe, it } from "mocha";
 import { JSDOM } from "jsdom";
-import { IRenderer, safeEval, traverse } from "./core.js";
+import { IRenderer, traverse } from "./core.js";
 import { ParserParams, RenderParams } from "./interfaces.js";
 
 class MockRenderer extends IRenderer {
@@ -60,36 +60,34 @@ describe("Core", () => {
     });
   });
 
-  describe("safeEval", () => {
+  describe("eval", () => {
     it("simple sum", async () => {
       const fn = "a + b";
-      const result = await safeEval(null, fn, { a: 1, b: 2 });
+      const renderer = new MockRenderer({ a: 1, b: 2 });
+      const [result] = await renderer.eval(fn);
       assert.equal(result, 3);
     });
 
     it("sum with nested properties", async () => {
       const fn = "x.a + x.b";
-      const result = await safeEval(null, fn, { x: { a: 1, b: 2 } });
+      const renderer = new MockRenderer({ x: { a: 1, b: 2 } });
+      const [result] = await renderer.eval(fn);
       assert.equal(result, 3);
     });
 
     it("modifies variables", async () => {
       const object = { x: { a: 1 } };
       const fn = "x.a++";
-      await safeEval(null, fn, object);
-      assert.equal(object.x.a, 2);
-    });
-
-    it('passing "this" to function', async () => {
-      const object = { x: { a: 1 } };
-      const fn = "this.x.a++";
-      await safeEval(object, fn);
+      const renderer = new MockRenderer(object);
+      const [result] = await renderer.eval(fn);
+      assert.equal(result, 1);
       assert.equal(object.x.a, 2);
     });
 
     it("async call within function", async () => {
       const fn = "await Promise.resolve(1)";
-      const result = await safeEval(null, fn);
+      const renderer = new MockRenderer({ a: 1 });
+      const [result] = await renderer.eval(fn);
       assert.equal(result, 1);
     });
 
@@ -104,16 +102,15 @@ describe("Core", () => {
       { expression: "a || !b", expected: false },
     ].forEach(({ expression, expected }) => {
       it(`boolean expressions with multiple variables: ${expression}`, async () => {
-        const result = await safeEval(null, expression, { a: false, b: true });
+        const renderer = new MockRenderer({ a: false, b: true });
+        const [result] = await renderer.eval(expression);
         assert.equal(result, expected);
       });
     });
-  });
 
-  describe("eval", () => {
     it("using implicit `this` in function", async () => {
-      const renderer = new MockRenderer({ a: 1 });
       const fn = "++a";
+      const renderer = new MockRenderer({ a: 1 });
       const [result] = await renderer.eval(fn);
       assert.equal(result, 2);
       assert.equal(renderer.get("a"), 2);

@@ -50,15 +50,6 @@ export function makeEvalFunction(code: string, args: string[] = []): Function {
   return new Function(...args, `with (this) { return (async () => (${code}))(); }`);
 }
 
-export function safeEval(
-  context: any,
-  code: string,
-  args: { [key: string]: any } = {}
-): Promise<any> {
-  const inner = `with (this) { return (async () => (${code}))(); }`;
-  return new Function(...Object.keys(args), inner).call(context, ...Object.values(args));
-}
-
 export abstract class IRenderer extends ReactiveProxyStore {
   protected debugging: boolean = false;
   protected readonly dirpath: string = "";
