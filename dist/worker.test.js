@@ -29,18 +29,16 @@ describe("Worker", () => {
         it("root document with only body", () => {
             const renderer = new Renderer();
             const content = "<body><div>Hello World</div></body>";
-            const expected = "<html><head></head><body><div>Hello World</div></body></html>";
             const fragment = renderer.parseHTML(content, { root: true });
             const serialized = renderer.serializeHTML(fragment);
-            assert.equal(expected, serialized);
+            assert.equal(content, serialized);
         });
         it("root document with only head", () => {
             const renderer = new Renderer();
             const content = "<head><title>Hello World</title></head>";
-            const expected = "<html><head><title>Hello World</title></head><body></body></html>";
             const fragment = renderer.parseHTML(content, { root: true });
             const serialized = renderer.serializeHTML(fragment);
-            assert.equal(expected, serialized);
+            assert.equal(content, serialized);
         });
     });
     describe("{{ expressions }}", () => {

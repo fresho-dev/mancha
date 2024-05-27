@@ -1,12 +1,14 @@
+import * as htmlparser2 from "htmlparser2";
+import { render as renderDOM } from "dom-serializer";
 import { IRenderer } from "./core.js";
 import { ParserParams } from "./interfaces.js";
 
 export class Renderer extends IRenderer {
   parseHTML(content: string, params: ParserParams = { root: false }): DocumentFragment {
-    throw new Error("Not implemented.");
+    return htmlparser2.parseDocument(content) as any;
   }
   serializeHTML(root: Node | DocumentFragment | Document): string {
-    throw new Error("Not implemented.");
+    return renderDOM(root as any);
   }
 }
 

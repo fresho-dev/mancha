@@ -3,18 +3,24 @@ import * as path from "path";
 import { describe, it } from "mocha";
 import { JSDOM } from "jsdom";
 import { IRenderer } from "./core.js";
+import { Renderer as NodeRenderer } from "./index.js";
 import { REACTIVE_DEBOUNCE_MILLIS } from "./reactive.js";
 class MockRenderer extends IRenderer {
     parseHTML(content, params) {
-        return params?.root
-            ? new JSDOM(content).window.document
-            : JSDOM.fragment(content);
+        return JSDOM.fragment(content);
     }
     serializeHTML(fragment) {
         throw new Error("Not implemented.");
     }
     preprocessLocal(fpath, params) {
         throw new Error("Not implemented.");
+    }
+}
+function testRenderers(testName, testCode, rendererClasses) {
+    for (const ctor of rendererClasses) {
+        describe(`${ctor.name}`, () => {
+            it(testName, () => testCode(ctor));
+        });
     }
 }
 describe("Plugins", () => {
@@ -25,72 +31,72 @@ describe("Plugins", () => {
             "//foo.com/bar.html",
             "//foo.com/baz/../bar.html",
         ].forEach((source) => {
-            it(`includes a remote source using absolute path (${source})`, async () => {
+            testRenderers(`includes a remote source using absolute path (${source})`, async (ctor) => {
+                const renderer = new ctor();
                 const html = `<include src="${source}"></include>`;
-                const fragment = JSDOM.fragment(html);
-                const renderer = new MockRenderer();
+                const fragment = renderer.parseHTML(html);
                 renderer.preprocessRemote = async function (fpath, params) {
-                    return JSDOM.fragment(`<div>${fpath}</div>`);
+                    return renderer.parseHTML(`<div>${fpath}</div>`);
                 };
                 await renderer.mount(fragment);
                 const node = fragment.firstElementChild;
                 assert.equal(node.getAttribute("src"), null);
                 assert.equal(node.innerHTML, source);
-            });
+            }, [MockRenderer, NodeRenderer]);
         });
         ["/bar.html", "/baz/../bar.html"].forEach((source) => {
-            it(`includes a local source using absolute path (${source})`, async () => {
+            testRenderers(`includes a local source using absolute path (${source})`, async (ctor) => {
+                const renderer = new ctor();
                 const html = `<include src="${source}"></include>`;
-                const fragment = JSDOM.fragment(html);
-                const renderer = new MockRenderer();
+                const fragment = renderer.parseHTML(html);
                 renderer.preprocessLocal = async function (fpath, params) {
-                    return JSDOM.fragment(`<div>${fpath}</div>`);
+                    return renderer.parseHTML(`<div>${fpath}</div>`);
                 };
                 await renderer.mount(fragment, { dirpath: "/foo" });
                 const node = fragment.firstElementChild;
                 assert.equal(node.getAttribute("src"), null);
                 assert.equal(node.innerHTML, source);
-            });
+            }, [MockRenderer, NodeRenderer]);
         });
         ["bar.html", "./bar.html", "baz/../bar.html"].forEach((source) => {
-            it(`includes a local source using relative path (${source})`, async () => {
+            testRenderers(`includes a local source using relative path (${source})`, async (ctor) => {
+                const renderer = new ctor();
                 const html = `<include src="${source}"></include>`;
-                const fragment = JSDOM.fragment(html);
-                const renderer = new MockRenderer();
+                const fragment = renderer.parseHTML(html);
                 renderer.preprocessLocal = async function (fpath, params) {
-                    return JSDOM.fragment(`<div>${fpath}</div>`);
+                    return renderer.parseHTML(`<div>${fpath}</div>`);
                 };
                 await renderer.mount(fragment, { dirpath: "/foo" });
                 const node = fragment.firstElementChild;
                 assert.equal(node.getAttribute("src"), null);
                 assert.equal(node.innerHTML, `/foo/${source}`);
-            });
+            }, [MockRenderer, NodeRenderer]);
         });
     });
     describe("rebase", () => {
-        it("rebase relative paths", async () => {
+        testRenderers("rebase relative paths", async (ctor) => {
+            const renderer = new ctor();
             const html = `<script src="bar/baz.js"></script>`;
-            const fragment = JSDOM.fragment(html);
-            const renderer = new MockRenderer();
+            const fragment = renderer.parseHTML(html);
             await renderer.mount(fragment, { dirpath: "/foo" });
             const node = fragment.firstElementChild;
             assert.equal(node.getAttribute("src"), "/foo/bar/baz.js");
-        });
-        it("rebase (not) absolute paths", async () => {
+        }, [MockRenderer, NodeRenderer]);
+        testRenderers("rebase (not) absolute paths", async (ctor) => {
+            const renderer = new ctor();
             const html = `<script src="/foo/bar.js"></script>`;
-            const fragment = JSDOM.fragment(html);
-            const renderer = new MockRenderer();
+            const fragment = renderer.parseHTML(html);
             await renderer.mount(fragment, { dirpath: "/baz" });
             const node = fragment.firstElementChild;
             assert.equal(node.getAttribute("src"), "/foo/bar.js");
-        });
-        it("rebase relative paths with indirection", async () => {
+        }, [MockRenderer, NodeRenderer]);
+        testRenderers("rebase relative paths with indirection", async (ctor) => {
+            const renderer = new ctor();
             const html = `<include src="foo/fragment.tpl.html"></include>`;
-            const fragment = JSDOM.fragment(html);
-            const renderer = new MockRenderer();
+            const fragment = renderer.parseHTML(html);
             renderer.preprocessLocal = async function (fpath, params) {
                 assert.equal(fpath, "foo/fragment.tpl.html");
-                const node = JSDOM.fragment(`<script src="bar/baz.js"></script>`);
+                const node = renderer.parseHTML(`<script src="bar/baz.js"></script>`);
                 await renderer.preprocessNode(node, {
                     ...params,
                     dirpath: path.dirname(fpath),
@@ -100,30 +106,30 @@ describe("Plugins", () => {
             await renderer.mount(fragment);
             const node = fragment.firstElementChild;
             assert.equal(node.getAttribute("src"), "foo/bar/baz.js");
-        });
-    });
-    it("rebase relative paths with indirection and base path", async () => {
-        const html = `<include src="bar/fragment.tpl.html"></include>`;
-        const fragment = JSDOM.fragment(html);
-        const renderer = new MockRenderer();
-        renderer.preprocessLocal = async function (fpath, params) {
-            assert.equal(fpath, "foo/bar/fragment.tpl.html");
-            const node = JSDOM.fragment(`<script src="baz/qux.js"></script>`);
-            await renderer.preprocessNode(node, {
-                ...params,
-                dirpath: path.dirname(fpath),
-            });
-            return node;
-        };
-        await renderer.mount(fragment, { dirpath: "foo" });
-        const node = fragment.firstElementChild;
-        assert.equal(node.getAttribute("src"), "foo/bar/baz/qux.js");
+        }, [MockRenderer, NodeRenderer]);
+        testRenderers("rebase relative paths with indirection and base path", async (ctor) => {
+            const renderer = new ctor();
+            const html = `<include src="bar/fragment.tpl.html"></include>`;
+            const fragment = renderer.parseHTML(html);
+            renderer.preprocessLocal = async function (fpath, params) {
+                assert.equal(fpath, "foo/bar/fragment.tpl.html");
+                const node = renderer.parseHTML(`<script src="baz/qux.js"></script>`);
+                await renderer.preprocessNode(node, {
+                    ...params,
+                    dirpath: path.dirname(fpath),
+                });
+                return node;
+            };
+            await renderer.mount(fragment, { dirpath: "foo" });
+            const node = fragment.firstElementChild;
+            assert.equal(node.getAttribute("src"), "foo/bar/baz/qux.js");
+        }, [MockRenderer, NodeRenderer]);
     });
     describe("{{ expressions }}", () => {
-        it("resolves single variable", async () => {
+        testRenderers("resolves single variable", async (ctor) => {
             const content = "Hello {{ name }}";
-            const renderer = new MockRenderer({ name: "World" });
-            const fragment = JSDOM.fragment(content);
+            const renderer = new ctor({ name: "World" });
+            const fragment = renderer.parseHTML(content);
             const textNode = fragment.childNodes[0];
             assert.equal(textNode.textContent, "Hello {{ name }}");
             await renderer.mount(fragment);
@@ -132,43 +138,43 @@ describe("Plugins", () => {
             assert.equal(textNode.textContent, "Hello Stranger");
             await renderer.set("name", "John");
             assert.equal(textNode.textContent, "Hello John");
-        });
+        }, [MockRenderer, NodeRenderer]);
     });
     describe(":data", () => {
-        it("initializes unseen value", async () => {
+        testRenderers("initializes unseen value", async (ctor) => {
+            const renderer = new ctor();
             const html = `<div :data="{foo: 'bar'}"></div>`;
-            const fragment = JSDOM.fragment(html);
+            const fragment = renderer.parseHTML(html);
             const node = fragment.firstElementChild;
-            const renderer = new MockRenderer();
             await renderer.mount(fragment);
             assert.equal(node.getAttribute(":data"), null);
             assert.equal(renderer.get("foo"), "bar");
-        });
-        it("initializes an array of values", async () => {
+        }, [MockRenderer, NodeRenderer]);
+        testRenderers("initializes an array of values", async (ctor) => {
+            const renderer = new ctor();
             const html = `<div :data="{arr: [1, 2, 3]}"></div>`;
-            const fragment = JSDOM.fragment(html);
+            const fragment = renderer.parseHTML(html);
             const node = fragment.firstElementChild;
-            const renderer = new MockRenderer();
             await renderer.mount(fragment);
             assert.equal(node.getAttribute(":data"), null);
             assert.deepEqual(renderer.get("arr"), [1, 2, 3]);
-        });
-        it("initializes an array of objects", async () => {
+        }, [MockRenderer, NodeRenderer]);
+        testRenderers("initializes an array of objects", async (ctor) => {
+            const renderer = new ctor();
             const html = `<div :data="{arr: [{n: 1}, {n: 2}, {n: 3}]}"></div>`;
-            const fragment = JSDOM.fragment(html);
+            const fragment = renderer.parseHTML(html);
             const node = fragment.firstElementChild;
-            const renderer = new MockRenderer();
             await renderer.mount(fragment);
             assert.equal(node.getAttribute(":data"), null);
             assert.deepEqual(renderer.get("arr"), [{ n: 1 }, { n: 2 }, { n: 3 }]);
-        });
+        }, [MockRenderer, NodeRenderer]);
     });
     describe("@watch", () => {
-        it("simple watch", async () => {
+        testRenderers("simple watch", async (ctor) => {
+            const renderer = new ctor({ foo: "foo", bar: "bar", foobar: null });
             const html = `<div @watch="foobar = foo + bar"></div>`;
-            const fragment = JSDOM.fragment(html);
+            const fragment = renderer.parseHTML(html);
             const node = fragment.firstElementChild;
-            const renderer = new MockRenderer({ foo: "foo", bar: "bar", foobar: null });
             await renderer.mount(fragment);
             assert.equal(node.getAttribute("@watch"), null);
             assert.equal(renderer.get("foobar"), "foobar");
@@ -178,12 +184,12 @@ describe("Plugins", () => {
             // Change the other dependency and observe result.
             await renderer.set("bar", "qux");
             assert.equal(renderer.get("foobar"), "bazqux");
-        });
-        it("watch nested property", async () => {
+        }, [MockRenderer, NodeRenderer]);
+        testRenderers("watch nested property", async (ctor) => {
+            const renderer = new ctor({ foo: { bar: "bar" }, foobar: null });
             const html = `<div @watch="foobar = foo.bar"></div>`;
-            const fragment = JSDOM.fragment(html);
+            const fragment = renderer.parseHTML(html);
             const node = fragment.firstElementChild;
-            const renderer = new MockRenderer({ foo: { bar: "bar" }, foobar: null });
             await renderer.mount(fragment);
             assert.equal(node.getAttribute("@watch"), null);
             assert.equal(renderer.get("foobar"), "bar");
@@ -194,67 +200,68 @@ describe("Plugins", () => {
             // Replace parent object.
             await renderer.set("foo", { bar: "qux" });
             assert.equal(renderer.get("foobar"), "qux");
-        });
-        it("watch boolean expression with two variables", async () => {
+        }, [MockRenderer, NodeRenderer]);
+        testRenderers("watch boolean expression with two variables", async (ctor) => {
+            const renderer = new ctor({ foo: true, bar: false, foobar: null });
             const html = `<div @watch="foobar = !foo && !bar"></div>`;
-            const fragment = JSDOM.fragment(html);
+            const fragment = renderer.parseHTML(html);
             const node = fragment.firstElementChild;
-            const renderer = new MockRenderer({ foo: true, bar: false, foobar: null });
             await renderer.mount(fragment);
             assert.equal(node.getAttribute("@watch"), null);
             assert.equal(renderer.get("foobar"), false);
             await renderer.set("foo", false);
             assert.equal(renderer.get("foobar"), true);
-        });
+        }, [MockRenderer, NodeRenderer]);
     });
     describe(":attribute", () => {
-        it("class", async () => {
+        testRenderers("class", async (ctor) => {
+            const renderer = new ctor({ foo: "bar" });
             const html = `<div :class="foo"></div>`;
-            const fragment = JSDOM.fragment(html);
+            const fragment = renderer.parseHTML(html);
             const node = fragment.firstElementChild;
-            const renderer = new MockRenderer({ foo: "bar" });
             await renderer.mount(fragment);
             assert.equal(node.getAttribute(":class"), null);
             assert.equal(renderer.get("foo"), "bar");
             assert.equal(node.className, "bar");
-        });
+        }, [MockRenderer, NodeRenderer]);
     });
     describe("$attribute", () => {
-        it("inner-text", async () => {
+        testRenderers("inner-text", async (ctor) => {
+            const renderer = new ctor({ foo: "bar" });
             const html = `<div $inner-text="foo"></div>`;
-            const fragment = JSDOM.fragment(html);
+            const fragment = renderer.parseHTML(html);
             const node = fragment.firstElementChild;
-            const renderer = new MockRenderer({ foo: "bar" });
             await renderer.mount(fragment);
             assert.equal(node.getAttribute("$inner-text"), null);
             assert.equal(renderer.get("foo"), "bar");
             assert.equal(node.innerText, "bar");
-        });
+        }, [MockRenderer, NodeRenderer]);
     });
     describe("@attribute", () => {
-        it("click", async () => {
+        testRenderers("click", async (ctor) => {
+            const renderer = new ctor({ counter: 0 });
             const html = `<div @click="counter++"></div>`;
-            const fragment = JSDOM.fragment(html);
+            const fragment = renderer.parseHTML(html);
             const node = fragment.firstElementChild;
-            const renderer = new MockRenderer({ counter: 0 });
             await renderer.mount(fragment);
             assert.equal(renderer.get("counter"), 0);
             node.click?.();
             await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
             assert.equal(renderer.get("counter"), 1);
-        });
+        }, [MockRenderer, NodeRenderer]);
     });
     describe(":for", () => {
         [0, 1, 10].forEach((n) => {
-            it(`container with ${n} items`, async () => {
+            testRenderers(`container with ${n} items`, async (ctor) => {
+                const renderer = new ctor();
                 const html = `<div :for="item in items">{{ item }}</div>`;
-                const fragment = JSDOM.fragment(html);
+                const fragment = renderer.parseHTML(html);
                 const node = fragment.firstElementChild;
                 const parent = node.parentNode;
                 assert.notEqual(parent, null);
                 // Create array with 0..n elements.
                 const container = Array.from({ length: n }, (_, x) => String(x));
-                const renderer = new MockRenderer({ items: container });
+                await renderer.set("items", container);
                 await renderer.mount(fragment);
                 assert.equal(node.getAttribute(":for"), null);
                 assert.notEqual(node.parentNode, parent);
@@ -264,16 +271,17 @@ describe("Plugins", () => {
                 for (let i = 0; i < container.length; i++) {
                     assert.equal(children[i].textContent, container[i]);
                 }
-            });
+            }, [MockRenderer, NodeRenderer]);
         });
-        it("container that updates items", async () => {
+        testRenderers("container that updates items", async (ctor) => {
+            const renderer = new ctor();
             const html = `<div :for="item in items">{{ item }}</div>`;
-            const fragment = JSDOM.fragment(html);
+            const fragment = renderer.parseHTML(html);
             const node = fragment.firstElementChild;
             const parent = node.parentNode;
             assert.notEqual(parent, null);
             // Create array with no elements.
-            const renderer = new MockRenderer({ items: [] });
+            await renderer.set("items", []);
             await renderer.mount(fragment);
             // Confirm that there are no children except for the template element.
             const children0 = Array.from(parent?.childNodes || []);
@@ -302,15 +310,15 @@ describe("Plugins", () => {
             assert.equal(children3.length, renderer.get("items").length + 1);
             assert.equal(children3[1].textContent, "foo");
             assert.equal(children3[2].textContent, "bar");
-        });
-        it("container does not resolve initially", async () => {
+        }, [MockRenderer, NodeRenderer]);
+        testRenderers("container does not resolve initially", async (ctor) => {
+            const renderer = new ctor();
             const html = `<div :for="item in items">{{ item }}</div>`;
-            const fragment = JSDOM.fragment(html);
+            const fragment = renderer.parseHTML(html);
             const node = fragment.firstElementChild;
             const parent = node.parentNode;
             assert.notEqual(parent, null);
             // Create renderer with no array => fails.
-            const renderer = new MockRenderer();
             await assert.rejects(renderer.mount(fragment), /ReferenceError: items is not defined/);
             // Add a placeholder for the array, but it's not array type.
             await renderer.set("items", null);
@@ -322,11 +330,12 @@ describe("Plugins", () => {
             assert.equal(children.length, 1);
             assert.equal(children[0].tagName, "TEMPLATE");
             assert.equal(children[0].firstChild, node);
-        });
-        it("template node with attributes and properties", async () => {
+        }, [MockRenderer, NodeRenderer]);
+        testRenderers("template node with attributes and properties", async (ctor) => {
+            const renderer = new ctor();
             const html = `<div $myprop="item" :myattr="item" :for="item in items">{{ item }}</div>`;
-            const fragment = JSDOM.fragment(html);
-            const renderer = new MockRenderer({ items: ["1", "2"] });
+            const fragment = renderer.parseHTML(html);
+            await renderer.set("items", ["1", "2"]);
             await renderer.mount(fragment);
             // await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 4));
             const children12 = Array.from(fragment.childNodes).slice(1);
@@ -347,16 +356,17 @@ describe("Plugins", () => {
             assert.equal(childrenAB[1]["myprop"], "b", 'myprop should be "b"');
             assert.equal(childrenAB[0].getAttribute("myattr"), "a");
             assert.equal(childrenAB[1].getAttribute("myattr"), "b");
-        });
+        }, [MockRenderer, NodeRenderer]);
     });
     describe(":bind", () => {
-        it("binds a text input value with existing store key", async () => {
+        testRenderers("binds a text input value with existing store key", async (ctor) => {
             // Since we're dealing with events, we need to create a full document.
             const html = `<input :bind="foo" />`;
             const dom = new JSDOM(html);
             const doc = dom.window.document;
             const node = doc.body.firstElementChild;
-            const renderer = new MockRenderer({ foo: "bar" });
+            const renderer = new ctor();
+            await renderer.set("foo", "bar");
             await renderer.mount(doc.body);
             // Processed attributes are removed.
             assert.equal(node.getAttribute(":bind"), null);
@@ -371,25 +381,26 @@ describe("Plugins", () => {
             node.dispatchEvent(new dom.window.Event("change"));
             await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
             assert.equal(renderer.get("foo"), "qux");
-        });
-        it("fails to bind a text input value with undefined variable", async () => {
+        }, [MockRenderer, NodeRenderer]);
+        testRenderers("fails to bind a text input value with undefined variable", async (ctor) => {
             // Since we're dealing with events, we need to create a full document.
             const html = `<input :bind="foo" />`;
             const dom = new JSDOM(html, {});
             const doc = dom.window.document;
             console.log(doc.body.firstElementChild?.outerHTML);
             // Value does not exist in store before mount().
-            const renderer = new MockRenderer();
+            const renderer = new ctor();
             assert.equal(renderer.has("foo"), false);
             await assert.rejects(renderer.mount(doc.body), /ReferenceError: foo is not defined/);
-        });
-        it("binds a text input value with custom events", async () => {
+        }, [MockRenderer, NodeRenderer]);
+        testRenderers("binds a text input value with custom events", async (ctor) => {
             // Since we're dealing with events, we need to create a full document.
             const html = `<input :bind="foo" :bind-events="my-custom-event" />`;
             const dom = new JSDOM(html);
             const doc = dom.window.document;
             const node = doc.body.firstElementChild;
-            const renderer = new MockRenderer({ foo: "bar" });
+            const renderer = new ctor();
+            await renderer.set("foo", "bar");
             await renderer.mount(doc.body);
             // Processed attributes are removed.
             assert.equal(node.getAttribute(":bind"), null);
@@ -407,88 +418,93 @@ describe("Plugins", () => {
             node.dispatchEvent(new dom.window.Event("my-custom-event"));
             await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
             assert.equal(renderer.get("foo"), "qux");
-        });
+        }, [MockRenderer, NodeRenderer]);
     });
     describe(":show", () => {
-        it("shows then hides an element", async () => {
+        testRenderers("shows then hides an element", async (ctor) => {
+            const renderer = new ctor();
             const html = `<div :show="foo" />`;
-            const fragment = JSDOM.fragment(html);
+            const fragment = renderer.parseHTML(html);
             const node = fragment.firstElementChild;
-            const renderer = new MockRenderer({ foo: true });
+            await renderer.set("foo", true);
             await renderer.mount(fragment);
             assert.ok(!node.hasAttribute(":show"));
             assert.notEqual(node.style.display, "none");
             await renderer.set("foo", false);
             assert.equal(node.style.display, "none");
-        });
-        it("hides then shows an element", async () => {
+        }, [MockRenderer, NodeRenderer]);
+        testRenderers("hides then shows an element", async (ctor) => {
+            const renderer = new ctor();
             const html = `<div :show="foo" style="display: bar" />`;
-            const fragment = JSDOM.fragment(html);
+            const fragment = renderer.parseHTML(html);
             const node = fragment.firstElementChild;
-            const renderer = new MockRenderer({ foo: false });
+            await renderer.set("foo", false);
             await renderer.mount(fragment);
             assert.ok(!node.hasAttribute(":show"));
             assert.equal(node.style.display, "none");
             await renderer.set("foo", true);
             assert.equal(node.style.display, "bar");
-        });
-        it("hides an element based on data from the same element", async () => {
+        }, [MockRenderer, NodeRenderer]);
+        testRenderers("hides an element based on data from the same element", async (ctor) => {
+            const renderer = new ctor();
             const html = `<div :data="{show: false}" :show="show" />`;
-            const fragment = JSDOM.fragment(html);
+            const fragment = renderer.parseHTML(html);
             const node = fragment.firstElementChild;
-            const renderer = new MockRenderer();
             await renderer.mount(fragment);
             assert.ok(!node.hasAttribute(":show"));
             assert.equal(node.style.display, "none");
             await renderer.set("show", true);
             assert.notEqual(node.style.display, "none");
-        });
+        }, [MockRenderer, NodeRenderer]);
     });
     describe("$html", () => {
-        it("render simple HTML", async () => {
+        testRenderers("render simple HTML", async (ctor) => {
+            const renderer = new ctor();
             const html = `<div $html="foo" />`;
-            const fragment = JSDOM.fragment(html);
+            const fragment = renderer.parseHTML(html);
             const node = fragment.firstElementChild;
             const inner = "<div>bar</div>";
-            const renderer = new MockRenderer({ foo: inner });
+            await renderer.set("foo", inner);
             await renderer.mount(fragment);
             assert.equal(node.innerHTML, inner);
             assert.equal(node.childElementCount, 1);
-        });
-        it("render contents of HTML", async () => {
+        }, [MockRenderer, NodeRenderer]);
+        testRenderers("render contents of HTML", async (ctor) => {
+            const renderer = new ctor();
             const html = `<div $html="foo"></div>`;
-            const fragment = JSDOM.fragment(html);
+            const fragment = renderer.parseHTML(html);
             const node = fragment.firstElementChild;
             const inner = "<div>{{ bar }}</div>";
-            const renderer = new MockRenderer({ foo: inner, bar: "Hello World" });
+            await renderer.set("foo", inner);
+            await renderer.set("bar", "Hello World");
             await renderer.mount(fragment);
             assert.equal(node.firstChild?.textContent, "Hello World");
             // Modify content and observe changes.
             await renderer.set("bar", "Goodbye World");
             assert.equal(node.firstChild?.textContent, "Goodbye World");
-        });
-        it("render HTML within a :for", async () => {
+        }, [MockRenderer, NodeRenderer]);
+        testRenderers("render HTML within a :for", async (ctor) => {
+            const renderer = new ctor();
             const html = `<div :for="item in items" $html="inner"></div>`;
-            const fragment = JSDOM.fragment(html);
-            const renderer = new MockRenderer({
-                items: [{ text: "foo" }, { text: "bar" }],
-                inner: `<span $text="item.text"></span>`,
-            });
+            const fragment = renderer.parseHTML(html);
+            await renderer.set("items", [{ text: "foo" }, { text: "bar" }]);
+            await renderer.set("inner", `<span $text="item.text"></span>`);
             await renderer.mount(fragment);
             const children = Array.from(fragment.childNodes).slice(1);
             assert.equal(children.length, 2);
             assert.equal(children[0].firstChild?.textContent, "foo");
             assert.equal(children[1].firstChild?.textContent, "bar");
-        });
+        }, [MockRenderer, NodeRenderer]);
     });
     describe("shorthands", () => {
-        it("$text", async () => {
+        testRenderers("$text", async (ctor) => {
+            const renderer = new ctor();
             const html = `<div $text="foo" />`;
-            const fragment = JSDOM.fragment(html);
+            const fragment = renderer.parseHTML(html);
             const node = fragment.firstElementChild;
-            const renderer = new MockRenderer({ foo: "bar" });
+            await renderer.set("foo", "bar");
             await renderer.mount(fragment);
             assert.equal(node.textContent, "bar");
-        });
+        }, [MockRenderer, NodeRenderer]);
     });
 });

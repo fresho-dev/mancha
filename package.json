@@ -34,6 +34,8 @@
   },
   "homepage": "https://gitlab.com/omtinez/mancha#README",
   "dependencies": {
+    "dom-serializer": "^2.0.0",
+    "htmlparser2": "^9.1.0",
     "jsdom": "^24.0.0",
     "through2": "^4.0.2",
     "yargs": "^17.7.2"
