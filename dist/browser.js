@@ -1,5 +1,5 @@
 import { dirname, IRenderer } from "./core.js";
-class RendererImpl extends IRenderer {
+class Renderer extends IRenderer {
     dirpath = dirname(self.location.href);
     parseHTML(content, params = { root: false }) {
         if (params.root) {
@@ -19,7 +19,7 @@ class RendererImpl extends IRenderer {
         return this.preprocessRemote(fpath, params);
     }
 }
-const Mancha = new RendererImpl();
+const Mancha = new Renderer();
 self["Mancha"] = Mancha;
 const currentScript = self.document?.currentScript;
 if (self.document?.currentScript?.hasAttribute("init")) {

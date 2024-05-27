@@ -1,7 +1,7 @@
 import { dirname, IRenderer } from "./core.js";
 import { ParserParams, RenderParams } from "./interfaces.js";
 
-class RendererImpl extends IRenderer {
+class Renderer extends IRenderer {
   protected readonly dirpath: string = dirname(self.location.href);
   parseHTML(content: string, params: ParserParams = { root: false }): DocumentFragment {
     if (params.root) {
@@ -21,7 +21,7 @@ class RendererImpl extends IRenderer {
   }
 }
 
-const Mancha = new RendererImpl();
+const Mancha = new Renderer();
 (self as any)["Mancha"] = Mancha;
 const currentScript = self.document?.currentScript;
 

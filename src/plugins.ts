@@ -1,4 +1,18 @@
-import { attributeNameToCamelCase } from "./attributes.js";
+import {
+  appendChild,
+  attributeNameToCamelCase,
+  createElement,
+  getAttribute,
+  getNodeValue,
+  insertBefore,
+  removeAttribute,
+  removeChild,
+  replaceChildren,
+  replaceWith,
+  setAttribute,
+  setNodeValue,
+  setTextContent,
+} from "./dome.js";
 import { isRelativePath, traverse } from "./core.js";
 import { RendererPlugin } from "./interfaces.js";
 
@@ -11,10 +25,6 @@ const KW_ATTRIBUTES = new Set([
   "@watch",
   "$html",
 ]);
-const ATTR_SHORTHANDS: { [key: string]: string } = {
-  $text: "$text-content",
-  // $html: "$inner-HTML",
-};
 
 /** @internal */
 export namespace RendererPlugins {
@@ -27,14 +37,14 @@ export namespace RendererPlugins {
     this.log("<include> params:", params);
 
     // Early exit: <include> tags must have a src attribute.
-    const src = elem.getAttribute?.("src");
+    const src = getAttribute(elem, "src");
     if (!src) {
       throw new Error(`"src" attribute missing from ${node}.`);
     }
 
     // The included file will replace this tag, and all elements will be fully preprocessed.
     const handler = (fragment: DocumentFragment) => {
-      node.replaceWith(...Array.from(fragment.childNodes));
+      replaceWith(node, ...Array.from(fragment.childNodes));
     };
 
     // Compute the subparameters being passed down to the included file.
@@ -67,16 +77,16 @@ export namespace RendererPlugins {
   };
 
   export const rebaseRelativePaths: RendererPlugin = async function (node, params) {
-    const elem = node as any;
+    const elem = node as Element;
     const tagName = elem.tagName?.toLowerCase();
 
     // Early exit: if there is no dirpath, we cannot rebase relative paths.
     if (!params?.dirpath) return;
 
     // We have to retrieve the attribute, because the node property is always an absolute path.
-    const src = (node as Element).getAttribute?.("src");
-    const href = (node as Element).getAttribute?.("href");
-    const data = (node as Element).getAttribute?.("data");
+    const src = getAttribute(elem, "src");
+    const href = getAttribute(elem, "href");
+    const data = getAttribute(elem, "data");
 
     // Early exit: if there is no element attribute to rebase, we can skip this step.
     const anyattr = src || href || data;
@@ -86,37 +96,37 @@ export namespace RendererPlugins {
     }
 
     if (tagName === "img" && src && isRelativePath(src)) {
-      elem.src = `${params.dirpath}/${src}`;
+      setAttribute(elem, "src", `${params.dirpath}/${src}`);
     } else if (tagName === "a" && href && isRelativePath(href)) {
-      elem.href = `${params.dirpath}/${href}`;
+      setAttribute(elem, "href", `${params.dirpath}/${href}`);
     } else if (tagName === "link" && href && isRelativePath(href)) {
-      elem.href = `${params.dirpath}/${href}`;
+      setAttribute(elem, "href", `${params.dirpath}/${href}`);
     } else if (tagName === "script" && src && isRelativePath(src)) {
-      elem.src = `${params.dirpath}/${src}`;
+      setAttribute(elem, "src", `${params.dirpath}/${src}`);
     } else if (tagName === "source" && src && isRelativePath(src)) {
-      elem.src = `${params.dirpath}/${src}`;
+      setAttribute(elem, "src", `${params.dirpath}/${src}`);
     } else if (tagName === "audio" && src && isRelativePath(src)) {
-      elem.src = `${params.dirpath}/${src}`;
+      setAttribute(elem, "src", `${params.dirpath}/${src}`);
     } else if (tagName === "video" && src && isRelativePath(src)) {
-      elem.src = `${params.dirpath}/${src}`;
+      setAttribute(elem, "src", `${params.dirpath}/${src}`);
     } else if (tagName === "track" && src && isRelativePath(src)) {
-      elem.src = `${params.dirpath}/${src}`;
+      setAttribute(elem, "src", `${params.dirpath}/${src}`);
     } else if (tagName === "iframe" && src && isRelativePath(src)) {
-      elem.src = `${params.dirpath}/${src}`;
+      setAttribute(elem, "src", `${params.dirpath}/${src}`);
     } else if (tagName === "object" && data && isRelativePath(data)) {
-      elem.data = `${params.dirpath}/${data}`;
+      setAttribute(elem, "data", `${params.dirpath}/${data}`);
     } else if (tagName === "input" && src && isRelativePath(src)) {
-      elem.src = `${params.dirpath}/${src}`;
+      setAttribute(elem, "src", `${params.dirpath}/${src}`);
     } else if (tagName === "area" && href && isRelativePath(href)) {
-      elem.href = `${params.dirpath}/${href}`;
+      setAttribute(elem, "href", `${params.dirpath}/${href}`);
     } else if (tagName === "base" && href && isRelativePath(href)) {
-      elem.href = `${params.dirpath}/${href}`;
+      setAttribute(elem, "href", `${params.dirpath}/${href}`);
     }
   };
 
   export const resolveTextNodeExpressions: RendererPlugin = async function (node, params) {
     if (node.nodeType !== 3) return;
-    const content = node.nodeValue || "";
+    const content = getNodeValue(node) || "";
     this.log(`Processing node content value:\n`, content);
 
     // Identify all the expressions found in the content.
@@ -131,7 +141,7 @@ export namespace RendererPlugins {
         const [result] = await this.eval(expr, { $elem: node });
         updatedContent = updatedContent.replace(`{{ ${expr} }}`, String(result));
       }
-      node.nodeValue = updatedContent;
+      setNodeValue(node, updatedContent);
     };
 
     // Trigger the eval and pass our full node update function as the callback.
@@ -141,11 +151,11 @@ export namespace RendererPlugins {
   export const resolveDataAttribute: RendererPlugin = async function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as Element;
-    const dataAttr = elem.getAttribute?.(":data");
+    const dataAttr = getAttribute(elem, ":data");
     if (dataAttr) {
       this.log(":data attribute found in:\n", node);
 
-      elem.removeAttribute(":data");
+      removeAttribute(elem, ":data");
       const [result] = await this.eval(dataAttr, { $elem: node });
       await this.update(result);
     }
@@ -154,27 +164,44 @@ export namespace RendererPlugins {
   export const resolveWatchAttribute: RendererPlugin = async function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as Element;
-    const watchAttr = elem.getAttribute?.("@watch");
+    const watchAttr = getAttribute(elem, "@watch");
     if (watchAttr) {
       this.log("@watch attribute found in:\n", node);
 
       // Remove the attribute from the node.
-      elem.removeAttribute("@watch");
+      removeAttribute(elem, "@watch");
 
       // Compute the function's result.
       await this.watchExpr(watchAttr, { $elem: node }, () => {});
     }
   };
 
+  export const resolveTextAttributes: RendererPlugin = async function (node, params) {
+    if (this._skipNodes.has(node)) return;
+    const elem = node as Element;
+    const textAttr = getAttribute(elem, "$text");
+    if (textAttr) {
+      this.log("$text attribute found in:\n", node);
+
+      // Remove the attribute from the node.
+      removeAttribute(elem, "$text");
+
+      // Compute the function's result and track dependencies.
+      await this.watchExpr(textAttr, { $elem: node }, (result) =>
+        setTextContent(node as Element, result)
+      );
+    }
+  };
+
   export const resolveHtmlAttribute: RendererPlugin = async function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as Element;
-    const htmlAttr = elem.getAttribute?.("$html");
+    const htmlAttr = getAttribute(elem, "$html");
     if (htmlAttr) {
       this.log("$html attribute found in:\n", node);
 
       // Remove the attribute from the node.
-      elem.removeAttribute("$html");
+      removeAttribute(elem, "$html");
 
       // Obtain a subrenderer for the node contents.
       const subrenderer = this.clone();
@@ -183,7 +210,7 @@ export namespace RendererPlugins {
       await this.watchExpr(htmlAttr, { $elem: node }, async (result) => {
         const fragment = await subrenderer.preprocessString(result, params);
         await subrenderer.renderNode(fragment, params);
-        elem.replaceChildren(fragment);
+        replaceChildren(elem, fragment);
       });
     }
   };
@@ -196,17 +223,14 @@ export namespace RendererPlugins {
         this.log(attr.name, "attribute found in:\n", node);
 
         // Remove the attribute from the node.
-        elem.removeAttribute(attr.name);
-
-        // Apply any shorthand conversions if necessary.
-        const propName = (ATTR_SHORTHANDS[attr.name] || attr.name).slice(1);
+        removeAttribute(elem, attr.name);
 
         // Compute the function's result and track dependencies.
-        const prop = attributeNameToCamelCase(propName);
+        const propName = attributeNameToCamelCase(attr.name.slice(1));
         await this.watchExpr(
           attr.value,
           { $elem: node },
-          (result) => ((node as any)[prop] = result)
+          (result) => ((node as any)[propName] = result)
         );
       }
     }
@@ -220,14 +244,12 @@ export namespace RendererPlugins {
         this.log(attr.name, "attribute found in:\n", node);
 
         // Remove the processed attributes from node.
-        elem.removeAttribute(attr.name);
-
-        // Apply any shorthand conversions if necessary.
-        const attrName = (ATTR_SHORTHANDS[attr.name] || attr.name).slice(1);
+        removeAttribute(elem, attr.name);
 
         // Compute the function's result and track dependencies.
+        const attrName = attr.name.slice(1);
         await this.watchExpr(attr.value, { $elem: node }, (result) =>
-          elem.setAttribute(attrName, result as string)
+          setAttribute(elem, attrName, result as string)
         );
       }
     }
@@ -241,7 +263,7 @@ export namespace RendererPlugins {
         this.log(attr.name, "attribute found in:\n", node);
 
         // Remove the processed attributes from node.
-        elem.removeAttribute(attr.name);
+        removeAttribute(elem, attr.name);
 
         node.addEventListener?.(attr.name.substring(1), (event) => {
           this.eval(attr.value, { $elem: node, $event: event });
@@ -253,12 +275,12 @@ export namespace RendererPlugins {
   export const resolveForAttribute: RendererPlugin = async function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as Element;
-    const forAttr = elem.getAttribute?.(":for")?.trim();
+    const forAttr = getAttribute(elem, ":for")?.trim();
     if (forAttr) {
       this.log(":for attribute found in:\n", node);
 
       // Remove the processed attributes from node.
-      elem.removeAttribute(":for");
+      removeAttribute(elem, ":for");
 
       // Ensure the node and its children are not processed by subsequent steps.
       for (const child of traverse(node, this._skipNodes)) {
@@ -267,9 +289,10 @@ export namespace RendererPlugins {
 
       // Place the template node into a template element.
       const parent = node.parentNode!!;
-      const template = node.ownerDocument!!.createElement("template");
-      parent.insertBefore(template, node);
-      template.append(node);
+      const template = createElement("template", node.ownerDocument);
+      insertBefore(parent, template as Node, node);
+      removeChild(parent, node);
+      appendChild(template as Node, node);
       this.log(":for template:\n", template);
 
       // Tokenize the input by splitting it based on the format "{key} in {expression}".
@@ -287,46 +310,59 @@ export namespace RendererPlugins {
         this.log(":for list items:", items);
 
         // Acquire the lock atomically.
-        this.lock = this.lock.then(
-          () =>
-            new Promise(async (resolve) => {
-              // Remove all the previously added children, if any.
-              children.splice(0, children.length).forEach((child) => {
-                parent.removeChild(child);
-                this._skipNodes.delete(child);
-              });
+        this.lock = this.lock
+          .then(
+            () =>
+              new Promise<void>(async (resolve) => {
+                // Remove all the previously added children, if any.
+                children.splice(0, children.length).forEach((child) => {
+                  removeChild(parent, child);
+                  this._skipNodes.delete(child);
+                });
 
-              // Validate that the expression returns a list of items.
-              if (!Array.isArray(items)) {
-                console.error(`Expression did not yield a list: \`${itemsExpr}\` => \`${items}\``);
-                return resolve();
-              }
+                // Validate that the expression returns a list of items.
+                if (!Array.isArray(items)) {
+                  console.error(
+                    `Expression did not yield a list: \`${itemsExpr}\` => \`${items}\``
+                  );
+                  return resolve();
+                }
 
-              // Loop through the container items in reverse, because we insert from back to front.
-              for (const item of items.slice(0).reverse()) {
-                // Create a subrenderer that will hold the loop item and all node descendants.
-                const subrenderer = this.clone();
-                await subrenderer.set(loopKey, item);
+                // Loop through the container items.
+                for (const item of items) {
+                  // Create a subrenderer that will hold the loop item and all node descendants.
+                  const subrenderer = this.clone();
+                  await subrenderer.set(loopKey, item);
 
-                // Create a new HTML element for each item and add them to parent node.
-                const copy = node.cloneNode(true);
-                parent.insertBefore(copy, template.nextSibling);
+                  // Create a new HTML element for each item and add them to parent node.
+                  const copy = node.cloneNode(true);
 
-                // Also add the new element to the store.
-                children.push(copy);
+                  // Also add the new element to the store.
+                  children.push(copy);
 
-                // Since the element will be handled by a subrenderer, skip it in parent renderer.
-                this._skipNodes.add(copy);
+                  // Since the element will be handled by a subrenderer, skip it in parent renderer.
+                  this._skipNodes.add(copy);
 
-                // Render the element using the subrenderer.
-                await subrenderer.mount(copy, params);
-                this.log("Rendered list child:\n", copy, (copy as HTMLElement).outerHTML);
-              }
+                  // Render the element using the subrenderer.
+                  await subrenderer.mount(copy, params);
+                  this.log("Rendered list child:\n", copy, (copy as HTMLElement).outerHTML);
+                }
 
-              // Release the lock.
-              resolve();
-            })
-        );
+                // Insert the new children into the parent container.
+                const reference = template.nextSibling as ChildNode;
+                for (const child of children) {
+                  insertBefore(parent, child, reference);
+                }
+
+                // Release the lock.
+                resolve();
+              })
+          )
+          .catch((exc) => {
+            console.error(exc);
+            throw new Error(exc);
+          })
+          .then();
 
         // Return the lock so the whole operation can be awaited.
         return this.lock;
@@ -337,20 +373,20 @@ export namespace RendererPlugins {
   export const resolveBindAttribute: RendererPlugin = async function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as Element;
-    const bindExpr = elem.getAttribute?.(":bind");
+    const bindExpr = getAttribute(elem, ":bind");
     if (bindExpr) {
       this.log(":bind attribute found in:\n", node);
 
       // The change events we listen for can be overriden by user.
       const defaultEvents = ["change", "input"];
-      const updateEvents = elem.getAttribute?.(":bind-events")?.split(",") || defaultEvents;
+      const updateEvents = getAttribute(elem, ":bind-events")?.split(",") || defaultEvents;
 
       // Remove the processed attributes from node.
-      elem.removeAttribute(":bind");
-      elem.removeAttribute(":bind-events");
+      removeAttribute(elem, ":bind");
+      removeAttribute(elem, ":bind-events");
 
       // If the element is of type checkbox, we bind to the "checked" property.
-      const prop = elem.getAttribute("type") === "checkbox" ? "checked" : "value";
+      const prop = getAttribute(elem, "type") === "checkbox" ? "checked" : "value";
 
       // Watch for updates in the store and bind our property ==> node value.
       const propExpr = `$elem.${prop} = ${bindExpr}`;
@@ -369,23 +405,33 @@ export namespace RendererPlugins {
   export const resolveShowAttribute: RendererPlugin = async function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as HTMLElement;
-    const showExpr = elem.getAttribute?.(":show");
+    const showExpr = getAttribute(elem, ":show");
     if (showExpr) {
       this.log(":show attribute found in:\n", node);
 
       // Remove the processed attributes from node.
-      elem.removeAttribute(":show");
+      removeAttribute(elem, ":show");
 
       // TODO: Instead of using element display, insert a dummy <template> to track position of
       // child, then replace it with the original child when needed.
 
       // Store the original display value to reset it later if needed.
-      const display = elem.style.display === "none" ? "" : elem.style.display;
+      const display =
+        elem.style?.display === "none"
+          ? ""
+          : elem.style?.display ??
+            getAttribute(elem, "style")
+              ?.split(";")
+              ?.find((x) => x.split(":")[0] === "display")
+              ?.split(":")
+              ?.at(1)
+              ?.trim();
 
       // Compute the function's result and track dependencies.
       await this.watchExpr(showExpr, { $elem: node }, (result) => {
         // If the result is false, set the node's display to none.
-        elem.style.display = result ? display : "none";
+        if (elem.style) elem.style.display = result ? display : "none";
+        else setAttribute(elem, "style", `display: ${result ? display : "none"};`);
       });
     }
   };

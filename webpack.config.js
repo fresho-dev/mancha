@@ -5,4 +5,7 @@ export default {
   output: {
     filename: "mancha.js",
   },
+  externals: {
+    htmlparser2: 'htmlparser2',
+  },
 };

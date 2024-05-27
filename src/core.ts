@@ -99,8 +99,9 @@ export abstract class IRenderer extends ReactiveProxyStore {
     fpath: string,
     params?: RenderParams & ParserParams
   ): Promise<DocumentFragment> {
-    const cache = params?.cache || "default";
-    const content = await fetch(fpath, { cache }).then((res) => res.text());
+    const fetchOptions: RequestInit = {};
+    if (params?.cache) fetchOptions.cache = params.cache;
+    const content = await fetch(fpath, fetchOptions).then((res) => res.text());
     return this.preprocessString(content, {
       ...params,
       dirpath: dirname(fpath),
@@ -125,16 +126,23 @@ export abstract class IRenderer extends ReactiveProxyStore {
   }
 
   async eval(expr: string, args: { [key: string]: any } = {}): Promise<[any, string[]]> {
-    const fn = this.cachedExpressionFunction(expr);
-    const vals = this.evalkeys.map((key) => args[key]);
-    if (Object.keys(args).some((key) => !this.evalkeys.includes(key))) {
-      throw new Error(`Invalid argument key, must be one of: ${this.evalkeys.join(", ")}`);
+    if (this.store.has(expr)) {
+      // Shortcut: if the expression is just an item from the value store, use that directly.
+      const result = this.get(expr);
+      return [result, [expr]];
+    } else {
+      // Otherwise, perform the expression evaluation.
+      const fn = this.cachedExpressionFunction(expr);
+      const vals = this.evalkeys.map((key) => args[key]);
+      if (Object.keys(args).some((key) => !this.evalkeys.includes(key))) {
+        throw new Error(`Invalid argument key, must be one of: ${this.evalkeys.join(", ")}`);
+      }
+      const [result, dependencies] = await this.trace(async function () {
+        return fn.call(this, ...vals);
+      });
+      this.log(`eval \`${expr}\` => `, result, `[ ${dependencies.join(", ")} ]`);
+      return [result, dependencies];
     }
-    const [result, dependencies] = await this.trace(async function () {
-      return fn.call(this, ...vals);
-    });
-    this.log(`eval \`${expr}\` => `, result, `[ ${dependencies.join(", ")} ]`);
-    return [result, dependencies];
   }
 
   watchExpr(expr: string, args: { [key: string]: any }, callback: EvalListener): Promise<void> {
@@ -197,6 +205,8 @@ export abstract class IRenderer extends ReactiveProxyStore {
       await RendererPlugins.resolveDataAttribute.call(this, node, params);
       // Resolve the :for attribute in the node.
       await RendererPlugins.resolveForAttribute.call(this, node, params);
+      // Resolve the $text attribute in the node.
+      await RendererPlugins.resolveTextAttributes.call(this, node, params);
       // Resolve the $html attribute in the node.
       await RendererPlugins.resolveHtmlAttribute.call(this, node, params);
       // Resolve the :show attribute in the node.
