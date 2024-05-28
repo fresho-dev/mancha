@@ -146,12 +146,12 @@ export class IRenderer extends ReactiveProxyStore {
             this.log("Preprocessing node:\n", node);
             // Resolve all the includes in the node.
             await RendererPlugins.resolveIncludes.call(this, node, params);
-            // Resolve all the relative paths in the node.
-            await RendererPlugins.rebaseRelativePaths.call(this, node, params);
             // Register all the custom elements in the node.
             await RendererPlugins.registerCustomElements.call(this, node, params);
             // Resolve all the custom elements in the node.
             await RendererPlugins.resolveCustomElements.call(this, node, params);
+            // Resolve all the relative paths in the node.
+            await RendererPlugins.rebaseRelativePaths.call(this, node, params);
         });
         // Wait for all the rendering operations to complete.
         await Promise.all(promises.generator());
