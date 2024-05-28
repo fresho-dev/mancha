@@ -102,6 +102,28 @@ describe("Plugins", () => {
         { MockRenderer, NodeRenderer, WorkerRenderer }
       );
     });
+
+    testRenderers(
+      `propagates tags to first child`,
+      async (ctor) => {
+        const renderer = new ctor();
+        const html = `<include src="foo.html" myattr="bar"></include>`;
+        const fragment = renderer.parseHTML(html);
+
+        renderer.preprocessLocal = async function (fpath, params) {
+          return renderer.parseHTML(
+            `<span>Hello</span> <span>World</span>`
+          ) as unknown as DocumentFragment;
+        };
+        await renderer.mount(fragment);
+
+        const node = fragment.firstChild as Element;
+        assert.equal(getAttribute(node, "src"), null);
+        assert.equal(getAttribute(node, "myattr"), "bar");
+        assert.equal(getAttribute(node.nextSibling as Element, "myattr"), null);
+      },
+      { MockRenderer, NodeRenderer, WorkerRenderer }
+    );
   });
 
   describe("rebase", () => {
@@ -216,8 +238,9 @@ describe("Plugins", () => {
         const fragment = renderer.parseHTML(html);
         const node = fragment.firstChild as Element;
         await renderer.mount(fragment);
+        const subrenderer = (node as any).renderer;
         assert.equal(getAttribute(node, ":data"), null);
-        assert.equal(renderer.get("foo"), "bar");
+        assert.equal(subrenderer.get("foo"), "bar");
       },
       { MockRenderer, NodeRenderer, WorkerRenderer }
     );
@@ -230,8 +253,9 @@ describe("Plugins", () => {
         const fragment = renderer.parseHTML(html);
         const node = fragment.firstChild as Element;
         await renderer.mount(fragment);
+        const subrenderer = (node as any).renderer;
         assert.equal(getAttribute(node, ":data"), null);
-        assert.deepEqual(renderer.get("arr"), [1, 2, 3]);
+        assert.deepEqual(subrenderer.get("arr"), [1, 2, 3]);
       },
       { MockRenderer, NodeRenderer, WorkerRenderer }
     );
@@ -244,8 +268,33 @@ describe("Plugins", () => {
         const fragment = renderer.parseHTML(html);
         const node = fragment.firstChild as Element;
         await renderer.mount(fragment);
+        const subrenderer = (node as any).renderer;
         assert.equal(getAttribute(node, ":data"), null);
-        assert.deepEqual(renderer.get("arr"), [{ n: 1 }, { n: 2 }, { n: 3 }]);
+        assert.deepEqual(subrenderer.get("arr"), [{ n: 1 }, { n: 2 }, { n: 3 }]);
+      },
+      { MockRenderer, NodeRenderer, WorkerRenderer }
+    );
+
+    testRenderers(
+      "initializes using subrenderer",
+      async (ctor) => {
+        const renderer = new ctor({ foo: 1, bar: 2 });
+        const html = `<div :data="{ baz: 3 }"></div>`;
+        const fragment = renderer.parseHTML(html);
+        const node = fragment.firstChild as Element;
+        await renderer.mount(fragment);
+        const subrenderer = (node as any).renderer;
+        assert.equal(getAttribute(node, ":data"), null);
+
+        // The parent renderer only has the initial properties.
+        assert.equal(renderer.get("foo"), 1);
+        assert.equal(renderer.get("bar"), 2);
+        assert.equal(renderer.has("baz"), false);
+
+        // The subrenderer has all the properties + the new one.
+        assert.equal(subrenderer.get("foo"), 1);
+        assert.equal(subrenderer.get("bar"), 2);
+        assert.equal(subrenderer.get("baz"), 3);
       },
       { MockRenderer, NodeRenderer, WorkerRenderer }
     );
@@ -630,7 +679,7 @@ describe("Plugins", () => {
       "hides then shows an element",
       async (ctor) => {
         const renderer = new ctor();
-        const html = `<div :show="foo" style="display: bar" />`;
+        const html = `<div :show="foo" style="display: bar;" />`;
         const fragment = renderer.parseHTML(html);
         const node = fragment.firstChild as HTMLElement;
 
@@ -657,12 +706,13 @@ describe("Plugins", () => {
         const node = fragment.firstChild as HTMLElement;
 
         await renderer.mount(fragment);
+        const subrenderer = (node as any).renderer;
 
         assert.ok(!node.hasAttribute?.(":show"));
         assert.equal(getAttribute(node, "style"), "display: none;");
         assert.equal((node as HTMLElement).style?.display ?? "none", "none");
 
-        await renderer.set("show", true);
+        await subrenderer.set("show", true);
         assert.notEqual(getAttribute(node, "style"), "display: none;");
         assert.notEqual((node as HTMLElement).style?.display, "none");
       },

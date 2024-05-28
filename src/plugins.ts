@@ -44,6 +44,12 @@ export namespace RendererPlugins {
 
     // The included file will replace this tag, and all elements will be fully preprocessed.
     const handler = (fragment: DocumentFragment) => {
+      // Add whatever attributes the include tag had to the first child.
+      const child = fragment.firstChild as Element;
+      for (const attr of Array.from(elem.attributes)) {
+        if (child && attr.name !== "src") setAttribute(child, attr.name, attr.value);
+      }
+      // Replace the include tag with the contents of the included file.
       replaceWith(node, ...Array.from(fragment.childNodes));
     };
 
@@ -155,9 +161,22 @@ export namespace RendererPlugins {
     if (dataAttr) {
       this.log(":data attribute found in:\n", node);
 
+      // Remove the attribute from the node.
       removeAttribute(elem, ":data");
-      const [result] = await this.eval(dataAttr, { $elem: node });
-      await this.update(result);
+
+      // Create a subrenderer and process the tag.
+      const subrenderer = this.clone();
+      (node as any).renderer = subrenderer;
+      const [result] = await subrenderer.eval(dataAttr, { $elem: node });
+      await subrenderer.update(result);
+
+      // Skip all the children of the current node.
+      for (const child of traverse(node, this._skipNodes)) {
+        this._skipNodes.add(child);
+      }
+
+      // Mount the current node with the subrenderer.
+      await subrenderer.mount(node, params);
     }
   };
 
