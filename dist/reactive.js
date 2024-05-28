@@ -23,8 +23,8 @@ function isProxified(object) {
 /** Default debouncer time in millis. */
 export const REACTIVE_DEBOUNCE_MILLIS = 10;
 export function proxifyObject(object, callback, deep = true) {
-    // If this object is already a proxy, return it as-is.
-    if (object == null || isProxified(object))
+    // If this object is already a proxy or a Promise, return it as-is.
+    if (object == null || isProxified(object) || object instanceof Promise)
         return object;
     // First, proxify any existing properties if deep = true.
     if (deep) {

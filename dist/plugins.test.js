@@ -6,7 +6,7 @@ import { IRenderer } from "./core.js";
 import { Renderer as NodeRenderer } from "./index.js";
 import { Renderer as WorkerRenderer } from "./worker.js";
 import { REACTIVE_DEBOUNCE_MILLIS } from "./reactive.js";
-import { getAttribute, innerHTML, getTextContent } from "./dome.js";
+import { getAttribute, innerHTML, getTextContent, } from "./dome.js";
 class MockRenderer extends IRenderer {
     parseHTML(content, params) {
         return JSDOM.fragment(content);
@@ -74,18 +74,6 @@ describe("Plugins", () => {
                 assert.equal(getTextContent(node), `/foo/${source}`);
             }, { MockRenderer, NodeRenderer, WorkerRenderer });
         });
-        testRenderers(`self-closing tag`, async (ctor) => {
-            const renderer = new ctor();
-            const html = `<include src="foo.html"/>`;
-            const fragment = renderer.parseHTML(html);
-            renderer.preprocessLocal = async function (fpath, params) {
-                return renderer.parseHTML(`<div>Hello World</div>`);
-            };
-            await renderer.mount(fragment);
-            const node = fragment.firstChild;
-            assert.equal(getAttribute(node, "src"), null);
-            assert.equal(getTextContent(node), `Hello World`);
-        }, { MockRenderer, NodeRenderer, WorkerRenderer });
         testRenderers(`propagates attributes to first child`, async (ctor) => {
             const renderer = new ctor({ a: 1, b: 2 });
             const html = `<include src="foo.html" attr="bar" :foo="a" $bar="b"></include>`;
@@ -169,51 +157,33 @@ describe("Plugins", () => {
             assert.equal(getAttribute(node, "attr"), "1");
             assert.equal(node.prop, 2);
         }, { MockRenderer, NodeRenderer, WorkerRenderer });
-        // testRenderers(
-        //   "custom element with attributes",
-        //   async (ctor) => {
-        //     const renderer = new ctor();
-        //     const html = '<custom-element foo="bar"></custom-element>';
-        //     const fragment = renderer.parseHTML(html);
-        //     await renderer.mount(fragment);
-        //     const node = fragment.firstChild as Element;
-        //     assert.equal(node.tagName.toLowerCase(), "custom-element");
-        //     assert.equal(getAttribute(node, "foo"), "bar");
-        //   },
-        //   { MockRenderer, NodeRenderer, WorkerRenderer }
-        // );
-        // testRenderers(
-        //   "custom element with properties",
-        //   async (ctor) => {
-        //     const renderer = new ctor();
-        //     const html = '<custom-element :foo="bar"></custom-element>';
-        //     const fragment = renderer.parseHTML(html);
-        //     await renderer.mount(fragment);
-        //     const node = fragment.firstChild as Element;
-        //     assert.equal(node.tagName.toLowerCase(), "custom-element");
-        //     assert.equal(getAttribute(node, ":foo"), null);
-        //     assert.equal((node as any).foo, "bar");
-        //   },
-        //   { MockRenderer, NodeRenderer, WorkerRenderer }
-        // );
-        // testRenderers(
-        //   "custom element with events",
-        //   async (ctor) => {
-        //     const renderer = new ctor();
-        //     const html = '<custom-element @click="foo++"></custom-element>';
-        //     const fragment = renderer.parseHTML(html);
-        //     await renderer.mount(fragment);
-        //     const node = fragment.firstChild as Element;
-        //     assert.equal(node.tagName.toLowerCase(), "custom-element");
-        //     assert.equal(getAttribute(node, "@click"), null);
-        //     assert.equal(renderer.get("foo"), 0);
-        //     node.click();
-        //     await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
-        //     assert.equal(renderer.get("foo"), 1);
-        //   },
-        //   // We don't expect events to work with WorkerRenderer.
-        //   { MockRenderer, NodeRenderer }
-        // );
+        testRenderers("custom element with :data attribute", async (ctor) => {
+            const renderer = new ctor();
+            const customElement = "<span>{{ foo.bar }}</span>";
+            const template = `<template is="custom-element">${customElement}</template>`;
+            const html = `<custom-element :data="{ foo: { bar: 'baz' } }"></custom-element>`;
+            const fragment = renderer.parseHTML(template + html);
+            await renderer.mount(fragment);
+            const node = fragment.firstChild;
+            assert.equal(node.tagName.toLowerCase(), "span");
+            assert.equal(getTextContent(node), "baz");
+            assert.equal(getAttribute(node, ":data"), null);
+        }, { MockRenderer, NodeRenderer, WorkerRenderer });
+        testRenderers("custom element from include", async (ctor) => {
+            const renderer = new ctor().debug(true);
+            const html = `<custom-element></custom-element>`;
+            const include = `<include src="foo.html"></include>`;
+            const fragment = renderer.parseHTML(include + html);
+            renderer.preprocessLocal = async function (fpath, params) {
+                const customElement = "<span>Hello World</span>";
+                const template = `<template is="custom-element">${customElement}</template>`;
+                return this.preprocessString(template);
+            };
+            await renderer.mount(fragment);
+            const node = fragment.firstChild;
+            assert.equal(node.tagName.toLowerCase(), "span");
+            assert.equal(getTextContent(node), "Hello World");
+        }, { MockRenderer, NodeRenderer, WorkerRenderer });
     });
     describe("{{ expressions }}", () => {
         testRenderers("resolves single variable", async (ctor) => {

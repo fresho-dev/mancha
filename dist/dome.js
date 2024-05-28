@@ -34,8 +34,16 @@ export function cloneAttribute(elemFrom, elemDest, name) {
         elemDest.attribs[name] = elemFrom.attribs[name];
     }
     else {
-        const attr = elemFrom.getAttributeNode(name);
-        elemDest.setAttributeNode(attr?.cloneNode(true));
+        const attr = elemFrom?.getAttributeNode?.(name);
+        elemDest?.setAttributeNode?.(attr?.cloneNode(true));
+    }
+}
+export function firstElementChild(elem) {
+    if (elem instanceof _Element) {
+        return elem.children.find((child) => child instanceof _Element);
+    }
+    else {
+        return elem.firstElementChild;
     }
 }
 export function replaceWith(original, ...replacement) {

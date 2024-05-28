@@ -1,4 +1,4 @@
-import { appendChild, attributeNameToCamelCase, cloneAttribute, createElement, getAttribute, getNodeValue, insertBefore, removeAttribute, removeChild, replaceChildren, replaceWith, setAttribute, setNodeValue, setTextContent, } from "./dome.js";
+import { appendChild, attributeNameToCamelCase, cloneAttribute, createElement, firstElementChild, getAttribute, getNodeValue, insertBefore, removeAttribute, removeChild, replaceChildren, replaceWith, setAttribute, setNodeValue, setTextContent, } from "./dome.js";
 import { isRelativePath, traverse } from "./core.js";
 const KW_ATTRIBUTES = new Set([
     ":bind",
@@ -46,7 +46,7 @@ export var RendererPlugins;
             // Case 2: Relative remote path.
         }
         else if (params?.dirpath?.includes("://") || params?.dirpath?.startsWith("//")) {
-            const relpath = params.dirpath && params.dirpath !== "." ? `${params.dirpath}/${src}` : src;
+            const relpath = src.startsWith("/") ? src : `${params.dirpath}/${src}`;
             this.log("Including remote file from relative path:", relpath);
             await this.preprocessRemote(relpath, subparameters).then(handler);
             // Case 3: Local absolute path.
@@ -122,12 +122,13 @@ export var RendererPlugins;
     RendererPlugins.registerCustomElements = async function (node, params) {
         const elem = node;
         if (elem.tagName?.toLowerCase() === "template" && getAttribute(elem, "is")) {
-            const tagName = getAttribute(elem, "is");
-            this.log(`Registering custom element: ${tagName}\n`, elem);
-            if (!this._customElements.has(tagName))
-                this._customElements.set(tagName, elem);
-            // Remove the node from the DOM.
-            removeChild(elem.parentNode, elem);
+            const tagName = getAttribute(elem, "is")?.toLowerCase();
+            if (!this._customElements.has(tagName)) {
+                this.log(`Registering custom element: ${tagName}\n`, elem);
+                this._customElements.set(tagName, elem.cloneNode(true));
+                // Remove the node from the DOM.
+                removeChild(elem.parentNode, elem);
+            }
         }
     };
     RendererPlugins.resolveCustomElements = async function (node, params) {
@@ -138,7 +139,7 @@ export var RendererPlugins;
             const template = this._customElements.get(tagName);
             const clone = (template.content || template).cloneNode(true);
             // Add whatever attributes the custom element tag had to the first child.
-            const child = clone.firstChild;
+            const child = firstElementChild(clone);
             for (const attr of Array.from(elem.attributes)) {
                 if (child)
                     cloneAttribute(elem, child, attr.name);

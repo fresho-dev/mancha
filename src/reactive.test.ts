@@ -75,6 +75,12 @@ describe("Reactive", () => {
       await promise;
       assert.equal(value, 1);
     });
+
+    it("does not proxify a promise", () => {
+      const promise = Promise.resolve(0);
+      const proxy = ReactiveProxy.from(promise);
+      assert.equal(proxy.get(), promise);
+    });
   });
 
   describe("InertProxy", () => {

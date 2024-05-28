@@ -10,6 +10,7 @@ import { DomUtils } from "htmlparser2";
 type __Node = Node | _Node;
 type __ParentNode = ParentNode | _ParentNode;
 type __Element = Element | _Element;
+type __Fragment = DocumentFragment | Document;
 type __ChildNode = ChildNode | _ChildNode;
 
 function hasFunction(obj: any, func: string): boolean {
@@ -44,8 +45,16 @@ export function cloneAttribute(elemFrom: __Element, elemDest: __Element, name: s
   if (elemFrom instanceof _Element && elemDest instanceof _Element) {
     elemDest.attribs[name] = elemFrom.attribs[name];
   } else {
-    const attr = (elemFrom as Element).getAttributeNode(name);
-    (elemDest as Element).setAttributeNode(attr?.cloneNode(true) as Attr);
+    const attr = (elemFrom as Element)?.getAttributeNode?.(name);
+    (elemDest as Element)?.setAttributeNode?.(attr?.cloneNode(true) as Attr);
+  }
+}
+
+export function firstElementChild(elem: __Element): __Element | null {
+  if (elem instanceof _Element) {
+    return elem.children.find((child) => child instanceof _Element) as _Element;
+  } else {
+    return elem.firstElementChild;
   }
 }
 

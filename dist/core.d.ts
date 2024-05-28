@@ -30,7 +30,7 @@ export declare abstract class IRenderer extends ReactiveProxyStore {
     watchExpr(expr: string, args: {
         [key: string]: any;
     }, callback: EvalListener): Promise<void>;
-    preprocessNode(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void>;
-    renderNode(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<Document | DocumentFragment | Node>;
+    preprocessNode<T extends Document | DocumentFragment | Node>(root: T, params?: RenderParams): Promise<T>;
+    renderNode<T extends Document | DocumentFragment | Node>(root: T, params?: RenderParams): Promise<T>;
     mount(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void>;
 }

@@ -3,6 +3,7 @@ import {
   attributeNameToCamelCase,
   cloneAttribute,
   createElement,
+  firstElementChild,
   getAttribute,
   getNodeValue,
   insertBefore,
@@ -46,7 +47,7 @@ export namespace RendererPlugins {
     // The included file will replace this tag, and all elements will be fully preprocessed.
     const handler = (fragment: DocumentFragment) => {
       // Add whatever attributes the include tag had to the first child.
-      const child = fragment.firstChild as Element;
+      const child = fragment.firstChild as Element | null;
       for (const attr of Array.from(elem.attributes)) {
         if (child && attr.name !== "src") cloneAttribute(elem, child, attr.name);
       }
@@ -65,7 +66,7 @@ export namespace RendererPlugins {
 
       // Case 2: Relative remote path.
     } else if (params?.dirpath?.includes("://") || params?.dirpath?.startsWith("//")) {
-      const relpath = params.dirpath && params.dirpath !== "." ? `${params.dirpath}/${src}` : src;
+      const relpath = src.startsWith("/") ? src : `${params.dirpath}/${src}`;
       this.log("Including remote file from relative path:", relpath);
       await this.preprocessRemote(relpath, subparameters).then(handler);
 
@@ -134,11 +135,13 @@ export namespace RendererPlugins {
   export const registerCustomElements: RendererPlugin = async function (node, params) {
     const elem = node as Element;
     if (elem.tagName?.toLowerCase() === "template" && getAttribute(elem, "is")) {
-      const tagName = getAttribute(elem, "is") as string;
-      this.log(`Registering custom element: ${tagName}\n`, elem);
-      if (!this._customElements.has(tagName)) this._customElements.set(tagName, elem);
-      // Remove the node from the DOM.
-      removeChild(elem.parentNode!!, elem);
+      const tagName = getAttribute(elem, "is")?.toLowerCase() as string;
+      if (!this._customElements.has(tagName)) {
+        this.log(`Registering custom element: ${tagName}\n`, elem);
+        this._customElements.set(tagName, elem.cloneNode(true));
+        // Remove the node from the DOM.
+        removeChild(elem.parentNode!!, elem);
+      }
     }
   };
 
@@ -151,7 +154,7 @@ export namespace RendererPlugins {
       const clone = (template.content || template).cloneNode(true) as Element;
 
       // Add whatever attributes the custom element tag had to the first child.
-      const child = clone.firstChild as Element;
+      const child = firstElementChild(clone);
       for (const attr of Array.from(elem.attributes)) {
         if (child) cloneAttribute(elem, child, attr.name);
       }

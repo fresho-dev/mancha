@@ -32,8 +32,8 @@ function isProxified<T extends object>(object: T) {
 export const REACTIVE_DEBOUNCE_MILLIS = 10;
 
 export function proxifyObject<T extends object>(object: T, callback: () => void, deep = true): T {
-  // If this object is already a proxy, return it as-is.
-  if (object == null || isProxified(object)) return object;
+  // If this object is already a proxy or a Promise, return it as-is.
+  if (object == null || isProxified(object) || object instanceof Promise) return object;
 
   // First, proxify any existing properties if deep = true.
   if (deep) {

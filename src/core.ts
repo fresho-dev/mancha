@@ -16,7 +16,7 @@ export function* traverse(
   yield root as ChildNode;
 
   while (frontier.length) {
-    const node: ChildNode = frontier.pop() as ChildNode;
+    const node: ChildNode = frontier.shift() as ChildNode;
     if (!explored.has(node)) {
       explored.add(node);
       yield node;
@@ -178,32 +178,35 @@ export abstract class IRenderer extends ReactiveProxyStore {
     return inner();
   }
 
-  async preprocessNode(
-    root: Document | DocumentFragment | Node,
+  async preprocessNode<T extends Document | DocumentFragment | Node>(
+    root: T,
     params?: RenderParams
-  ): Promise<void> {
+  ): Promise<T> {
     params = Object.assign({ dirpath: this.dirpath, maxdepth: 10 }, params);
 
     const promises = new Iterator(traverse(root, this._skipNodes)).map(async (node) => {
       this.log("Preprocessing node:\n", node);
       // Resolve all the includes in the node.
       await RendererPlugins.resolveIncludes.call(this, node, params);
+      // Resolve all the relative paths in the node.
+      await RendererPlugins.rebaseRelativePaths.call(this, node, params);
       // Register all the custom elements in the node.
       await RendererPlugins.registerCustomElements.call(this, node, params);
       // Resolve all the custom elements in the node.
       await RendererPlugins.resolveCustomElements.call(this, node, params);
-      // Resolve all the relative paths in the node.
-      await RendererPlugins.rebaseRelativePaths.call(this, node, params);
     });
 
     // Wait for all the rendering operations to complete.
     await Promise.all(promises.generator());
+
+    // Return the input node, which should now be fully preprocessed.
+    return root;
   }
 
-  async renderNode(
-    root: Document | DocumentFragment | Node,
+  async renderNode<T extends Document | DocumentFragment | Node>(
+    root: T,
     params?: RenderParams
-  ): Promise<Document | DocumentFragment | Node> {
+  ): Promise<T> {
     // Iterate over all the nodes and apply appropriate handlers.
     // Do these steps one at a time to avoid any potential race conditions.
     for (const node of traverse(root, this._skipNodes)) {
