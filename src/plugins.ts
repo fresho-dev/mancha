@@ -134,8 +134,8 @@ export namespace RendererPlugins {
   export const registerCustomElements: RendererPlugin = async function (node, params) {
     const elem = node as Element;
     if (elem.tagName?.toLowerCase() === "template" && getAttribute(elem, "is")) {
-      this.log("Registering custom element:\n", elem);
       const tagName = getAttribute(elem, "is") as string;
+      this.log(`Registering custom element: ${tagName}\n`, elem);
       if (!this._customElements.has(tagName)) this._customElements.set(tagName, elem);
       // Remove the node from the DOM.
       removeChild(elem.parentNode!!, elem);
@@ -146,7 +146,7 @@ export namespace RendererPlugins {
     const elem = node as Element;
     const tagName = elem.tagName?.toLowerCase();
     if (this._customElements.has(tagName)) {
-      this.log("Processing custom element:\n", elem);
+      this.log(`Processing custom element: ${tagName}\n`, elem);
       const template = this._customElements.get(tagName)!! as HTMLTemplateElement;
       const clone = (template.content || template).cloneNode(true) as Element;
 

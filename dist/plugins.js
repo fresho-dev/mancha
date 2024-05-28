@@ -122,8 +122,8 @@ export var RendererPlugins;
     RendererPlugins.registerCustomElements = async function (node, params) {
         const elem = node;
         if (elem.tagName?.toLowerCase() === "template" && getAttribute(elem, "is")) {
-            this.log("Registering custom element:\n", elem);
             const tagName = getAttribute(elem, "is");
+            this.log(`Registering custom element: ${tagName}\n`, elem);
             if (!this._customElements.has(tagName))
                 this._customElements.set(tagName, elem);
             // Remove the node from the DOM.
@@ -134,7 +134,7 @@ export var RendererPlugins;
         const elem = node;
         const tagName = elem.tagName?.toLowerCase();
         if (this._customElements.has(tagName)) {
-            this.log("Processing custom element:\n", elem);
+            this.log(`Processing custom element: ${tagName}\n`, elem);
             const template = this._customElements.get(tagName);
             const clone = (template.content || template).cloneNode(true);
             // Add whatever attributes the custom element tag had to the first child.
