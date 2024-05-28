@@ -6,6 +6,6 @@ export default {
     filename: "mancha.js",
   },
   externals: {
-    htmlparser2: 'htmlparser2',
+    htmlparser2: "window.htmlparser2",
   },
 };
