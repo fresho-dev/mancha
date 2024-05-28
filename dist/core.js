@@ -81,6 +81,8 @@ export class IRenderer extends ReactiveProxyStore {
     }
     clone() {
         const instance = new this.constructor(Object.fromEntries(this.store.entries()));
+        // Custom elements are shared across all instances.
+        instance._customElements = this._customElements;
         return instance.debug(this.debugging);
     }
     log(...args) {

@@ -104,6 +104,25 @@ describe("Plugins", () => {
     });
 
     testRenderers(
+      `self-closing tag`,
+      async (ctor) => {
+        const renderer = new ctor();
+        const html = `<include src="foo.html"/>`;
+        const fragment = renderer.parseHTML(html);
+
+        renderer.preprocessLocal = async function (fpath, params) {
+          return renderer.parseHTML(`<div>Hello World</div>`) as unknown as DocumentFragment;
+        };
+        await renderer.mount(fragment);
+
+        const node = fragment.firstChild as Element;
+        assert.equal(getAttribute(node, "src"), null);
+        assert.equal(getTextContent(node), `Hello World`);
+      },
+      { MockRenderer, NodeRenderer, WorkerRenderer }
+    );
+
+    testRenderers(
       `propagates attributes to first child`,
       async (ctor) => {
         const renderer = new ctor({ a: 1, b: 2 });

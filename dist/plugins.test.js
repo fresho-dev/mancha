@@ -74,6 +74,18 @@ describe("Plugins", () => {
                 assert.equal(getTextContent(node), `/foo/${source}`);
             }, { MockRenderer, NodeRenderer, WorkerRenderer });
         });
+        testRenderers(`self-closing tag`, async (ctor) => {
+            const renderer = new ctor();
+            const html = `<include src="foo.html"/>`;
+            const fragment = renderer.parseHTML(html);
+            renderer.preprocessLocal = async function (fpath, params) {
+                return renderer.parseHTML(`<div>Hello World</div>`);
+            };
+            await renderer.mount(fragment);
+            const node = fragment.firstChild;
+            assert.equal(getAttribute(node, "src"), null);
+            assert.equal(getTextContent(node), `Hello World`);
+        }, { MockRenderer, NodeRenderer, WorkerRenderer });
         testRenderers(`propagates attributes to first child`, async (ctor) => {
             const renderer = new ctor({ a: 1, b: 2 });
             const html = `<include src="foo.html" attr="bar" :foo="a" $bar="b"></include>`;
