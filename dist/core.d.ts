@@ -12,6 +12,7 @@ export declare abstract class IRenderer extends ReactiveProxyStore {
     protected readonly expressionCache: Map<string, Function>;
     protected readonly evalCallbacks: Map<string, EvalListener[]>;
     readonly _skipNodes: Set<Node>;
+    readonly _customElements: Map<string, Node>;
     abstract parseHTML(content: string, params?: ParserParams): DocumentFragment;
     abstract serializeHTML(root: DocumentFragment | Node): string;
     debug(flag: boolean): this;

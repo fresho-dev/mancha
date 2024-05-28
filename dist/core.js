@@ -43,6 +43,7 @@ export class IRenderer extends ReactiveProxyStore {
     expressionCache = new Map();
     evalCallbacks = new Map();
     _skipNodes = new Set();
+    _customElements = new Map();
     debug(flag) {
         this.debugging = flag;
         return this;
@@ -145,6 +146,10 @@ export class IRenderer extends ReactiveProxyStore {
             await RendererPlugins.resolveIncludes.call(this, node, params);
             // Resolve all the relative paths in the node.
             await RendererPlugins.rebaseRelativePaths.call(this, node, params);
+            // Register all the custom elements in the node.
+            await RendererPlugins.registerCustomElements.call(this, node, params);
+            // Resolve all the custom elements in the node.
+            await RendererPlugins.resolveCustomElements.call(this, node, params);
         });
         // Wait for all the rendering operations to complete.
         await Promise.all(promises.generator());

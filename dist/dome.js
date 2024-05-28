@@ -29,6 +29,15 @@ export function removeAttribute(elem, name) {
     else
         elem.removeAttribute?.(name);
 }
+export function cloneAttribute(elemFrom, elemDest, name) {
+    if (elemFrom instanceof _Element && elemDest instanceof _Element) {
+        elemDest.attribs[name] = elemFrom.attribs[name];
+    }
+    else {
+        const attr = elemFrom.getAttributeNode(name);
+        elemDest.setAttributeNode(attr?.cloneNode(true));
+    }
+}
 export function replaceWith(original, ...replacement) {
     if (hasFunction(original, "replaceWith")) {
         return original.replaceWith(...replacement);

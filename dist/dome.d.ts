@@ -12,6 +12,7 @@ export declare function attributeNameToCamelCase(name: string): string;
 export declare function getAttribute(elem: __Element, name: string): string | null;
 export declare function setAttribute(elem: __Element, name: string, value: string): void;
 export declare function removeAttribute(elem: __Element, name: string): void;
+export declare function cloneAttribute(elemFrom: __Element, elemDest: __Element, name: string): void;
 export declare function replaceWith(original: __ChildNode, ...replacement: __Node[]): void;
 export declare function appendChild(parent: __Node, node: __Node): __Node;
 export declare function removeChild(parent: __Node, node: __Node): __Node;

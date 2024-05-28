@@ -40,6 +40,15 @@ export function removeAttribute(elem: __Element, name: string): void {
   else elem.removeAttribute?.(name);
 }
 
+export function cloneAttribute(elemFrom: __Element, elemDest: __Element, name: string): void {
+  if (elemFrom instanceof _Element && elemDest instanceof _Element) {
+    elemDest.attribs[name] = elemFrom.attribs[name];
+  } else {
+    const attr = (elemFrom as Element).getAttributeNode(name);
+    (elemDest as Element).setAttributeNode(attr?.cloneNode(true) as Attr);
+  }
+}
+
 export function replaceWith(original: __ChildNode, ...replacement: __Node[]): void {
   if (hasFunction(original, "replaceWith")) {
     return (original as ChildNode).replaceWith(...(replacement as Node[]));

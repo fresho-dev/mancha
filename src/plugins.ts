@@ -1,6 +1,7 @@
 import {
   appendChild,
   attributeNameToCamelCase,
+  cloneAttribute,
   createElement,
   getAttribute,
   getNodeValue,
@@ -47,10 +48,10 @@ export namespace RendererPlugins {
       // Add whatever attributes the include tag had to the first child.
       const child = fragment.firstChild as Element;
       for (const attr of Array.from(elem.attributes)) {
-        if (child && attr.name !== "src") setAttribute(child, attr.name, attr.value);
+        if (child && attr.name !== "src") cloneAttribute(elem, child, attr.name);
       }
       // Replace the include tag with the contents of the included file.
-      replaceWith(node, ...Array.from(fragment.childNodes));
+      replaceWith(node, ...fragment.childNodes);
     };
 
     // Compute the subparameters being passed down to the included file.
@@ -127,6 +128,36 @@ export namespace RendererPlugins {
       setAttribute(elem, "href", `${params.dirpath}/${href}`);
     } else if (tagName === "base" && href && isRelativePath(href)) {
       setAttribute(elem, "href", `${params.dirpath}/${href}`);
+    }
+  };
+
+  export const registerCustomElements: RendererPlugin = async function (node, params) {
+    const elem = node as Element;
+    if (elem.tagName?.toLowerCase() === "template" && getAttribute(elem, "is")) {
+      this.log("Registering custom element:\n", elem);
+      const tagName = getAttribute(elem, "is") as string;
+      if (!this._customElements.has(tagName)) this._customElements.set(tagName, elem);
+      // Remove the node from the DOM.
+      removeChild(elem.parentNode!!, elem);
+    }
+  };
+
+  export const resolveCustomElements: RendererPlugin = async function (node, params) {
+    const elem = node as Element;
+    const tagName = elem.tagName?.toLowerCase();
+    if (this._customElements.has(tagName)) {
+      this.log("Processing custom element:\n", elem);
+      const template = this._customElements.get(tagName)!! as HTMLTemplateElement;
+      const clone = (template.content || template).cloneNode(true) as Element;
+
+      // Add whatever attributes the custom element tag had to the first child.
+      const child = clone.firstChild as Element;
+      for (const attr of Array.from(elem.attributes)) {
+        if (child) cloneAttribute(elem, child, attr.name);
+      }
+
+      // Replace the custom element tag with the contents of the template.
+      replaceWith(node, ...clone.childNodes);
     }
   };
 

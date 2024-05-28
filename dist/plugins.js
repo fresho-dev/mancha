@@ -1,4 +1,4 @@
-import { appendChild, attributeNameToCamelCase, createElement, getAttribute, getNodeValue, insertBefore, removeAttribute, removeChild, replaceChildren, replaceWith, setAttribute, setNodeValue, setTextContent, } from "./dome.js";
+import { appendChild, attributeNameToCamelCase, cloneAttribute, createElement, getAttribute, getNodeValue, insertBefore, removeAttribute, removeChild, replaceChildren, replaceWith, setAttribute, setNodeValue, setTextContent, } from "./dome.js";
 import { isRelativePath, traverse } from "./core.js";
 const KW_ATTRIBUTES = new Set([
     ":bind",
@@ -30,10 +30,10 @@ export var RendererPlugins;
             const child = fragment.firstChild;
             for (const attr of Array.from(elem.attributes)) {
                 if (child && attr.name !== "src")
-                    setAttribute(child, attr.name, attr.value);
+                    cloneAttribute(elem, child, attr.name);
             }
             // Replace the include tag with the contents of the included file.
-            replaceWith(node, ...Array.from(fragment.childNodes));
+            replaceWith(node, ...fragment.childNodes);
         };
         // Compute the subparameters being passed down to the included file.
         const subparameters = { ...params, root: false, maxdepth: params?.maxdepth - 1 };
@@ -117,6 +117,34 @@ export var RendererPlugins;
         }
         else if (tagName === "base" && href && isRelativePath(href)) {
             setAttribute(elem, "href", `${params.dirpath}/${href}`);
+        }
+    };
+    RendererPlugins.registerCustomElements = async function (node, params) {
+        const elem = node;
+        if (elem.tagName?.toLowerCase() === "template" && getAttribute(elem, "is")) {
+            this.log("Registering custom element:\n", elem);
+            const tagName = getAttribute(elem, "is");
+            if (!this._customElements.has(tagName))
+                this._customElements.set(tagName, elem);
+            // Remove the node from the DOM.
+            removeChild(elem.parentNode, elem);
+        }
+    };
+    RendererPlugins.resolveCustomElements = async function (node, params) {
+        const elem = node;
+        const tagName = elem.tagName?.toLowerCase();
+        if (this._customElements.has(tagName)) {
+            this.log("Processing custom element:\n", elem);
+            const template = this._customElements.get(tagName);
+            const clone = (template.content || template).cloneNode(true);
+            // Add whatever attributes the custom element tag had to the first child.
+            const child = clone.firstChild;
+            for (const attr of Array.from(elem.attributes)) {
+                if (child)
+                    cloneAttribute(elem, child, attr.name);
+            }
+            // Replace the custom element tag with the contents of the template.
+            replaceWith(node, ...clone.childNodes);
         }
     };
     RendererPlugins.resolveTextNodeExpressions = async function (node, params) {

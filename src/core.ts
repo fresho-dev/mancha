@@ -57,6 +57,7 @@ export abstract class IRenderer extends ReactiveProxyStore {
   protected readonly expressionCache: Map<string, Function> = new Map();
   protected readonly evalCallbacks: Map<string, EvalListener[]> = new Map();
   readonly _skipNodes: Set<Node> = new Set();
+  readonly _customElements: Map<string, Node> = new Map();
   abstract parseHTML(content: string, params?: ParserParams): DocumentFragment;
   abstract serializeHTML(root: DocumentFragment | Node): string;
 
@@ -187,6 +188,10 @@ export abstract class IRenderer extends ReactiveProxyStore {
       await RendererPlugins.resolveIncludes.call(this, node, params);
       // Resolve all the relative paths in the node.
       await RendererPlugins.rebaseRelativePaths.call(this, node, params);
+      // Register all the custom elements in the node.
+      await RendererPlugins.registerCustomElements.call(this, node, params);
+      // Resolve all the custom elements in the node.
+      await RendererPlugins.resolveCustomElements.call(this, node, params);
     });
 
     // Wait for all the rendering operations to complete.

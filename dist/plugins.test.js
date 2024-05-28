@@ -74,9 +74,9 @@ describe("Plugins", () => {
                 assert.equal(getTextContent(node), `/foo/${source}`);
             }, { MockRenderer, NodeRenderer, WorkerRenderer });
         });
-        testRenderers(`propagates tags to first child`, async (ctor) => {
-            const renderer = new ctor();
-            const html = `<include src="foo.html" myattr="bar"></include>`;
+        testRenderers(`propagates attributes to first child`, async (ctor) => {
+            const renderer = new ctor({ a: 1, b: 2 });
+            const html = `<include src="foo.html" attr="bar" :foo="a" $bar="b"></include>`;
             const fragment = renderer.parseHTML(html);
             renderer.preprocessLocal = async function (fpath, params) {
                 return renderer.parseHTML(`<span>Hello</span> <span>World</span>`);
@@ -84,8 +84,10 @@ describe("Plugins", () => {
             await renderer.mount(fragment);
             const node = fragment.firstChild;
             assert.equal(getAttribute(node, "src"), null);
-            assert.equal(getAttribute(node, "myattr"), "bar");
-            assert.equal(getAttribute(node.nextSibling, "myattr"), null);
+            assert.equal(getAttribute(node, "attr"), "bar");
+            assert.equal(getAttribute(node.nextSibling, "attr"), null);
+            assert.equal(getAttribute(node, "foo"), "1");
+            assert.equal(node.bar, 2);
         }, { MockRenderer, NodeRenderer, WorkerRenderer });
     });
     describe("rebase", () => {
@@ -139,6 +141,67 @@ describe("Plugins", () => {
             const node = fragment.firstChild;
             assert.equal(getAttribute(node, "src"), "foo/bar/baz/qux.js");
         }, { MockRenderer, NodeRenderer, WorkerRenderer });
+    });
+    describe("<custom-element>", () => {
+        testRenderers("custom element with attributes and properties", async (ctor) => {
+            const renderer = new ctor({ a: 1, b: 2 });
+            const customElement = "<span>Hello World</span>";
+            const template = `<template is="custom-element">${customElement}</template>`;
+            const html = `<custom-element foo="bar" :attr="a" $prop="b"></custom-element>`;
+            const fragment = renderer.parseHTML(template + html);
+            await renderer.mount(fragment);
+            const node = fragment.firstChild;
+            assert.equal(node.tagName.toLowerCase(), "span");
+            assert.equal(getTextContent(node), "Hello World");
+            assert.equal(getAttribute(node, "foo"), "bar");
+            assert.equal(getAttribute(node, "attr"), "1");
+            assert.equal(node.prop, 2);
+        }, { MockRenderer, NodeRenderer, WorkerRenderer });
+        // testRenderers(
+        //   "custom element with attributes",
+        //   async (ctor) => {
+        //     const renderer = new ctor();
+        //     const html = '<custom-element foo="bar"></custom-element>';
+        //     const fragment = renderer.parseHTML(html);
+        //     await renderer.mount(fragment);
+        //     const node = fragment.firstChild as Element;
+        //     assert.equal(node.tagName.toLowerCase(), "custom-element");
+        //     assert.equal(getAttribute(node, "foo"), "bar");
+        //   },
+        //   { MockRenderer, NodeRenderer, WorkerRenderer }
+        // );
+        // testRenderers(
+        //   "custom element with properties",
+        //   async (ctor) => {
+        //     const renderer = new ctor();
+        //     const html = '<custom-element :foo="bar"></custom-element>';
+        //     const fragment = renderer.parseHTML(html);
+        //     await renderer.mount(fragment);
+        //     const node = fragment.firstChild as Element;
+        //     assert.equal(node.tagName.toLowerCase(), "custom-element");
+        //     assert.equal(getAttribute(node, ":foo"), null);
+        //     assert.equal((node as any).foo, "bar");
+        //   },
+        //   { MockRenderer, NodeRenderer, WorkerRenderer }
+        // );
+        // testRenderers(
+        //   "custom element with events",
+        //   async (ctor) => {
+        //     const renderer = new ctor();
+        //     const html = '<custom-element @click="foo++"></custom-element>';
+        //     const fragment = renderer.parseHTML(html);
+        //     await renderer.mount(fragment);
+        //     const node = fragment.firstChild as Element;
+        //     assert.equal(node.tagName.toLowerCase(), "custom-element");
+        //     assert.equal(getAttribute(node, "@click"), null);
+        //     assert.equal(renderer.get("foo"), 0);
+        //     node.click();
+        //     await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
+        //     assert.equal(renderer.get("foo"), 1);
+        //   },
+        //   // We don't expect events to work with WorkerRenderer.
+        //   { MockRenderer, NodeRenderer }
+        // );
     });
     describe("{{ expressions }}", () => {
         testRenderers("resolves single variable", async (ctor) => {
