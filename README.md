@@ -57,7 +57,7 @@ None of them have all the key features that make `mancha` unique:
 - **testing**, individual components can be rendered and tested outside the browser
 - **progressive enhancement**, from simple templating and basic reactivity to a full-blown app
 
-The main benefit of using `mancha` is that it allows you to compartmentalize the complexity of
+A core benefit of using `mancha` is that it allows you to compartmentalize the complexity of
 front-end development. Whether you decide to break up your app into reusable partial sections via
 `<include>` or create custom web components, you can write HTML as if your mother was watching.
 
@@ -221,7 +221,7 @@ app.get("/", async (req, res) => {
   // Instantiate a new renderer.
   const renderer = new Renderer({ name, ...vars });
   // Preprocess input HTML from a local file path.
-  const fragment = await renderer.preprocessLocal("html/index.html");
+  const fragment = await renderer.preprocessLocal("src/index.html");
   // Render and serialize output HTML.
   const html = renderer.serializeHTML(await renderer.renderNode(fragment));
   // Send it to the client.
@@ -239,7 +239,7 @@ For a more complete example, see [examples/express](./examples/express).
 For servers hosted as worker runtimes, such as `Cloudflare Workers`, you will need to import a
 stripped down version of `mancha` that does not have the ability to read local files or evaluate
 expressions. The contents of any `{{ value }}` must be an existing variable in the renderer
-instance.
+instance, since string evaluation is not permitted in some runtimes.
 
 ```js
 import { Renderer } from "mancha/dist/worker";
@@ -264,9 +264,9 @@ footprint of `mancha` under 100kb.
 
 For a more complete example, see [examples/wrangler](./examples/wrangler).
 
-## Compile Time `gulpfile` Plugin
+## Compile Time `Gulp` Plugin
 
-To use `mancha` in your `gulpfile`, you can do the following:
+To use `mancha` as a `Gulp` plugin in `gulpfile.js`, you can do the following:
 
 ```js
 import GulpClient from "gulp";
