@@ -10,7 +10,6 @@ import { DomUtils } from "htmlparser2";
 type __Node = Node | _Node;
 type __ParentNode = ParentNode | _ParentNode;
 type __Element = Element | _Element;
-type __Fragment = DocumentFragment | Document;
 type __ChildNode = ChildNode | _ChildNode;
 
 function hasFunction(obj: any, func: string): boolean {

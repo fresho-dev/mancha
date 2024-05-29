@@ -15,7 +15,7 @@ class Renderer extends IRenderer {
         return new XMLSerializer().serializeToString(root).replace(/\s?xmlns="[^"]+"/gm, "");
     }
     preprocessLocal(fpath, params) {
-        // In the browser, "local" paths (i.e., relative) can still be fetched.
+        // In the browser, "local" paths (i.e., relative paths) can still be fetched.
         return this.preprocessRemote(fpath, params);
     }
 }

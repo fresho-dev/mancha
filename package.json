@@ -21,18 +21,13 @@
     "url": "git+https://github.com/fresho-dev/mancha.git"
   },
   "keywords": [
-    "gulp",
-    "render",
-    "html",
-    "include",
-    "preprocessor"
+    "templating",
+    "rendering",
+    "reactive",
+    "html"
   ],
-  "author": "omtinez@gmail.com",
+  "author": "oscar@wahltinez.org",
   "license": "MIT",
-  "bugs": {
-    "url": "https://gitlab.com/omtinez/mancha/issues"
-  },
-  "homepage": "https://gitlab.com/omtinez/mancha#README",
   "dependencies": {
     "dom-serializer": "^2.0.0",
     "htmlparser2": "^9.1.0",

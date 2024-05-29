@@ -1,6 +1,14 @@
 import { ReactiveProxyStore } from "./reactive.js";
 import { Iterator } from "./iterator.js";
 import { RendererPlugins } from "./plugins.js";
+/**
+ * Traverses the DOM tree starting from the given root node and yields each child node.
+ * Nodes in the `skip` set will be skipped during traversal.
+ *
+ * @param root - The root node to start the traversal from.
+ * @param skip - A set of nodes to skip during traversal.
+ * @returns A generator that yields each child node in the DOM tree.
+ */
 export function* traverse(root, skip = new Set()) {
     const explored = new Set();
     const frontier = Array.from(root.childNodes).filter((node) => !skip.has(node));
@@ -19,6 +27,11 @@ export function* traverse(root, skip = new Set()) {
         }
     }
 }
+/**
+ * Returns the directory name from a given file path.
+ * @param fpath - The file path.
+ * @returns The directory name.
+ */
 export function dirname(fpath) {
     if (!fpath.includes("/")) {
         return "";
@@ -27,15 +40,31 @@ export function dirname(fpath) {
         return fpath.split("/").slice(0, -1).join("/");
     }
 }
+/**
+ * Checks if a given file path is a relative path.
+ *
+ * @param fpath - The file path to check.
+ * @returns A boolean indicating whether the file path is relative or not.
+ */
 export function isRelativePath(fpath) {
     return (!fpath.includes("://") &&
         !fpath.startsWith("/") &&
         !fpath.startsWith("#") &&
         !fpath.startsWith("data:"));
 }
+/**
+ * Creates an evaluation function based on the provided code and arguments.
+ * @param code The code to be evaluated.
+ * @param args The arguments to be passed to the evaluation function. Default is an empty array.
+ * @returns The evaluation function.
+ */
 export function makeEvalFunction(code, args = []) {
     return new Function(...args, `with (this) { return (async () => (${code}))(); }`);
 }
+/**
+ * Represents an abstract class for rendering and manipulating HTML content.
+ * Extends the `ReactiveProxyStore` class.
+ */
 export class IRenderer extends ReactiveProxyStore {
     debugging = false;
     dirpath = "";
@@ -44,30 +73,54 @@ export class IRenderer extends ReactiveProxyStore {
     evalCallbacks = new Map();
     _skipNodes = new Set();
     _customElements = new Map();
+    /**
+     * Sets the debugging flag for the current instance.
+     *
+     * @param flag - The flag indicating whether debugging is enabled or disabled.
+     * @returns The current instance of the class.
+     */
     debug(flag) {
         this.debugging = flag;
         return this;
     }
+    /**
+     * Fetches the remote file at the specified path and returns its content as a string.
+     * @param fpath - The path of the remote file to fetch.
+     * @param params - Optional parameters for the fetch operation.
+     * @returns A promise that resolves to the content of the remote file as a string.
+     */
     async fetchRemote(fpath, params) {
         return fetch(fpath, { cache: params?.cache ?? "default" }).then((res) => res.text());
     }
+    /**
+     * Fetches a local path and returns its content as a string.
+     *
+     * @param fpath - The file path of the resource.
+     * @param params - Optional render parameters.
+     * @returns A promise that resolves to the fetched resource as a string.
+     */
     async fetchLocal(fpath, params) {
         return this.fetchRemote(fpath, params);
     }
+    /**
+     * Preprocesses a string content with optional rendering and parsing parameters.
+     *
+     * @param content - The string content to preprocess.
+     * @param params - Optional rendering and parsing parameters.
+     * @returns A promise that resolves to a DocumentFragment representing the preprocessed content.
+     */
     async preprocessString(content, params) {
         this.log("Preprocessing string content with params:\n", params);
         const fragment = this.parseHTML(content, params);
         await this.preprocessNode(fragment, params);
         return fragment;
     }
-    async preprocessLocal(fpath, params) {
-        const content = await this.fetchLocal(fpath, params);
-        return this.preprocessString(content, {
-            ...params,
-            dirpath: dirname(fpath),
-            root: params?.root ?? !fpath.endsWith(".tpl.html"),
-        });
-    }
+    /**
+     * Preprocesses a remote file by fetching its content and applying preprocessing steps.
+     * @param fpath - The path to the remote file.
+     * @param params - Optional parameters for rendering and parsing.
+     * @returns A Promise that resolves to a DocumentFragment representing the preprocessed content.
+     */
     async preprocessRemote(fpath, params) {
         const fetchOptions = {};
         if (params?.cache)
@@ -79,22 +132,57 @@ export class IRenderer extends ReactiveProxyStore {
             root: params?.root ?? !fpath.endsWith(".tpl.html"),
         });
     }
+    /**
+     * Preprocesses a local file by fetching its content and applying preprocessing steps.
+     * @param fpath - The path to the local file.
+     * @param params - Optional parameters for rendering and parsing.
+     * @returns A promise that resolves to the preprocessed document fragment.
+     */
+    async preprocessLocal(fpath, params) {
+        const content = await this.fetchLocal(fpath, params);
+        return this.preprocessString(content, {
+            ...params,
+            dirpath: dirname(fpath),
+            root: params?.root ?? !fpath.endsWith(".tpl.html"),
+        });
+    }
+    /**
+     * Creates a deep copy of the current renderer instance.
+     * @returns A new instance of the renderer with the same state as the original.
+     */
     clone() {
         const instance = new this.constructor(Object.fromEntries(this.store.entries()));
         // Custom elements are shared across all instances.
         instance._customElements = this._customElements;
         return instance.debug(this.debugging);
     }
+    /**
+     * Logs the provided arguments if debugging is enabled.
+     * @param args - The arguments to be logged.
+     */
     log(...args) {
         if (this.debugging)
             console.debug(...args);
     }
+    /**
+     * Retrieves or creates a cached expression function based on the provided expression.
+     * @param expr - The expression to retrieve or create a cached function for.
+     * @returns The cached expression function.
+     */
     cachedExpressionFunction(expr) {
         if (!this.expressionCache.has(expr)) {
             this.expressionCache.set(expr, makeEvalFunction(expr, this.evalkeys));
         }
         return this.expressionCache.get(expr);
     }
+    /**
+     * Evaluates an expression and returns the result along with its dependencies.
+     * If the expression is already stored, it returns the stored value directly.
+     * Otherwise, it performs the expression evaluation using the cached expression function.
+     * @param expr - The expression to evaluate.
+     * @param args - Optional arguments to be passed to the expression function.
+     * @returns A promise that resolves to the result and the dependencies of the expression.
+     */
     async eval(expr, args = {}) {
         if (this.store.has(expr)) {
             // Shortcut: if the expression is just an item from the value store, use that directly.
@@ -115,6 +203,17 @@ export class IRenderer extends ReactiveProxyStore {
             return [result, dependencies];
         }
     }
+    /**
+     * This function is intended for internal use only.
+     *
+     * Executes the given expression and invokes the provided callback whenever the any of the
+     * dependencies change.
+     *
+     * @param expr - The expression to watch for changes.
+     * @param args - The arguments to be passed to the expression during evaluation.
+     * @param callback - The callback function to be invoked when the dependencies change.
+     * @returns A promise that resolves when the initial evaluation is complete.
+     */
     watchExpr(expr, args, callback) {
         // Early exit: this eval has already been registered, we just need to add our callback.
         if (this.evalCallbacks.has(expr)) {
@@ -140,6 +239,14 @@ export class IRenderer extends ReactiveProxyStore {
         };
         return inner();
     }
+    /**
+     * Preprocesses a node by applying all the registered preprocessing plugins.
+     *
+     * @template T - The type of the input node.
+     * @param {T} root - The root node to preprocess.
+     * @param {RenderParams} [params] - Optional parameters for preprocessing.
+     * @returns {Promise<T>} - A promise that resolves to the preprocessed node.
+     */
     async preprocessNode(root, params) {
         params = Object.assign({ dirpath: this.dirpath, maxdepth: 10 }, params);
         const promises = new Iterator(traverse(root, this._skipNodes)).map(async (node) => {
@@ -158,6 +265,14 @@ export class IRenderer extends ReactiveProxyStore {
         // Return the input node, which should now be fully preprocessed.
         return root;
     }
+    /**
+     * Renders the node by applies all the registered rendering plugins.
+     *
+     * @template T - The type of the root node (Document, DocumentFragment, or Node).
+     * @param {T} root - The root node to render.
+     * @param {RenderParams} [params] - Optional parameters for rendering.
+     * @returns {Promise<T>} - A promise that resolves to the fully rendered root node.
+     */
     async renderNode(root, params) {
         // Iterate over all the nodes and apply appropriate handlers.
         // Do these steps one at a time to avoid any potential race conditions.
@@ -189,6 +304,13 @@ export class IRenderer extends ReactiveProxyStore {
         // Return the input node, which should now be fully rendered.
         return root;
     }
+    /**
+     * Mounts the Mancha application to a root element in the DOM.
+     *
+     * @param root - The root element to mount the application to.
+     * @param params - Optional parameters for rendering the application.
+     * @returns A promise that resolves when the mounting process is complete.
+     */
     async mount(root, params) {
         // Preprocess all the elements recursively first.
         await this.preprocessNode(root, params);
