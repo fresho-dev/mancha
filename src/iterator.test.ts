@@ -101,5 +101,11 @@ describe("Iterator", () => {
       const mapped = iter.map((val) => val * 2).map((val) => val + 1);
       assert.deepStrictEqual(mapped.array(), [3, 5, 7, 9, 11]);
     });
+
+    it("finds element in iterator", () => {
+      const iter = new Iterator([1, 2, 3, 4, 5]);
+      const found = iter.find((val) => val === 3);
+      assert.strictEqual(found, 3);
+    });
   });
 });

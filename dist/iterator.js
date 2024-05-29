@@ -9,6 +9,13 @@ export class Iterator {
     map(fn) {
         return new Iterator(Iterator.mapGenerator(fn, this.iterable));
     }
+    find(fn) {
+        for (const val of this.iterable) {
+            if (fn(val))
+                return val;
+        }
+        return undefined;
+    }
     array() {
         return Array.from(this.iterable);
     }

@@ -9,6 +9,12 @@ export class Iterator<T> {
   map<S>(fn: (val: T) => S): Iterator<S> {
     return new Iterator(Iterator.mapGenerator(fn, this.iterable));
   }
+  find(fn: (val: T) => boolean): T | undefined {
+    for (const val of this.iterable) {
+      if (fn(val)) return val;
+    }
+    return undefined;
+  }
   array(): T[] {
     return Array.from(this.iterable);
   }

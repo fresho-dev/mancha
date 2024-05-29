@@ -17,6 +17,7 @@ import {
 } from "./dome.js";
 import { isRelativePath, traverse } from "./core.js";
 import { RendererPlugin } from "./interfaces.js";
+import { Iterator } from "./iterator.js";
 
 const KW_ATTRIBUTES = new Set([
   ":bind",
@@ -158,6 +159,11 @@ export namespace RendererPlugins {
       for (const attr of Array.from(elem.attributes)) {
         if (child) cloneAttribute(elem, child, attr.name);
       }
+
+      // If there's a <slot> element, replace it with the contents of the custom element.
+      const iter = new Iterator(traverse(clone));
+      const slot = iter.find((x) => (x as Element).tagName?.toLowerCase() === "slot");
+      if (slot) replaceWith(slot, ...elem.childNodes);
 
       // Replace the custom element tag with the contents of the template.
       replaceWith(node, ...clone.childNodes);

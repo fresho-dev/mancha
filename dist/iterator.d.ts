@@ -3,6 +3,7 @@ export declare class Iterator<T> {
     constructor(iter: Iterable<T>);
     filter(fn: (val: T) => boolean): Iterator<T>;
     map<S>(fn: (val: T) => S): Iterator<S>;
+    find(fn: (val: T) => boolean): T | undefined;
     array(): T[];
     generator(): Iterable<T>;
     static filterGenerator<T>(fn: (val: T) => boolean, iter: Iterable<T>): Iterable<T>;

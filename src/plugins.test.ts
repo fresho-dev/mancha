@@ -252,6 +252,22 @@ describe("Plugins", () => {
     );
 
     testRenderers(
+      "custom element with <slot/>",
+      async (ctor) => {
+        const renderer = new ctor({ foo: "bar" });
+        const customElement = "<span><slot/></span>";
+        const template = `<template is="custom-element">${customElement}</template>`;
+        const html = `<custom-element>{{ foo }}</custom-element>`;
+        const fragment = renderer.parseHTML(template + html);
+        await renderer.mount(fragment);
+        const node = fragment.firstChild as Element;
+        assert.equal(node.tagName.toLowerCase(), "span");
+        assert.equal(getTextContent(node), "bar");
+      },
+      { MockRenderer, NodeRenderer, WorkerRenderer }
+    );
+
+    testRenderers(
       "custom element from include",
       async (ctor) => {
         const renderer = new ctor();
