@@ -12,6 +12,38 @@ type __ParentNode = ParentNode | _ParentNode;
 type __Element = Element | _Element;
 type __ChildNode = ChildNode | _ChildNode;
 
+/**
+ * Traverses the DOM tree starting from the given root node and yields each child node.
+ * Nodes in the `skip` set will be skipped during traversal.
+ *
+ * @param root - The root node to start the traversal from.
+ * @param skip - A set of nodes to skip during traversal.
+ * @returns A generator that yields each child node in the DOM tree.
+ */
+export function* traverse(
+  root: Node | DocumentFragment | Document,
+  skip: Set<Node> = new Set()
+): Generator<ChildNode> {
+  const explored: Set<ChildNode> = new Set();
+  const frontier: ChildNode[] = Array.from(root.childNodes).filter((node) => !skip.has(node));
+
+  // Also yield the root node.
+  yield root as ChildNode;
+
+  while (frontier.length) {
+    const node: ChildNode = frontier.shift() as ChildNode;
+    if (!explored.has(node)) {
+      explored.add(node);
+      yield node;
+    }
+    if (node.childNodes) {
+      Array.from(node.childNodes)
+        .filter((node) => !skip.has(node))
+        .forEach((node) => frontier.push(node));
+    }
+  }
+}
+
 function hasFunction(obj: any, func: string): boolean {
   return typeof obj?.[func] === "function";
 }

@@ -15,7 +15,7 @@ const args = yargs(hideBin(process.argv))
 
 Mancha.debug(args.debug!!);
 new Promise(async (resolve, reject) => {
-  await Mancha.update(JSON.parse(args.vars || "{}"));
+  Object.entries(JSON.parse(args.vars || "{}")).forEach(([key, value]) => (Mancha.$[key] = value));
 
   const fragment = await Mancha.preprocessLocal(args["input"]);
   await Mancha.renderNode(fragment);

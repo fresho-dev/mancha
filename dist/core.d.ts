@@ -1,15 +1,6 @@
-import { ReactiveProxyStore } from "./reactive.js";
 import { ParserParams, RenderParams } from "./interfaces.js";
+import { SignalStore } from "./store.js";
 export type EvalListener = (result: any, dependencies: string[]) => any;
-/**
- * Traverses the DOM tree starting from the given root node and yields each child node.
- * Nodes in the `skip` set will be skipped during traversal.
- *
- * @param root - The root node to start the traversal from.
- * @param skip - A set of nodes to skip during traversal.
- * @returns A generator that yields each child node in the DOM tree.
- */
-export declare function traverse(root: Node | DocumentFragment | Document, skip?: Set<Node>): Generator<ChildNode>;
 /**
  * Returns the directory name from a given file path.
  * @param fpath - The file path.
@@ -34,7 +25,7 @@ export declare function makeEvalFunction(code: string, args?: string[]): Functio
  * Represents an abstract class for rendering and manipulating HTML content.
  * Extends the `ReactiveProxyStore` class.
  */
-export declare abstract class IRenderer extends ReactiveProxyStore {
+export declare abstract class IRenderer extends SignalStore {
     protected debugging: boolean;
     protected readonly dirpath: string;
     protected readonly evalkeys: string[];
@@ -98,37 +89,6 @@ export declare abstract class IRenderer extends ReactiveProxyStore {
      * @param args - The arguments to be logged.
      */
     log(...args: any[]): void;
-    /**
-     * Retrieves or creates a cached expression function based on the provided expression.
-     * @param expr - The expression to retrieve or create a cached function for.
-     * @returns The cached expression function.
-     */
-    private cachedExpressionFunction;
-    /**
-     * Evaluates an expression and returns the result along with its dependencies.
-     * If the expression is already stored, it returns the stored value directly.
-     * Otherwise, it performs the expression evaluation using the cached expression function.
-     * @param expr - The expression to evaluate.
-     * @param args - Optional arguments to be passed to the expression function.
-     * @returns A promise that resolves to the result and the dependencies of the expression.
-     */
-    eval(expr: string, args?: {
-        [key: string]: any;
-    }): Promise<[any, string[]]>;
-    /**
-     * This function is intended for internal use only.
-     *
-     * Executes the given expression and invokes the provided callback whenever the any of the
-     * dependencies change.
-     *
-     * @param expr - The expression to watch for changes.
-     * @param args - The arguments to be passed to the expression during evaluation.
-     * @param callback - The callback function to be invoked when the dependencies change.
-     * @returns A promise that resolves when the initial evaluation is complete.
-     */
-    watchExpr(expr: string, args: {
-        [key: string]: any;
-    }, callback: EvalListener): Promise<void>;
     /**
      * Preprocesses a node by applying all the registered preprocessing plugins.
      *
