@@ -1,4 +1,30 @@
-import { Signal } from "./signal.js";
+type SignalStoreProxy = SignalStore & { [key: string]: any };
+type Observer<T> = (this: SignalStoreProxy) => T;
+
+abstract class IDebouncer {
+  timeouts: Map<Function, ReturnType<typeof setTimeout>> = new Map();
+
+  debounce<T>(millis: number, callback: () => T | Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const timeout = this.timeouts.get(callback);
+      if (timeout) clearTimeout(timeout);
+      this.timeouts.set(
+        callback,
+        setTimeout(() => {
+          try {
+            resolve(callback());
+            this.timeouts.delete(callback);
+          } catch (exc) {
+            reject(exc);
+          }
+        }, millis)
+      );
+    });
+  }
+}
+
+/** Default debouncer time in millis. */
+export const REACTIVE_DEBOUNCE_MILLIS = 10;
 
 /**
  * Creates an evaluation function based on the provided code and arguments.
@@ -7,18 +33,27 @@ import { Signal } from "./signal.js";
  * @returns The evaluation function.
  */
 export function makeEvalFunction(code: string, args: string[] = []): Function {
-  return new Function(...args, `with (this) { return (() => (${code}))(); }`);
+  return new Function(...args, `with (this) { return (${code}); }`);
 }
 
-export class SignalStore {
+export function makeAsyncEvalFunction(code: string, args: string[] = []): Function {
+  return new Function(...args, `with (this) { return (async () => (${code}))(); }`);
+}
+
+export class SignalStore extends IDebouncer {
   protected readonly evalkeys: string[] = ["$elem", "$event"];
   protected readonly expressionCache: Map<string, Function> = new Map();
-  protected readonly store = new Map<string, Signal.Type<unknown>>();
+  protected readonly store = new Map<string, unknown>();
+  protected readonly observers = new Map<string, Set<Observer<unknown>>>();
+  protected _observer: Observer<unknown> | null = null;
+  _lock: Promise<void> = Promise.resolve();
 
   constructor(data?: { [key: string]: any }) {
+    super();
     for (let [key, value] of Object.entries(data || {})) {
-      if (typeof value === "function") value = this.wrapFunction(value);
-      this.store.set(key, Signal.from(value));
+      // Use our set method to ensure that callbacks and wrappers are appropriately set, but ignore
+      // the return value since we know that no observers will be triggered.
+      this.set(key, value);
     }
   }
 
@@ -26,29 +61,86 @@ export class SignalStore {
     return (...args: any[]) => fn.call(this.$, ...args);
   }
 
-  effect<T>(fn: () => T) {
-    Signal.effect(fn);
+  private wrapObject(obj: any, callback: () => void): any {
+    return new Proxy(obj, {
+      deleteProperty: (target: any, property: string) => {
+        if (property in target) {
+          delete target[property];
+          callback();
+          return true;
+        } else {
+          return false;
+        }
+      },
+      set: (target: any, prop: string, value: any, receiver: any) => {
+        if (typeof value === "object" && obj != null) value = this.wrapObject(value, callback);
+        const ret = Reflect.set(target, prop, value, receiver);
+        callback();
+        return ret;
+      },
+      get: (target: any, prop: string, receiver: any) => {
+        if (prop === "__is_proxy__") return true;
+        return Reflect.get(target, prop, receiver);
+      },
+    });
   }
 
-  computed<T>(fn: () => T) {
-    return Signal.computed(fn);
+  private watch<T>(key: string, observer: Observer<T>): void {
+    if (!this.observers.has(key)) {
+      this.observers.set(key, new Set());
+    }
+    if (!this.observers.get(key)?.has(observer)) {
+      this.observers.get(key)?.add(observer);
+    }
   }
 
-  batch<T>(fn: () => T) {
-    Signal.batch(fn);
+  private async notify(key: string): Promise<void> {
+    const observers = Array.from(this.observers.get(key) || []);
+    await this.debounce(REACTIVE_DEBOUNCE_MILLIS, () =>
+      Promise.all(observers.map((observer) => observer.call(this.proxify(observer))))
+    );
   }
 
-  untracked<T>(fn: () => T) {
-    Signal.untracked(fn);
+  get<T>(key: string, observer?: Observer<T>): unknown | null {
+    if (observer) this.watch(key, observer);
+    return this.store.get(key);
   }
 
-  get $(): SignalStore & { [key: string]: any } {
+  async set(key: string, value: unknown): Promise<void> {
+    if (value === this.store.get(key)) return;
+    const callback = () => this.notify(key);
+    if (value && typeof value === "function") {
+      value = this.wrapFunction(value);
+    }
+    if (value && typeof value === "object") {
+      value = this.wrapObject(value, callback);
+    }
+    this.store.set(key, value);
+    await callback();
+  }
+
+  del(key: string): void {
+    this.store.delete(key);
+    this.observers.delete(key);
+  }
+
+  has(key: string): boolean {
+    return this.store.has(key);
+  }
+
+  effect<T>(observer: Observer<T>): T {
+    return observer.call(this.proxify(observer));
+  }
+
+  private proxify<T>(observer?: Observer<T>): SignalStoreProxy {
     const keys = Array.from(this.store.entries()).map(([key]) => key);
     const keyval = Object.fromEntries(keys.map((key) => [key, undefined]));
-    return new Proxy(Object.assign({}, this, keyval), {
+    return new Proxy(keyval as SignalStoreProxy, {
       get: (_, prop, receiver) => {
         if (typeof prop === "string" && this.store.has(prop)) {
-          return this.store.get(prop)!!.value;
+          return this.get(prop, observer);
+        } else if (prop === "$") {
+          return this.proxify(observer);
         } else {
           return Reflect.get(this, prop, receiver);
         }
@@ -56,14 +148,16 @@ export class SignalStore {
       set: (_, prop, value, receiver) => {
         if (typeof prop !== "string" || prop in this) {
           Reflect.set(this, prop, value, receiver);
-        } else if (this.store.has(prop)) {
-          this.store.get(prop)!!.value = value;
         } else {
-          this.store.set(prop, Signal.from(value));
+          this.set(prop, value);
         }
         return true;
       },
     });
+  }
+
+  get $(): SignalStoreProxy {
+    return this.proxify();
   }
 
   /**
@@ -78,10 +172,12 @@ export class SignalStore {
     return this.expressionCache.get(expr)!!;
   }
 
-  eval(expr: string, args: { [key: string]: any } = {}): any {
+  eval(expr: string, args: { [key: string]: any } = {}): unknown {
+    // Determine whether we have already been proxified to avoid doing it again.
+    const thisArg = this._observer ? (this as SignalStoreProxy) : this.$;
     if (this.store.has(expr)) {
       // Shortcut: if the expression is just an item from the value store, use that directly.
-      return this.store.get(expr)!!.peek();
+      return thisArg[expr];
     } else {
       // Otherwise, perform the expression evaluation.
       const fn = this.cachedExpressionFunction(expr);
@@ -89,7 +185,7 @@ export class SignalStore {
       if (Object.keys(args).some((key) => !this.evalkeys.includes(key))) {
         throw new Error(`Invalid argument key, must be one of: ${this.evalkeys.join(", ")}`);
       }
-      return fn.call(this.$, ...argvals);
+      return fn.call(thisArg, ...argvals);
     }
   }
 }

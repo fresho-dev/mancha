@@ -1,4 +1,3 @@
-import { ReactiveProxyStore } from "./reactive.js";
 import { ParserParams, RenderParams } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
 import { RendererPlugins } from "./plugins.js";
@@ -52,9 +51,6 @@ export function makeEvalFunction(code: string, args: string[] = []): Function {
 export abstract class IRenderer extends SignalStore {
   protected debugging: boolean = false;
   protected readonly dirpath: string = "";
-  protected readonly evalkeys: string[] = ["$elem", "$event"];
-  protected readonly expressionCache: Map<string, Function> = new Map();
-  protected readonly evalCallbacks: Map<string, EvalListener[]> = new Map();
   readonly _skipNodes: Set<Node> = new Set();
   readonly _customElements: Map<string, Node> = new Map();
   abstract parseHTML(content: string, params?: ParserParams): DocumentFragment;
@@ -181,7 +177,7 @@ export abstract class IRenderer extends SignalStore {
     params = Object.assign({ dirpath: this.dirpath, maxdepth: 10 }, params);
 
     const promises = new Iterator(traverse(root, this._skipNodes)).map(async (node) => {
-      this.log("Preprocessing node:\n", node);
+      this.log("Preprocessing node:\n", (node as any).outerHTML);
       // Resolve all the includes in the node.
       await RendererPlugins.resolveIncludes.call(this, node, params);
       // Resolve all the relative paths in the node.
@@ -214,7 +210,7 @@ export abstract class IRenderer extends SignalStore {
     // Iterate over all the nodes and apply appropriate handlers.
     // Do these steps one at a time to avoid any potential race conditions.
     for (const node of traverse(root, this._skipNodes)) {
-      this.log("Rendering node:\n", node);
+      this.log("Rendering node:\n", (node as any).outerHTML);
       // Resolve the :data attribute in the node.
       await RendererPlugins.resolveDataAttribute.call(this, node, params);
       // Resolve the :for attribute in the node.

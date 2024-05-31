@@ -19,6 +19,7 @@ import {
 import { isRelativePath } from "./core.js";
 import { RendererPlugin } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
+import { makeAsyncEvalFunction } from "./store.js";
 
 const KW_ATTRIBUTES = new Set([
   ":bind",
@@ -182,17 +183,14 @@ export namespace RendererPlugins {
 
     // To update the node, we have to re-evaluate all of the expressions since that's much simpler
     // than caching results.
-    const updateNode = () => {
+    return this.effect(function () {
       let updatedContent = content;
       for (const expr of expressions) {
-        const result = this.eval(expr, { $elem: node });
+        const result = this.eval(expr, { $elem: node }) as string;
         updatedContent = updatedContent.replace(`{{ ${expr} }}`, String(result));
       }
       setNodeValue(node, updatedContent);
-    };
-
-    // Trigger the eval and pass our full node update function as the callback.
-    this.effect(updateNode);
+    });
   };
 
   export const resolveDataAttribute: RendererPlugin = async function (node, params) {
@@ -208,8 +206,11 @@ export namespace RendererPlugins {
       // Create a subrenderer and process the tag.
       const subrenderer = this.clone();
       (node as any).renderer = subrenderer;
-      const result = subrenderer.eval(dataAttr, { $elem: node });
-      Object.entries(result).forEach(([key, value]) => (subrenderer.$[key] = value));
+
+      // Do not call eval() directly, we will use an async version instead.
+      const fn = makeAsyncEvalFunction(dataAttr, (this as any).evalkeys);
+      const result = await fn.call(subrenderer.$, { $elem: node });
+      await Promise.all(Object.entries(result).map(([key, value]) => subrenderer.set(key, value)));
 
       // Skip all the children of the current node.
       for (const child of traverse(node, this._skipNodes)) {
@@ -232,9 +233,8 @@ export namespace RendererPlugins {
       removeAttribute(elem, "@watch");
 
       // Compute the function's result.
-      this.effect(() => {
-        const result = this.eval(watchAttr, { $elem: node });
-        console.log(watchAttr, result);
+      await this.effect(function () {
+        return this.eval(watchAttr, { $elem: node });
       });
     }
   };
@@ -250,7 +250,9 @@ export namespace RendererPlugins {
       removeAttribute(elem, "$text");
 
       // Compute the function's result and track dependencies.
-      this.effect(() => setTextContent(node as Element, this.eval(textAttr, { $elem: node })));
+      return this.effect(function () {
+        setTextContent(node as Element, this.eval(textAttr, { $elem: node }) as string);
+      });
     }
   };
 
@@ -259,19 +261,19 @@ export namespace RendererPlugins {
     const elem = node as Element;
     const htmlAttr = getAttribute(elem, "$html");
     if (htmlAttr) {
-      this.log("$html attribute found in:\n", node);
+      this.log("$html attribute found in:\n", (node as any).outerHTML);
 
       // Remove the attribute from the node.
       removeAttribute(elem, "$html");
 
-      // Obtain a subrenderer for the node contents.
-      const subrenderer = this.clone();
-
       // Compute the function's result and track dependencies.
-      this.effect(() => {
-        const result = this.eval(htmlAttr, { $elem: node });
-        subrenderer.preprocessString(result, params).then((fragment) => {
+      return this.effect(function () {
+        const result = this.eval(htmlAttr, { $elem: node }) as string;
+        return new Promise(async (resolve) => {
+          const fragment = await this.preprocessString(result, params);
+          await this.renderNode(fragment);
           replaceChildren(elem, fragment);
+          resolve();
         });
       });
     }
@@ -289,7 +291,9 @@ export namespace RendererPlugins {
 
         // Compute the function's result and track dependencies.
         const propName = attributeNameToCamelCase(attr.name.slice(1));
-        this.effect(() => ((node as any)[propName] = this.eval(attr.value, { $elem: node })));
+        await this.effect(function () {
+          (node as any)[propName] = this.eval(attr.value, { $elem: node }) as string;
+        });
       }
     }
   };
@@ -306,7 +310,9 @@ export namespace RendererPlugins {
 
         // Compute the function's result and track dependencies.
         const attrName = attr.name.slice(1);
-        this.effect(() => setAttribute(elem, attrName, this.eval(attr.value, { $elem: node })));
+        this.effect(function () {
+          setAttribute(elem, attrName, this.eval(attr.value, { $elem: node }) as string);
+        });
       }
     }
   };
@@ -362,7 +368,7 @@ export namespace RendererPlugins {
 
       // Compute the container expression and track dependencies.
       const [loopKey, itemsExpr] = tokens;
-      const awaiter = this.computed(() => {
+      await this.effect(function () {
         const items = this.eval(itemsExpr, { $elem: node });
         this.log(":for list items:", items);
 
@@ -379,11 +385,11 @@ export namespace RendererPlugins {
         }
 
         // Loop through the container items.
-        const promises: Promise<void>[] = [];
+        const awaiters: Promise<void>[] = [];
         for (const item of items) {
           // Create a subrenderer that will hold the loop item and all node descendants.
           const subrenderer = this.clone();
-          subrenderer.$[loopKey] = item;
+          subrenderer.set(loopKey, item);
 
           // Create a new HTML element for each item and add them to parent node.
           const copy = node.cloneNode(true);
@@ -395,8 +401,8 @@ export namespace RendererPlugins {
           this._skipNodes.add(copy);
 
           // Render the element using the subrenderer.
-          promises.push(subrenderer.mount(copy, params));
-          this.log("Rendered list child:\n", copy, (copy as HTMLElement).outerHTML);
+          awaiters.push(subrenderer.mount(copy, params));
+          this.log("Rendered list child:\n", (copy as HTMLElement).outerHTML);
         }
 
         // Insert the new children into the parent container.
@@ -405,15 +411,8 @@ export namespace RendererPlugins {
           insertBefore(parent, child, reference);
         }
 
-        return Promise.all(promises);
-      }).value;
-
-      await awaiter
-        .catch((exc) => {
-          console.error(exc);
-          throw new Error(exc);
-        })
-        .then();
+        return Promise.all(awaiters);
+      });
     }
   };
 
@@ -437,7 +436,10 @@ export namespace RendererPlugins {
 
       // Watch for updates in the store and bind our property ==> node value.
       const propExpr = `$elem.${prop} = ${bindExpr}`;
-      // await this.watchExpr(propExpr, { $elem: node }, (result) => ((elem as any)[prop] = result));
+      this.effect(function () {
+        const result = this.eval(propExpr, { $elem: node });
+        (elem as any)[prop] = result;
+      });
 
       // Bind node value ==> our property.
       const nodeExpr = `${bindExpr} = $elem.${prop}`;
@@ -474,12 +476,13 @@ export namespace RendererPlugins {
               ?.at(1)
               ?.trim();
 
-      // // Compute the function's result and track dependencies.
-      // await this.watchExpr(showExpr, { $elem: node }, (result) => {
-      //   // If the result is false, set the node's display to none.
-      //   if (elem.style) elem.style.display = result ? display : "none";
-      //   else setAttribute(elem, "style", `display: ${result ? display : "none"};`);
-      // });
+      // Compute the function's result and track dependencies.
+      this.effect(function () {
+        const result = this.eval(showExpr, { $elem: node });
+        // If the result is false, set the node's display to none.
+        if (elem.style) elem.style.display = result ? display : "none";
+        else setAttribute(elem, "style", `display: ${result ? display : "none"};`);
+      });
     }
   };
 }

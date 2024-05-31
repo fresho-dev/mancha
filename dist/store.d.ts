@@ -1,4 +1,13 @@
-import { Signal } from "./signal.js";
+type SignalStoreProxy = SignalStore & {
+    [key: string]: any;
+};
+type Observer<T> = (this: SignalStoreProxy) => T;
+declare abstract class IDebouncer {
+    timeouts: Map<Function, ReturnType<typeof setTimeout>>;
+    debounce<T>(millis: number, callback: () => T | Promise<T>): Promise<T>;
+}
+/** Default debouncer time in millis. */
+export declare const REACTIVE_DEBOUNCE_MILLIS = 10;
 /**
  * Creates an evaluation function based on the provided code and arguments.
  * @param code The code to be evaluated.
@@ -6,21 +15,28 @@ import { Signal } from "./signal.js";
  * @returns The evaluation function.
  */
 export declare function makeEvalFunction(code: string, args?: string[]): Function;
-export declare class SignalStore {
+export declare function makeAsyncEvalFunction(code: string, args?: string[]): Function;
+export declare class SignalStore extends IDebouncer {
     protected readonly evalkeys: string[];
     protected readonly expressionCache: Map<string, Function>;
-    protected readonly store: Map<string, Signal.Type<unknown>>;
+    protected readonly store: Map<string, unknown>;
+    protected readonly observers: Map<string, Set<Observer<unknown>>>;
+    protected _observer: Observer<unknown> | null;
+    _lock: Promise<void>;
     constructor(data?: {
         [key: string]: any;
     });
     private wrapFunction;
-    effect<T>(fn: () => T): void;
-    computed<T>(fn: () => T): import("ulive").Signal<T>;
-    batch<T>(fn: () => T): void;
-    untracked<T>(fn: () => T): void;
-    get $(): SignalStore & {
-        [key: string]: any;
-    };
+    private wrapObject;
+    private watch;
+    private notify;
+    get<T>(key: string, observer?: Observer<T>): unknown | null;
+    set(key: string, value: unknown): Promise<void>;
+    del(key: string): void;
+    has(key: string): boolean;
+    effect<T>(observer: Observer<T>): T;
+    private proxify;
+    get $(): SignalStoreProxy;
     /**
      * Retrieves or creates a cached expression function based on the provided expression.
      * @param expr - The expression to retrieve or create a cached function for.
@@ -29,5 +45,6 @@ export declare class SignalStore {
     private cachedExpressionFunction;
     eval(expr: string, args?: {
         [key: string]: any;
-    }): any;
+    }): unknown;
 }
+export {};

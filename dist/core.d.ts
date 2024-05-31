@@ -28,9 +28,6 @@ export declare function makeEvalFunction(code: string, args?: string[]): Functio
 export declare abstract class IRenderer extends SignalStore {
     protected debugging: boolean;
     protected readonly dirpath: string;
-    protected readonly evalkeys: string[];
-    protected readonly expressionCache: Map<string, Function>;
-    protected readonly evalCallbacks: Map<string, EvalListener[]>;
     readonly _skipNodes: Set<Node>;
     readonly _customElements: Map<string, Node>;
     abstract parseHTML(content: string, params?: ParserParams): DocumentFragment;

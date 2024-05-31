@@ -43,9 +43,6 @@ export function makeEvalFunction(code, args = []) {
 export class IRenderer extends SignalStore {
     debugging = false;
     dirpath = "";
-    evalkeys = ["$elem", "$event"];
-    expressionCache = new Map();
-    evalCallbacks = new Map();
     _skipNodes = new Set();
     _customElements = new Map();
     /**
@@ -150,7 +147,7 @@ export class IRenderer extends SignalStore {
     async preprocessNode(root, params) {
         params = Object.assign({ dirpath: this.dirpath, maxdepth: 10 }, params);
         const promises = new Iterator(traverse(root, this._skipNodes)).map(async (node) => {
-            this.log("Preprocessing node:\n", node);
+            this.log("Preprocessing node:\n", node.outerHTML);
             // Resolve all the includes in the node.
             await RendererPlugins.resolveIncludes.call(this, node, params);
             // Resolve all the relative paths in the node.
@@ -177,7 +174,7 @@ export class IRenderer extends SignalStore {
         // Iterate over all the nodes and apply appropriate handlers.
         // Do these steps one at a time to avoid any potential race conditions.
         for (const node of traverse(root, this._skipNodes)) {
-            this.log("Rendering node:\n", node);
+            this.log("Rendering node:\n", node.outerHTML);
             // Resolve the :data attribute in the node.
             await RendererPlugins.resolveDataAttribute.call(this, node, params);
             // Resolve the :for attribute in the node.
