@@ -1,8 +1,9 @@
 import * as assert from "assert";
 import { describe, it } from "mocha";
 import { JSDOM } from "jsdom";
-import { IRenderer, traverse } from "./core.js";
+import { IRenderer } from "./core.js";
 import { ParserParams, RenderParams } from "./interfaces.js";
+import { traverse } from "./dome.js";
 
 class MockRenderer extends IRenderer {
   parseHTML(content: string, params?: ParserParams): DocumentFragment {

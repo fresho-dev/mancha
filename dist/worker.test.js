@@ -2,7 +2,7 @@ import * as assert from "assert";
 import { describe, it } from "mocha";
 import { JSDOM } from "jsdom";
 import { Renderer } from "./worker.js";
-import { traverse } from "./core.js";
+import { traverse } from "./dome.js";
 describe("Worker", () => {
     describe("parse and serialize", () => {
         it("simple string", () => {

@@ -14,8 +14,9 @@ import {
   setAttribute,
   setNodeValue,
   setTextContent,
+  traverse,
 } from "./dome.js";
-import { isRelativePath, traverse } from "./core.js";
+import { isRelativePath } from "./core.js";
 import { ParserParams, RenderParams, RendererPlugin } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
 

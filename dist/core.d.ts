@@ -2,15 +2,6 @@ import { ReactiveProxyStore } from "./reactive.js";
 import { ParserParams, RenderParams } from "./interfaces.js";
 export type EvalListener = (result: any, dependencies: string[]) => any;
 /**
- * Traverses the DOM tree starting from the given root node and yields each child node.
- * Nodes in the `skip` set will be skipped during traversal.
- *
- * @param root - The root node to start the traversal from.
- * @param skip - A set of nodes to skip during traversal.
- * @returns A generator that yields each child node in the DOM tree.
- */
-export declare function traverse(root: Node | DocumentFragment | Document, skip?: Set<Node>): Generator<ChildNode>;
-/**
  * Returns the directory name from a given file path.
  * @param fpath - The file path.
  * @returns The directory name.
