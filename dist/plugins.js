@@ -37,7 +37,11 @@ export var RendererPlugins;
             replaceWith(node, ...fragment.childNodes);
         };
         // Compute the subparameters being passed down to the included file.
-        const subparameters = { ...params, root: false, maxdepth: params?.maxdepth - 1 };
+        const subparameters = {
+            ...params,
+            rootDocument: false,
+            maxdepth: params?.maxdepth - 1,
+        };
         if (subparameters.maxdepth === 0)
             throw new Error("Maximum recursion depth reached.");
         // Case 1: Absolute remote path.
@@ -184,17 +188,23 @@ export var RendererPlugins;
             this.log(":data attribute found in:\n", node);
             // Remove the attribute from the node.
             removeAttribute(elem, ":data");
-            // Create a subrenderer and process the tag.
-            const subrenderer = this.clone();
-            node.renderer = subrenderer;
-            const [result] = await subrenderer.eval(dataAttr, { $elem: node });
-            await subrenderer.update(result);
-            // Skip all the children of the current node.
-            for (const child of traverse(node, this._skipNodes)) {
-                this._skipNodes.add(child);
+            // Create a subrenderer and process the tag, unless it's the root node.
+            if (params?.rootNode === node) {
+                const [result] = await this.eval(dataAttr, { $elem: node });
+                await this.update(result);
             }
-            // Mount the current node with the subrenderer.
-            await subrenderer.mount(node, params);
+            else {
+                const subrenderer = this.clone();
+                node.renderer = subrenderer;
+                const [result] = await subrenderer.eval(dataAttr, { $elem: node });
+                await subrenderer.update(result);
+                // Skip all the children of the current node.
+                for (const child of traverse(node, this._skipNodes)) {
+                    this._skipNodes.add(child);
+                }
+                // Mount the current node with the subrenderer.
+                await subrenderer.mount(node, params);
+            }
         }
     };
     RendererPlugins.resolveWatchAttribute = async function (node, params) {

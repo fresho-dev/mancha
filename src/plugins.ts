@@ -16,7 +16,7 @@ import {
   setTextContent,
 } from "./dome.js";
 import { isRelativePath, traverse } from "./core.js";
-import { RendererPlugin } from "./interfaces.js";
+import { ParserParams, RenderParams, RendererPlugin } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
 
 const KW_ATTRIBUTES = new Set([
@@ -57,7 +57,11 @@ export namespace RendererPlugins {
     };
 
     // Compute the subparameters being passed down to the included file.
-    const subparameters = { ...params, root: false, maxdepth: params?.maxdepth!! - 1 };
+    const subparameters: RenderParams & ParserParams = {
+      ...params,
+      rootDocument: false,
+      maxdepth: params?.maxdepth!! - 1,
+    };
     if (subparameters.maxdepth === 0) throw new Error("Maximum recursion depth reached.");
 
     // Case 1: Absolute remote path.
@@ -204,19 +208,24 @@ export namespace RendererPlugins {
       // Remove the attribute from the node.
       removeAttribute(elem, ":data");
 
-      // Create a subrenderer and process the tag.
-      const subrenderer = this.clone();
-      (node as any).renderer = subrenderer;
-      const [result] = await subrenderer.eval(dataAttr, { $elem: node });
-      await subrenderer.update(result);
+      // Create a subrenderer and process the tag, unless it's the root node.
+      if (params?.rootNode === node) {
+        const [result] = await this.eval(dataAttr, { $elem: node });
+        await this.update(result);
+      } else {
+        const subrenderer = this.clone();
+        (node as any).renderer = subrenderer;
+        const [result] = await subrenderer.eval(dataAttr, { $elem: node });
+        await subrenderer.update(result);
 
-      // Skip all the children of the current node.
-      for (const child of traverse(node, this._skipNodes)) {
-        this._skipNodes.add(child);
+        // Skip all the children of the current node.
+        for (const child of traverse(node, this._skipNodes)) {
+          this._skipNodes.add(child);
+        }
+
+        // Mount the current node with the subrenderer.
+        await subrenderer.mount(node, params);
       }
-
-      // Mount the current node with the subrenderer.
-      await subrenderer.mount(node, params);
     }
   };
 

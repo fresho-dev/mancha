@@ -3,8 +3,8 @@ import { ParserParams, RenderParams } from "./interfaces.js";
 
 class Renderer extends IRenderer {
   protected readonly dirpath: string = dirname(self.location.href);
-  parseHTML(content: string, params: ParserParams = { root: false }): DocumentFragment {
-    if (params.root) {
+  parseHTML(content: string, params: ParserParams = { rootDocument: false }): DocumentFragment {
+    if (params.rootDocument) {
       return new DOMParser().parseFromString(content, "text/html") as unknown as DocumentFragment;
     } else {
       const range = document.createRange();

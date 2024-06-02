@@ -2,7 +2,7 @@
 import { IRenderer } from "./core.js";
 export interface ParserParams {
     /** Whether the file parsed is a root document, or a document fragment. */
-    root?: boolean;
+    rootDocument?: boolean;
     /** Encoding to use when processing local files. */
     encoding?: BufferEncoding;
 }
@@ -14,5 +14,7 @@ export interface RenderParams {
     maxdepth?: number;
     /** Cache policy used when resolving remote paths. */
     cache?: RequestCache | null;
+    /** Whether the current node is the root used in Mancha.moun(...). */
+    rootNode?: Node;
 }
 export type RendererPlugin = (this: IRenderer, node: ChildNode, params?: RenderParams) => Promise<void>;

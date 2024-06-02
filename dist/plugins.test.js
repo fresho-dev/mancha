@@ -242,13 +242,30 @@ describe("Plugins", () => {
             assert.equal(getAttribute(node, ":data"), null);
             assert.deepEqual(subrenderer.get("arr"), [{ n: 1 }, { n: 2 }, { n: 3 }]);
         }, { MockRenderer, NodeRenderer, WorkerRenderer });
-        testRenderers("initializes using subrenderer", async (ctor) => {
+        testRenderers("initializes avoiding subrenderer", async (ctor) => {
             const renderer = new ctor({ foo: 1, bar: 2 });
             const html = `<div :data="{ baz: 3 }"></div>`;
             const fragment = renderer.parseHTML(html);
             const node = fragment.firstChild;
-            await renderer.mount(fragment);
-            const subrenderer = node.renderer;
+            // Mount the node directly, otherwise it's not the root node.
+            await renderer.mount(node);
+            assert.equal(renderer, node.renderer);
+            assert.equal(getAttribute(node, ":data"), null);
+            // The renderer has all the initial properties + the new one.
+            assert.equal(renderer.get("foo"), 1);
+            assert.equal(renderer.get("bar"), 2);
+            assert.equal(renderer.get("baz"), 3);
+        }, { MockRenderer, NodeRenderer, WorkerRenderer });
+        testRenderers("initializes using subrenderer", async (ctor) => {
+            const renderer = new ctor({ foo: 1, bar: 2 });
+            const html = `<div><div :data="{ baz: 3 }"></div><div>`;
+            const fragment = renderer.parseHTML(html);
+            const node = fragment.firstChild;
+            // Mount the node directly, otherwise it's not the root node.
+            await renderer.mount(node);
+            const subnode = node.firstChild;
+            const subrenderer = subnode.renderer;
+            assert.notEqual(renderer, subrenderer);
             assert.equal(getAttribute(node, ":data"), null);
             // The parent renderer only has the initial properties.
             assert.equal(renderer.get("foo"), 1);

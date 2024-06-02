@@ -1,8 +1,8 @@
 import { dirname, IRenderer } from "./core.js";
 class Renderer extends IRenderer {
     dirpath = dirname(self.location.href);
-    parseHTML(content, params = { root: false }) {
-        if (params.root) {
+    parseHTML(content, params = { rootDocument: false }) {
+        if (params.rootDocument) {
             return new DOMParser().parseFromString(content, "text/html");
         }
         else {

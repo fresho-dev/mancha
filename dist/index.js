@@ -2,9 +2,9 @@ import * as fs from "fs/promises";
 import { JSDOM } from "jsdom";
 import { IRenderer } from "./core.js";
 export class Renderer extends IRenderer {
-    parseHTML(content, params = { root: false }) {
+    parseHTML(content, params = { rootDocument: false }) {
         const dom = new JSDOM();
-        if (params.root) {
+        if (params.rootDocument) {
             const DOMParser = dom.window.DOMParser;
             return new DOMParser().parseFromString(content, "text/html");
         }

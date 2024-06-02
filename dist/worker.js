@@ -2,7 +2,7 @@ import * as htmlparser2 from "htmlparser2";
 import { render as renderDOM } from "dom-serializer";
 import { IRenderer } from "./core.js";
 export class Renderer extends IRenderer {
-    parseHTML(content, params = { root: false }) {
+    parseHTML(content, params = { rootDocument: false }) {
         return htmlparser2.parseDocument(content);
     }
     serializeHTML(root) {

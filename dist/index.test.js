@@ -27,7 +27,7 @@ function testRenderString(fname, compare = "Hello World", vars = {}) {
             const renderer = new Renderer(context);
             const fragment = await renderer.preprocessString(content.toString("utf8"), {
                 dirpath,
-                root: !fname.endsWith(".tpl.html"),
+                rootDocument: !fname.endsWith(".tpl.html"),
             });
             await renderer.renderNode(fragment);
             const result = renderer.serializeHTML(fragment);

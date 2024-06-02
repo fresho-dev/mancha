@@ -4,7 +4,7 @@ import { IRenderer } from "./core.js";
 import { ParserParams } from "./interfaces.js";
 
 export class Renderer extends IRenderer {
-  parseHTML(content: string, params: ParserParams = { root: false }): DocumentFragment {
+  parseHTML(content: string, params: ParserParams = { rootDocument: false }): DocumentFragment {
     return htmlparser2.parseDocument(content) as unknown as DocumentFragment;
   }
   serializeHTML(root: Node | DocumentFragment | Document): string {

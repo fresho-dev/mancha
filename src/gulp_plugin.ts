@@ -30,7 +30,7 @@ function mancha(context: { [key: string]: string } = {}): stream.Transform {
       if (file.isBuffer()) {
         const chunk = file.contents.toString(encoding);
         renderer
-          .preprocessString(chunk, { dirpath, root: !file.path.endsWith(".tpl.html") })
+          .preprocessString(chunk, { dirpath, rootDocument: !file.path.endsWith(".tpl.html") })
           .then(async (fragment) => {
             await renderer.renderNode(fragment);
             const content = renderer.serializeHTML(fragment);
@@ -50,7 +50,7 @@ function mancha(context: { [key: string]: string } = {}): stream.Transform {
           })
           .on("end", () => {
             renderer
-              .preprocessString(docstr, { dirpath, root: !file.path.endsWith(".tpl.html") })
+              .preprocessString(docstr, { dirpath, rootDocument: !file.path.endsWith(".tpl.html") })
               .then(async (document) => {
                 await renderer.renderNode(document);
                 const content = renderer.serializeHTML(document);

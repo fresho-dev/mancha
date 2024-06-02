@@ -32,7 +32,7 @@ function testRenderString(fname: string, compare = "Hello World", vars: any = {}
       const renderer = new Renderer(context);
       const fragment = await renderer.preprocessString(content.toString("utf8"), {
         dirpath,
-        root: !fname.endsWith(".tpl.html"),
+        rootDocument: !fname.endsWith(".tpl.html"),
       });
       await renderer.renderNode(fragment);
       const result = renderer.serializeHTML(fragment);

@@ -4,9 +4,9 @@ import { ParserParams, RenderParams } from "./interfaces.js";
 import { IRenderer } from "./core.js";
 
 export class Renderer extends IRenderer {
-  parseHTML(content: string, params: ParserParams = { root: false }): DocumentFragment {
+  parseHTML(content: string, params: ParserParams = { rootDocument: false }): DocumentFragment {
     const dom = new JSDOM();
-    if (params.root) {
+    if (params.rootDocument) {
       const DOMParser = dom.window.DOMParser;
       return new DOMParser().parseFromString(content, "text/html") as unknown as DocumentFragment;
     } else {

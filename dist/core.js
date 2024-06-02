@@ -129,7 +129,7 @@ export class IRenderer extends ReactiveProxyStore {
         return this.preprocessString(content, {
             ...params,
             dirpath: dirname(fpath),
-            root: params?.root ?? !fpath.endsWith(".tpl.html"),
+            rootDocument: params?.rootDocument ?? !fpath.endsWith(".tpl.html"),
         });
     }
     /**
@@ -143,7 +143,7 @@ export class IRenderer extends ReactiveProxyStore {
         return this.preprocessString(content, {
             ...params,
             dirpath: dirname(fpath),
-            root: params?.root ?? !fpath.endsWith(".tpl.html"),
+            rootDocument: params?.rootDocument ?? !fpath.endsWith(".tpl.html"),
         });
     }
     /**
@@ -248,7 +248,7 @@ export class IRenderer extends ReactiveProxyStore {
      * @returns {Promise<T>} - A promise that resolves to the preprocessed node.
      */
     async preprocessNode(root, params) {
-        params = Object.assign({ dirpath: this.dirpath, maxdepth: 10 }, params);
+        params = { dirpath: this.dirpath, maxdepth: 10, ...params };
         const promises = new Iterator(traverse(root, this._skipNodes)).map(async (node) => {
             this.log("Preprocessing node:\n", node);
             // Resolve all the includes in the node.
@@ -312,9 +312,12 @@ export class IRenderer extends ReactiveProxyStore {
      * @returns A promise that resolves when the mounting process is complete.
      */
     async mount(root, params) {
+        params = { ...params, rootNode: root };
         // Preprocess all the elements recursively first.
         await this.preprocessNode(root, params);
         // Now that the DOM is complete, render all the nodes.
         await this.renderNode(root, params);
+        // Attach ourselves to the HTML node.
+        root.renderer = this;
     }
 }

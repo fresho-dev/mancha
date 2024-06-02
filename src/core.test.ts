@@ -60,6 +60,15 @@ describe("Core", () => {
     });
   });
 
+  describe("mount", () => async () => {
+    it("mounts a document fragment", async () => {
+      const renderer = new MockRenderer();
+      const fragment = JSDOM.fragment("<div></div>");
+      await renderer.mount(fragment);
+      assert.equal((fragment as any).renderer, renderer);
+    });
+  });
+
   describe("eval", () => {
     it("simple sum", async () => {
       const fn = "a + b";
