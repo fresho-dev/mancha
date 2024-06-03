@@ -438,7 +438,7 @@ describe("Reactive", () => {
     it("creates a deep proxy for object", () => {
       let ops = 0;
       const obj: any = { a: 1, b: 2 };
-      const proxy = proxifyObject(obj, () => ops++, true);
+      const proxy = proxifyObject(obj, () => ops++);
       assert.equal(ops, 0);
 
       // Insert an object and modify it.
@@ -466,58 +466,15 @@ describe("Reactive", () => {
       assert.deepEqual(obj, { a: 1, b: 2, c: { d: 5 }, e: [6] });
     });
 
-    it("creates a shallow proxy for object", () => {
-      let ops = 0;
-      const obj: any = { a: 1, b: 2 };
-      const proxy = proxifyObject(obj, () => ops++, false);
-      assert.equal(ops, 0);
-
-      // Insert an object and modify it.
-
-      ops = 0;
-      proxy.c = { d: 4 };
-      assert.ok(ops > 0);
-      assert.deepEqual(obj, { a: 1, b: 2, c: { d: 4 } });
-
-      ops = 0;
-      proxy.c.d++;
-      assert.equal(ops, 0);
-      assert.deepEqual(obj, { a: 1, b: 2, c: { d: 5 } });
-
-      // Insert an array and modify it.
-
-      ops = 0;
-      proxy.e = [null];
-      assert.ok(ops > 0);
-      assert.deepEqual(obj, { a: 1, b: 2, c: { d: 5 }, e: [null] });
-
-      ops = 0;
-      proxy.e[0] = 6;
-      assert.equal(ops, 0);
-      assert.deepEqual(obj, { a: 1, b: 2, c: { d: 5 }, e: [6] });
-    });
-
-    it("proxifies existing properties when deep = true", () => {
+    it("proxifies existing properties", () => {
       let ops = 0;
       const obj: any = { x: { a: 1, b: 2 } };
-      const proxy = proxifyObject(obj, () => ops++, true);
+      const proxy = proxifyObject(obj, () => ops++);
       assert.equal(ops, 0);
 
       ops = 0;
       proxy.x.a++;
       assert.ok(ops > 0);
-      assert.deepEqual(obj, { x: { a: 2, b: 2 } });
-    });
-
-    it("does not proxify existing properties when deep = false", () => {
-      let ops = 0;
-      const obj: any = { x: { a: 1, b: 2 } };
-      const proxy = proxifyObject(obj, () => ops++, false);
-      assert.equal(ops, 0);
-
-      ops = 0;
-      proxy.x.a++;
-      assert.equal(ops, 0);
       assert.deepEqual(obj, { x: { a: 2, b: 2 } });
     });
   });

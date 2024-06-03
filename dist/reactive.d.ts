@@ -6,7 +6,7 @@ declare abstract class IDebouncer {
 }
 /** Default debouncer time in millis. */
 export declare const REACTIVE_DEBOUNCE_MILLIS = 10;
-export declare function proxifyObject<T extends object>(object: T, callback: () => void, deep?: boolean): T;
+export declare function proxifyObject<T extends object>(obj: T, callback: () => void): T;
 export declare class ReactiveProxy<T> extends IDebouncer {
     private value;
     private listeners;

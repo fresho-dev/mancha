@@ -31,21 +31,21 @@ function isProxified<T extends object>(object: T) {
 /** Default debouncer time in millis. */
 export const REACTIVE_DEBOUNCE_MILLIS = 10;
 
-export function proxifyObject<T extends object>(object: T, callback: () => void, deep = true): T {
-  // If this object is already a proxy or a Promise, return it as-is.
-  if (object == null || isProxified(object) || object instanceof Promise) return object;
+export function proxifyObject<T extends object>(obj: T, callback: () => void): T {
+  // If this object is already a proxy or not a plain object (or array), return it as-is.
+  if (obj == null || isProxified(obj) || (obj.constructor !== Object && !Array.isArray(obj))) {
+    return obj;
+  }
 
-  // First, proxify any existing properties if deep = true.
-  if (deep) {
-    for (const key in object) {
-      if (object.hasOwnProperty(key) && typeof object[key] === "object" && object[key] != null) {
-        object[key] = proxifyObject(object[key] as any, callback);
-      }
+  // First, proxify any existing properties.
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key) && typeof obj[key] === "object" && obj[key] != null) {
+      obj[key] = proxifyObject(obj[key] as any, callback);
     }
   }
 
   // Then, proxify the object itself.
-  return new Proxy(object, {
+  return new Proxy(obj, {
     deleteProperty: (target: any, property: string) => {
       if (property in target) {
         delete target[property];
@@ -56,7 +56,7 @@ export function proxifyObject<T extends object>(object: T, callback: () => void,
       }
     },
     set: (target: any, prop: string, value: any, receiver: any) => {
-      if (deep && typeof value === "object") value = proxifyObject(value, callback);
+      if (typeof value === "object") value = proxifyObject(value, callback);
       const ret = Reflect.set(target, prop, value, receiver);
       callback();
       return ret;

@@ -292,7 +292,7 @@ export var RendererPlugins;
                 // Remove the processed attributes from node.
                 removeAttribute(elem, attr.name);
                 node.addEventListener?.(attr.name.substring(1), (event) => {
-                    this.eval(attr.value, { $elem: node, $event: event });
+                    return this.eval(attr.value, { $elem: node, $event: event });
                 });
             }
         }
