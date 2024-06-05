@@ -371,6 +371,10 @@ function posneg(props: { [key: string]: string }): string[] {
     .map(([prop, klass]) => [
       // Zero.
       `.${klass}-0 { ${prop}: 0; }`,
+      // Screen.
+      `.${klass}-screen { ${prop}: 100vw; }`,
+      // Full.
+      `.${klass}-full { ${prop}: 100%; }`,
       // Positive REM units.
       ...UNITS_ALL.map((v) => `.${klass}-${v} { ${prop}: ${v * REM_UNIT}rem; }`),
       // Negative REM units.
@@ -414,6 +418,24 @@ function autoxy(props: { [key: string]: string }): string[] {
       `.${klass}x-auto { ${prop}-left: auto; ${prop}-right: auto; }`,
       // Auto y-axis.
       `.${klass}y-auto { ${prop}-top: auto; ${prop}-bottom: auto; }`,
+      // Positive REM units x-axis.
+      ...UNITS_ALL.map(
+        (v) =>
+          `.${klass}x-${v} { ${prop}-left: ${v * REM_UNIT}rem; ${prop}-right: ${v * REM_UNIT}rem; }`
+      ),
+      // Positive REM units y-axis.
+      ...UNITS_ALL.map(
+        (v) =>
+          `.${klass}y-${v} { ${prop}-top: ${v * REM_UNIT}rem; ${prop}-bottom: ${v * REM_UNIT}rem; }`
+      ),
+      // Positive PX units x-axis.
+      ...UNITS_ALL.map((v) => `.${klass}x-${v}px { ${prop}-left: ${v}px; ${prop}-right: ${v}px; }`),
+      // Positive PX units y-axis.
+      ...UNITS_ALL.map((v) => `.${klass}y-${v}px { ${prop}-top: ${v}px; ${prop}-bottom: ${v}px; }`),
+      // Positive percent units x-axis.
+      ...PERCENTS.map((v) => `.${klass}x-${v}% { ${prop}-left: ${v}%; ${prop}-right: ${v}%; }`),
+      // Positive percent units y-axis.
+      ...PERCENTS.map((v) => `.${klass}y-${v}% { ${prop}-top: ${v}%; ${prop}-bottom: ${v}%; }`),
     ])
     .flat();
 }
@@ -496,12 +518,23 @@ function colors(): string[] {
     .map(([klass, rule]) => `.${klass},${wrapPseudoStates(klass).join(",")} ${rule}`);
 }
 
+function opacity(): string[] {
+  return [
+    // Zero for opacity.
+    `.opacity-0 { opacity: 0; }`,
+    // Positive percent units for opacity.
+    ...PERCENTS.map((v) => `.opacity-${v} { opacity: ${v / 100}; }`),
+  ];
+}
+
 export default function rules(): string {
   return [
     // Custom.
     ...custom(),
     // Colors.
     ...colors(),
+    // Opacity.
+    ...opacity(),
     // Sizing.
     ...posneg(PROPS_SIZING),
     ...autoxy(PROPS_SIZING),

@@ -26,8 +26,8 @@ const PROPS_SIZING_MINMAX = {
     "max-height": "max-h",
 };
 const PROPS_CUSTOM = {
-    /** Based on https://matcha.mizu.sh/@utilities.css */
-    /* Text style */
+    // Based on https://matcha.mizu.sh/@utilities.css.
+    // Text style.
     bold: { "font-weight": "bold" },
     semibold: { "font-weight": 600 },
     italic: { "font-style": "italic" },
@@ -44,13 +44,13 @@ const PROPS_CUSTOM = {
     "text-right": { "text-align": "right" },
     "text-center": { "text-align": "center" },
     "text-justify": { "text-align": "justify" },
-    /* Font size */
+    // Font size.
     "text-xs": { "font-size": ".85rem" },
     "text-sm": { "font-size": ".875rem" },
     "text-md": { "font-size": "1rem" },
     "text-lg": { "font-size": "1.25rem" },
     "text-xl": { "font-size": "1.5rem" },
-    /* Position */
+    // Position.
     relative: { position: "relative" },
     fixed: { position: "fixed" },
     absolute: { position: "absolute" },
@@ -60,7 +60,7 @@ const PROPS_CUSTOM = {
     "object-cover": { "object-fit": "cover" },
     "object-fill": { "object-fit": "fill" },
     "object-none": { "object-fit": "none" },
-    /* Display */
+    // Display.
     hidden: { display: "none" },
     inline: { display: "inline" },
     block: { display: "block" },
@@ -68,7 +68,7 @@ const PROPS_CUSTOM = {
     flex: { display: "flex" },
     "flex.inline": { display: "inline-flex" },
     content: { display: "contents" },
-    /* Flex */
+    // Flex.
     "flex.row": { "flex-direction": "row" },
     "flex.column": { "flex-direction": "column" },
     "flex.row.reverse": { "flex-direction": "row-reverse" },
@@ -89,25 +89,25 @@ const PROPS_CUSTOM = {
     "flex.align-stretch": { "align-items": "stretch" },
     grow: { "flex-grow": 1 },
     shrink: { "flex-shrink": 1 },
-    /* Overflow */
+    // Overflow.
     overflow: { overflow: "auto" },
     "overflow-x": { "overflow-x": "auto" },
     "overflow-y": { "overflow-y": "auto" },
     "no-overflow": { overflow: "hidden" },
-    /* Cursors */
+    // Cursors.
     pointer: { cursor: "pointer" },
     wait: { cursor: "wait" },
     "not-allowed": { cursor: "not-allowed" },
-    /* User selection */
+    // User selection.
     "no-select": { "user-select": "none" },
     "select-all": { "user-select": "all" },
-    /* Events */
+    // Events.
     events: { "pointer-events": "auto" },
     "no-events": { "pointer-events": "none" },
-    /* Sizing */
+    // Sizing.
     "border-box": { "box-sizing": "border-box" },
     "content-box": { "box-sizing": "content-box" },
-    /* Resizing */
+    // Resizing.
     resize: { resize: "both" },
     "resize-x": { resize: "horizontal" },
     "resize-y": { resize: "vertical" },
@@ -117,6 +117,7 @@ const PROPS_CUSTOM = {
     "bg-transparent": { "background-color": "transparent" },
     "border-transparent": { "border-color": "transparent" },
     // Borders.
+    "border-none": { border: "none" },
     "border-solid": { "border-style": "solid" },
     "border-dashed": { "border-style": "dashed" },
     "border-dotted": { "border-style": "dotted" },
@@ -367,6 +368,10 @@ function posneg(props) {
         .map(([prop, klass]) => [
         // Zero.
         `.${klass}-0 { ${prop}: 0; }`,
+        // Screen.
+        `.${klass}-screen { ${prop}: 100vw; }`,
+        // Full.
+        `.${klass}-full { ${prop}: 100%; }`,
         // Positive REM units.
         ...UNITS_ALL.map((v) => `.${klass}-${v} { ${prop}: ${v * REM_UNIT}rem; }`),
         // Negative REM units.
@@ -403,6 +408,18 @@ function autoxy(props) {
         `.${klass}x-auto { ${prop}-left: auto; ${prop}-right: auto; }`,
         // Auto y-axis.
         `.${klass}y-auto { ${prop}-top: auto; ${prop}-bottom: auto; }`,
+        // Positive REM units x-axis.
+        ...UNITS_ALL.map((v) => `.${klass}x-${v} { ${prop}-left: ${v * REM_UNIT}rem; ${prop}-right: ${v * REM_UNIT}rem; }`),
+        // Positive REM units y-axis.
+        ...UNITS_ALL.map((v) => `.${klass}y-${v} { ${prop}-top: ${v * REM_UNIT}rem; ${prop}-bottom: ${v * REM_UNIT}rem; }`),
+        // Positive PX units x-axis.
+        ...UNITS_ALL.map((v) => `.${klass}x-${v}px { ${prop}-left: ${v}px; ${prop}-right: ${v}px; }`),
+        // Positive PX units y-axis.
+        ...UNITS_ALL.map((v) => `.${klass}y-${v}px { ${prop}-top: ${v}px; ${prop}-bottom: ${v}px; }`),
+        // Positive percent units x-axis.
+        ...PERCENTS.map((v) => `.${klass}x-${v}% { ${prop}-left: ${v}%; ${prop}-right: ${v}%; }`),
+        // Positive percent units y-axis.
+        ...PERCENTS.map((v) => `.${klass}y-${v}% { ${prop}-top: ${v}%; ${prop}-bottom: ${v}%; }`),
     ])
         .flat();
 }
@@ -470,12 +487,22 @@ function colors() {
         .concat(shades)
         .map(([klass, rule]) => `.${klass},${wrapPseudoStates(klass).join(",")} ${rule}`);
 }
+function opacity() {
+    return [
+        // Zero for opacity.
+        `.opacity-0 { opacity: 0; }`,
+        // Positive percent units for opacity.
+        ...PERCENTS.map((v) => `.opacity-${v} { opacity: ${v / 100}; }`),
+    ];
+}
 export default function rules() {
     return [
         // Custom.
         ...custom(),
         // Colors.
         ...colors(),
+        // Opacity.
+        ...opacity(),
         // Sizing.
         ...posneg(PROPS_SIZING),
         ...autoxy(PROPS_SIZING),
