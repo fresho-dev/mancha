@@ -1,6 +1,7 @@
 import * as fs from "fs/promises";
-import ts from "gulp-typescript";
+import run from "gulp-run";
 import GulpClient from "gulp";
+import csso from "gulp-csso";
 
 // Clean tasks
 
@@ -11,14 +12,17 @@ GulpClient.task("clean", function (done) {
 // Build tasks
 
 GulpClient.task("ts", function () {
-  return GulpClient.src("src/**/*.ts")
-    .pipe(ts.createProject("tsconfig.json")())
-    .pipe(GulpClient.dest("dist"));
+  // The gulp-typescript plugin is deprecated.
+  return run("tsc -p .").exec();
+});
+
+GulpClient.task("css", function () {
+  return GulpClient.src("src/**/*.css").pipe(csso()).pipe(GulpClient.dest("dist"));
 });
 
 GulpClient.task("fixtures", function () {
   return GulpClient.src("src/fixtures/**/*").pipe(GulpClient.dest("dist/fixtures"));
 });
 
-GulpClient.task("build", GulpClient.series("ts", "fixtures"));
+GulpClient.task("build", GulpClient.series("ts", "css", "fixtures"));
 GulpClient.task("default", GulpClient.series("build"));

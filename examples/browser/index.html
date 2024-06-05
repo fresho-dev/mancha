@@ -3,12 +3,7 @@
 <head :data="{name: 'Stranger'}">
   <title>Hello {{ name }}!</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="mancha.js" target="body,head" cache="no-store" init></script>
-  <style>
-    .underline {
-      text-decoration: underline;
-    }
-  </style>
+  <script src="mancha.js" target="body+head" cache="no-store" css="basic+utils" init></script>
 </head>
 
 <body>

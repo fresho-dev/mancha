@@ -11,11 +11,14 @@
   {name: 'strawberry', icon: '🍓'},
   ]
 }">
-  <p>
-    Here is a collection of fruits:
+  <div>
+    <span>Here is a collection of fruits:</span>
     <span :for="item in basket">{{ item.icon }}</span>
-  </p>
-  <button :for="fruit in fruits" @click="basket.push(fruit)">
-    {{ fruit.icon }}
-  </button>
+  </div>
+  <div class="flex gap-1">
+    <button class="flex row p-1 border-solid rounded-sm bg-transparent pointer" :for="fruit in fruits"
+      @click="basket.push(fruit)">
+      {{ fruit.icon }}
+    </button>
+  </div>
 </div>

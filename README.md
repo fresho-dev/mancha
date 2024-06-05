@@ -171,13 +171,15 @@ To use `mancha` on the client (browser), use the `mancha` bundled file available
   <span>Hello, {{ name }}!</span>
 </body>
 
-<script src="//unpkg.com/mancha" target="body" defer init></script>
+<script src="//unpkg.com/mancha" target="body" css="basic+utils" defer init></script>
 ```
 
 Script tag attributes:
 
 - `init`: whether to automatically render upon script load
-- `target`: comma-separated document elements to render e.g. "body" or "head,body" (defaults to "body")
+- `target`: document elements separated by `+` to render e.g. "body" or "head+body" (defaults to
+  "body")
+- `css`: inject predefined CSS rules known to Mancha (experimental)
 
 For a more complete example, see [examples/browser](./examples/browser).
 

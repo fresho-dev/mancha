@@ -1,11 +1,22 @@
+
 export default {
   target: "web",
   mode: "production",
-  entry: "./dist/browser.js",
+  entry: {
+    mancha: "./dist/browser.js",
+  },
   output: {
-    filename: "mancha.js",
+    filename: "[name].js",
   },
   externals: {
     htmlparser2: "window.htmlparser2",
+  },
+  module: {
+    rules: [
+      {
+        test: /\.css$/i,
+        loader: "css-loader",
+      },
+    ],
   },
 };
