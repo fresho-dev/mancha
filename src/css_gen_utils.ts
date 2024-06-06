@@ -5,6 +5,12 @@ const UNITS_XL = [64, 72, 80, 96, 112, 128, 144, 160, 192, 224, 256, 288, 320, 3
 const UNITS_ALL = [...UNITS_SM, ...UNITS_LG, ...UNITS_XL];
 const PERCENTS = [1, 2, 5, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 95, 98, 99, 100];
 const PSEUDO_STATES = ["hover", "focus", "disabled", "focus", "active"];
+const MEDIA_BREAKPOINTS = {
+  sm: 640,
+  md: 768,
+  lg: 1024,
+  xl: 1280,
+};
 const PROPS_SPACING = {
   margin: "m",
   padding: "p",
@@ -32,24 +38,26 @@ const PROPS_CUSTOM = {
   semibold: { "font-weight": 600 },
   italic: { "font-style": "italic" },
   underline: { "text-decoration": "underline" },
-  strikethrough: { "text-decoration": "line-through" },
+  "no-underline": { "text-decoration": "none" },
+  "decoration-none": { "text-decoration": "none" },
+  "line-through": { "text-decoration": "line-through" },
   uppercase: { "text-transform": "uppercase" },
   lowercase: { "text-transform": "lowercase" },
   capitalize: { "text-transform": "capitalize" },
-  centered: { "text-align": "center" },
-  justified: { "text-align": "justify" },
-  monospace: { "font-family": "monospace" },
+  "font-mono": { "font-family": "ui-monospace, monospace" },
+  "font-sans": { "font-family": "ui-sans-serif, system-ui, sans-serif" },
+  "font-serif": { "font-family": "ui-serif, serif" },
   // Text position.
   "text-left": { "text-align": "left" },
   "text-right": { "text-align": "right" },
   "text-center": { "text-align": "center" },
   "text-justify": { "text-align": "justify" },
   // Font size.
-  "text-xs": { "font-size": ".85rem" },
+  "text-xs": { "font-size": ".75rem" },
   "text-sm": { "font-size": ".875rem" },
-  "text-md": { "font-size": "1rem" },
-  "text-lg": { "font-size": "1.25rem" },
-  "text-xl": { "font-size": "1.5rem" },
+  "text-base": { "font-size": "1rem" },
+  "text-lg": { "font-size": "1.125rem" },
+  "text-xl": { "font-size": "1.25rem" },
   // Position.
   relative: { position: "relative" },
   fixed: { position: "fixed" },
@@ -61,75 +69,99 @@ const PROPS_CUSTOM = {
   "object-fill": { "object-fit": "fill" },
   "object-none": { "object-fit": "none" },
   // Display.
+  block: { display: "block" },
+  contents: { display: "contents" },
   hidden: { display: "none" },
   inline: { display: "inline" },
-  block: { display: "block" },
-  "block.inline": { display: "inline-block" },
-  flex: { display: "flex" },
-  "flex.inline": { display: "inline-flex" },
-  content: { display: "contents" },
+  "inline-block": { display: "inline-block" },
   // Flex.
-  "flex.row": { "flex-direction": "row" },
-  "flex.column": { "flex-direction": "column" },
-  "flex.row.reverse": { "flex-direction": "row-reverse" },
-  "flex.column.reverse": { "flex-direction": "column-reverse" },
-  "flex.wrap": { "flex-wrap": "wrap" },
-  "flex.wrap.reverse": { "flex-wrap": "wrap-reverse" },
-  "flex.no-wrap": { "flex-wrap": "nowrap" },
-  "flex.start": { "justify-content": "flex-start" },
-  "flex.end": { "justify-content": "flex-end" },
-  "flex.center": { "justify-content": "center" },
-  "flex.space-between": { "justify-content": "space-between" },
-  "flex.space-around": { "justify-content": "space-around" },
-  "flex.space-evenly": { "justify-content": "space-evenly" },
-  "flex.stretch": { "justify-content": "stretch" },
-  "flex.align-start": { "align-items": "flex-start" },
-  "flex.align-end": { "align-items": "flex-end" },
-  "flex.align-center": { "align-items": "center" },
-  "flex.align-stretch": { "align-items": "stretch" },
-  grow: { "flex-grow": 1 },
-  shrink: { "flex-shrink": 1 },
+  flex: { display: "flex" },
+  "flex-1": { flex: "1 1 0%" },
+  "flex-inline": { display: "inline-flex" },
+  "flex-row": { "flex-direction": "row" },
+  "flex-col": { "flex-direction": "column" },
+  "flex-row-reverse": { "flex-direction": "row-reverse" },
+  "flex-col-reverse": { "flex-direction": "column-reverse" },
+  "flex-wrap": { "flex-wrap": "wrap" },
+  "flex-wrap-reverse": { "flex-wrap": "wrap-reverse" },
+  "flex-nowrap": { "flex-wrap": "nowrap" },
+  "justify-start": { "justify-content": "flex-start" },
+  "justify-end": { "justify-content": "flex-end" },
+  "justify-center": { "justify-content": "center" },
+  "justify-between": { "justify-content": "space-between" },
+  "justify-around": { "justify-content": "space-around" },
+  "justify-evenly": { "justify-content": "space-evenly" },
+  "justify-stretch": { "justify-content": "stretch" },
+  "items-start": { "align-items": "flex-start" },
+  "items-end": { "align-items": "flex-end" },
+  "items-center": { "align-items": "center" },
+  "items-stretch": { "align-items": "stretch" },
+  "flex-grow": { "flex-grow": 1 },
+  "flex-shrink": { "flex-shrink": 1 },
   // Overflow.
-  overflow: { overflow: "auto" },
-  "overflow-x": { "overflow-x": "auto" },
-  "overflow-y": { "overflow-y": "auto" },
-  "no-overflow": { overflow: "hidden" },
+  "overflow-auto": { overflow: "auto" },
+  "overflow-x-auto": { "overflow-x": "auto" },
+  "overflow-y-auto": { "overflow-y": "auto" },
+  "overflow-hidden": { overflow: "hidden" },
+  "overflow-visible": { overflow: "visible" },
   // Cursors.
-  pointer: { cursor: "pointer" },
-  wait: { cursor: "wait" },
-  "not-allowed": { cursor: "not-allowed" },
+  "cursor-pointer": { cursor: "pointer" },
+  "cursor-wait": { cursor: "wait" },
+  "cursor-not-allowed": { cursor: "not-allowed" },
   // User selection.
-  "no-select": { "user-select": "none" },
+  "select-none": { "user-select": "none" },
   "select-all": { "user-select": "all" },
   // Events.
-  events: { "pointer-events": "auto" },
-  "no-events": { "pointer-events": "none" },
+  "pointer-events-auto": { "pointer-events": "auto" },
+  "pointer-events-none": { "pointer-events": "none" },
   // Sizing.
-  "border-box": { "box-sizing": "border-box" },
-  "content-box": { "box-sizing": "content-box" },
+  "box-border": { "box-sizing": "border-box" },
+  "box-content": { "box-sizing": "content-box" },
   // Resizing.
   resize: { resize: "both" },
   "resize-x": { resize: "horizontal" },
   "resize-y": { resize: "vertical" },
-  "no-resize": { resize: "none" },
-  // Colors.
-  transparent: { color: "transparent" },
-  "bg-transparent": { "background-color": "transparent" },
-  "border-transparent": { "border-color": "transparent" },
+  "resize-none": { resize: "none" },
   // Borders.
+  border: { border: "1px solid" },
   "border-none": { border: "none" },
   "border-solid": { "border-style": "solid" },
   "border-dashed": { "border-style": "dashed" },
   "border-dotted": { "border-style": "dotted" },
   // Radius.
   "rounded-none": { "border-radius": "0" },
+  rounded: { "border-radius": ".25rem" },
   "rounded-sm": { "border-radius": ".125rem" },
-  "rounded-md": { "border-radius": ".25rem" },
+  "rounded-md": { "border-radius": ".375rem" },
   "rounded-lg": { "border-radius": ".5rem" },
+  "rounded-xl": { "border-radius": ".75rem" },
+  "rounded-full": { "border-radius": "9999px" },
   // Transitions.
   "transition-none": { transition: "none" },
   transition: { transition: "all 150ms" },
+  // Animations.
+  "animate-none": { animation: "none" },
+  "animate-spin": { animation: "spin 1s linear infinite" },
+  "animate-ping": { animation: "ping 1s cubic-bezier(0, 0, 0.2, 1) infinite" },
+  "animate-pulse": { animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" },
 };
+const PROPS_AS_IS = [
+  `@keyframes spin {
+    from { transform: rotate(0deg) }
+    to { transform: rotate(360deg) }
+  }`,
+  `@keyframes ping {
+    75%, 100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }`,
+  `@keyframes pulse {
+    0%, 100% { opacity: 1 }
+    50% { opacity: .5 }
+  }`,
+];
+
 const PROPS_COLORS = {
   red: {
     50: 0xffebee,
@@ -336,7 +368,7 @@ const PROPS_COLORS = {
     800: 0x4e342e,
     900: 0x3e2723,
   },
-  grey: {
+  gray: {
     50: 0xfafafa,
     100: 0xf5f5f5,
     200: 0xeeeeee,
@@ -348,7 +380,7 @@ const PROPS_COLORS = {
     800: 0x424242,
     900: 0x212121,
   },
-  "blue-grey": {
+  "blue-gray": {
     50: 0xeceff1,
     100: 0xcfd8dc,
     200: 0xb0bec5,
@@ -366,84 +398,115 @@ function wrapPseudoStates(klass: string): string[] {
   return PSEUDO_STATES.map((state) => `.${state}\\:${klass}:${state}`);
 }
 
+function wrapMediaQueries(klass: string, rule: string): string[] {
+  return Object.entries(MEDIA_BREAKPOINTS).map(
+    ([bp, width]) => `@media (min-width: ${width}px) { .${bp}\\:${klass} { ${rule} } }`
+  );
+}
+
 function posneg(props: { [key: string]: string }): string[] {
   return Object.entries(props)
-    .map(([prop, klass]) => [
+    .flatMap(([prop, klass]) => [
       // Zero.
-      `.${klass}-0 { ${prop}: 0; }`,
+      [`${klass}-0`, `${prop}: 0`],
       // Screen.
-      `.${klass}-screen { ${prop}: 100vw; }`,
+      [`${klass}-screen`, `${prop}: 100vw`],
       // Full.
-      `.${klass}-full { ${prop}: 100%; }`,
+      [`${klass}-full`, `${prop}: 100%`],
       // Positive REM units.
-      ...UNITS_ALL.map((v) => `.${klass}-${v} { ${prop}: ${v * REM_UNIT}rem; }`),
+      ...UNITS_ALL.map((v) => [`${klass}-${v}`, `${prop}: ${v * REM_UNIT}rem`]),
       // Negative REM units.
-      ...UNITS_ALL.map((v) => `.-${klass}-${v} { ${prop}: -${v * REM_UNIT}rem; }`),
+      ...UNITS_ALL.map((v) => [`-${klass}-${v}`, `${prop}: -${v * REM_UNIT}rem`]),
       // Positive PX units.
-      ...UNITS_ALL.map((v) => `.${klass}-${v}px { ${prop}: ${v}px; }`),
+      ...UNITS_ALL.map((v) => [`${klass}-${v}px`, `${prop}: ${v}px`]),
       // Negative PX units.
-      ...UNITS_ALL.map((v) => `.-${klass}-${v}px { ${prop}: -${v}px; }`),
+      ...UNITS_ALL.map((v) => [`-${klass}-${v}px`, `${prop}: -${v}px`]),
       // Positive percent units.
-      ...PERCENTS.map((v) => `.${klass}-${v}% { ${prop}: ${v}%; }`),
+      ...PERCENTS.map((v) => [`${klass}-${v}%`, `${prop}: ${v}%`]),
       // Negative percent units.
-      ...PERCENTS.map((v) => `.-${klass}-${v}% { ${prop}: -${v}%; }`),
-      // Positive REM units x-axis.
-      ...UNITS_ALL.map(
-        (v) =>
-          `.${klass}x-${v} { ${prop}-left: ${v * REM_UNIT}rem; ${prop}-right: ${v * REM_UNIT}rem; }`
-      ),
-      // Positive REM units y-axis.
-      ...UNITS_ALL.map(
-        (v) =>
-          `.${klass}y-${v} { ${prop}-top: ${v * REM_UNIT}rem; ${prop}-bottom: ${v * REM_UNIT}rem; }`
-      ),
-      // Positive PX units x-axis.
-      ...UNITS_ALL.map((v) => `.${klass}x-${v}px { ${prop}-left: ${v}px; ${prop}-right: ${v}px; }`),
-      // Positive PX units y-axis.
-      ...UNITS_ALL.map((v) => `.${klass}y-${v}px { ${prop}-top: ${v}px; ${prop}-bottom: ${v}px; }`),
-      // Positive percent units x-axis.
-      ...PERCENTS.map((v) => `.${klass}x-${v}% { ${prop}-left: ${v}%; ${prop}-right: ${v}%; }`),
-      // Positive percent units y-axis.
-      ...PERCENTS.map((v) => `.${klass}y-${v}% { ${prop}-top: ${v}%; ${prop}-bottom: ${v}%; }`),
+      ...PERCENTS.map((v) => [`-${klass}-${v}%`, ` ${prop}: -${v}%`]),
     ])
-    .flat();
+    .flatMap(([klass, rule]) => [
+      `.${klass} { ${rule} }`,
+      `${wrapPseudoStates(klass).join(",")} { ${rule} }`,
+      ...wrapMediaQueries(klass, rule),
+    ]);
 }
 
 function autoxy(props: { [key: string]: string }): string[] {
-  return Object.entries(props)
-    .map(([prop, klass]) => [
-      // Auto.
-      `.${klass}-auto { ${prop}: auto; }`,
-      // Auto x-axis.
-      `.${klass}x-auto { ${prop}-left: auto; ${prop}-right: auto; }`,
-      // Auto y-axis.
-      `.${klass}y-auto { ${prop}-top: auto; ${prop}-bottom: auto; }`,
-      // Positive REM units x-axis.
-      ...UNITS_ALL.map(
-        (v) =>
-          `.${klass}x-${v} { ${prop}-left: ${v * REM_UNIT}rem; ${prop}-right: ${v * REM_UNIT}rem; }`
-      ),
-      // Positive REM units y-axis.
-      ...UNITS_ALL.map(
-        (v) =>
-          `.${klass}y-${v} { ${prop}-top: ${v * REM_UNIT}rem; ${prop}-bottom: ${v * REM_UNIT}rem; }`
-      ),
-      // Positive PX units x-axis.
-      ...UNITS_ALL.map((v) => `.${klass}x-${v}px { ${prop}-left: ${v}px; ${prop}-right: ${v}px; }`),
-      // Positive PX units y-axis.
-      ...UNITS_ALL.map((v) => `.${klass}y-${v}px { ${prop}-top: ${v}px; ${prop}-bottom: ${v}px; }`),
-      // Positive percent units x-axis.
-      ...PERCENTS.map((v) => `.${klass}x-${v}% { ${prop}-left: ${v}%; ${prop}-right: ${v}%; }`),
-      // Positive percent units y-axis.
-      ...PERCENTS.map((v) => `.${klass}y-${v}% { ${prop}-top: ${v}%; ${prop}-bottom: ${v}%; }`),
-    ])
-    .flat();
+  return Object.entries(props).flatMap(([prop, klass]) => [
+    // Auto.
+    `.${klass}-auto { ${prop}: auto; }`,
+    // Auto x-axis.
+    `.${klass}x-auto { ${prop}-left: auto; ${prop}-right: auto; }`,
+    // Auto y-axis.
+    `.${klass}y-auto { ${prop}-top: auto; ${prop}-bottom: auto; }`,
+    // Positive REM units x-axis.
+    ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(
+      ([k, v]) => `.${klass}x-${k} { ${prop}-left: ${v}rem; ${prop}-right: ${v}rem; }`
+    ),
+    // Positive REM units y-axis.
+    ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(
+      ([k, v]) => `.${klass}y-${k} { ${prop}-top: ${v}rem; ${prop}-bottom: ${v}rem; }`
+    ),
+    // Positive PX units x-axis.
+    ...UNITS_ALL.map((v) => `.${klass}x-${v}px { ${prop}-left: ${v}px; ${prop}-right: ${v}px; }`),
+    // Positive PX units y-axis.
+    ...UNITS_ALL.map((v) => `.${klass}y-${v}px { ${prop}-top: ${v}px; ${prop}-bottom: ${v}px; }`),
+    // Positive percent units x-axis.
+    ...PERCENTS.map((v) => `.${klass}x-${v}% { ${prop}-left: ${v}%; ${prop}-right: ${v}%; }`),
+    // Positive percent units y-axis.
+    ...PERCENTS.map((v) => `.${klass}y-${v}% { ${prop}-top: ${v}%; ${prop}-bottom: ${v}%; }`),
+  ]);
+}
+
+function tblr(props: { [key: string]: string }): string[] {
+  return Object.entries(props).flatMap(([prop, klass]) => [
+    // Auto top.
+    `.${klass}t-auto { ${prop}-top: auto }`,
+    // Auto bottom.
+    `.${klass}b-auto { ${prop}-bottom: auto }`,
+    // Auto left.
+    `.${klass}l-auto { ${prop}-left: auto }`,
+    // Auto right.
+    `.${klass}r-auto { ${prop}-right: auto }`,
+    // Positive REM units top.
+    ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(
+      ([k, v]) => `.${klass}t-${k} { ${prop}-top: ${v}rem }`
+    ),
+    // Positive REM units bottom.
+    ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(
+      ([k, v]) => `.${klass}b-${k} { ${prop}-bottom: ${v}rem }`
+    ),
+    // Positive REM units left.
+    ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(
+      ([k, v]) => `.${klass}l-${k} { ${prop}-left: ${v}rem }`
+    ),
+    // Positive REM units right.
+    ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(
+      ([k, v]) => `.${klass}r-${k} { ${prop}-right: ${v}rem }`
+    ),
+    // Positive PX units top.
+    ...UNITS_ALL.map((v) => `.${klass}t-${v}px { ${prop}-top: ${v}px }`),
+    // Positive PX units bottom.
+    ...UNITS_ALL.map((v) => `.${klass}t-${v}px { ${prop}-bottom: ${v}px }`),
+    // Positive PX units left.
+    ...UNITS_ALL.map((v) => `.${klass}t-${v}px { ${prop}-left: ${v}px }`),
+    // Positive PX units right.
+    ...UNITS_ALL.map((v) => `.${klass}t-${v}px { ${prop}-right: ${v}px }`),
+    // Positive percent units top.
+    ...PERCENTS.map((v) => `.${klass}y-${v}% { ${prop}-top: ${v}% }`),
+    // Positive percent units bottom.
+    ...PERCENTS.map((v) => `.${klass}y-${v}% { ${prop}-bottom: ${v}%; }`),
+    // Positive percent units left.
+    ...PERCENTS.map((v) => `.${klass}x-${v}% { ${prop}-left: ${v}% }`),
+    // Positive percent units right.
+    ...PERCENTS.map((v) => `.${klass}x-${v}% { ${prop}-right: ${v}% }`),
+  ]);
 }
 
 function border(): string[] {
   return [
-    // Zero for border width.
-    `.border-0 { border-width: 0; }`,
     // Pixel units for border width.
     ...UNITS_SM.map((v) => `.border-${v} { border-width: ${v}px; }`),
   ];
@@ -474,48 +537,60 @@ function between(): string[] {
     // Positive PX units for gap.
     ...UNITS_ALL.map((v) => `.gap-${v}px { gap: ${v}px; }`),
     // Positive REM units for col gap.
-    ...UNITS_ALL.map((v) => `.gap-col-${v} { column-gap: ${v * REM_UNIT}rem; }`),
+    ...UNITS_ALL.map((v) => `.gap-x-${v} { column-gap: ${v * REM_UNIT}rem; }`),
     // Positive REM units for row gap.
-    ...UNITS_ALL.map((v) => `.gap-row-${v} { row-gap: ${v * REM_UNIT}rem; }`),
+    ...UNITS_ALL.map((v) => `.gap-y-${v} { row-gap: ${v * REM_UNIT}rem; }`),
     // Positive PX units for col gap.
-    ...UNITS_ALL.map((v) => `.gap-col-${v}px { column-gap: ${v}px; }`),
+    ...UNITS_ALL.map((v) => `.gap-x-${v}px { column-gap: ${v}px; }`),
     // Positive PX units for row gap.
-    ...UNITS_ALL.map((v) => `.gap-row-${v}px { row-gap: ${v}px; }`),
+    ...UNITS_ALL.map((v) => `.gap-y-${v}px { row-gap: ${v}px; }`),
   ];
 }
 
 function custom(): string[] {
-  return Object.entries(PROPS_CUSTOM)
-    .map(([klass, props]) =>
-      Object.entries(props).map(
-        ([key, val]) => `.${klass},${wrapPseudoStates(klass).join(",")} { ${key}: ${val}; }`
-      )
-    )
-    .flat();
+  return Object.entries(PROPS_CUSTOM).flatMap(([klass, props]) =>
+    Object.entries(props).flatMap(([propkey, propval]) => [
+      `.${klass} { ${propkey}: ${propval} }`,
+      `${wrapPseudoStates(klass).join(",")} { ${propkey}: ${propval} }`,
+      ...wrapMediaQueries(klass, `${propkey}: ${propval}`),
+    ])
+  );
 }
 
 function colors(): string[] {
-  const mains = Object.entries(PROPS_COLORS)
-    .map(([color, shades]) => [
-      [`${color}`, `{ color: #${shades[500].toString(16)}; }`],
-      [`${color}-bg`, `{ background-color: #${shades[500].toString(16)}; }`],
-      [`${color}-border`, `{ border-color: #${shades[500].toString(16)}; }`],
+  const bw = [
+    ["white", "#fff"],
+    ["black", "#000"],
+    ["transparent", "transparent"],
+  ].flatMap(([color, value]) => [
+    [`text-${color}`, `color: ${value}`],
+    [`fill-${color}`, `fill: ${value}`],
+    [`bg-${color}`, `background-color: ${value}`],
+    [`border-${color}`, `border-color: ${value}`],
+  ]);
+  const mains = Object.entries(PROPS_COLORS).flatMap(([color, shades]) => [
+    [`text-${color}`, `color: #${shades[500].toString(16)}`],
+    [`fill-${color}`, `fill: #${shades[500].toString(16)}`],
+    [`bg-${color}`, `background-color: #${shades[500].toString(16)}`],
+    [`border-${color}`, `border-color: #${shades[500].toString(16)}`],
+  ]);
+  const shades = Object.entries(PROPS_COLORS).flatMap(([color, shades]) =>
+    Object.entries(shades).flatMap(([shade, hex]) => [
+      [`text-${color}-${shade}`, `color: #${hex.toString(16)}`],
+      [`fill-${color}-${shade}`, `fill: #${hex.toString(16)}`],
+      [`bg-${color}-${shade}`, `background-color: #${hex.toString(16)}`],
+      [`border-${color}-${shade}`, `border-color: #${hex.toString(16)}`],
     ])
-    .flat();
-  const shades = Object.entries(PROPS_COLORS)
-    .map(([color, shades]) =>
-      Object.entries(shades)
-        .map(([shade, hex]) => [
-          [`${color}-${shade}`, `{ color: #${hex.toString(16)}; }`],
-          [`bg-${color}-${shade}`, `{ background-color: #${hex.toString(16)}; }`],
-          [`border-${color}-${shade}`, `{ border-color: #${hex.toString(16)}; }`],
-        ])
-        .flat()
-    )
-    .flat();
-  return mains
+  );
+  return ([] as string[][])
+    .concat(bw)
+    .concat(mains)
     .concat(shades)
-    .map(([klass, rule]) => `.${klass},${wrapPseudoStates(klass).join(",")} ${rule}`);
+    .flatMap(([klass, rule]) => [
+      `.${klass} { ${rule} }`,
+      `${wrapPseudoStates(klass).join(",")} { ${rule} }`,
+      ...wrapMediaQueries(klass, rule),
+    ]);
 }
 
 function opacity(): string[] {
@@ -524,11 +599,17 @@ function opacity(): string[] {
     `.opacity-0 { opacity: 0; }`,
     // Positive percent units for opacity.
     ...PERCENTS.map((v) => `.opacity-${v} { opacity: ${v / 100}; }`),
-  ];
+  ].flatMap(([klass, rule]) => [
+    `.${klass} { ${rule} }`,
+    `${wrapPseudoStates(klass).join(",")} { ${rule} }`,
+    ...wrapMediaQueries(klass, rule),
+  ]);
 }
 
 export default function rules(): string {
   return [
+    // As-is.
+    ...PROPS_AS_IS,
     // Custom.
     ...custom(),
     // Colors.
@@ -542,6 +623,7 @@ export default function rules(): string {
     ...posneg(PROPS_POSITION),
     ...autoxy(PROPS_POSITION),
     // Spacing.
+    ...tblr(PROPS_SPACING),
     ...posneg(PROPS_SPACING),
     ...autoxy(PROPS_SPACING),
     ...between(),
