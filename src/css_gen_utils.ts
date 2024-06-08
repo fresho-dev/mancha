@@ -404,6 +404,18 @@ function wrapMediaQueries(klass: string, rule: string): string[] {
   );
 }
 
+function ruleSorter(a: string, b: string): number {
+  // If one rule is a media query, it goes after the base rule.
+  if (a.includes("@media") && !b.includes("@media")) {
+    return 1;
+  } else if (!a.includes("@media") && b.includes("@media")) {
+    return -1;
+  }
+
+  // Otherwise, fall back to a lexicographical sort.
+  return a.localeCompare(b);
+}
+
 function posneg(props: { [key: string]: string }): string[] {
   return Object.entries(props)
     .flatMap(([prop, klass]) => [
@@ -607,29 +619,34 @@ function opacity(): string[] {
 }
 
 export default function rules(): string {
-  return [
-    // As-is.
-    ...PROPS_AS_IS,
-    // Custom.
-    ...custom(),
-    // Colors.
-    ...colors(),
-    // Opacity.
-    ...opacity(),
-    // Sizing.
-    ...posneg(PROPS_SIZING),
-    ...autoxy(PROPS_SIZING),
-    // Position.
-    ...posneg(PROPS_POSITION),
-    ...autoxy(PROPS_POSITION),
-    // Spacing.
-    ...tblr(PROPS_SPACING),
-    ...posneg(PROPS_SPACING),
-    ...autoxy(PROPS_SPACING),
-    ...between(),
-    // Minmax.
-    ...posneg(PROPS_SIZING_MINMAX),
-    // Border.
-    ...border(),
-  ].join("\n");
+  return (
+    [
+      // As-is.
+      ...PROPS_AS_IS,
+      // Custom.
+      ...custom(),
+      // Colors.
+      ...colors(),
+      // Opacity.
+      ...opacity(),
+      // Sizing.
+      ...posneg(PROPS_SIZING),
+      ...autoxy(PROPS_SIZING),
+      // Position.
+      ...posneg(PROPS_POSITION),
+      ...autoxy(PROPS_POSITION),
+      // Spacing.
+      ...tblr(PROPS_SPACING),
+      ...posneg(PROPS_SPACING),
+      ...autoxy(PROPS_SPACING),
+      ...between(),
+      // Minmax.
+      ...posneg(PROPS_SIZING_MINMAX),
+      // Border.
+      ...border(),
+    ]
+      // Sort lexicographical to ensure media queries appear after their base rules.
+      .sort(ruleSorter)
+      .join("\n")
+  );
 }
