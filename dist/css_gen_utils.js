@@ -397,6 +397,17 @@ function wrapPseudoStates(klass) {
 function wrapMediaQueries(klass, rule) {
     return Object.entries(MEDIA_BREAKPOINTS).map(([bp, width]) => `@media (min-width: ${width}px) { .${bp}\\:${klass} { ${rule} } }`);
 }
+function ruleSorter(a, b) {
+    // If one rule is a media query, it goes after the base rule.
+    if (a.includes("@media") && !b.includes("@media")) {
+        return 1;
+    }
+    else if (!a.includes("@media") && b.includes("@media")) {
+        return -1;
+    }
+    // Otherwise, fall back to a lexicographical sort.
+    return a.localeCompare(b);
+}
 function posneg(props) {
     return Object.entries(props)
         .flatMap(([prop, klass]) => [
@@ -572,7 +583,7 @@ function opacity() {
     ]);
 }
 export default function rules() {
-    return [
+    return ([
         // As-is.
         ...PROPS_AS_IS,
         // Custom.
@@ -596,5 +607,8 @@ export default function rules() {
         ...posneg(PROPS_SIZING_MINMAX),
         // Border.
         ...border(),
-    ].join("\n");
+    ]
+        // Sort lexicographical to ensure media queries appear after their base rules.
+        .sort(ruleSorter)
+        .join("\n"));
 }
