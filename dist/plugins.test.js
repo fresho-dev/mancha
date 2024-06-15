@@ -5,8 +5,8 @@ import { JSDOM } from "jsdom";
 import { IRenderer } from "./core.js";
 import { Renderer as NodeRenderer } from "./index.js";
 import { Renderer as WorkerRenderer } from "./worker.js";
-import { REACTIVE_DEBOUNCE_MILLIS } from "./reactive.js";
-import { getAttribute, innerHTML, getTextContent, } from "./dome.js";
+import { getAttribute, innerHTML, getTextContent } from "./dome.js";
+import { REACTIVE_DEBOUNCE_MILLIS } from "./store.js";
 class MockRenderer extends IRenderer {
     parseHTML(content, params) {
         return JSDOM.fragment(content);
@@ -205,9 +205,11 @@ describe("Plugins", () => {
             assert.equal(textNode.data, "Hello {{ name }}");
             await renderer.mount(fragment);
             assert.equal(textNode.data, "Hello World");
-            await renderer.set("name", "Stranger");
+            renderer.set("name", "Stranger");
+            await new Promise((resolve) => setTimeout(resolve, 10));
             assert.equal(textNode.data, "Hello Stranger");
-            await renderer.set("name", "John");
+            renderer.set("name", "John");
+            await new Promise((resolve) => setTimeout(resolve, 10));
             assert.equal(textNode.data, "Hello John");
         }, { MockRenderer, NodeRenderer, WorkerRenderer });
     });
@@ -220,7 +222,7 @@ describe("Plugins", () => {
             await renderer.mount(fragment);
             const subrenderer = node.renderer;
             assert.equal(getAttribute(node, ":data"), null);
-            assert.equal(subrenderer.get("foo"), "bar");
+            assert.equal(subrenderer.$.foo, "bar");
         }, { MockRenderer, NodeRenderer, WorkerRenderer });
         testRenderers("initializes an array of values", async (ctor) => {
             const renderer = new ctor();
@@ -230,7 +232,7 @@ describe("Plugins", () => {
             await renderer.mount(fragment);
             const subrenderer = node.renderer;
             assert.equal(getAttribute(node, ":data"), null);
-            assert.deepEqual(subrenderer.get("arr"), [1, 2, 3]);
+            assert.deepEqual(subrenderer.$.arr, [1, 2, 3]);
         }, { MockRenderer, NodeRenderer, WorkerRenderer });
         testRenderers("initializes an array of objects", async (ctor) => {
             const renderer = new ctor();
@@ -240,7 +242,7 @@ describe("Plugins", () => {
             await renderer.mount(fragment);
             const subrenderer = node.renderer;
             assert.equal(getAttribute(node, ":data"), null);
-            assert.deepEqual(subrenderer.get("arr"), [{ n: 1 }, { n: 2 }, { n: 3 }]);
+            assert.deepEqual(subrenderer.$.arr, [{ n: 1 }, { n: 2 }, { n: 3 }]);
         }, { MockRenderer, NodeRenderer, WorkerRenderer });
         testRenderers("initializes avoiding subrenderer", async (ctor) => {
             const renderer = new ctor({ foo: 1, bar: 2 });
@@ -268,13 +270,23 @@ describe("Plugins", () => {
             assert.notEqual(renderer, subrenderer);
             assert.equal(getAttribute(node, ":data"), null);
             // The parent renderer only has the initial properties.
-            assert.equal(renderer.get("foo"), 1);
-            assert.equal(renderer.get("bar"), 2);
-            assert.equal(renderer.has("baz"), false);
+            assert.equal(renderer.$.foo, 1);
+            assert.equal(renderer.$.bar, 2);
+            assert.equal(renderer.$.baz, undefined);
             // The subrenderer has all the properties + the new one.
-            assert.equal(subrenderer.get("foo"), 1);
-            assert.equal(subrenderer.get("bar"), 2);
-            assert.equal(subrenderer.get("baz"), 3);
+            assert.equal(subrenderer.$.foo, 1);
+            assert.equal(subrenderer.$.bar, 2);
+            assert.equal(subrenderer.$.baz, 3);
+        }, { MockRenderer, NodeRenderer, WorkerRenderer });
+        testRenderers("initializes async values", async (ctor) => {
+            const renderer = new ctor();
+            const html = `<div :data="{x: await Promise.resolve(1)}"></div>`;
+            const fragment = renderer.parseHTML(html);
+            const node = fragment.firstChild;
+            await renderer.mount(fragment);
+            const subrenderer = node.renderer;
+            assert.equal(getAttribute(node, ":data"), null);
+            assert.equal(subrenderer.$.x, 1);
         }, { MockRenderer, NodeRenderer, WorkerRenderer });
     });
     describe("@watch", () => {
@@ -285,13 +297,15 @@ describe("Plugins", () => {
             const node = fragment.firstChild;
             await renderer.mount(fragment);
             assert.equal(getAttribute(node, "@watch"), null);
-            assert.equal(renderer.get("foobar"), "foobar");
+            assert.equal(renderer.$.foobar, "foobar");
             // Change one of the dependencies and observe result.
-            await renderer.set("foo", "baz");
-            assert.equal(renderer.get("foobar"), "bazbar");
+            renderer.set("foo", "baz");
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            assert.equal(renderer.$.foobar, "bazbar");
             // Change the other dependency and observe result.
-            await renderer.set("bar", "qux");
-            assert.equal(renderer.get("foobar"), "bazqux");
+            renderer.set("bar", "qux");
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            assert.equal(renderer.$.foobar, "bazqux");
         }, { MockRenderer, NodeRenderer, WorkerRenderer });
         testRenderers("watch nested property", async (ctor) => {
             const renderer = new ctor({ foo: { bar: "bar" }, foobar: null });
@@ -300,14 +314,15 @@ describe("Plugins", () => {
             const node = fragment.firstChild;
             await renderer.mount(fragment);
             assert.equal(getAttribute(node, "@watch"), null);
-            assert.equal(renderer.get("foobar"), "bar");
+            assert.equal(renderer.$.foobar, "bar");
             // Set subproperty directly.
-            renderer.get("foo").bar = "baz";
-            await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
-            assert.equal(renderer.get("foobar"), "baz");
+            renderer.$.foo.bar = "baz";
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            assert.equal(renderer.$.foobar, "baz");
             // Replace parent object.
-            await renderer.set("foo", { bar: "qux" });
-            assert.equal(renderer.get("foobar"), "qux");
+            renderer.set("foo", { bar: "qux" });
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            assert.equal(renderer.$.foobar, "qux");
         }, { MockRenderer, NodeRenderer, WorkerRenderer });
         testRenderers("watch boolean expression with two variables", async (ctor) => {
             const renderer = new ctor({ foo: true, bar: false, foobar: null });
@@ -316,9 +331,10 @@ describe("Plugins", () => {
             const node = fragment.firstChild;
             await renderer.mount(fragment);
             assert.equal(getAttribute(node, "@watch"), null);
-            assert.equal(renderer.get("foobar"), false);
-            await renderer.set("foo", false);
-            assert.equal(renderer.get("foobar"), true);
+            assert.equal(renderer.$.foobar, false);
+            renderer.$.foo = false;
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            assert.equal(renderer.$.foobar, true);
         }, { MockRenderer, NodeRenderer, WorkerRenderer });
     });
     describe(":attribute", () => {
@@ -329,7 +345,7 @@ describe("Plugins", () => {
             const node = fragment.firstChild;
             await renderer.mount(fragment);
             assert.equal(getAttribute(node, ":class"), null);
-            assert.equal(renderer.get("foo"), "bar");
+            assert.equal(renderer.$.foo, "bar");
             assert.equal(getAttribute(node, "class"), "bar");
         }, { MockRenderer, NodeRenderer, WorkerRenderer });
     });
@@ -341,7 +357,7 @@ describe("Plugins", () => {
             const node = fragment.firstChild;
             await renderer.mount(fragment);
             assert.equal(getAttribute(node, "$custom-attribute"), null);
-            assert.equal(renderer.get("foo"), "bar");
+            assert.equal(renderer.$.foo, "bar");
             assert.equal(node["customAttribute"], "bar");
         }, { MockRenderer, NodeRenderer, WorkerRenderer });
     });
@@ -352,12 +368,12 @@ describe("Plugins", () => {
             const fragment = renderer.parseHTML(html);
             const node = fragment.firstChild;
             await renderer.mount(fragment);
-            assert.equal(renderer.get("counter"), 0);
+            assert.equal(renderer.$.counter, 0);
             node.click?.();
             await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
-            assert.equal(renderer.get("counter"), 1);
+            assert.equal(renderer.$.counter, 1);
         }, 
-        // We don't expect events to work with WorkerRenderer.
+        // We don't expect events to work with Wor`kerRenderer.
         { MockRenderer, NodeRenderer });
     });
     describe(":for", () => {
@@ -371,11 +387,11 @@ describe("Plugins", () => {
                 assert.notEqual(parent, null);
                 // Create array with 0..n elements.
                 const container = Array.from({ length: n }, (_, x) => String(x));
-                await renderer.set("items", container);
+                renderer.set("items", container);
                 await renderer.mount(fragment);
                 assert.equal(getAttribute(node, ":for"), null);
                 assert.notEqual(node.parentNode, parent);
-                assert.notEqual(renderer.get("item"), "foo");
+                assert.notEqual(renderer.$.item, "foo");
                 const children = Array.from(parent?.childNodes || []).slice(1);
                 assert.equal(children.length, container.length);
                 for (let i = 0; i < container.length; i++) {
@@ -391,7 +407,7 @@ describe("Plugins", () => {
             const parent = node.parentNode;
             assert.notEqual(parent, null);
             // Create array with no elements.
-            await renderer.set("items", []);
+            renderer.set("items", []);
             await renderer.mount(fragment);
             // Confirm that there are no children except for the template element.
             const children0 = Array.from(parent?.childNodes || []);
@@ -399,25 +415,24 @@ describe("Plugins", () => {
             assert.equal(children0[0].tagName.toLowerCase(), "template");
             assert.equal(children0[0].firstChild, node);
             // Add a single item.
-            renderer.get("items").push("foo");
-            // renderer.get("items").push("foo");
-            await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
+            renderer.$.items = ["foo"];
+            await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
             const children1 = Array.from(parent?.childNodes || []);
-            assert.equal(children1.length, renderer.get("items").length + 1);
+            assert.equal(children1.length, renderer.$.items.length + 1);
             assert.equal(getTextContent(children1[1]), "foo");
             // Add multiple items.
-            renderer.get("items").push("bar", "baz");
-            await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
+            renderer.$.items.push("bar", "baz");
+            await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
             const children2 = Array.from(parent?.childNodes || []);
-            assert.equal(children2.length, renderer.get("items").length + 1);
+            assert.equal(children2.length, renderer.$.items.length + 1);
             assert.equal(getTextContent(children2[1]), "foo");
             assert.equal(getTextContent(children2[2]), "bar");
             assert.equal(getTextContent(children2[3]), "baz");
             // Remove one item.
-            renderer.get("items").pop();
-            await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
+            renderer.$.items.pop();
+            await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
             const children3 = Array.from(parent?.childNodes || []);
-            assert.equal(children3.length, renderer.get("items").length + 1);
+            assert.equal(children3.length, renderer.$.items.length + 1);
             assert.equal(getTextContent(children3[1]), "foo");
             assert.equal(getTextContent(children3[2]), "bar");
         }, { MockRenderer, NodeRenderer, WorkerRenderer });
@@ -445,7 +460,7 @@ describe("Plugins", () => {
             const renderer = new ctor();
             const html = `<div $myprop="item" :myattr="item" :for="item in items">{{ item }}</div>`;
             const fragment = renderer.parseHTML(html);
-            await renderer.set("items", ["1", "2"]);
+            renderer.set("items", ["1", "2"]);
             await renderer.mount(fragment);
             const children12 = Array.from(fragment.childNodes).slice(1);
             assert.equal(children12.length, 2);
@@ -455,8 +470,7 @@ describe("Plugins", () => {
             assert.equal(children12[1]["myprop"], "2");
             assert.equal(getAttribute(children12[0], "myattr"), "1");
             assert.equal(getAttribute(children12[1], "myattr"), "2");
-            await renderer.update({ items: ["a", "b"] });
-            await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
+            await renderer.set("items", ["a", "b"]);
             const childrenAB = Array.from(fragment.childNodes).slice(1);
             assert.equal(childrenAB.length, 2);
             assert.equal(getTextContent(childrenAB[0])?.trim(), "a");
@@ -465,6 +479,26 @@ describe("Plugins", () => {
             assert.equal(childrenAB[1]["myprop"], "b", 'myprop should be "b"');
             assert.equal(getAttribute(childrenAB[0], "myattr"), "a");
             assert.equal(getAttribute(childrenAB[1], "myattr"), "b");
+        }, { MockRenderer, NodeRenderer, WorkerRenderer });
+        testRenderers(`container with object items`, async (ctor) => {
+            const renderer = new ctor();
+            const html = `<div :for="item in items">{{ item.text }}</div>`;
+            const fragment = renderer.parseHTML(html);
+            const node = fragment.firstChild;
+            const parent = node.parentNode;
+            assert.notEqual(parent, null);
+            // Create array with 0..n elements.
+            const container = Array.from({ length: 10 }, (_, x) => ({ text: String(x) }));
+            renderer.set("items", container);
+            await renderer.mount(fragment);
+            assert.equal(getAttribute(node, ":for"), null);
+            assert.notEqual(node.parentNode, parent);
+            assert.notEqual(renderer.$.item, "foo");
+            const children = Array.from(parent?.childNodes || []).slice(1);
+            assert.equal(children.length, container.length);
+            for (let i = 0; i < container.length; i++) {
+                assert.equal(getTextContent(children[i]), container[i].text);
+            }
         }, { MockRenderer, NodeRenderer, WorkerRenderer });
     });
     describe(":bind", () => {
@@ -498,7 +532,6 @@ describe("Plugins", () => {
             const html = `<input :bind="foo" />`;
             const dom = new JSDOM(html, {});
             const doc = dom.window.document;
-            console.log(doc.body.firstElementChild?.outerHTML);
             // Value does not exist in store before mount().
             const renderer = new ctor();
             assert.equal(renderer.has("foo"), false);
@@ -513,7 +546,7 @@ describe("Plugins", () => {
             const doc = dom.window.document;
             const node = doc.body.firstChild;
             const renderer = new ctor();
-            await renderer.set("foo", "bar");
+            renderer.set("foo", "bar");
             await renderer.mount(doc.body);
             // Processed attributes are removed.
             assert.equal(getAttribute(node, ":bind"), null);
@@ -541,7 +574,7 @@ describe("Plugins", () => {
             const html = `<div :show="foo" />`;
             const fragment = renderer.parseHTML(html);
             const node = fragment.firstChild;
-            await renderer.set("foo", true);
+            renderer.set("foo", true);
             await renderer.mount(fragment);
             assert.ok(!node.hasAttribute?.(":show"));
             assert.notEqual(getAttribute(node, "style"), "display: none;");
@@ -555,7 +588,7 @@ describe("Plugins", () => {
             const html = `<div :show="foo" style="display: bar;" />`;
             const fragment = renderer.parseHTML(html);
             const node = fragment.firstChild;
-            await renderer.set("foo", false);
+            renderer.set("foo", false);
             await renderer.mount(fragment);
             assert.ok(!node.hasAttribute?.(":show"));
             assert.equal(getAttribute(node, "style"), "display: none;");
@@ -598,7 +631,7 @@ describe("Plugins", () => {
             const fragment = renderer.parseHTML(html);
             const node = fragment.firstChild;
             const inner = "<div>bar</div>";
-            await renderer.set("foo", inner);
+            renderer.set("foo", inner);
             await renderer.mount(fragment);
             assert.equal(innerHTML(node), inner);
             assert.equal(node.childNodes.length, 1);
@@ -609,8 +642,8 @@ describe("Plugins", () => {
             const fragment = renderer.parseHTML(html);
             const node = fragment.firstChild;
             const inner = "<div>{{ bar }}</div>";
-            await renderer.set("foo", inner);
-            await renderer.set("bar", "Hello World");
+            renderer.set("foo", inner);
+            renderer.set("bar", "Hello World");
             await renderer.mount(fragment);
             assert.equal(getTextContent(node.firstChild?.firstChild), "Hello World");
             // Modify content and observe changes.
@@ -621,8 +654,8 @@ describe("Plugins", () => {
             const renderer = new ctor();
             const html = `<div :for="item in items" $html="inner"></div>`;
             const fragment = renderer.parseHTML(html);
-            await renderer.set("items", [{ text: "foo" }, { text: "bar" }]);
-            await renderer.set("inner", `<span $text="item.text"></span>`);
+            renderer.set("items", [{ text: "foo" }, { text: "bar" }]);
+            renderer.set("inner", `<span $text="item.text"></span>`);
             await renderer.mount(fragment);
             const children = Array.from(fragment.childNodes).slice(1);
             assert.equal(children.length, 2);

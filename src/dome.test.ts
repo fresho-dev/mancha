@@ -13,6 +13,7 @@ import {
   replaceChildren,
   setNodeValue,
   setTextContent,
+  traverse,
 } from "./dome.js";
 
 const HTML_PARSERS = {
@@ -30,6 +31,49 @@ async function testHtmlParsers(
 }
 
 describe("Dome", () => {
+  describe("traverse", () => {
+    it("empty document", () => {
+      const fragment = JSDOM.fragment("");
+      const nodes = Array.from(traverse(fragment)).slice(1);
+      assert.equal(nodes.length, 0);
+    });
+
+    it("single element", () => {
+      const fragment = JSDOM.fragment("<div></div>");
+      const nodes = Array.from(traverse(fragment)).slice(1);
+      assert.equal(nodes.length, 1);
+    });
+
+    it("multiple elements", () => {
+      const num = 10;
+      const html = new Array(num).fill("<div></div>").join("");
+      const fragment = JSDOM.fragment(html);
+      const nodes = Array.from(traverse(fragment)).slice(1);
+      assert.equal(nodes.length, num);
+    });
+
+    it("nested elements", () => {
+      const fragment = JSDOM.fragment("<div><div></div></div>");
+      const nodes = Array.from(traverse(fragment)).slice(1);
+      assert.equal(nodes.length, 2);
+    });
+
+    it("single text node", () => {
+      const fragment = JSDOM.fragment("text");
+      const nodes = Array.from(traverse(fragment)).slice(1);
+      assert.equal(nodes.length, 1);
+      assert.equal(nodes[0].nodeType, 3);
+      assert.equal(nodes[0].nodeValue, "text");
+      assert.equal(nodes[0].textContent, "text");
+    });
+
+    it("sibling text node", () => {
+      const fragment = JSDOM.fragment("<span></span>world");
+      const nodes = Array.from(traverse(fragment)).slice(1);
+      assert.equal(nodes.length, 2);
+    });
+  });
+
   describe("getAttribute", () => {
     testHtmlParsers("get case insensitive", async (htmlParser) => {
       const fragment = htmlParser('<div attr1="1" ATTR2="2" aTtR3="3"></div>');
@@ -94,13 +138,13 @@ describe("Dome", () => {
     });
   });
 
-  describe('replace children', () => {
-    testHtmlParsers('replace children', async (htmlParser) => {
-      const fragment = htmlParser('<div><span></span><span></span></div>');
+  describe("replace children", () => {
+    testHtmlParsers("replace children", async (htmlParser) => {
+      const fragment = htmlParser("<div><span></span><span></span></div>");
       const node = fragment.childNodes[0] as Element;
-      const elem1 = createElement('span', node.ownerDocument);
-      const elem2 = createElement('span', node.ownerDocument);
-      const elem3 = createElement('span', node.ownerDocument);
+      const elem1 = createElement("span", node.ownerDocument);
+      const elem2 = createElement("span", node.ownerDocument);
+      const elem3 = createElement("span", node.ownerDocument);
       replaceChildren(node, elem1, elem2, elem3);
       assert.equal(node.children[0], elem1);
       assert.equal(node.children[1], elem2);

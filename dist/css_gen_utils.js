@@ -5,12 +5,15 @@ const UNITS_XL = [64, 72, 80, 96, 112, 128, 144, 160, 192, 224, 256, 288, 320, 3
 const UNITS_ALL = [...UNITS_SM, ...UNITS_LG, ...UNITS_XL];
 const PERCENTS = [1, 2, 5, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 95, 98, 99, 100];
 const PSEUDO_STATES = ["hover", "focus", "disabled", "focus", "active"];
+<<<<<<< HEAD
 const MEDIA_BREAKPOINTS = {
     sm: 640,
     md: 768,
     lg: 1024,
     xl: 1280,
 };
+=======
+>>>>>>> dev
 const PROPS_SPACING = {
     margin: "m",
     padding: "p",
@@ -38,6 +41,7 @@ const PROPS_CUSTOM = {
     semibold: { "font-weight": 600 },
     italic: { "font-style": "italic" },
     underline: { "text-decoration": "underline" },
+<<<<<<< HEAD
     "no-underline": { "text-decoration": "none" },
     "decoration-none": { "text-decoration": "none" },
     "line-through": { "text-decoration": "line-through" },
@@ -47,17 +51,34 @@ const PROPS_CUSTOM = {
     "font-mono": { "font-family": "ui-monospace, monospace" },
     "font-sans": { "font-family": "ui-sans-serif, system-ui, sans-serif" },
     "font-serif": { "font-family": "ui-serif, serif" },
+=======
+    strikethrough: { "text-decoration": "line-through" },
+    uppercase: { "text-transform": "uppercase" },
+    lowercase: { "text-transform": "lowercase" },
+    capitalize: { "text-transform": "capitalize" },
+    centered: { "text-align": "center" },
+    justified: { "text-align": "justify" },
+    monospace: { "font-family": "monospace" },
+>>>>>>> dev
     // Text position.
     "text-left": { "text-align": "left" },
     "text-right": { "text-align": "right" },
     "text-center": { "text-align": "center" },
     "text-justify": { "text-align": "justify" },
     // Font size.
+<<<<<<< HEAD
     "text-xs": { "font-size": ".75rem" },
     "text-sm": { "font-size": ".875rem" },
     "text-base": { "font-size": "1rem" },
     "text-lg": { "font-size": "1.125rem" },
     "text-xl": { "font-size": "1.25rem" },
+=======
+    "text-xs": { "font-size": ".85rem" },
+    "text-sm": { "font-size": ".875rem" },
+    "text-md": { "font-size": "1rem" },
+    "text-lg": { "font-size": "1.25rem" },
+    "text-xl": { "font-size": "1.5rem" },
+>>>>>>> dev
     // Position.
     relative: { position: "relative" },
     fixed: { position: "fixed" },
@@ -69,6 +90,7 @@ const PROPS_CUSTOM = {
     "object-fill": { "object-fit": "fill" },
     "object-none": { "object-fit": "none" },
     // Display.
+<<<<<<< HEAD
     block: { display: "block" },
     contents: { display: "contents" },
     hidden: { display: "none" },
@@ -117,19 +139,77 @@ const PROPS_CUSTOM = {
     // Sizing.
     "box-border": { "box-sizing": "border-box" },
     "box-content": { "box-sizing": "content-box" },
+=======
+    hidden: { display: "none" },
+    inline: { display: "inline" },
+    block: { display: "block" },
+    "block.inline": { display: "inline-block" },
+    flex: { display: "flex" },
+    "flex.inline": { display: "inline-flex" },
+    content: { display: "contents" },
+    // Flex.
+    "flex.row": { "flex-direction": "row" },
+    "flex.column": { "flex-direction": "column" },
+    "flex.row.reverse": { "flex-direction": "row-reverse" },
+    "flex.column.reverse": { "flex-direction": "column-reverse" },
+    "flex.wrap": { "flex-wrap": "wrap" },
+    "flex.wrap.reverse": { "flex-wrap": "wrap-reverse" },
+    "flex.no-wrap": { "flex-wrap": "nowrap" },
+    "flex.start": { "justify-content": "flex-start" },
+    "flex.end": { "justify-content": "flex-end" },
+    "flex.center": { "justify-content": "center" },
+    "flex.space-between": { "justify-content": "space-between" },
+    "flex.space-around": { "justify-content": "space-around" },
+    "flex.space-evenly": { "justify-content": "space-evenly" },
+    "flex.stretch": { "justify-content": "stretch" },
+    "flex.align-start": { "align-items": "flex-start" },
+    "flex.align-end": { "align-items": "flex-end" },
+    "flex.align-center": { "align-items": "center" },
+    "flex.align-stretch": { "align-items": "stretch" },
+    grow: { "flex-grow": 1 },
+    shrink: { "flex-shrink": 1 },
+    // Overflow.
+    overflow: { overflow: "auto" },
+    "overflow-x": { "overflow-x": "auto" },
+    "overflow-y": { "overflow-y": "auto" },
+    "no-overflow": { overflow: "hidden" },
+    // Cursors.
+    pointer: { cursor: "pointer" },
+    wait: { cursor: "wait" },
+    "not-allowed": { cursor: "not-allowed" },
+    // User selection.
+    "no-select": { "user-select": "none" },
+    "select-all": { "user-select": "all" },
+    // Events.
+    events: { "pointer-events": "auto" },
+    "no-events": { "pointer-events": "none" },
+    // Sizing.
+    "border-box": { "box-sizing": "border-box" },
+    "content-box": { "box-sizing": "content-box" },
+>>>>>>> dev
     // Resizing.
     resize: { resize: "both" },
     "resize-x": { resize: "horizontal" },
     "resize-y": { resize: "vertical" },
+<<<<<<< HEAD
     "resize-none": { resize: "none" },
     // Borders.
     border: { border: "1px solid" },
+=======
+    "no-resize": { resize: "none" },
+    // Colors.
+    transparent: { color: "transparent" },
+    "bg-transparent": { "background-color": "transparent" },
+    "border-transparent": { "border-color": "transparent" },
+    // Borders.
+>>>>>>> dev
     "border-none": { border: "none" },
     "border-solid": { "border-style": "solid" },
     "border-dashed": { "border-style": "dashed" },
     "border-dotted": { "border-style": "dotted" },
     // Radius.
     "rounded-none": { "border-radius": "0" },
+<<<<<<< HEAD
     rounded: { "border-radius": ".25rem" },
     "rounded-sm": { "border-radius": ".125rem" },
     "rounded-md": { "border-radius": ".375rem" },
@@ -161,6 +241,15 @@ const PROPS_AS_IS = [
     50% { opacity: .5 }
   }`,
 ];
+=======
+    "rounded-sm": { "border-radius": ".125rem" },
+    "rounded-md": { "border-radius": ".25rem" },
+    "rounded-lg": { "border-radius": ".5rem" },
+    // Transitions.
+    "transition-none": { transition: "none" },
+    transition: { transition: "all 150ms" },
+};
+>>>>>>> dev
 const PROPS_COLORS = {
     red: {
         50: 0xffebee,
@@ -394,6 +483,7 @@ const PROPS_COLORS = {
 function wrapPseudoStates(klass) {
     return PSEUDO_STATES.map((state) => `.${state}\\:${klass}:${state}`);
 }
+<<<<<<< HEAD
 function wrapMediaQueries(klass, rule) {
     return Object.entries(MEDIA_BREAKPOINTS).map(([bp, width]) => `@media (min-width: ${width}px) { .${bp}\\:${klass} { ${rule} } }`);
 }
@@ -448,6 +538,33 @@ function autoxy(props) {
         ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(([k, v]) => `.${klass}x-${k} { ${prop}-left: ${v}rem; ${prop}-right: ${v}rem; }`),
         // Positive REM units y-axis.
         ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(([k, v]) => `.${klass}y-${k} { ${prop}-top: ${v}rem; ${prop}-bottom: ${v}rem; }`),
+=======
+function posneg(props) {
+    return Object.entries(props)
+        .map(([prop, klass]) => [
+        // Zero.
+        `.${klass}-0 { ${prop}: 0; }`,
+        // Screen.
+        `.${klass}-screen { ${prop}: 100vw; }`,
+        // Full.
+        `.${klass}-full { ${prop}: 100%; }`,
+        // Positive REM units.
+        ...UNITS_ALL.map((v) => `.${klass}-${v} { ${prop}: ${v * REM_UNIT}rem; }`),
+        // Negative REM units.
+        ...UNITS_ALL.map((v) => `.-${klass}-${v} { ${prop}: -${v * REM_UNIT}rem; }`),
+        // Positive PX units.
+        ...UNITS_ALL.map((v) => `.${klass}-${v}px { ${prop}: ${v}px; }`),
+        // Negative PX units.
+        ...UNITS_ALL.map((v) => `.-${klass}-${v}px { ${prop}: -${v}px; }`),
+        // Positive percent units.
+        ...PERCENTS.map((v) => `.${klass}-${v}% { ${prop}: ${v}%; }`),
+        // Negative percent units.
+        ...PERCENTS.map((v) => `.-${klass}-${v}% { ${prop}: -${v}%; }`),
+        // Positive REM units x-axis.
+        ...UNITS_ALL.map((v) => `.${klass}x-${v} { ${prop}-left: ${v * REM_UNIT}rem; ${prop}-right: ${v * REM_UNIT}rem; }`),
+        // Positive REM units y-axis.
+        ...UNITS_ALL.map((v) => `.${klass}y-${v} { ${prop}-top: ${v * REM_UNIT}rem; ${prop}-bottom: ${v * REM_UNIT}rem; }`),
+>>>>>>> dev
         // Positive PX units x-axis.
         ...UNITS_ALL.map((v) => `.${klass}x-${v}px { ${prop}-left: ${v}px; ${prop}-right: ${v}px; }`),
         // Positive PX units y-axis.
@@ -456,6 +573,7 @@ function autoxy(props) {
         ...PERCENTS.map((v) => `.${klass}x-${v}% { ${prop}-left: ${v}%; ${prop}-right: ${v}%; }`),
         // Positive percent units y-axis.
         ...PERCENTS.map((v) => `.${klass}y-${v}% { ${prop}-top: ${v}%; ${prop}-bottom: ${v}%; }`),
+<<<<<<< HEAD
     ]);
 }
 function tblr(props) {
@@ -496,6 +614,39 @@ function tblr(props) {
 }
 function border() {
     return [
+=======
+    ])
+        .flat();
+}
+function autoxy(props) {
+    return Object.entries(props)
+        .map(([prop, klass]) => [
+        // Auto.
+        `.${klass}-auto { ${prop}: auto; }`,
+        // Auto x-axis.
+        `.${klass}x-auto { ${prop}-left: auto; ${prop}-right: auto; }`,
+        // Auto y-axis.
+        `.${klass}y-auto { ${prop}-top: auto; ${prop}-bottom: auto; }`,
+        // Positive REM units x-axis.
+        ...UNITS_ALL.map((v) => `.${klass}x-${v} { ${prop}-left: ${v * REM_UNIT}rem; ${prop}-right: ${v * REM_UNIT}rem; }`),
+        // Positive REM units y-axis.
+        ...UNITS_ALL.map((v) => `.${klass}y-${v} { ${prop}-top: ${v * REM_UNIT}rem; ${prop}-bottom: ${v * REM_UNIT}rem; }`),
+        // Positive PX units x-axis.
+        ...UNITS_ALL.map((v) => `.${klass}x-${v}px { ${prop}-left: ${v}px; ${prop}-right: ${v}px; }`),
+        // Positive PX units y-axis.
+        ...UNITS_ALL.map((v) => `.${klass}y-${v}px { ${prop}-top: ${v}px; ${prop}-bottom: ${v}px; }`),
+        // Positive percent units x-axis.
+        ...PERCENTS.map((v) => `.${klass}x-${v}% { ${prop}-left: ${v}%; ${prop}-right: ${v}%; }`),
+        // Positive percent units y-axis.
+        ...PERCENTS.map((v) => `.${klass}y-${v}% { ${prop}-top: ${v}%; ${prop}-bottom: ${v}%; }`),
+    ])
+        .flat();
+}
+function border() {
+    return [
+        // Zero for border width.
+        `.border-0 { border-width: 0; }`,
+>>>>>>> dev
         // Pixel units for border width.
         ...UNITS_SM.map((v) => `.border-${v} { border-width: ${v}px; }`),
     ];
@@ -521,6 +672,7 @@ function between() {
         // Positive PX units for gap.
         ...UNITS_ALL.map((v) => `.gap-${v}px { gap: ${v}px; }`),
         // Positive REM units for col gap.
+<<<<<<< HEAD
         ...UNITS_ALL.map((v) => `.gap-x-${v} { column-gap: ${v * REM_UNIT}rem; }`),
         // Positive REM units for row gap.
         ...UNITS_ALL.map((v) => `.gap-y-${v} { row-gap: ${v * REM_UNIT}rem; }`),
@@ -569,6 +721,48 @@ function colors() {
         `${wrapPseudoStates(klass).join(",")} { ${rule} }`,
         ...wrapMediaQueries(klass, rule),
     ]);
+=======
+        ...UNITS_ALL.map((v) => `.gap-col-${v} { column-gap: ${v * REM_UNIT}rem; }`),
+        // Positive REM units for row gap.
+        ...UNITS_ALL.map((v) => `.gap-row-${v} { row-gap: ${v * REM_UNIT}rem; }`),
+        // Positive PX units for col gap.
+        ...UNITS_ALL.map((v) => `.gap-col-${v}px { column-gap: ${v}px; }`),
+        // Positive PX units for row gap.
+        ...UNITS_ALL.map((v) => `.gap-row-${v}px { row-gap: ${v}px; }`),
+    ];
+}
+function custom() {
+    return Object.entries(PROPS_CUSTOM)
+        .map(([klass, props]) => Object.entries(props).map(([key, val]) => `.${klass},${wrapPseudoStates(klass).join(",")} { ${key}: ${val}; }`))
+        .flat();
+}
+function colors() {
+    const bw = [
+        ["white", "fff"],
+        ["black", "000"],
+    ].map(([color, hex]) => [
+        [`${color}`, `{ color: #${hex}; }`],
+        [`${color}-bg`, `{ background-color: #${hex}; }`],
+        [`${color}-border`, `{ border-color: #${hex}; }`],
+    ]);
+    const mains = Object.entries(PROPS_COLORS).map(([color, shades]) => [
+        [`${color}`, `{ color: #${shades[500].toString(16)}; }`],
+        [`${color}-bg`, `{ background-color: #${shades[500].toString(16)}; }`],
+        [`${color}-border`, `{ border-color: #${shades[500].toString(16)}; }`],
+    ]);
+    const shades = Object.entries(PROPS_COLORS).map(([color, shades]) => Object.entries(shades)
+        .map(([shade, hex]) => [
+        [`${color}-${shade}`, `{ color: #${hex.toString(16)}; }`],
+        [`bg-${color}-${shade}`, `{ background-color: #${hex.toString(16)}; }`],
+        [`border-${color}-${shade}`, `{ border-color: #${hex.toString(16)}; }`],
+    ])
+        .flat());
+    return []
+        .concat(bw.flat())
+        .concat(mains.flat())
+        .concat(shades.flat())
+        .map(([klass, rule]) => `.${klass},${wrapPseudoStates(klass).join(",")} ${rule}`);
+>>>>>>> dev
 }
 function opacity() {
     return [
@@ -576,6 +770,7 @@ function opacity() {
         `.opacity-0 { opacity: 0; }`,
         // Positive percent units for opacity.
         ...PERCENTS.map((v) => `.opacity-${v} { opacity: ${v / 100}; }`),
+<<<<<<< HEAD
     ].flatMap(([klass, rule]) => [
         `.${klass} { ${rule} }`,
         `${wrapPseudoStates(klass).join(",")} { ${rule} }`,
@@ -586,6 +781,12 @@ export default function rules() {
     return ([
         // As-is.
         ...PROPS_AS_IS,
+=======
+    ];
+}
+export default function rules() {
+    return [
+>>>>>>> dev
         // Custom.
         ...custom(),
         // Colors.
@@ -599,7 +800,10 @@ export default function rules() {
         ...posneg(PROPS_POSITION),
         ...autoxy(PROPS_POSITION),
         // Spacing.
+<<<<<<< HEAD
         ...tblr(PROPS_SPACING),
+=======
+>>>>>>> dev
         ...posneg(PROPS_SPACING),
         ...autoxy(PROPS_SPACING),
         ...between(),
@@ -607,8 +811,12 @@ export default function rules() {
         ...posneg(PROPS_SIZING_MINMAX),
         // Border.
         ...border(),
+<<<<<<< HEAD
     ]
         // Sort lexicographical to ensure media queries appear after their base rules.
         .sort(ruleSorter)
         .join("\n"));
+=======
+    ].join("\n");
+>>>>>>> dev
 }

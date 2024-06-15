@@ -1,8 +1,13 @@
+<<<<<<< HEAD
 import * as assert from "assert";
 import { describe, it } from "mocha";
 import { JSDOM } from "jsdom";
 import { IRenderer } from "./core.js";
 import { traverse } from "./dome.js";
+=======
+import { describe } from "mocha";
+import { IRenderer } from "./core.js";
+>>>>>>> dev
 class MockRenderer extends IRenderer {
     parseHTML(content, params) {
         throw new Error("Not implemented.");
@@ -15,43 +20,10 @@ class MockRenderer extends IRenderer {
     }
 }
 describe("Core", () => {
-    describe("traverse", () => {
-        it("empty document", () => {
-            const fragment = JSDOM.fragment("");
-            const nodes = Array.from(traverse(fragment)).slice(1);
-            assert.equal(nodes.length, 0);
-        });
-        it("single element", () => {
-            const fragment = JSDOM.fragment("<div></div>");
-            const nodes = Array.from(traverse(fragment)).slice(1);
-            assert.equal(nodes.length, 1);
-        });
-        it("multiple elements", () => {
-            const num = 10;
-            const html = new Array(num).fill("<div></div>").join("");
-            const fragment = JSDOM.fragment(html);
-            const nodes = Array.from(traverse(fragment)).slice(1);
-            assert.equal(nodes.length, num);
-        });
-        it("nested elements", () => {
-            const fragment = JSDOM.fragment("<div><div></div></div>");
-            const nodes = Array.from(traverse(fragment)).slice(1);
-            assert.equal(nodes.length, 2);
-        });
-        it("single text node", () => {
-            const fragment = JSDOM.fragment("text");
-            const nodes = Array.from(traverse(fragment)).slice(1);
-            assert.equal(nodes.length, 1);
-            assert.equal(nodes[0].nodeType, 3);
-            assert.equal(nodes[0].nodeValue, "text");
-            assert.equal(nodes[0].textContent, "text");
-        });
-        it("sibling text node", () => {
-            const fragment = JSDOM.fragment("<span></span>world");
-            const nodes = Array.from(traverse(fragment)).slice(1);
-            assert.equal(nodes.length, 2);
-        });
+    describe("clone", () => {
+        // TOOD: Add clone tests.
     });
+<<<<<<< HEAD
     describe("mount", () => async () => {
         it("mounts a document fragment", async () => {
             const renderer = new MockRenderer();
@@ -191,32 +163,12 @@ describe("Core", () => {
             await renderer.set("a", true);
             assert.deepEqual(await renderer.eval(expression), [false, ["a", "b"]]);
         });
+=======
+    describe("preprocess", () => {
+        // TOOD: Add preprocess tests.
+>>>>>>> dev
     });
-    describe("watchExpr", () => {
-        it("watches an expression for changes", async () => {
-            const renderer = new MockRenderer({ a: 1, b: 2 });
-            const fn = "a + b";
-            let called = 0;
-            const callback = (result, dependencies) => {
-                assert.deepEqual(dependencies, ["a", "b"]);
-                called++;
-            };
-            await renderer.watchExpr(fn, {}, callback);
-            assert.equal(called, 1);
-            await renderer.set("a", 3);
-            assert.equal(called, 2);
-        });
-        it("multiple listeners watch the same expression for changes", async () => {
-            const renderer = new MockRenderer({ a: 1, b: 2 });
-            const fn = "a + b";
-            let called = 0;
-            const callback1 = () => called++;
-            const callback2 = () => called++;
-            await renderer.watchExpr(fn, {}, callback1);
-            await renderer.watchExpr(fn, {}, callback2);
-            assert.equal(called, 2);
-            await renderer.set("a", 3);
-            assert.equal(called, 4);
-        });
+    describe("render", () => {
+        // TOOD: Add render tests.
     });
 });

@@ -1,6 +1,7 @@
 import { appendChild, attributeNameToCamelCase, cloneAttribute, createElement, firstElementChild, getAttribute, getNodeValue, insertBefore, removeAttribute, removeChild, replaceChildren, replaceWith, setAttribute, setNodeValue, setTextContent, traverse, } from "./dome.js";
 import { isRelativePath } from "./core.js";
 import { Iterator } from "./iterator.js";
+import { makeAsyncEvalFunction } from "./store.js";
 const KW_ATTRIBUTES = new Set([
     ":bind",
     ":bind-events",
@@ -168,16 +169,14 @@ export var RendererPlugins;
         const expressions = Array.from(content.matchAll(matcher)).map((match) => match[1]);
         // To update the node, we have to re-evaluate all of the expressions since that's much simpler
         // than caching results.
-        const updateNode = async () => {
+        return this.effect(function () {
             let updatedContent = content;
             for (const expr of expressions) {
-                const [result] = await this.eval(expr, { $elem: node });
+                const result = this.eval(expr, { $elem: node });
                 updatedContent = updatedContent.replace(`{{ ${expr} }}`, String(result));
             }
             setNodeValue(node, updatedContent);
-        };
-        // Trigger the eval and pass our full node update function as the callback.
-        await Promise.all(expressions.map((expr) => this.watchExpr(expr, { $elem: node }, updateNode)));
+        });
     };
     RendererPlugins.resolveDataAttribute = async function (node, params) {
         if (this._skipNodes.has(node))
@@ -188,6 +187,7 @@ export var RendererPlugins;
             this.log(":data attribute found in:\n", node);
             // Remove the attribute from the node.
             removeAttribute(elem, ":data");
+<<<<<<< HEAD
             // Create a subrenderer and process the tag, unless it's the root node.
             if (params?.rootNode === node) {
                 const [result] = await this.eval(dataAttr, { $elem: node });
@@ -204,6 +204,18 @@ export var RendererPlugins;
                 }
                 // Mount the current node with the subrenderer.
                 await subrenderer.mount(node, params);
+=======
+            // Create a subrenderer and process the tag.
+            const subrenderer = this.clone();
+            node.renderer = subrenderer;
+            // Do not call eval() directly, we will use an async version instead.
+            const fn = makeAsyncEvalFunction(dataAttr, this.evalkeys);
+            const result = await fn.call(subrenderer.$, { $elem: node });
+            await Promise.all(Object.entries(result).map(([key, value]) => subrenderer.set(key, value)));
+            // Skip all the children of the current node.
+            for (const child of traverse(node, this._skipNodes)) {
+                this._skipNodes.add(child);
+>>>>>>> dev
             }
         }
     };
@@ -217,7 +229,9 @@ export var RendererPlugins;
             // Remove the attribute from the node.
             removeAttribute(elem, "@watch");
             // Compute the function's result.
-            await this.watchExpr(watchAttr, { $elem: node }, () => { });
+            await this.effect(function () {
+                return this.eval(watchAttr, { $elem: node });
+            });
         }
     };
     RendererPlugins.resolveTextAttributes = async function (node, params) {
@@ -230,7 +244,9 @@ export var RendererPlugins;
             // Remove the attribute from the node.
             removeAttribute(elem, "$text");
             // Compute the function's result and track dependencies.
-            await this.watchExpr(textAttr, { $elem: node }, (result) => setTextContent(node, result));
+            return this.effect(function () {
+                setTextContent(node, this.eval(textAttr, { $elem: node }));
+            });
         }
     };
     RendererPlugins.resolveHtmlAttribute = async function (node, params) {
@@ -239,16 +255,18 @@ export var RendererPlugins;
         const elem = node;
         const htmlAttr = getAttribute(elem, "$html");
         if (htmlAttr) {
-            this.log("$html attribute found in:\n", node);
+            this.log("$html attribute found in:\n", node.outerHTML);
             // Remove the attribute from the node.
             removeAttribute(elem, "$html");
-            // Obtain a subrenderer for the node contents.
-            const subrenderer = this.clone();
             // Compute the function's result and track dependencies.
-            await this.watchExpr(htmlAttr, { $elem: node }, async (result) => {
-                const fragment = await subrenderer.preprocessString(result, params);
-                await subrenderer.renderNode(fragment, params);
-                replaceChildren(elem, fragment);
+            return this.effect(function () {
+                const result = this.eval(htmlAttr, { $elem: node });
+                return new Promise(async (resolve) => {
+                    const fragment = await this.preprocessString(result, params);
+                    await this.renderNode(fragment);
+                    replaceChildren(elem, fragment);
+                    resolve();
+                });
             });
         }
     };
@@ -263,7 +281,9 @@ export var RendererPlugins;
                 removeAttribute(elem, attr.name);
                 // Compute the function's result and track dependencies.
                 const propName = attributeNameToCamelCase(attr.name.slice(1));
-                await this.watchExpr(attr.value, { $elem: node }, (result) => (node[propName] = result));
+                await this.effect(function () {
+                    node[propName] = this.eval(attr.value, { $elem: node });
+                });
             }
         }
     };
@@ -278,7 +298,9 @@ export var RendererPlugins;
                 removeAttribute(elem, attr.name);
                 // Compute the function's result and track dependencies.
                 const attrName = attr.name.slice(1);
-                await this.watchExpr(attr.value, { $elem: node }, (result) => setAttribute(elem, attrName, result));
+                this.effect(function () {
+                    setAttribute(elem, attrName, this.eval(attr.value, { $elem: node }));
+                });
             }
         }
     };
@@ -326,51 +348,41 @@ export var RendererPlugins;
             const children = [];
             // Compute the container expression and track dependencies.
             const [loopKey, itemsExpr] = tokens;
-            await this.watchExpr(itemsExpr, { $elem: node }, (items) => {
+            await this.effect(function () {
+                const items = this.eval(itemsExpr, { $elem: node });
                 this.log(":for list items:", items);
-                // Acquire the lock atomically.
-                this.lock = this.lock
-                    .then(() => new Promise(async (resolve) => {
-                    // Remove all the previously added children, if any.
-                    children.splice(0, children.length).forEach((child) => {
-                        removeChild(parent, child);
-                        this._skipNodes.delete(child);
-                    });
-                    // Validate that the expression returns a list of items.
-                    if (!Array.isArray(items)) {
-                        console.error(`Expression did not yield a list: \`${itemsExpr}\` => \`${items}\``);
-                        return resolve();
-                    }
-                    // Loop through the container items.
-                    for (const item of items) {
-                        // Create a subrenderer that will hold the loop item and all node descendants.
-                        const subrenderer = this.clone();
-                        await subrenderer.set(loopKey, item);
-                        // Create a new HTML element for each item and add them to parent node.
-                        const copy = node.cloneNode(true);
-                        // Also add the new element to the store.
-                        children.push(copy);
-                        // Since the element will be handled by a subrenderer, skip it in parent renderer.
-                        this._skipNodes.add(copy);
-                        // Render the element using the subrenderer.
-                        await subrenderer.mount(copy, params);
-                        this.log("Rendered list child:\n", copy, copy.outerHTML);
-                    }
-                    // Insert the new children into the parent container.
-                    const reference = template.nextSibling;
-                    for (const child of children) {
-                        insertBefore(parent, child, reference);
-                    }
-                    // Release the lock.
-                    resolve();
-                }))
-                    .catch((exc) => {
-                    console.error(exc);
-                    throw new Error(exc);
-                })
-                    .then();
-                // Return the lock so the whole operation can be awaited.
-                return this.lock;
+                // Remove all the previously added children, if any.
+                children.splice(0, children.length).forEach((child) => {
+                    removeChild(parent, child);
+                    this._skipNodes.delete(child);
+                });
+                // Validate that the expression returns a list of items.
+                if (!Array.isArray(items)) {
+                    console.error(`Expression did not yield a list: \`${itemsExpr}\` => \`${items}\``);
+                    return Promise.resolve();
+                }
+                // Loop through the container items.
+                const awaiters = [];
+                for (const item of items) {
+                    // Create a subrenderer that will hold the loop item and all node descendants.
+                    const subrenderer = this.clone();
+                    subrenderer.set(loopKey, item);
+                    // Create a new HTML element for each item and add them to parent node.
+                    const copy = node.cloneNode(true);
+                    // Also add the new element to the store.
+                    children.push(copy);
+                    // Since the element will be handled by a subrenderer, skip it in parent renderer.
+                    this._skipNodes.add(copy);
+                    // Render the element using the subrenderer.
+                    awaiters.push(subrenderer.mount(copy, params));
+                    this.log("Rendered list child:\n", copy.outerHTML);
+                }
+                // Insert the new children into the parent container.
+                const reference = template.nextSibling;
+                for (const child of children) {
+                    insertBefore(parent, child, reference);
+                }
+                return Promise.all(awaiters);
             });
         }
     };
@@ -391,7 +403,10 @@ export var RendererPlugins;
             const prop = getAttribute(elem, "type") === "checkbox" ? "checked" : "value";
             // Watch for updates in the store and bind our property ==> node value.
             const propExpr = `$elem.${prop} = ${bindExpr}`;
-            await this.watchExpr(propExpr, { $elem: node }, (result) => (elem[prop] = result));
+            this.effect(function () {
+                const result = this.eval(propExpr, { $elem: node });
+                elem[prop] = result;
+            });
             // Bind node value ==> our property.
             const nodeExpr = `${bindExpr} = $elem.${prop}`;
             // Watch for updates in the node's value.
@@ -422,7 +437,8 @@ export var RendererPlugins;
                         ?.at(1)
                         ?.trim();
             // Compute the function's result and track dependencies.
-            await this.watchExpr(showExpr, { $elem: node }, (result) => {
+            this.effect(function () {
+                const result = this.eval(showExpr, { $elem: node });
                 // If the result is false, set the node's display to none.
                 if (elem.style)
                     elem.style.display = result ? display : "none";
