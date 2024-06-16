@@ -1,16 +1,16 @@
-const REM_UNIT = 0.25;
-const UNITS_SM = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-const UNITS_LG = [16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60];
-const UNITS_XL = [64, 72, 80, 96, 112, 128, 144, 160, 192, 224, 256, 288, 320, 384, 448, 512];
-const UNITS_ALL = [...UNITS_SM, ...UNITS_LG, ...UNITS_XL];
-const PERCENTS = [1, 2, 5, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 95, 98, 99, 100];
-const PSEUDO_STATES = ["hover", "focus", "disabled", "focus", "active"];
 const MEDIA_BREAKPOINTS = {
     sm: 640,
     md: 768,
     lg: 1024,
     xl: 1280,
 };
+const REM_UNIT = 0.25;
+const UNITS_SM = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+const UNITS_LG = [16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60];
+const UNITS_XL = [64, 72, 80, 96, 112, 128, 144, 160, 192, 224, 256, 288, 320, 384, 448, 512];
+const UNITS_ALL = [...UNITS_SM, ...UNITS_LG, ...UNITS_XL, ...Object.values(MEDIA_BREAKPOINTS)];
+const PERCENTS = [1, 2, 5, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 95, 98, 99, 100];
+const PSEUDO_STATES = ["hover", "focus", "disabled", "focus", "active"];
 const PROPS_SPACING = {
     margin: "m",
     padding: "p",
@@ -138,7 +138,23 @@ const PROPS_CUSTOM = {
     "rounded-full": { "border-radius": "9999px" },
     // Transitions.
     "transition-none": { transition: "none" },
-    transition: { transition: "all 150ms" },
+    transition: {
+        transition: [
+            "color",
+            "background-color",
+            "border-color",
+            "text-decoration-color",
+            "fill",
+            "stroke",
+            "opacity",
+            "box-shadow",
+            "transform",
+            "filter",
+            "backdrop-filter",
+        ]
+            .map((x) => `${x} 150ms`)
+            .join(", "),
+    },
     // Animations.
     "animate-none": { animation: "none" },
     "animate-spin": { animation: "spin 1s linear infinite" },
@@ -459,46 +475,79 @@ function autoxy(props) {
     ]);
 }
 function tblr(props) {
-    return Object.entries(props).flatMap(([prop, klass]) => [
+    return Object.entries(props)
+        .flatMap(([prop, klass]) => [
+        // Zero top.
+        [`${klass}t-0`, `${prop}-top: 0`],
+        // Zero bottom.
+        [`${klass}b-0`, `${prop}-bottom: 0`],
+        // Zero left.
+        [`${klass}l-0`, `${prop}-left: 0`],
+        // Zero right.
+        [`${klass}r-0`, `${prop}-right: 0`],
         // Auto top.
-        `.${klass}t-auto { ${prop}-top: auto }`,
+        [`${klass}t-auto`, `${prop}-top: auto`],
         // Auto bottom.
-        `.${klass}b-auto { ${prop}-bottom: auto }`,
+        [`${klass}b-auto`, `${prop}-bottom: auto`],
         // Auto left.
-        `.${klass}l-auto { ${prop}-left: auto }`,
+        [`${klass}l-auto`, `${prop}-left: auto`],
         // Auto right.
-        `.${klass}r-auto { ${prop}-right: auto }`,
-        // Positive REM units top.
-        ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(([k, v]) => `.${klass}t-${k} { ${prop}-top: ${v}rem }`),
-        // Positive REM units bottom.
-        ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(([k, v]) => `.${klass}b-${k} { ${prop}-bottom: ${v}rem }`),
-        // Positive REM units left.
-        ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(([k, v]) => `.${klass}l-${k} { ${prop}-left: ${v}rem }`),
-        // Positive REM units right.
-        ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(([k, v]) => `.${klass}r-${k} { ${prop}-right: ${v}rem }`),
-        // Positive PX units top.
-        ...UNITS_ALL.map((v) => `.${klass}t-${v}px { ${prop}-top: ${v}px }`),
-        // Positive PX units bottom.
-        ...UNITS_ALL.map((v) => `.${klass}t-${v}px { ${prop}-bottom: ${v}px }`),
-        // Positive PX units left.
-        ...UNITS_ALL.map((v) => `.${klass}t-${v}px { ${prop}-left: ${v}px }`),
-        // Positive PX units right.
-        ...UNITS_ALL.map((v) => `.${klass}t-${v}px { ${prop}-right: ${v}px }`),
-        // Positive percent units top.
-        ...PERCENTS.map((v) => `.${klass}y-${v}% { ${prop}-top: ${v}% }`),
-        // Positive percent units bottom.
-        ...PERCENTS.map((v) => `.${klass}y-${v}% { ${prop}-bottom: ${v}%; }`),
-        // Positive percent units left.
-        ...PERCENTS.map((v) => `.${klass}x-${v}% { ${prop}-left: ${v}% }`),
-        // Positive percent units right.
-        ...PERCENTS.map((v) => `.${klass}x-${v}% { ${prop}-right: ${v}% }`),
+        [`${klass}r-auto`, `${prop}-right: auto`],
+        // Positive / Negative.
+        ...["", "-"].flatMap((sign) => [
+            // REM units top.
+            ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(([k, v]) => [
+                `${sign}${klass}t-${k}`,
+                `${prop}-top: ${sign}${v}rem`,
+            ]),
+            // REM units bottom.
+            ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(([k, v]) => [
+                `${sign}${klass}b-${k}`,
+                `${prop}-bottom: ${sign}${v}rem`,
+            ]),
+            // REM units left.
+            ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(([k, v]) => [
+                `${sign}${klass}l-${k}`,
+                `${prop}-left: ${sign}${v}rem`,
+            ]),
+            // REM units right.
+            ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(([k, v]) => [
+                `${sign}${klass}r-${k}`,
+                `${prop}-right: ${sign}${v}rem`,
+            ]),
+            // PX units top.
+            ...UNITS_ALL.map((v) => [`${sign}${klass}t-${v}px`, `${prop}-top: ${sign}${v}px`]),
+            // PX units bottom.
+            ...UNITS_ALL.map((v) => [`${sign}${klass}t-${v}px`, `${prop}-bottom: ${sign}${v}px`]),
+            // PX units left.
+            ...UNITS_ALL.map((v) => [`${sign}${klass}t-${v}px`, `${prop}-left: ${sign}${v}px`]),
+            // PX units right.
+            ...UNITS_ALL.map((v) => [`${sign}${klass}t-${v}px`, `${prop}-right: ${sign}${v}px`]),
+            // Percent units top.
+            ...PERCENTS.map((v) => [`${sign}${klass}y-${v}%`, `${prop}-top: ${sign}${v}%`]),
+            // Percent units bottom.
+            ...PERCENTS.map((v) => [`${sign}${klass}y-${v}%`, `${prop}-bottom: ${sign}${v}%;`]),
+            // Percent units left.
+            ...PERCENTS.map((v) => [`${sign}${klass}x-${v}%`, `${prop}-left: ${sign}${v}%`]),
+            // Percent units right.
+            ...PERCENTS.map((v) => [`${sign}${klass}x-${v}%`, `${prop}-right: ${sign}${v}%`]),
+        ]),
+    ])
+        .flatMap(([klass, rule]) => [
+        `.${klass} { ${rule} }`,
+        `${wrapPseudoStates(klass).join(",")} { ${rule} }`,
+        ...wrapMediaQueries(klass, rule),
     ]);
 }
 function border() {
     return [
         // Pixel units for border width.
-        ...UNITS_SM.map((v) => `.border-${v} { border-width: ${v}px; }`),
-    ];
+        ...UNITS_SM.map((v) => [`border-${v}`, `border-width: ${v}px`]),
+    ].flatMap(([klass, rule]) => [
+        `.${klass} { ${rule} }`,
+        `${wrapPseudoStates(klass).join(",")} { ${rule} }`,
+        ...wrapMediaQueries(klass, rule),
+    ]);
 }
 function between() {
     return [
@@ -573,9 +622,9 @@ function colors() {
 function opacity() {
     return [
         // Zero for opacity.
-        `.opacity-0 { opacity: 0; }`,
+        [`.opacity-0`, `opacity: 0`],
         // Positive percent units for opacity.
-        ...PERCENTS.map((v) => `.opacity-${v} { opacity: ${v / 100}; }`),
+        ...PERCENTS.map((v) => [`.opacity-${v}`, `opacity: ${v / 100}`]),
     ].flatMap(([klass, rule]) => [
         `.${klass} { ${rule} }`,
         `${wrapPseudoStates(klass).join(",")} { ${rule} }`,
