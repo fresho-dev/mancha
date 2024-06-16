@@ -32,7 +32,7 @@ const PROPS_SIZING_MINMAX = {
     "max-height": "max-h",
 };
 const PROPS_CUSTOM = {
-    // Based on https://matcha.mizu.sh/@utilities.css.
+    // Based on https://tailwindcss.com.
     // Text style.
     bold: { "font-weight": "bold" },
     semibold: { "font-weight": 600 },
@@ -398,7 +398,7 @@ function wrapMediaQueries(klass, rule) {
     return Object.entries(MEDIA_BREAKPOINTS).map(([bp, width]) => `@media (min-width: ${width}px) { .${bp}\\:${klass} { ${rule} } }`);
 }
 function ruleSorter(a, b) {
-    // If one rule is a media query, it goes after the base rule.
+    // If one rule is a media query, it goes after the base rules.
     if (a.includes("@media") && !b.includes("@media")) {
         return 1;
     }

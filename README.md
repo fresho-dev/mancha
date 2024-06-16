@@ -1,17 +1,17 @@
 # mancha
 
-`mancha` is a simple HTML templating and rendering library for simple people. It works on the
+`mancha` is a simple HTML templating and reactivity library for simple people. It works on the
 browser or the server. It can be used as a command-line tool, imported as a Javascript module, or as
 a plugin for [`Gulp`](https://gulpjs.com).
 
 Here's a small sample of the things that you can do with `mancha`:
 
 ```html
-<!-- Use the bundled file from `unkpg`. -->
-<script src="//unpkg.com/mancha" target="main" init></script>
+<!-- Use the bundled file from `unkpg` and include basic CSS utilities. -->
+<script src="//unpkg.com/mancha" target="main" css="utils" init></script>
 
 <!-- Scoped variables using the `:data` attribute. -->
-<main :data="{count: 0, name: 'Stranger'}">
+<main class="p-4" :data="{count: 0, name: 'Stranger'}">
   <!-- Custom HTML tag element registration. -->
   <template is="counter">
     <div>
@@ -21,14 +21,16 @@ Here's a small sample of the things that you can do with `mancha`:
   </template>
 
   <!-- Custom HTML tag element usage. -->
-  <counter>Click me:</counter>
+  <counter class="my-2">Click me:</counter>
 
   <!-- Reactive data binding. -->
   <p>Enter your name: <input type="text" :bind="name" /></p>
-  <p>Hello, {{ name }}!</p>
+  <p>Hello, <span class="underline">{{ name }}</span>!</p>
 
   <!-- Include HTML partials. -->
-  <include src="html/partial/footer.tpl.html"></include>
+  <footer class="text-xs">
+    <include src="html/partial/footer.tpl.html"></include>
+  </footer>
 </main>
 ```
 
@@ -46,7 +48,7 @@ None of them have all the key features that make `mancha` unique:
 | Feature               | mancha | Svelte | React.js | Vue.js | petite-vue | Alpine.js |
 | --------------------- | ------ | ------ | -------- | ------ | ---------- | --------- |
 | Simple to learn       | ✔️     | ❌     | ❌       | ❌     | ✔️         | ✔️        |
-| < 10kb compressed     | ✔️     | ❌     | ❌       | ❌     | ✔️         | ❌        |
+| < 12kb compressed     | ✔️     | ❌     | ❌       | ❌     | ✔️         | ❌        |
 | Custom web components | ✔️     | ✔️     | ✔️       | ✔️     | ❌         | ❌        |
 | Client-side rendering | ✔️     | ❌     | ❌       | ✔️     | ✔️         | ✔️        |
 | Server-side rendering | ✔️     | ✔️     | ✔️       | ✔️     | ❌         | ❌        |
@@ -109,9 +111,9 @@ Once the HTML has been preprocessed, it is rendered by traversing every node in 
 a series of plugins. Each plugin is only applied if specific conditions are met such as the HTML
 element tag or attributes match a specific criteria. Here's the list of attributes handled:
 
-- `:data` provides scoped variables to all subnodes
+- `:data` provides scoped variables to all subnodes, evaluated asynchronously
   ```html
-  <div :data="{name: 'Stranger'}"></div>
+  <div :data="{name: 'Stranger', ...(await fetch(url).then(res => res.json()))}"></div>
   ```
 - `:for` clones the node and repeats it
   ```html
@@ -160,6 +162,19 @@ element tag or attributes match a specific criteria. Here's the list of attribut
   <button :data="{label: 'Click Me'}">{{ label }}</button>
   ```
 
+## Styling
+
+Some basic styling rules are built into the library and can be optionally used. The styling
+component was designed to be used in the browser, and it's enabled by adding a `css` attribute
+to the `<script>` tag that loads `mancha`. The supported rulesets are:
+
+- `basic`: inspired by [these rules](https://www.swyx.io/css-100-bytes), the full CSS can be found
+  [here](./src/css_raw_basic.css).
+- `utils`: utility classes inspired by [tailwindcss](https://tailwindcss.com), the resulting CSS is
+  a drop-in replacement for a subset of the classes provided by `tailwindcss` with the main
+  exception of the color palette which is borrowed from
+  [material design](https://www.materialpalette.com/colors).
+
 ## Usage
 
 ### Client Side Rendering (CSR)
@@ -179,7 +194,8 @@ Script tag attributes:
 - `init`: whether to automatically render upon script load
 - `target`: document elements separated by `+` to render e.g. "body" or "head+body" (defaults to
   "body")
-- `css`: inject predefined CSS rules known to Mancha (experimental)
+- `css`: inject predefined CSS rulesets into the `<head>` element, see the
+  [styling section](#styling) for more details.
 
 For a more complete example, see [examples/browser](./examples/browser).
 
