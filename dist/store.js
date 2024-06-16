@@ -31,6 +31,9 @@ export function makeEvalFunction(code, args = []) {
 export function makeAsyncEvalFunction(code, args = []) {
     return new Function(...args, `with (this) { return (async () => (${code}))(); }`);
 }
+function isProxified(object) {
+    return object instanceof SignalStore || object["__is_proxy__"];
+}
 export class SignalStore extends IDebouncer {
     evalkeys = ["$elem", "$event"];
     expressionCache = new Map();
@@ -50,6 +53,10 @@ export class SignalStore extends IDebouncer {
         return (...args) => fn.call(this.$, ...args);
     }
     wrapObject(obj, callback) {
+        // If this object is already a proxy or not a plain object (or array), return it as-is.
+        if (obj == null || isProxified(obj) || (obj.constructor !== Object && !Array.isArray(obj))) {
+            return obj;
+        }
         return new Proxy(obj, {
             deleteProperty: (target, property) => {
                 if (property in target) {
