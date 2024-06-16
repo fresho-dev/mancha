@@ -1,7 +1,7 @@
 import { ParserParams, RenderParams } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
 import { RendererPlugins } from "./plugins.js";
-import { traverse } from "./dome.js";
+import { nodeToString, traverse } from "./dome.js";
 import { SignalStore } from "./store.js";
 
 export type EvalListener = (result: any, dependencies: string[]) => any;
@@ -177,7 +177,7 @@ export abstract class IRenderer extends SignalStore {
     params = { dirpath: this.dirpath, maxdepth: 10, ...params };
 
     const promises = new Iterator(traverse(root, this._skipNodes)).map(async (node) => {
-      this.log("Preprocessing node:\n", (node as any).outerHTML);
+      this.log("Preprocessing node:\n", nodeToString(node, 128));
       // Resolve all the includes in the node.
       await RendererPlugins.resolveIncludes.call(this, node, params);
       // Resolve all the relative paths in the node.
@@ -210,7 +210,7 @@ export abstract class IRenderer extends SignalStore {
     // Iterate over all the nodes and apply appropriate handlers.
     // Do these steps one at a time to avoid any potential race conditions.
     for (const node of traverse(root, this._skipNodes)) {
-      this.log("Rendering node:\n", (node as any).outerHTML);
+      this.log("Rendering node:\n", nodeToString(node, 128));
       // Resolve the :data attribute in the node.
       await RendererPlugins.resolveDataAttribute.call(this, node, params);
       // Resolve the :for attribute in the node.

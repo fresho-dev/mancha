@@ -3,10 +3,12 @@ import {
   attributeNameToCamelCase,
   cloneAttribute,
   createElement,
+  ellipsize,
   firstElementChild,
   getAttribute,
   getNodeValue,
   insertBefore,
+  nodeToString,
   removeAttribute,
   removeChild,
   replaceChildren,
@@ -38,7 +40,7 @@ export namespace RendererPlugins {
 
     // Early exit: node must be an <include> element.
     if (elem.tagName?.toLocaleLowerCase() !== "include") return;
-    this.log("<include> tag found in:\n", node);
+    this.log("<include> tag found in:\n", nodeToString(node, 128));
     this.log("<include> params:", params);
 
     // Early exit: <include> tags must have a src attribute.
@@ -144,7 +146,7 @@ export namespace RendererPlugins {
     if (elem.tagName?.toLowerCase() === "template" && getAttribute(elem, "is")) {
       const tagName = getAttribute(elem, "is")?.toLowerCase() as string;
       if (!this._customElements.has(tagName)) {
-        this.log(`Registering custom element: ${tagName}\n`, elem);
+        this.log(`Registering custom element: ${tagName}\n`, nodeToString(elem, 128));
         this._customElements.set(tagName, elem.cloneNode(true));
         // Remove the node from the DOM.
         removeChild(elem.parentNode!!, elem);
@@ -156,7 +158,7 @@ export namespace RendererPlugins {
     const elem = node as Element;
     const tagName = elem.tagName?.toLowerCase();
     if (this._customElements.has(tagName)) {
-      this.log(`Processing custom element: ${tagName}\n`, elem);
+      this.log(`Processing custom element: ${tagName}\n`, nodeToString(elem, 128));
       const template = this._customElements.get(tagName)!! as HTMLTemplateElement;
       const clone = (template.content || template).cloneNode(true) as Element;
 
@@ -177,9 +179,9 @@ export namespace RendererPlugins {
   };
 
   export const resolveTextNodeExpressions: RendererPlugin = async function (node, params) {
-    if (node.nodeType !== 3) return;
     const content = getNodeValue(node) || "";
-    this.log(`Processing node content value:\n`, content);
+    if (node.nodeType !== 3 || !content?.trim()) return;
+    this.log(`Processing node content value:\n`, ellipsize(content, 128));
 
     // Identify all the expressions found in the content.
     const matcher = new RegExp(/{{ ([^}]+) }}/gm);
@@ -202,7 +204,7 @@ export namespace RendererPlugins {
     const elem = node as Element;
     const dataAttr = getAttribute(elem, ":data");
     if (dataAttr) {
-      this.log(":data attribute found in:\n", node);
+      this.log(":data attribute found in:\n", nodeToString(node, 128));
 
       // Remove the attribute from the node.
       removeAttribute(elem, ":data");
@@ -216,9 +218,11 @@ export namespace RendererPlugins {
       const result = await fn.call(subrenderer.$, { $elem: node });
       await Promise.all(Object.entries(result).map(([key, value]) => subrenderer.set(key, value)));
 
-      // Skip all the children of the current node.
-      for (const child of traverse(node, this._skipNodes)) {
-        this._skipNodes.add(child);
+      // Skip all the children of the current node, if it's a subrenderer.
+      if (subrenderer !== this) {
+        for (const child of traverse(node, this._skipNodes)) {
+          this._skipNodes.add(child);
+        }
       }
 
       // Mount the current node with the subrenderer.
@@ -231,7 +235,7 @@ export namespace RendererPlugins {
     const elem = node as Element;
     const watchAttr = getAttribute(elem, "@watch");
     if (watchAttr) {
-      this.log("@watch attribute found in:\n", node);
+      this.log("@watch attribute found in:\n", nodeToString(node, 128));
 
       // Remove the attribute from the node.
       removeAttribute(elem, "@watch");
@@ -248,7 +252,7 @@ export namespace RendererPlugins {
     const elem = node as Element;
     const textAttr = getAttribute(elem, "$text");
     if (textAttr) {
-      this.log("$text attribute found in:\n", node);
+      this.log("$text attribute found in:\n", nodeToString(node, 128));
 
       // Remove the attribute from the node.
       removeAttribute(elem, "$text");
@@ -265,7 +269,7 @@ export namespace RendererPlugins {
     const elem = node as Element;
     const htmlAttr = getAttribute(elem, "$html");
     if (htmlAttr) {
-      this.log("$html attribute found in:\n", (node as any).outerHTML);
+      this.log("$html attribute found in:\n", nodeToString(node, 128));
 
       // Remove the attribute from the node.
       removeAttribute(elem, "$html");
@@ -288,7 +292,7 @@ export namespace RendererPlugins {
     const elem = node as Element;
     for (const attr of Array.from(elem.attributes || [])) {
       if (attr.name.startsWith("$") && !KW_ATTRIBUTES.has(attr.name)) {
-        this.log(attr.name, "attribute found in:\n", node);
+        this.log(attr.name, "attribute found in:\n", nodeToString(node, 128));
 
         // Remove the attribute from the node.
         removeAttribute(elem, attr.name);
@@ -307,7 +311,7 @@ export namespace RendererPlugins {
     const elem = node as Element;
     for (const attr of Array.from(elem.attributes || [])) {
       if (attr.name.startsWith(":") && !KW_ATTRIBUTES.has(attr.name)) {
-        this.log(attr.name, "attribute found in:\n", node);
+        this.log(attr.name, "attribute found in:\n", nodeToString(node, 128));
 
         // Remove the processed attributes from node.
         removeAttribute(elem, attr.name);
@@ -326,7 +330,7 @@ export namespace RendererPlugins {
     const elem = node as Element;
     for (const attr of Array.from(elem.attributes || [])) {
       if (attr.name.startsWith("@") && !KW_ATTRIBUTES.has(attr.name)) {
-        this.log(attr.name, "attribute found in:\n", node);
+        this.log(attr.name, "attribute found in:\n", nodeToString(node, 128));
 
         // Remove the processed attributes from node.
         removeAttribute(elem, attr.name);
@@ -343,7 +347,7 @@ export namespace RendererPlugins {
     const elem = node as Element;
     const forAttr = getAttribute(elem, ":for")?.trim();
     if (forAttr) {
-      this.log(":for attribute found in:\n", node);
+      this.log(":for attribute found in:\n", nodeToString(node, 128));
 
       // Remove the processed attributes from node.
       removeAttribute(elem, ":for");
@@ -359,7 +363,7 @@ export namespace RendererPlugins {
       insertBefore(parent, template as Node, node);
       removeChild(parent, node);
       appendChild(template as Node, node);
-      this.log(":for template:\n", template);
+      this.log(":for template:\n", nodeToString(template, 128));
 
       // Tokenize the input by splitting it based on the format "{key} in {expression}".
       const tokens = forAttr.split(" in ", 2);
@@ -406,7 +410,7 @@ export namespace RendererPlugins {
 
           // Render the element using the subrenderer.
           awaiters.push(subrenderer.mount(copy, params));
-          this.log("Rendered list child:\n", (copy as HTMLElement).outerHTML);
+          this.log("Rendered list child:\n", nodeToString(copy, 128));
         }
 
         // Insert the new children into the parent container.
@@ -425,7 +429,7 @@ export namespace RendererPlugins {
     const elem = node as Element;
     const bindExpr = getAttribute(elem, ":bind");
     if (bindExpr) {
-      this.log(":bind attribute found in:\n", node);
+      this.log(":bind attribute found in:\n", nodeToString(node, 128));
 
       // The change events we listen for can be overriden by user.
       const defaultEvents = ["change", "input"];
@@ -460,7 +464,7 @@ export namespace RendererPlugins {
     const elem = node as HTMLElement;
     const showExpr = getAttribute(elem, ":show");
     if (showExpr) {
-      this.log(":show attribute found in:\n", node);
+      this.log(":show attribute found in:\n", nodeToString(node, 128));
 
       // Remove the processed attributes from node.
       removeAttribute(elem, ":show");

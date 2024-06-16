@@ -170,3 +170,14 @@ export function createElement(tagName, document) {
     else
         return new _Element(tagName, {});
 }
+export function ellipsize(str, maxLength = 0) {
+    if (!str)
+        return "";
+    else if (str.length <= maxLength)
+        return str;
+    else
+        return str.slice(0, maxLength - 1) + "…";
+}
+export function nodeToString(node, maxLength = 0) {
+    return ellipsize(node.outerHTML || getNodeValue(node) || String(node), maxLength);
+}

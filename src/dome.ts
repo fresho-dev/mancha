@@ -178,3 +178,13 @@ export function createElement(tagName: string, document: Document | null): Eleme
   if (document) return document.createElement(tagName);
   else return new _Element(tagName, {});
 }
+
+export function ellipsize(str: string | null, maxLength: number = 0): string {
+  if (!str) return "";
+  else if (str.length <= maxLength) return str;
+  else return str.slice(0, maxLength - 1) + "…";
+}
+
+export function nodeToString(node: Node | _Node, maxLength: number = 0): string {
+  return ellipsize((node as any).outerHTML || getNodeValue(node) || String(node), maxLength);
+}

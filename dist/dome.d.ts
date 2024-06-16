@@ -35,4 +35,6 @@ export declare function setTextContent(elem: Element | _Element, value: string):
 export declare function getNodeValue(node: Node | _Node): string | null;
 export declare function setNodeValue(node: Node | _Node, value: string | null): void;
 export declare function createElement(tagName: string, document: Document | null): Element | _Element;
+export declare function ellipsize(str: string | null, maxLength?: number): string;
+export declare function nodeToString(node: Node | _Node, maxLength?: number): string;
 export {};
