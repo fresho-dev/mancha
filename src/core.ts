@@ -148,10 +148,17 @@ export abstract class IRenderer extends SignalStore {
    * @returns A new instance of the renderer with the same state as the original.
    */
   clone(): IRenderer {
-    const instance = new (this.constructor as any)(Object.fromEntries(this.store.entries()));
+    const data = Object.fromEntries(this.store.entries());
+    const instance = new (this.constructor as any)(data).debug(this.debugging);
     // Custom elements are shared across all instances.
     instance._customElements = this._customElements;
-    return instance.debug(this.debugging);
+    // Pass-through value updates to the new instance.
+    // NOTE: This wouldn't be needed if using a proper signal mechanism, but it's good enough.
+    Array.from(this.store.keys()).forEach((key) =>
+      this.watch(key, () => instance.set(key, this.get(key)))
+    );
+
+    return instance as IRenderer;
   }
 
   /**

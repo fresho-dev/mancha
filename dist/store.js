@@ -90,9 +90,9 @@ export class SignalStore extends IDebouncer {
             this.observers.get(key)?.add(observer);
         }
     }
-    async notify(key) {
+    async notify(key, debounceMillis = REACTIVE_DEBOUNCE_MILLIS) {
         const observers = Array.from(this.observers.get(key) || []);
-        await this.debounce(REACTIVE_DEBOUNCE_MILLIS, () => Promise.all(observers.map((observer) => observer.call(this.proxify(observer)))));
+        await this.debounce(debounceMillis, () => Promise.all(observers.map((observer) => observer.call(this.proxify(observer)))));
     }
     get(key, observer) {
         if (observer)

@@ -28,8 +28,8 @@ export declare class SignalStore extends IDebouncer {
     });
     private wrapFunction;
     private wrapObject;
-    private watch;
-    private notify;
+    protected watch<T>(key: string, observer: Observer<T>): void;
+    protected notify(key: string, debounceMillis?: number): Promise<void>;
     get<T>(key: string, observer?: Observer<T>): unknown | null;
     set(key: string, value: unknown): Promise<void>;
     del(key: string): void;

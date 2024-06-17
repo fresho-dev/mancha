@@ -93,7 +93,7 @@ export class SignalStore extends IDebouncer {
     });
   }
 
-  private watch<T>(key: string, observer: Observer<T>): void {
+  protected watch<T>(key: string, observer: Observer<T>): void {
     if (!this.observers.has(key)) {
       this.observers.set(key, new Set());
     }
@@ -102,9 +102,12 @@ export class SignalStore extends IDebouncer {
     }
   }
 
-  private async notify(key: string): Promise<void> {
+  protected async notify(
+    key: string,
+    debounceMillis: number = REACTIVE_DEBOUNCE_MILLIS
+  ): Promise<void> {
     const observers = Array.from(this.observers.get(key) || []);
-    await this.debounce(REACTIVE_DEBOUNCE_MILLIS, () =>
+    await this.debounce(debounceMillis, () =>
       Promise.all(observers.map((observer) => observer.call(this.proxify(observer))))
     );
   }
