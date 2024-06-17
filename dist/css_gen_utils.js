@@ -44,9 +44,10 @@ const PROPS_CUSTOM = {
     uppercase: { "text-transform": "uppercase" },
     lowercase: { "text-transform": "lowercase" },
     capitalize: { "text-transform": "capitalize" },
-    "font-mono": { "font-family": "ui-monospace, monospace" },
-    "font-sans": { "font-family": "ui-sans-serif, system-ui, sans-serif" },
-    "font-serif": { "font-family": "ui-serif, serif" },
+    "font-mono": { "font-family": "monospace" },
+    "font-sans": { "font-family": "sans-serif" },
+    "font-serif": { "font-family": "serif" },
+    "font-cursive": { "font-family": "cursive" },
     // Text position.
     "text-left": { "text-align": "left" },
     "text-right": { "text-align": "right" },
@@ -74,6 +75,14 @@ const PROPS_CUSTOM = {
     hidden: { display: "none" },
     inline: { display: "inline" },
     "inline-block": { display: "inline-block" },
+    // Visibility.
+    visible: { visibility: "visible" },
+    invisible: { visibility: "hidden" },
+    collapse: { visibility: "collapse" },
+    // List.
+    "list-none": { "list-style-type": "none" },
+    "list-disc": { "list-style-type": "disc" },
+    "list-decimal": { "list-style-type": "decimal" },
     // Flex.
     flex: { display: "flex" },
     "flex-1": { flex: "1 1 0%" },
@@ -138,23 +147,7 @@ const PROPS_CUSTOM = {
     "rounded-full": { "border-radius": "9999px" },
     // Transitions.
     "transition-none": { transition: "none" },
-    transition: {
-        transition: [
-            "color",
-            "background-color",
-            "border-color",
-            "text-decoration-color",
-            "fill",
-            "stroke",
-            "opacity",
-            "box-shadow",
-            "transform",
-            "filter",
-            "backdrop-filter",
-        ]
-            .map((x) => `${x} 150ms`)
-            .join(", "),
-    },
+    transition: { transition: `all 150ms ease-in-out` },
     // Animations.
     "animate-none": { animation: "none" },
     "animate-spin": { animation: "spin 1s linear infinite" },
@@ -442,9 +435,9 @@ function posneg(props) {
         // Negative PX units.
         ...UNITS_ALL.map((v) => [`-${klass}-${v}px`, `${prop}: -${v}px`]),
         // Positive percent units.
-        ...PERCENTS.map((v) => [`${klass}-${v}%`, `${prop}: ${v}%`]),
+        ...PERCENTS.map((v) => [`${klass}-${v}\\%`, `${prop}: ${v}%`]),
         // Negative percent units.
-        ...PERCENTS.map((v) => [`-${klass}-${v}%`, ` ${prop}: -${v}%`]),
+        ...PERCENTS.map((v) => [`-${klass}-${v}\\%`, ` ${prop}: -${v}%`]),
     ])
         .flatMap(([klass, rule]) => [
         `.${klass} { ${rule} }`,
@@ -469,9 +462,9 @@ function autoxy(props) {
         // Positive PX units y-axis.
         ...UNITS_ALL.map((v) => `.${klass}y-${v}px { ${prop}-top: ${v}px; ${prop}-bottom: ${v}px; }`),
         // Positive percent units x-axis.
-        ...PERCENTS.map((v) => `.${klass}x-${v}% { ${prop}-left: ${v}%; ${prop}-right: ${v}%; }`),
+        ...PERCENTS.map((v) => `.${klass}x-${v}\\% { ${prop}-left: ${v}%; ${prop}-right: ${v}%; }`),
         // Positive percent units y-axis.
-        ...PERCENTS.map((v) => `.${klass}y-${v}% { ${prop}-top: ${v}%; ${prop}-bottom: ${v}%; }`),
+        ...PERCENTS.map((v) => `.${klass}y-${v}\\% { ${prop}-top: ${v}%; ${prop}-bottom: ${v}%; }`),
     ]);
 }
 function tblr(props) {
@@ -518,19 +511,19 @@ function tblr(props) {
             // PX units top.
             ...UNITS_ALL.map((v) => [`${sign}${klass}t-${v}px`, `${prop}-top: ${sign}${v}px`]),
             // PX units bottom.
-            ...UNITS_ALL.map((v) => [`${sign}${klass}t-${v}px`, `${prop}-bottom: ${sign}${v}px`]),
+            ...UNITS_ALL.map((v) => [`${sign}${klass}b-${v}px`, `${prop}-bottom: ${sign}${v}px`]),
             // PX units left.
-            ...UNITS_ALL.map((v) => [`${sign}${klass}t-${v}px`, `${prop}-left: ${sign}${v}px`]),
+            ...UNITS_ALL.map((v) => [`${sign}${klass}l-${v}px`, `${prop}-left: ${sign}${v}px`]),
             // PX units right.
-            ...UNITS_ALL.map((v) => [`${sign}${klass}t-${v}px`, `${prop}-right: ${sign}${v}px`]),
+            ...UNITS_ALL.map((v) => [`${sign}${klass}r-${v}px`, `${prop}-right: ${sign}${v}px`]),
             // Percent units top.
-            ...PERCENTS.map((v) => [`${sign}${klass}y-${v}%`, `${prop}-top: ${sign}${v}%`]),
+            ...PERCENTS.map((v) => [`${sign}${klass}t-${v}\\%`, `${prop}-top: ${sign}${v}%`]),
             // Percent units bottom.
-            ...PERCENTS.map((v) => [`${sign}${klass}y-${v}%`, `${prop}-bottom: ${sign}${v}%;`]),
+            ...PERCENTS.map((v) => [`${sign}${klass}b-${v}\\%`, `${prop}-bottom: ${sign}${v}%;`]),
             // Percent units left.
-            ...PERCENTS.map((v) => [`${sign}${klass}x-${v}%`, `${prop}-left: ${sign}${v}%`]),
+            ...PERCENTS.map((v) => [`${sign}${klass}l-${v}\\%`, `${prop}-left: ${sign}${v}%`]),
             // Percent units right.
-            ...PERCENTS.map((v) => [`${sign}${klass}x-${v}%`, `${prop}-right: ${sign}${v}%`]),
+            ...PERCENTS.map((v) => [`${sign}${klass}r-${v}\\%`, `${prop}-right: ${sign}${v}%`]),
         ]),
     ])
         .flatMap(([klass, rule]) => [
@@ -552,31 +545,31 @@ function border() {
 function between() {
     return [
         // Zero for x margin.
-        `.space-x-0 > * { margin-left: 0; }`,
+        `.space-x-0 > * { margin-left: 0 }`,
         // Zero for y margin.
-        `.space-y-0 > * { margin-top: 0; }`,
+        `.space-y-0 > * { margin-top: 0 }`,
         // Positive REM units for x margin.
-        ...UNITS_ALL.map((v) => `.space-x-${v} > :not(:first-child) { margin-left: ${v * REM_UNIT}rem; }`),
+        ...UNITS_ALL.map((v) => `.space-x-${v} > :not(:first-child) { margin-left: ${v * REM_UNIT}rem }`),
         // Positive REM units for y margin.
-        ...UNITS_ALL.map((v) => `.space-y-${v} > :not(:first-child) { margin-top: ${v * REM_UNIT}rem; }`),
+        ...UNITS_ALL.map((v) => `.space-y-${v} > :not(:first-child) { margin-top: ${v * REM_UNIT}rem }`),
         // Positive PX units for x margin.
-        ...UNITS_ALL.map((v) => `.space-x-${v}px > :not(:first-child) { margin-left: ${v}px; }`),
+        ...UNITS_ALL.map((v) => `.space-x-${v}px > :not(:first-child) { margin-left: ${v}px }`),
         // Positive PX units for y margin.
-        ...UNITS_ALL.map((v) => `.space-y-${v}px > :not(:first-child) { margin-top: ${v}px; }`),
+        ...UNITS_ALL.map((v) => `.space-y-${v}px > :not(:first-child) { margin-top: ${v}px }`),
         // Zero for gap.
-        `.gap-0 { gap: 0; }`,
+        `.gap-0 { gap: 0 }`,
         // Positive REM units for gap.
-        ...UNITS_ALL.map((v) => `.gap-${v} { gap: ${v * REM_UNIT}rem; }`),
+        ...UNITS_ALL.map((v) => `.gap-${v} { gap: ${v * REM_UNIT}rem }`),
         // Positive PX units for gap.
-        ...UNITS_ALL.map((v) => `.gap-${v}px { gap: ${v}px; }`),
+        ...UNITS_ALL.map((v) => `.gap-${v}px { gap: ${v}px }`),
         // Positive REM units for col gap.
-        ...UNITS_ALL.map((v) => `.gap-x-${v} { column-gap: ${v * REM_UNIT}rem; }`),
+        ...UNITS_ALL.map((v) => `.gap-x-${v} { column-gap: ${v * REM_UNIT}rem }`),
         // Positive REM units for row gap.
-        ...UNITS_ALL.map((v) => `.gap-y-${v} { row-gap: ${v * REM_UNIT}rem; }`),
+        ...UNITS_ALL.map((v) => `.gap-y-${v} { row-gap: ${v * REM_UNIT}rem }`),
         // Positive PX units for col gap.
-        ...UNITS_ALL.map((v) => `.gap-x-${v}px { column-gap: ${v}px; }`),
+        ...UNITS_ALL.map((v) => `.gap-x-${v}px { column-gap: ${v}px }`),
         // Positive PX units for row gap.
-        ...UNITS_ALL.map((v) => `.gap-y-${v}px { row-gap: ${v}px; }`),
+        ...UNITS_ALL.map((v) => `.gap-y-${v}px { row-gap: ${v}px }`),
     ];
 }
 function custom() {
@@ -622,9 +615,9 @@ function colors() {
 function opacity() {
     return [
         // Zero for opacity.
-        [`.opacity-0`, `opacity: 0`],
+        [`opacity-0`, `opacity: 0`],
         // Positive percent units for opacity.
-        ...PERCENTS.map((v) => [`.opacity-${v}`, `opacity: ${v / 100}`]),
+        ...PERCENTS.map((v) => [`opacity-${v}`, `opacity: ${v / 100}`]),
     ].flatMap(([klass, rule]) => [
         `.${klass} { ${rule} }`,
         `${wrapPseudoStates(klass).join(",")} { ${rule} }`,
