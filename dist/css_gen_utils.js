@@ -453,6 +453,10 @@ function autoxy(props) {
         `.${klass}x-auto { ${prop}-left: auto; ${prop}-right: auto; }`,
         // Auto y-axis.
         `.${klass}y-auto { ${prop}-top: auto; ${prop}-bottom: auto; }`,
+        // Zero x-axis.
+        `.${klass}x-0 { ${prop}-left: 0; ${prop}-right: 0; }`,
+        // Zero y-axis.
+        `.${klass}y-0 { ${prop}-top: 0; ${prop}-bottom: 0; }`,
         // Positive REM units x-axis.
         ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(([k, v]) => `.${klass}x-${k} { ${prop}-left: ${v}rem; ${prop}-right: ${v}rem; }`),
         // Positive REM units y-axis.
