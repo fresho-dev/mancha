@@ -1,4 +1,5 @@
-import { dirname, IRenderer } from "./core.js";
+import { IRenderer } from "./core.js";
+import { dirname } from "./dome.js";
 import basicCssRules from "./css_gen_basic.js";
 import utilsCssRules from "./css_gen_utils.js";
 class Renderer extends IRenderer {

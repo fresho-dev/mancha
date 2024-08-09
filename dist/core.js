@@ -1,32 +1,7 @@
 import { Iterator } from "./iterator.js";
 import { RendererPlugins } from "./plugins.js";
-import { nodeToString, traverse } from "./dome.js";
+import { dirname, nodeToString, traverse } from "./dome.js";
 import { SignalStore } from "./store.js";
-/**
- * Returns the directory name from a given file path.
- * @param fpath - The file path.
- * @returns The directory name.
- */
-export function dirname(fpath) {
-    if (!fpath.includes("/")) {
-        return "";
-    }
-    else {
-        return fpath.split("/").slice(0, -1).join("/");
-    }
-}
-/**
- * Checks if a given file path is a relative path.
- *
- * @param fpath - The file path to check.
- * @returns A boolean indicating whether the file path is relative or not.
- */
-export function isRelativePath(fpath) {
-    return (!fpath.includes("://") &&
-        !fpath.startsWith("/") &&
-        !fpath.startsWith("#") &&
-        !fpath.startsWith("data:"));
-}
 /**
  * Creates an evaluation function based on the provided code and arguments.
  * @param code The code to be evaluated.

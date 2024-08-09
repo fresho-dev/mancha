@@ -1,5 +1,4 @@
-import { appendChild, attributeNameToCamelCase, cloneAttribute, createElement, ellipsize, firstElementChild, getAttribute, getNodeValue, insertBefore, nodeToString, removeAttribute, removeChild, replaceChildren, replaceWith, setAttribute, setNodeValue, setTextContent, traverse, } from "./dome.js";
-import { isRelativePath } from "./core.js";
+import { appendChild, attributeNameToCamelCase, cloneAttribute, createElement, ellipsize, firstElementChild, getAttribute, getNodeValue, insertBefore, isRelativePath, nodeToString, removeAttribute, removeChild, replaceChildren, replaceWith, setAttribute, setNodeValue, setTextContent, traverse, } from "./dome.js";
 import { Iterator } from "./iterator.js";
 import { makeAsyncEvalFunction } from "./store.js";
 const KW_ATTRIBUTES = new Set([

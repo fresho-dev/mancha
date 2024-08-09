@@ -188,3 +188,31 @@ export function ellipsize(str: string | null, maxLength: number = 0): string {
 export function nodeToString(node: Node | _Node, maxLength: number = 0): string {
   return ellipsize((node as any).outerHTML || getNodeValue(node) || String(node), maxLength);
 }
+
+/**
+ * Returns the directory name from a given file path.
+ * @param fpath - The file path.
+ * @returns The directory name.
+ */
+export function dirname(fpath: string): string {
+  if (!fpath.includes("/")) {
+    return "";
+  } else {
+    return fpath.split("/").slice(0, -1).join("/");
+  }
+}
+
+/**
+ * Checks if a given file path is a relative path.
+ *
+ * @param fpath - The file path to check.
+ * @returns A boolean indicating whether the file path is relative or not.
+ */
+export function isRelativePath(fpath: string): boolean {
+  return (
+    !fpath.includes("://") &&
+    !fpath.startsWith("/") &&
+    !fpath.startsWith("#") &&
+    !fpath.startsWith("data:")
+  );
+}

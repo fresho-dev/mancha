@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import * as fs from "fs/promises";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";

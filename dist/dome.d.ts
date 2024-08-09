@@ -37,4 +37,17 @@ export declare function setNodeValue(node: Node | _Node, value: string | null): 
 export declare function createElement(tagName: string, document: Document | null): Element | _Element;
 export declare function ellipsize(str: string | null, maxLength?: number): string;
 export declare function nodeToString(node: Node | _Node, maxLength?: number): string;
+/**
+ * Returns the directory name from a given file path.
+ * @param fpath - The file path.
+ * @returns The directory name.
+ */
+export declare function dirname(fpath: string): string;
+/**
+ * Checks if a given file path is a relative path.
+ *
+ * @param fpath - The file path to check.
+ * @returns A boolean indicating whether the file path is relative or not.
+ */
+export declare function isRelativePath(fpath: string): boolean;
 export {};

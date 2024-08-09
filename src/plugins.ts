@@ -8,6 +8,7 @@ import {
   getAttribute,
   getNodeValue,
   insertBefore,
+  isRelativePath,
   nodeToString,
   removeAttribute,
   removeChild,
@@ -18,7 +19,6 @@ import {
   setTextContent,
   traverse,
 } from "./dome.js";
-import { isRelativePath } from "./core.js";
 import { ParserParams, RenderParams, RendererPlugin } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
 import { makeAsyncEvalFunction } from "./store.js";

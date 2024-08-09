@@ -2,19 +2,6 @@ import { ParserParams, RenderParams } from "./interfaces.js";
 import { SignalStore } from "./store.js";
 export type EvalListener = (result: any, dependencies: string[]) => any;
 /**
- * Returns the directory name from a given file path.
- * @param fpath - The file path.
- * @returns The directory name.
- */
-export declare function dirname(fpath: string): string;
-/**
- * Checks if a given file path is a relative path.
- *
- * @param fpath - The file path to check.
- * @returns A boolean indicating whether the file path is relative or not.
- */
-export declare function isRelativePath(fpath: string): boolean;
-/**
  * Creates an evaluation function based on the provided code and arguments.
  * @param code The code to be evaluated.
  * @param args The arguments to be passed to the evaluation function. Default is an empty array.
