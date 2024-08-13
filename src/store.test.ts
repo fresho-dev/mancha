@@ -1,6 +1,6 @@
 import * as assert from "assert";
-import { describe, it } from "mocha";
-import { REACTIVE_DEBOUNCE_MILLIS, SignalStore } from "./store.js";
+import { describe, it } from "node:test";
+import { SignalStore } from "./store.js";
 
 describe("SignalStore", () => {
   describe("properties", () => {

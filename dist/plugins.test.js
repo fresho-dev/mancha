@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import * as path from "path";
-import { describe, it } from "mocha";
+import { describe, it } from "node:test";
 import { JSDOM } from "jsdom";
 import { IRenderer } from "./core.js";
 import { Renderer as NodeRenderer } from "./index.js";

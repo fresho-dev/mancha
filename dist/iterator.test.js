@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { describe, it } from "mocha";
+import { describe, it } from "node:test";
 import { Iterator } from "./iterator.js";
 describe("Iterator", () => {
     describe("filterGenerator", () => {

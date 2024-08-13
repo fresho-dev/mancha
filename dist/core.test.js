@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { describe, it } from "mocha";
+import { describe, it } from "node:test";
 import { JSDOM } from "jsdom";
 import { IRenderer } from "./core.js";
 class MockRenderer extends IRenderer {
@@ -23,7 +23,7 @@ describe("Core", () => {
     describe("render", () => {
         // TOOD: Add render tests.
     });
-    describe("mount", () => async () => {
+    describe("mount", () => {
         it("mounts a document fragment", async () => {
             const renderer = new MockRenderer();
             const fragment = JSDOM.fragment("<div></div>");

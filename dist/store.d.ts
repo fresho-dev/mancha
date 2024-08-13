@@ -10,11 +10,11 @@ declare abstract class IDebouncer {
 export declare const REACTIVE_DEBOUNCE_MILLIS = 10;
 /**
  * Creates an evaluation function based on the provided code and arguments.
- * @param code The code to be evaluated.
+ * @param expr The expression to be evaluated.
  * @param args The arguments to be passed to the evaluation function. Default is an empty array.
  * @returns The evaluation function.
  */
-export declare function makeEvalFunction(code: string, args?: string[]): Function;
+export declare function makeEvalFunction(expr: string, args?: string[]): Function;
 export declare function makeAsyncEvalFunction(code: string, args?: string[]): Function;
 export declare class SignalStore extends IDebouncer {
     protected readonly evalkeys: string[];

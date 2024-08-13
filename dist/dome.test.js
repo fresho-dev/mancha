@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import * as htmlparser2 from "htmlparser2";
-import { describe, it } from "mocha";
+import { describe, it } from "node:test";
 import { JSDOM } from "jsdom";
 import { appendChild, attributeNameToCamelCase, createElement, getAttribute, getNodeValue, getTextContent, insertBefore, replaceChildren, setNodeValue, setTextContent, traverse, } from "./dome.js";
 const HTML_PARSERS = {

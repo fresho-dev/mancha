@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { describe, it } from "mocha";
+import { describe, it } from "node:test";
 import { SignalStore } from "./store.js";
 describe("SignalStore", () => {
     describe("properties", () => {

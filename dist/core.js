@@ -3,15 +3,6 @@ import { RendererPlugins } from "./plugins.js";
 import { dirname, nodeToString, traverse } from "./dome.js";
 import { SignalStore } from "./store.js";
 /**
- * Creates an evaluation function based on the provided code and arguments.
- * @param code The code to be evaluated.
- * @param args The arguments to be passed to the evaluation function. Default is an empty array.
- * @returns The evaluation function.
- */
-export function makeEvalFunction(code, args = []) {
-    return new Function(...args, `with (this) { return (async () => (${code}))(); }`);
-}
-/**
  * Represents an abstract class for rendering and manipulating HTML content.
  * Extends the `ReactiveProxyStore` class.
  */

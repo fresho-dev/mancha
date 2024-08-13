@@ -2,13 +2,6 @@ import { ParserParams, RenderParams } from "./interfaces.js";
 import { SignalStore } from "./store.js";
 export type EvalListener = (result: any, dependencies: string[]) => any;
 /**
- * Creates an evaluation function based on the provided code and arguments.
- * @param code The code to be evaluated.
- * @param args The arguments to be passed to the evaluation function. Default is an empty array.
- * @returns The evaluation function.
- */
-export declare function makeEvalFunction(code: string, args?: string[]): Function;
-/**
  * Represents an abstract class for rendering and manipulating HTML content.
  * Extends the `ReactiveProxyStore` class.
  */

@@ -32,16 +32,13 @@
     "dom-serializer": "^2.0.0",
     "htmlparser2": "^9.1.0",
     "jsdom": "^24.0.0",
-    "through2": "^4.0.2",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
-    "@types/gulp": "^4.0.8",
     "@types/jsdom": "^21.1.6",
     "@types/mocha": "^10.0.3",
     "@types/node": "^20.12.11",
     "@types/path-browserify": "^1.0.1",
-    "@types/through2": "^2.0.36",
     "@types/yargs": "^17.0.29",
     "css-loader": "^7.1.2",
     "csso": "^5.0.5",

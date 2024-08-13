@@ -1,14 +1,11 @@
 import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
-import * as Vinyl from "vinyl";
-import * as gulp from "gulp";
 // @ts-ignore
 import * as StaticServer from "static-server";
 import { fileURLToPath } from "url";
-import { describe, it } from "mocha";
+import { after, before, describe, it } from "node:test";
 import { Renderer } from "./index.js";
-import gulpMancha from "./gulp_plugin.js";
 // Fix `__filename` and `__dirname`: https://stackoverflow.com/a/64383997.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -84,114 +81,6 @@ function testRenderRemote(fname, compare = "Hello World", vars = {}) {
         }
     });
 }
-/**
- * Helper function used to test a transformation after reading `fname` into a Buffer.
- * @param fname file name to test
- */
-function testBufferedTransform(fname, compare = "Hello World", vars = {}) {
-    return new Promise((resolve, reject) => {
-        const wwwroot = path.join(__dirname, "fixtures");
-        const relpath = path.relative(fname, wwwroot) || ".";
-        const context = Object.assign({ wwwroot: relpath }, vars);
-        const ctor = Vinyl.default || Vinyl;
-        const file = new ctor({ path: fname, contents: fs.readFileSync(fname) });
-        gulpMancha(context)._transform(file, "utf8", (err, file) => {
-            if (err) {
-                reject(err);
-            }
-            else {
-                const content = Buffer.isBuffer(file.contents) ? file.contents.toString("utf8") : null;
-                try {
-                    resolve(assert.equal(content, compare, String(content)));
-                }
-                catch (err) {
-                    reject(err);
-                }
-            }
-        });
-    });
-}
-/**
- * Helper function used to test a transformation after reading `fname` into a ReadableStream.
- * @param fname file name to test
- */
-function testStreamedTransform(fname, compare = "Hello World", vars = {}) {
-    const wwwroot = path.join(__dirname, "fixtures");
-    const relpath = path.relative(fname, wwwroot) || ".";
-    const context = Object.assign({ wwwroot: relpath }, vars);
-    return new Promise((resolve, reject) => {
-        const ctor = Vinyl.default || Vinyl;
-        const file = new ctor({
-            path: fname,
-            contents: fs.createReadStream(fname),
-        });
-        gulpMancha(context)._transform(file, "utf8", (err, file) => {
-            if (err) {
-                reject(err);
-            }
-            else {
-                let content = "";
-                if (Buffer.isBuffer(file.contents)) {
-                    content = file.contents.toString("utf8");
-                    try {
-                        resolve(assert.equal(content, compare, content));
-                    }
-                    catch (err) {
-                        reject(err);
-                    }
-                }
-                else {
-                    file.contents
-                        ?.on("data", (chunk) => {
-                        if (Buffer.isBuffer(chunk)) {
-                            content += chunk.toString("utf8");
-                        }
-                        else {
-                            content += chunk.toString();
-                        }
-                    })
-                        ?.on("end", () => {
-                        try {
-                            resolve(assert.equal(content, compare, content));
-                        }
-                        catch (err) {
-                            reject(err);
-                        }
-                    });
-                }
-            }
-        });
-    });
-}
-/**
- * Helper function used to test a transformation after reading `fname` into a gulp src.
- * @param fname file name to test
- */
-function testGulpedTransform(fname, compare = "Hello World", vars = {}) {
-    const wwwroot = path.join(__dirname, "fixtures");
-    const relpath = path.relative(fname, wwwroot) || ".";
-    const context = Object.assign({ wwwroot: relpath }, vars);
-    return new Promise((resolve, reject) => {
-        let content = null;
-        gulp
-            .src(fname)
-            .pipe(gulpMancha(context))
-            .on("data", (chunk) => {
-            content = chunk.isBuffer() ? chunk.contents.toString("utf8") : null;
-        })
-            .on("error", (err) => {
-            reject(err);
-        })
-            .on("end", () => {
-            try {
-                resolve(assert.equal(content, compare, String(content)));
-            }
-            catch (exc) {
-                reject(exc);
-            }
-        });
-    });
-}
 function testAllMethods(fname, compare = "Hello World", vars = {}) {
     it("content render", async () => {
         await testRenderString(fname, compare, vars);
@@ -202,15 +91,6 @@ function testAllMethods(fname, compare = "Hello World", vars = {}) {
     it("remote path render", async () => {
         await testRenderRemote(fname, compare, vars);
     });
-    it("buffered transform", async () => {
-        await testBufferedTransform(fname, compare, vars);
-    });
-    it("streamed transform", async () => {
-        await testStreamedTransform(fname, compare, vars);
-    });
-    it("gulped transform", async () => {
-        await testGulpedTransform(fname, compare, vars);
-    });
 }
 const port = Math.floor(1_024 + Math.random() * (Math.pow(2, 16) - 1_024));
 const server = new StaticServer.default({
@@ -219,10 +99,10 @@ const server = new StaticServer.default({
     rootPath: path.join(__dirname, "fixtures"),
 });
 describe("Mancha index module", () => {
-    before("start server", (done) => {
-        server.start(done);
+    before(async () => {
+        return new Promise((done) => server.start(done));
     });
-    after("stop server", () => {
+    after(() => {
         server.stop();
     });
     describe("render", () => {

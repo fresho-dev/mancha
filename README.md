@@ -1,8 +1,7 @@
 # mancha
 
 `mancha` is a simple HTML templating and reactivity library for simple people. It works on the
-browser or the server. It can be used as a command-line tool, imported as a Javascript module, or as
-a plugin for [`Gulp`](https://gulpjs.com).
+browser or the server. It can be used as a command-line tool, or imported as a Javascript module.
 
 Here's a small sample of the things that you can do with `mancha`:
 
@@ -281,25 +280,3 @@ To meet the size requirements of popular worker runtimes, the worker version of 
 footprint of `mancha` under 100kb.
 
 For a more complete example, see [examples/wrangler](./examples/wrangler).
-
-## Compile Time `Gulp` Plugin
-
-To use `mancha` as a `Gulp` plugin in `gulpfile.js`, you can do the following:
-
-```js
-import GulpClient from "gulp";
-import { mancha } from "mancha/dist/gulp";
-import vars from "./vars.json";
-
-GulpClient.task("build", function () {
-  return (
-    GulpClient
-      // Inlcude all HTML files, but exclude all partials (ending in .tpl.html).
-      .src(["src/**/*.html", "!src/**/*.tpl/html"])
-      // Render the HTML content using `mancha`.
-      .pipe(mancha(vars))
-      // Pipe the output to the destination folder.
-      .pipe(GulpClient.dest("public"))
-  );
-});
-```

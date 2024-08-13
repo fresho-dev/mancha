@@ -28,12 +28,12 @@ export const REACTIVE_DEBOUNCE_MILLIS = 10;
 
 /**
  * Creates an evaluation function based on the provided code and arguments.
- * @param code The code to be evaluated.
+ * @param expr The expression to be evaluated.
  * @param args The arguments to be passed to the evaluation function. Default is an empty array.
  * @returns The evaluation function.
  */
-export function makeEvalFunction(code: string, args: string[] = []): Function {
-  return new Function(...args, `with (this) { return (${code}); }`);
+export function makeEvalFunction(expr: string, args: string[] = []): Function {
+  return new Function(...args, `with (this) { return (${expr}); }`);
 }
 
 export function makeAsyncEvalFunction(code: string, args: string[] = []): Function {

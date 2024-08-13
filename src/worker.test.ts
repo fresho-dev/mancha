@@ -1,5 +1,5 @@
 import * as assert from "assert";
-import { describe, it } from "mocha";
+import { describe, it } from "node:test";
 import { JSDOM } from "jsdom";
 import { Renderer } from "./worker.js";
 import { traverse } from "./dome.js";
