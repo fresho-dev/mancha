@@ -144,12 +144,12 @@ describe("SignalStore", () => {
     });
 
     it("modifies variables", async () => {
-      const object = { x: { a: 1 } };
-      const fn = "x.a++";
+      const object = { a: 1 };
+      const fn = "a = a + 1";
       const store = new SignalStore(object);
       const result = store.eval(fn);
-      assert.equal(result, 1);
-      assert.equal(object.x.a, 2);
+      assert.equal(result, undefined);
+      assert.equal(store.get("a"), 2);
     });
 
     [
@@ -169,12 +169,12 @@ describe("SignalStore", () => {
       });
     });
 
-    it("use `global` in function", async () => {
+    it("use `globalThis` in function", async () => {
       const store = new SignalStore();
-      (global as any).foo = "bar";
-      const result = store.eval("global.foo");
+      (globalThis as any).foo = "bar";
+      const result = store.eval("foo");
       assert.equal(result, "bar");
-      delete (global as any).foo;
+      delete (globalThis as any).foo;
     });
 
     it("runs effect after evaluation", async () => {

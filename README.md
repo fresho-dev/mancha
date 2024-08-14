@@ -15,7 +15,7 @@ Here's a small sample of the things that you can do with `mancha`:
   <template is="counter">
     <div>
       <slot></slot>
-      <button @click="count++">Counter: {{ count }}</button>
+      <button @click="count = count + 1">Counter: {{ count }}</button>
     </div>
   </template>
 
@@ -47,7 +47,7 @@ None of them have all the key features that make `mancha` unique:
 | Feature               | mancha | Svelte | React.js | Vue.js | petite-vue | Alpine.js |
 | --------------------- | ------ | ------ | -------- | ------ | ---------- | --------- |
 | Simple to learn       | ✔️     | ❌     | ❌       | ❌     | ✔️         | ✔️        |
-| < 12kb compressed     | ✔️     | ❌     | ❌       | ❌     | ✔️         | ❌        |
+| < 15kb compressed     | ✔️     | ❌     | ❌       | ❌     | ✔️         | ❌        |
 | Custom web components | ✔️     | ✔️     | ✔️       | ✔️     | ❌         | ❌        |
 | Client-side rendering | ✔️     | ❌     | ❌       | ✔️     | ✔️         | ✔️        |
 | Server-side rendering | ✔️     | ✔️     | ✔️       | ✔️     | ❌         | ❌        |
@@ -277,6 +277,13 @@ self.addEventListener("fetch", async (event) => {
 
 To meet the size requirements of popular worker runtimes, the worker version of `mancha` uses
 `htmlparser2` instead of `jsdom` for the underlying HTML and DOM manipulation. This keeps the
-footprint of `mancha` under 100kb.
+footprint of `mancha` and its dependencies under 100kb.
 
 For a more complete example, see [examples/wrangler](./examples/wrangler).
+
+## Dependencies
+
+The browser bundle contains a single external dependency, [`jexpr`][jexpr]. The unbundled version
+can use `htmlparser2`, which is compatible with web workers, or `jsdom`.
+
+[jexpr]: https://github.com/justinfagnani/jexpr

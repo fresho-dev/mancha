@@ -1,3 +1,4 @@
+import * as jexpr from "jexpr";
 class IDebouncer {
     timeouts = new Map();
     debounce(millis, callback) {
@@ -19,6 +20,8 @@ class IDebouncer {
 }
 /** Default debouncer time in millis. */
 export const REACTIVE_DEBOUNCE_MILLIS = 10;
+/** Shared AST factory. */
+const AST_FACTORY = new jexpr.EvalAstFactory();
 function isProxified(object) {
     return object instanceof SignalStore || object["__is_proxy__"];
 }
@@ -146,15 +149,29 @@ export class SignalStore extends IDebouncer {
      */
     makeEvalFunction(expr) {
         // Throw an error if the expression is not a simple one-liner.
-        if (expr.includes("\n") || expr.includes(";")) {
+        if (expr.includes(";")) {
             throw new Error("Complex expressions are not supported.");
         }
-        // Create a new function that uses the provided expression.
-        const fn = new Function(...this.evalkeys, `with (this) { return (${expr}); }`);
-        // The caller will use `fn` with a dictionary of arguments.
-        return (args) => {
-            const argvals = this.evalkeys.map((key) => args[key]);
-            return fn.call(this.$, ...argvals);
+        // If the expression includes assignment, save the left-hand side for later.
+        let assignResult = null;
+        if (expr.includes("=")) {
+            const [lhs, rhs] = expr.split("=");
+            assignResult = lhs.trim();
+            expr = rhs.trim();
+        }
+        // Otherwise, just return the simple expression function.
+        return (thisArg, args) => {
+            const ast = jexpr.parse(expr, AST_FACTORY);
+            const ctx = ast
+                ?.getIds([])
+                ?.map((id) => [id, args[id] ?? thisArg[id] ?? globalThis[id]]);
+            const res = ast?.evaluate(Object.fromEntries(ctx || []));
+            if (assignResult) {
+                thisArg[assignResult] = res;
+            }
+            else {
+                return res;
+            }
         };
     }
     /**
@@ -163,6 +180,7 @@ export class SignalStore extends IDebouncer {
      * @returns The cached expression function.
      */
     cachedExpressionFunction(expr) {
+        expr = expr.trim();
         if (!this.expressionCache.has(expr)) {
             this.expressionCache.set(expr, this.makeEvalFunction(expr));
         }
@@ -178,8 +196,7 @@ export class SignalStore extends IDebouncer {
         else {
             // Otherwise, perform the expression evaluation.
             const fn = this.cachedExpressionFunction(expr);
-            const ctx = Object.fromEntries(this.store.entries());
-            return fn({ this: thisArg, ...ctx, ...args });
+            return fn(thisArg, args);
         }
     }
 }

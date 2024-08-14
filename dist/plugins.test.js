@@ -354,7 +354,7 @@ describe("Plugins", () => {
     describe("@attribute", () => {
         testRenderers("click", async (ctor) => {
             const renderer = new ctor({ counter: 0 });
-            const html = `<div @click="counter++"></div>`;
+            const html = `<div @click="counter = counter + 1"></div>`;
             const fragment = renderer.parseHTML(html);
             const node = fragment.firstChild;
             await renderer.mount(fragment);
@@ -434,7 +434,9 @@ describe("Plugins", () => {
             const parent = node.parentNode;
             assert.notEqual(parent, null);
             // Create renderer with no array => fails.
-            await assert.rejects(renderer.mount(fragment), /ReferenceError: items is not defined/);
+            await renderer.mount(fragment);
+            assert.equal(renderer.get("item"), null);
+            assert.equal(renderer.get("items"), null);
             // Add a placeholder for the array, but it's not array type.
             await renderer.set("items", null);
             await renderer.mount(fragment);
@@ -525,7 +527,9 @@ describe("Plugins", () => {
             // Value does not exist in store before mount().
             const renderer = new ctor();
             assert.equal(renderer.has("foo"), false);
-            await assert.rejects(renderer.mount(doc.body), /ReferenceError: foo is not defined/);
+            // After mount(), the value is still not in the store.
+            await renderer.mount(doc.body);
+            assert.equal(renderer.has("foo"), false);
         }, 
         // We don't expect events to work with WorkerRenderer.
         { MockRenderer, NodeRenderer });

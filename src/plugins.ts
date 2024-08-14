@@ -443,9 +443,8 @@ export namespace RendererPlugins {
       const prop = getAttribute(elem, "type") === "checkbox" ? "checked" : "value";
 
       // Watch for updates in the store and bind our property ==> node value.
-      const propExpr = `$elem.${prop} = ${bindExpr}`;
       this.effect(function () {
-        const result = this.eval(propExpr, { $elem: node });
+        const result = this.eval(bindExpr, { $elem: node });
         (elem as any)[prop] = result;
       });
 

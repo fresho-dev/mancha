@@ -1,3 +1,4 @@
+import TerserPlugin from "terser-webpack-plugin";
 
 export default {
   target: "web",
@@ -18,5 +19,9 @@ export default {
         loader: "css-loader",
       },
     ],
+  },
+  optimization: {
+    minimize: true,
+    minimizer: [new TerserPlugin({ extractComments: false })],
   },
 };

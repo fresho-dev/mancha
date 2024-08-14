@@ -385,9 +385,8 @@ export var RendererPlugins;
             // If the element is of type checkbox, we bind to the "checked" property.
             const prop = getAttribute(elem, "type") === "checkbox" ? "checked" : "value";
             // Watch for updates in the store and bind our property ==> node value.
-            const propExpr = `$elem.${prop} = ${bindExpr}`;
             this.effect(function () {
-                const result = this.eval(propExpr, { $elem: node });
+                const result = this.eval(bindExpr, { $elem: node });
                 elem[prop] = result;
             });
             // Bind node value ==> our property.
