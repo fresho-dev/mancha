@@ -1,5 +1,4 @@
-import { Element as _Element, Node as _Node, Text as _Text, } from "domhandler";
-import { DomUtils } from "htmlparser2";
+import { DomUtils, parseDocument } from "htmlparser2";
 /**
  * Traverses the DOM tree starting from the given root node and yields each child node.
  * Nodes in the `skip` set will be skipped during traversal.
@@ -26,6 +25,9 @@ export function* traverse(root, skip = new Set()) {
         }
     }
 }
+function hasProperty(obj, prop) {
+    return typeof obj?.[prop] !== "undefined";
+}
 function hasFunction(obj, func) {
     return typeof obj?.[func] === "function";
 }
@@ -38,25 +40,25 @@ export function attributeNameToCamelCase(name) {
     return name.replace(/-./g, (c) => c[1].toUpperCase());
 }
 export function getAttribute(elem, name) {
-    if (elem instanceof _Element)
-        return elem.attribs?.[name];
+    if (hasProperty(elem, "attribs"))
+        return elem.attribs?.[name] ?? null;
     else
         return elem.getAttribute?.(name);
 }
 export function setAttribute(elem, name, value) {
-    if (elem instanceof _Element)
+    if (hasProperty(elem, "attribs"))
         elem.attribs[name] = value;
     else
         elem.setAttribute?.(name, value);
 }
 export function removeAttribute(elem, name) {
-    if (elem instanceof _Element)
+    if (hasProperty(elem, "attribs"))
         delete elem.attribs[name];
     else
         elem.removeAttribute?.(name);
 }
 export function cloneAttribute(elemFrom, elemDest, name) {
-    if (elemFrom instanceof _Element && elemDest instanceof _Element) {
+    if (hasProperty(elemFrom, "attribs") && hasProperty(elemDest, "attribs")) {
         elemDest.attribs[name] = elemFrom.attribs[name];
     }
     else {
@@ -65,11 +67,12 @@ export function cloneAttribute(elemFrom, elemDest, name) {
     }
 }
 export function firstElementChild(elem) {
-    if (elem instanceof _Element) {
-        return elem.children.find((child) => child instanceof _Element);
+    if (hasProperty(elem, "firstElementChild")) {
+        return elem.firstElementChild;
     }
     else {
-        return elem.firstElementChild;
+        const children = Array.from(elem.children);
+        return children.find((child) => child.nodeType === 1);
     }
 }
 export function replaceWith(original, ...replacement) {
@@ -102,9 +105,8 @@ export function removeChild(parent, node) {
         return parent.removeChild(node);
     }
     else {
-        const elem = node;
-        parent.childNodes = parent.children.filter((child) => child !== elem);
-        return elem;
+        DomUtils.removeElement(node);
+        return node;
     }
 }
 export function replaceChildren(parent, ...nodes) {
@@ -129,46 +131,46 @@ export function insertBefore(parent, node, reference) {
     }
 }
 export function innerHTML(elem) {
-    if (elem instanceof _Element)
-        return DomUtils.getInnerHTML(elem);
-    else
+    if (hasProperty(elem, "innerHTML"))
         return elem.innerHTML;
+    else
+        return DomUtils.getInnerHTML(elem);
 }
 export function innerText(elem) {
-    if (elem instanceof _Element)
-        return DomUtils.innerText(elem);
-    else
+    if (hasProperty(elem, "innerText"))
         return elem.innerText;
+    else
+        return DomUtils.innerText(elem);
 }
 export function getTextContent(elem) {
-    if (elem instanceof _Element)
-        return DomUtils.textContent(elem);
-    else
+    if (hasProperty(elem, "textContent"))
         return elem.textContent;
+    else
+        return DomUtils.textContent(elem);
 }
 export function setTextContent(elem, value) {
-    if (elem instanceof _Element)
-        elem.children = [new _Text(value)];
-    else
+    if (hasProperty(elem, "textContent"))
         elem.textContent = value;
+    else
+        elem.children = [parseDocument(value).firstChild];
 }
 export function getNodeValue(node) {
-    if (node instanceof _Node)
-        return node.data;
-    else
+    if (hasProperty(node, "nodeValue"))
         return node.nodeValue;
+    else
+        return node.data;
 }
 export function setNodeValue(node, value) {
-    if (node instanceof _Node)
-        node.data = value;
-    else
+    if (hasProperty(node, "nodeValue"))
         node.nodeValue = value;
+    else
+        node.data = value;
 }
 export function createElement(tagName, document) {
     if (document)
         return document.createElement(tagName);
     else
-        return new _Element(tagName, {});
+        return parseDocument(`<${tagName}></${tagName}>`).firstChild;
 }
 export function ellipsize(str, maxLength = 0) {
     if (!str)

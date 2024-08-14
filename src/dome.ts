@@ -1,16 +1,4 @@
-import {
-  ChildNode as _ChildNode,
-  Element as _Element,
-  Node as _Node,
-  ParentNode as _ParentNode,
-  Text as _Text,
-} from "domhandler";
-import { DomUtils } from "htmlparser2";
-
-type __Node = Node | _Node;
-type __ParentNode = ParentNode | _ParentNode;
-type __Element = Element | _Element;
-type __ChildNode = ChildNode | _ChildNode;
+import { DomUtils, parseDocument } from "htmlparser2";
 
 /**
  * Traverses the DOM tree starting from the given root node and yields each child node.
@@ -44,6 +32,10 @@ export function* traverse(
   }
 }
 
+function hasProperty(obj: any, prop: string): boolean {
+  return typeof obj?.[prop] !== "undefined";
+}
+
 function hasFunction(obj: any, func: string): boolean {
   return typeof obj?.[func] === "function";
 }
@@ -57,23 +49,27 @@ export function attributeNameToCamelCase(name: string): string {
   return name.replace(/-./g, (c) => c[1].toUpperCase());
 }
 
-export function getAttribute(elem: __Element, name: string): string | null {
-  if (elem instanceof _Element) return elem.attribs?.[name];
+export function getAttribute(elem: Element | any, name: string): string | null {
+  if (hasProperty(elem, "attribs")) return (elem as any).attribs?.[name] ?? null;
   else return elem.getAttribute?.(name);
 }
 
-export function setAttribute(elem: __Element, name: string, value: string): void {
-  if (elem instanceof _Element) elem.attribs[name] = value;
+export function setAttribute(elem: Element | any, name: string, value: string): void {
+  if (hasProperty(elem, "attribs")) (elem as any).attribs[name] = value;
   else elem.setAttribute?.(name, value);
 }
 
-export function removeAttribute(elem: __Element, name: string): void {
-  if (elem instanceof _Element) delete elem.attribs[name];
+export function removeAttribute(elem: Element | any, name: string): void {
+  if (hasProperty(elem, "attribs")) delete elem.attribs[name];
   else elem.removeAttribute?.(name);
 }
 
-export function cloneAttribute(elemFrom: __Element, elemDest: __Element, name: string): void {
-  if (elemFrom instanceof _Element && elemDest instanceof _Element) {
+export function cloneAttribute(
+  elemFrom: Element | any,
+  elemDest: Element | any,
+  name: string
+): void {
+  if (hasProperty(elemFrom, "attribs") && hasProperty(elemDest, "attribs")) {
     elemDest.attribs[name] = elemFrom.attribs[name];
   } else {
     const attr = (elemFrom as Element)?.getAttributeNode?.(name);
@@ -81,30 +77,31 @@ export function cloneAttribute(elemFrom: __Element, elemDest: __Element, name: s
   }
 }
 
-export function firstElementChild(elem: __Element): __Element | null {
-  if (elem instanceof _Element) {
-    return elem.children.find((child) => child instanceof _Element) as _Element;
-  } else {
+export function firstElementChild(elem: Element): Element | null {
+  if (hasProperty(elem, "firstElementChild")) {
     return elem.firstElementChild;
+  } else {
+    const children = Array.from(elem.children);
+    return children.find((child) => child.nodeType === 1) as Element;
   }
 }
 
-export function replaceWith(original: __ChildNode, ...replacement: __Node[]): void {
+export function replaceWith(original: ChildNode, ...replacement: Node[]): void {
   if (hasFunction(original, "replaceWith")) {
     return (original as ChildNode).replaceWith(...(replacement as Node[]));
   } else {
-    const elem = original as _Element;
-    const parent = elem.parentNode as _ParentNode;
+    const elem = original;
+    const parent = elem.parentNode!;
     const index = Array.from(parent.childNodes).indexOf(elem);
     replacement.forEach((elem) => ((elem as any).parentNode = parent));
-    (parent as any).childNodes = ([] as _ChildNode[])
+    (parent as any).childNodes = ([] as ChildNode[])
       .concat(Array.from(parent.childNodes).slice(0, index))
-      .concat(replacement as _ChildNode[])
+      .concat(replacement as ChildNode[])
       .concat(Array.from(parent.childNodes).slice(index + 1));
   }
 }
 
-export function appendChild(parent: __Node, node: __Node): __Node {
+export function appendChild(parent: Node, node: Node): Node {
   if (hasFunction(node, "appendChild")) {
     return (parent as Node).appendChild(node as Node);
   } else {
@@ -114,69 +111,68 @@ export function appendChild(parent: __Node, node: __Node): __Node {
   }
 }
 
-export function removeChild(parent: __Node, node: __Node): __Node {
+export function removeChild(parent: Node, node: Node): Node {
   if (hasFunction(node, "removeChild")) {
     return (parent as Node).removeChild(node as Node);
   } else {
-    const elem = node as _ChildNode;
-    (parent as any).childNodes = (parent as _ParentNode).children.filter((child) => child !== elem);
-    return elem;
+    DomUtils.removeElement(node as any);
+    return node;
   }
 }
 
-export function replaceChildren(parent: __ParentNode, ...nodes: __Node[]): void {
+export function replaceChildren(parent: ParentNode, ...nodes: Node[]): void {
   if (hasFunction(parent, "replaceChildren")) {
     (parent as ParentNode).replaceChildren(...(nodes as Node[]));
   } else {
-    (parent as any).childNodes = nodes as _ChildNode[];
+    (parent as any).childNodes = nodes as ChildNode[];
     nodes.forEach((node) => ((node as any).parentNode = parent));
   }
 }
 
-export function insertBefore(parent: __Node, node: __Node, reference: __ChildNode | null): __Node {
+export function insertBefore(parent: Node, node: Node, reference: ChildNode | null): Node {
   if (!reference) {
     return appendChild(parent, node);
   } else if (hasFunction(parent, "insertBefore")) {
     return (parent as Node).insertBefore(node as Node, reference as ChildNode | null);
   } else {
-    replaceWith(reference as _ChildNode, node, reference);
+    replaceWith(reference as ChildNode, node, reference);
     return node;
   }
 }
 
-export function innerHTML(elem: Element | _Element): string {
-  if (elem instanceof _Element) return DomUtils.getInnerHTML(elem);
-  else return (elem as HTMLElement).innerHTML;
+export function innerHTML(elem: Element): string {
+  if (hasProperty(elem, "innerHTML")) return elem.innerHTML;
+  else return DomUtils.getInnerHTML(elem as any);
 }
 
-export function innerText(elem: Element | _Element): string | null {
-  if (elem instanceof _Element) return DomUtils.innerText(elem);
-  else return (elem as HTMLElement).innerText;
+export function innerText(elem: Element): string | null {
+  if (hasProperty(elem, "innerText")) return (elem as HTMLElement).innerText;
+  else return DomUtils.innerText(elem as any);
 }
 
-export function getTextContent(elem: Element | _Element): string | null {
-  if (elem instanceof _Element) return DomUtils.textContent(elem);
-  else return (elem as HTMLElement).textContent;
+export function getTextContent(elem: Element): string | null {
+  if (hasProperty(elem, "textContent")) return elem.textContent;
+  else return DomUtils.textContent(elem as any);
 }
 
-export function setTextContent(elem: Element | _Element, value: string): void {
-  if (elem instanceof _Element) elem.children = [new _Text(value)];
-  else elem.textContent = value;
+export function setTextContent(elem: Element, value: string): void {
+  if (hasProperty(elem, "textContent")) elem.textContent = value;
+  else (elem as any).children = [parseDocument(value).firstChild];
 }
 
-export function getNodeValue(node: Node | _Node): string | null {
-  if (node instanceof _Node) return (node as any).data;
-  else return node.nodeValue;
+export function getNodeValue(node: Node): string | null {
+  if (hasProperty(node, "nodeValue")) return node.nodeValue;
+  else return (node as any).data;
 }
 
-export function setNodeValue(node: Node | _Node, value: string | null): void {
-  if (node instanceof _Node) (node as any).data = value;
-  else node.nodeValue = value;
+export function setNodeValue(node: Node, value: string | null): void {
+  if (hasProperty(node, "nodeValue")) node.nodeValue = value;
+  else (node as any).data = value;
 }
 
-export function createElement(tagName: string, document: Document | null): Element | _Element {
+export function createElement(tagName: string, document: Document | null): Element {
   if (document) return document.createElement(tagName);
-  else return new _Element(tagName, {});
+  else return parseDocument(`<${tagName}></${tagName}>`).firstChild as unknown as Element;
 }
 
 export function ellipsize(str: string | null, maxLength: number = 0): string {
@@ -185,7 +181,7 @@ export function ellipsize(str: string | null, maxLength: number = 0): string {
   else return str.slice(0, maxLength - 1) + "…";
 }
 
-export function nodeToString(node: Node | _Node, maxLength: number = 0): string {
+export function nodeToString(node: Node, maxLength: number = 0): string {
   return ellipsize((node as any).outerHTML || getNodeValue(node) || String(node), maxLength);
 }
 
