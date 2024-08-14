@@ -278,16 +278,6 @@ describe("Plugins", () => {
             assert.equal(subrenderer.$.bar, 2);
             assert.equal(subrenderer.$.baz, 3);
         }, { MockRenderer, NodeRenderer, WorkerRenderer });
-        testRenderers("initializes async values", async (ctor) => {
-            const renderer = new ctor();
-            const html = `<div :data="{x: await Promise.resolve(1)}"></div>`;
-            const fragment = renderer.parseHTML(html);
-            const node = fragment.firstChild;
-            await renderer.mount(fragment);
-            const subrenderer = node.renderer;
-            assert.equal(getAttribute(node, ":data"), null);
-            assert.equal(subrenderer.$.x, 1);
-        }, { MockRenderer, NodeRenderer, WorkerRenderer });
     });
     describe("@watch", () => {
         testRenderers("simple watch", async (ctor) => {

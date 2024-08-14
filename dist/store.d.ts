@@ -8,14 +8,6 @@ declare abstract class IDebouncer {
 }
 /** Default debouncer time in millis. */
 export declare const REACTIVE_DEBOUNCE_MILLIS = 10;
-/**
- * Creates an evaluation function based on the provided code and arguments.
- * @param expr The expression to be evaluated.
- * @param args The arguments to be passed to the evaluation function. Default is an empty array.
- * @returns The evaluation function.
- */
-export declare function makeEvalFunction(expr: string, args?: string[]): Function;
-export declare function makeAsyncEvalFunction(code: string, args?: string[]): Function;
 export declare class SignalStore extends IDebouncer {
     protected readonly evalkeys: string[];
     protected readonly expressionCache: Map<string, Function>;
@@ -38,7 +30,13 @@ export declare class SignalStore extends IDebouncer {
     private proxify;
     get $(): SignalStoreProxy;
     /**
-     * Retrieves or creates a cached expression function based on the provided expression.
+     * Creates an evaluation function for the provided expression.
+     * @param expr The expression to be evaluated.
+     * @returns The evaluation function.
+     */
+    private makeEvalFunction;
+    /**
+     * Retrieves or creates a cached expression function for the provided expression.
      * @param expr - The expression to retrieve or create a cached function for.
      * @returns The cached expression function.
      */

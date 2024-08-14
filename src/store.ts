@@ -26,20 +26,6 @@ abstract class IDebouncer {
 /** Default debouncer time in millis. */
 export const REACTIVE_DEBOUNCE_MILLIS = 10;
 
-/**
- * Creates an evaluation function based on the provided code and arguments.
- * @param expr The expression to be evaluated.
- * @param args The arguments to be passed to the evaluation function. Default is an empty array.
- * @returns The evaluation function.
- */
-export function makeEvalFunction(expr: string, args: string[] = []): Function {
-  return new Function(...args, `with (this) { return (${expr}); }`);
-}
-
-export function makeAsyncEvalFunction(code: string, args: string[] = []): Function {
-  return new Function(...args, `with (this) { return (async () => (${code}))(); }`);
-}
-
 function isProxified<T extends object>(object: T) {
   return object instanceof SignalStore || (object as any)["__is_proxy__"];
 }
@@ -172,13 +158,34 @@ export class SignalStore extends IDebouncer {
   }
 
   /**
-   * Retrieves or creates a cached expression function based on the provided expression.
+   * Creates an evaluation function for the provided expression.
+   * @param expr The expression to be evaluated.
+   * @returns The evaluation function.
+   */
+  private makeEvalFunction(expr: string): Function {
+    // Throw an error if the expression is not a simple one-liner.
+    if (expr.includes("\n") || expr.includes(";")) {
+      throw new Error("Complex expressions are not supported.");
+    }
+
+    // Create a new function that uses the provided expression.
+    const fn = new Function(...this.evalkeys, `with (this) { return (${expr}); }`);
+
+    // The caller will use `fn` with a dictionary of arguments.
+    return (args: { [key: string]: any }) => {
+      const argvals = this.evalkeys.map((key) => args[key]);
+      return fn.call(this.$, ...argvals);
+    };
+  }
+
+  /**
+   * Retrieves or creates a cached expression function for the provided expression.
    * @param expr - The expression to retrieve or create a cached function for.
    * @returns The cached expression function.
    */
   private cachedExpressionFunction(expr: string): Function {
     if (!this.expressionCache.has(expr)) {
-      this.expressionCache.set(expr, makeEvalFunction(expr, this.evalkeys));
+      this.expressionCache.set(expr, this.makeEvalFunction(expr));
     }
     return this.expressionCache.get(expr)!!;
   }
@@ -192,11 +199,8 @@ export class SignalStore extends IDebouncer {
     } else {
       // Otherwise, perform the expression evaluation.
       const fn = this.cachedExpressionFunction(expr);
-      const argvals = this.evalkeys.map((key) => args[key]);
-      if (Object.keys(args).some((key) => !this.evalkeys.includes(key))) {
-        throw new Error(`Invalid argument key, must be one of: ${this.evalkeys.join(", ")}`);
-      }
-      return fn.call(thisArg, ...argvals);
+      const ctx = Object.fromEntries(this.store.entries());
+      return fn({ this: thisArg, ...ctx, ...args });
     }
   }
 }

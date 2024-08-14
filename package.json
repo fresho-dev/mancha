@@ -9,7 +9,7 @@
   "scripts": {
     "clean": "rm -rf dist/",
     "build": "gulp build && webpack",
-    "test": "mocha dist/*.test.js",
+    "test": "node --test dist/*.test.js",
     "webpack": "webpack",
     "cli": "node dist/cli.js"
   },
@@ -32,11 +32,11 @@
     "dom-serializer": "^2.0.0",
     "htmlparser2": "^9.1.0",
     "jsdom": "^24.0.0",
+    "subscript": "^8.4.0",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
     "@types/jsdom": "^21.1.6",
-    "@types/mocha": "^10.0.3",
     "@types/node": "^20.12.11",
     "@types/path-browserify": "^1.0.1",
     "@types/yargs": "^17.0.29",
@@ -46,7 +46,6 @@
     "gulp-csso": "^4.0.1",
     "gulp-run": "^1.7.1",
     "gulp-typescript": "^6.0.0-alpha.1",
-    "mocha": "^10.2.0",
     "static-server": "^3.0.0",
     "ts-node": "^10.9.2",
     "typescript": "5.4.5",

@@ -21,7 +21,6 @@ import {
 } from "./dome.js";
 import { ParserParams, RenderParams, RendererPlugin } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
-import { makeAsyncEvalFunction } from "./store.js";
 
 const KW_ATTRIBUTES = new Set([
   ":bind",
@@ -213,9 +212,10 @@ export namespace RendererPlugins {
       const subrenderer = params?.rootNode === node ? this : this.clone();
       (node as any).renderer = subrenderer;
 
-      // Do not call eval() directly, we will use an async version instead.
-      const fn = makeAsyncEvalFunction(dataAttr, (this as any).evalkeys);
-      const result = await fn.call(subrenderer.$, { $elem: node });
+      // Evaluate the expression.
+      const result = subrenderer.eval(dataAttr, { $elem: node }) as Object;
+
+      // Await any promises in the result object.
       await Promise.all(Object.entries(result).map(([key, value]) => subrenderer.set(key, value)));
 
       // Skip all the children of the current node, if it's a subrenderer.

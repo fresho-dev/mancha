@@ -400,21 +400,6 @@ describe("Plugins", () => {
       },
       { MockRenderer, NodeRenderer, WorkerRenderer }
     );
-
-    testRenderers(
-      "initializes async values",
-      async (ctor) => {
-        const renderer = new ctor();
-        const html = `<div :data="{x: await Promise.resolve(1)}"></div>`;
-        const fragment = renderer.parseHTML(html);
-        const node = fragment.firstChild as Element;
-        await renderer.mount(fragment);
-        const subrenderer = (node as any).renderer;
-        assert.equal(getAttribute(node, ":data"), null);
-        assert.equal(subrenderer.$.x, 1);
-      },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
-    );
   });
 
   describe("@watch", () => {
