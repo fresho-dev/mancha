@@ -4,7 +4,7 @@ export default {
   target: "web",
   mode: "production",
   entry: {
-    mancha: "./dist/browser.js",
+    mancha: "./dist/mancha.js",
   },
   output: {
     filename: "[name].js",
