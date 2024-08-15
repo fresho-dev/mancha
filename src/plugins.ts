@@ -230,6 +230,27 @@ export namespace RendererPlugins {
     }
   };
 
+  export const resolveClassAttribute: RendererPlugin = async function (node, params) {
+    if (this._skipNodes.has(node)) return;
+    const elem = node as HTMLElement;
+    const classAttr = getAttribute(elem, ":class");
+    if (classAttr) {
+      this.log(":class attribute found in:\n", nodeToString(node, 128));
+
+      // Remove the attribute from the node.
+      removeAttribute(elem, ":class");
+
+      // Store the original class attribute, if any.
+      const originalClass = getAttribute(elem, "class") || "";
+
+      // Compute the function's result.
+      return this.effect(function () {
+        const result = this.eval(classAttr, { $elem: node });
+        setAttribute(elem, "class", (result ? `${originalClass} ${result}` : originalClass).trim());
+      });
+    }
+  };
+
   export const resolveWatchAttribute: RendererPlugin = async function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as Element;
@@ -284,44 +305,6 @@ export namespace RendererPlugins {
           resolve();
         });
       });
-    }
-  };
-
-  export const resolvePropAttributes: RendererPlugin = async function (node, params) {
-    if (this._skipNodes.has(node)) return;
-    const elem = node as Element;
-    for (const attr of Array.from(elem.attributes || [])) {
-      if (attr.name.startsWith("$") && !KW_ATTRIBUTES.has(attr.name)) {
-        this.log(attr.name, "attribute found in:\n", nodeToString(node, 128));
-
-        // Remove the attribute from the node.
-        removeAttribute(elem, attr.name);
-
-        // Compute the function's result and track dependencies.
-        const propName = attributeNameToCamelCase(attr.name.slice(1));
-        await this.effect(function () {
-          (node as any)[propName] = this.eval(attr.value, { $elem: node }) as string;
-        });
-      }
-    }
-  };
-
-  export const resolveAttrAttributes: RendererPlugin = async function (node, params) {
-    if (this._skipNodes.has(node)) return;
-    const elem = node as Element;
-    for (const attr of Array.from(elem.attributes || [])) {
-      if (attr.name.startsWith(":") && !KW_ATTRIBUTES.has(attr.name)) {
-        this.log(attr.name, "attribute found in:\n", nodeToString(node, 128));
-
-        // Remove the processed attributes from node.
-        removeAttribute(elem, attr.name);
-
-        // Compute the function's result and track dependencies.
-        const attrName = attr.name.slice(1);
-        this.effect(function () {
-          setAttribute(elem, attrName, this.eval(attr.value, { $elem: node }) as string);
-        });
-      }
     }
   };
 

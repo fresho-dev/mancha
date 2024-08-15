@@ -1,4 +1,4 @@
-import { appendChild, attributeNameToCamelCase, cloneAttribute, createElement, ellipsize, firstElementChild, getAttribute, getNodeValue, insertBefore, isRelativePath, nodeToString, removeAttribute, removeChild, replaceChildren, replaceWith, setAttribute, setNodeValue, setTextContent, traverse, } from "./dome.js";
+import { appendChild, cloneAttribute, createElement, ellipsize, firstElementChild, getAttribute, getNodeValue, insertBefore, isRelativePath, nodeToString, removeAttribute, removeChild, replaceChildren, replaceWith, setAttribute, setNodeValue, setTextContent, traverse, } from "./dome.js";
 import { Iterator } from "./iterator.js";
 const KW_ATTRIBUTES = new Set([
     ":bind",
@@ -202,6 +202,24 @@ export var RendererPlugins;
             await subrenderer.mount(node, params);
         }
     };
+    RendererPlugins.resolveClassAttribute = async function (node, params) {
+        if (this._skipNodes.has(node))
+            return;
+        const elem = node;
+        const classAttr = getAttribute(elem, ":class");
+        if (classAttr) {
+            this.log(":class attribute found in:\n", nodeToString(node, 128));
+            // Remove the attribute from the node.
+            removeAttribute(elem, ":class");
+            // Store the original class attribute, if any.
+            const originalClass = getAttribute(elem, "class") || "";
+            // Compute the function's result.
+            return this.effect(function () {
+                const result = this.eval(classAttr, { $elem: node });
+                setAttribute(elem, "class", (result ? `${originalClass} ${result}` : originalClass).trim());
+            });
+        }
+    };
     RendererPlugins.resolveWatchAttribute = async function (node, params) {
         if (this._skipNodes.has(node))
             return;
@@ -251,40 +269,6 @@ export var RendererPlugins;
                     resolve();
                 });
             });
-        }
-    };
-    RendererPlugins.resolvePropAttributes = async function (node, params) {
-        if (this._skipNodes.has(node))
-            return;
-        const elem = node;
-        for (const attr of Array.from(elem.attributes || [])) {
-            if (attr.name.startsWith("$") && !KW_ATTRIBUTES.has(attr.name)) {
-                this.log(attr.name, "attribute found in:\n", nodeToString(node, 128));
-                // Remove the attribute from the node.
-                removeAttribute(elem, attr.name);
-                // Compute the function's result and track dependencies.
-                const propName = attributeNameToCamelCase(attr.name.slice(1));
-                await this.effect(function () {
-                    node[propName] = this.eval(attr.value, { $elem: node });
-                });
-            }
-        }
-    };
-    RendererPlugins.resolveAttrAttributes = async function (node, params) {
-        if (this._skipNodes.has(node))
-            return;
-        const elem = node;
-        for (const attr of Array.from(elem.attributes || [])) {
-            if (attr.name.startsWith(":") && !KW_ATTRIBUTES.has(attr.name)) {
-                this.log(attr.name, "attribute found in:\n", nodeToString(node, 128));
-                // Remove the processed attributes from node.
-                removeAttribute(elem, attr.name);
-                // Compute the function's result and track dependencies.
-                const attrName = attr.name.slice(1);
-                this.effect(function () {
-                    setAttribute(elem, attrName, this.eval(attr.value, { $elem: node }));
-                });
-            }
         }
     };
     RendererPlugins.resolveEventAttributes = async function (node, params) {

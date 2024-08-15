@@ -140,18 +140,6 @@ element tag or attributes match a specific criteria. Here's the list of attribut
     <input type="text" :bind="name" />
   </div>
   ```
-- `${prop}` binds (one-way) the node property `prop` with the given expression
-  ```html
-  <div :data="{foo: false}">
-    <input type="submit" $disabled="foo" />
-  </div>
-  ```
-- `:{attr}` binds (one-way) the node attribute `attr` with the given expression
-  ```html
-  <div :data="{foo: 'bar'}">
-    <input type="text" :placeholder="foo" />
-  </div>
-  ```
 - `@{event}` adds an event listener for `event` to the node
   ```html
   <button @click="console.log('clicked')"></button>

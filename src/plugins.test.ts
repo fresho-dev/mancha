@@ -106,8 +106,8 @@ describe("Plugins", () => {
     testRenderers(
       `propagates attributes to first child`,
       async (ctor) => {
-        const renderer = new ctor({ a: 1, b: 2 });
-        const html = `<include src="foo.html" attr="bar" :foo="a" $bar="b"></include>`;
+        const renderer = new ctor({ a: "foo", b: "bar" });
+        const html = `<include src="foo.html" :class="a" $text="b"></include>`;
         const fragment = renderer.parseHTML(html);
 
         renderer.preprocessLocal = async function (fpath, params) {
@@ -119,10 +119,8 @@ describe("Plugins", () => {
 
         const node = fragment.firstChild as Element;
         assert.equal(getAttribute(node, "src"), null);
-        assert.equal(getAttribute(node, "attr"), "bar");
-        assert.equal(getAttribute(node.nextSibling as Element, "attr"), null);
-        assert.equal(getAttribute(node, "foo"), "1");
-        assert.equal((node as any).bar, 2);
+        assert.equal(getAttribute(node, "class"), "foo");
+        assert.equal(getTextContent(node), "bar");
       },
       { MockRenderer, NodeRenderer, WorkerRenderer }
     );
@@ -210,20 +208,18 @@ describe("Plugins", () => {
 
   describe("<custom-element>", () => {
     testRenderers(
-      "custom element with attributes and properties",
+      "custom element with $text and :class attributes",
       async (ctor) => {
-        const renderer = new ctor({ a: 1, b: 2 });
+        const renderer = new ctor({ a: "foo", b: "bar" });
         const customElement = "<span>Hello World</span>";
         const template = `<template is="custom-element">${customElement}</template>`;
-        const html = `<custom-element foo="bar" :attr="a" $prop="b"></custom-element>`;
+        const html = `<custom-element $text="a" :class="b"></custom-element>`;
         const fragment = renderer.parseHTML(template + html);
         await renderer.mount(fragment);
         const node = fragment.firstChild as Element;
         assert.equal(node.tagName.toLowerCase(), "span");
-        assert.equal(getTextContent(node), "Hello World");
-        assert.equal(getAttribute(node, "foo"), "bar");
-        assert.equal(getAttribute(node, "attr"), "1");
-        assert.equal((node as any).prop, 2);
+        assert.equal(getTextContent(node), "foo");
+        assert.equal(getAttribute(node, "class"), "bar");
       },
       { MockRenderer, NodeRenderer, WorkerRenderer }
     );
@@ -471,9 +467,9 @@ describe("Plugins", () => {
     );
   });
 
-  describe(":attribute", () => {
+  describe(":class", () => {
     testRenderers(
-      "class",
+      "single class",
       async (ctor) => {
         const renderer = new ctor({ foo: "bar" });
         const html = `<div :class="foo"></div>`;
@@ -486,26 +482,20 @@ describe("Plugins", () => {
       },
       { MockRenderer, NodeRenderer, WorkerRenderer }
     );
+    testRenderers("multiple classes", async (ctor) => {
+      const renderer = new ctor({ foo: "bar" });
+      const html = `<div class="foo" :class="foo"></div>`;
+      const fragment = renderer.parseHTML(html);
+      const node = fragment.firstChild as HTMLElement;
+      await renderer.mount(fragment);
+      assert.equal(getAttribute(node, ":class"), null);
+      assert.equal(renderer.$.foo, "bar");
+      assert.equal(renderer.$.bar, "baz");
+      assert.equal(getAttribute(node, "class"), "foo bar");
+    });
   });
 
-  describe("$attribute", () => {
-    testRenderers(
-      "custom-attribute",
-      async (ctor) => {
-        const renderer = new ctor({ foo: "bar" });
-        const html = `<div $custom-attribute="foo"></div>`;
-        const fragment = renderer.parseHTML(html);
-        const node = fragment.firstChild as HTMLElement;
-        await renderer.mount(fragment);
-        assert.equal(getAttribute(node, "$custom-attribute"), null);
-        assert.equal(renderer.$.foo, "bar");
-        assert.equal((node as any)["customAttribute"], "bar");
-      },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
-    );
-  });
-
-  describe("@attribute", () => {
+  describe("@event", () => {
     testRenderers(
       "click",
       async (ctor) => {
@@ -635,10 +625,10 @@ describe("Plugins", () => {
     );
 
     testRenderers(
-      "template node with attributes and properties",
+      "template node with $text property",
       async (ctor) => {
         const renderer = new ctor();
-        const html = `<div $myprop="item" :myattr="item" :for="item in items">{{ item }}</div>`;
+        const html = `<div $text="item" :for="item in items"></div>`;
         const fragment = renderer.parseHTML(html);
 
         renderer.set("items", ["1", "2"]);
@@ -648,20 +638,12 @@ describe("Plugins", () => {
         assert.equal(children12.length, 2);
         assert.equal(getTextContent(children12[0] as Element)?.trim(), "1");
         assert.equal(getTextContent(children12[1] as Element)?.trim(), "2");
-        assert.equal((children12[0] as any)["myprop"], "1");
-        assert.equal((children12[1] as any)["myprop"], "2");
-        assert.equal(getAttribute(children12[0] as Element, "myattr"), "1");
-        assert.equal(getAttribute(children12[1] as Element, "myattr"), "2");
 
         await renderer.set("items", ["a", "b"]);
         const childrenAB = Array.from(fragment.childNodes).slice(1);
         assert.equal(childrenAB.length, 2);
         assert.equal(getTextContent(childrenAB[0] as Element)?.trim(), "a");
         assert.equal(getTextContent(childrenAB[1] as Element)?.trim(), "b");
-        assert.equal((childrenAB[0] as any)["myprop"], "a", 'myprop should be "a"');
-        assert.equal((childrenAB[1] as any)["myprop"], "b", 'myprop should be "b"');
-        assert.equal(getAttribute(childrenAB[0] as Element, "myattr"), "a");
-        assert.equal(getAttribute(childrenAB[1] as Element, "myattr"), "b");
       },
       { MockRenderer, NodeRenderer, WorkerRenderer }
     );
