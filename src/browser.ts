@@ -1,12 +1,16 @@
+import { sanitizeHtml } from "safevalues";
+import { safeRange, safeDomParser } from "safevalues/dom";
 import { IRenderer } from "./core.js";
 import { dirname } from "./dome.js";
 import { ParserParams, RenderParams } from "./interfaces.js";
-
 export class Renderer extends IRenderer {
   protected readonly dirpath: string = dirname(self.location.href);
-  parseHTML(content: string, params: ParserParams = { rootDocument: false }): DocumentFragment {
+  parseHTML(
+    content: string,
+    params: ParserParams = { rootDocument: false }
+  ): Document | DocumentFragment {
     if (params.rootDocument) {
-      return new DOMParser().parseFromString(content, "text/html") as unknown as DocumentFragment;
+      return new DOMParser().parseFromString(content, "text/html");
     } else {
       const range = document.createRange();
       range.selectNodeContents(document.body);
@@ -16,7 +20,10 @@ export class Renderer extends IRenderer {
   serializeHTML(root: Node | DocumentFragment): string {
     return new XMLSerializer().serializeToString(root).replace(/\s?xmlns="[^"]+"/gm, "");
   }
-  preprocessLocal(fpath: string, params?: RenderParams & ParserParams): Promise<DocumentFragment> {
+  preprocessLocal(
+    fpath: string,
+    params?: RenderParams & ParserParams
+  ): Promise<Document | DocumentFragment> {
     // In the browser, "local" paths (i.e., relative paths) can still be fetched.
     return this.preprocessRemote(fpath, params);
   }

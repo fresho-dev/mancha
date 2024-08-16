@@ -1,3 +1,4 @@
+import { safeAnchorEl, safeAreaEl } from "safevalues/dom";
 import {
   appendChild,
   cloneAttribute,
@@ -44,7 +45,7 @@ export namespace RendererPlugins {
     }
 
     // The included file will replace this tag, and all elements will be fully preprocessed.
-    const handler = (fragment: DocumentFragment) => {
+    const handler = (fragment: Document | DocumentFragment) => {
       // Add whatever attributes the include tag had to the first child.
       const child = fragment.firstChild as Element | null;
       for (const attr of Array.from(elem.attributes)) {
@@ -97,41 +98,32 @@ export namespace RendererPlugins {
     // We have to retrieve the attribute, because the node property is always an absolute path.
     const src = getAttribute(elem, "src");
     const href = getAttribute(elem, "href");
-    const data = getAttribute(elem, "data");
 
     // Early exit: if there is no element attribute to rebase, we can skip this step.
-    const anyattr = src || href || data;
-    if (!anyattr) return;
-    if (anyattr && isRelativePath(anyattr)) {
-      this.log("Rebasing relative path as:", params.dirpath, "/", anyattr);
-    }
+    const pathref = src || href;
+    if (pathref && isRelativePath(pathref)) {
+      const relpath = `${params.dirpath}/${pathref}`;
+      this.log("Rebasing relative path as:", relpath);
 
-    if (tagName === "img" && src && isRelativePath(src)) {
-      setAttribute(elem, "src", `${params.dirpath}/${src}`);
-    } else if (tagName === "a" && href && isRelativePath(href)) {
-      setAttribute(elem, "href", `${params.dirpath}/${href}`);
-    } else if (tagName === "link" && href && isRelativePath(href)) {
-      setAttribute(elem, "href", `${params.dirpath}/${href}`);
-    } else if (tagName === "script" && src && isRelativePath(src)) {
-      setAttribute(elem, "src", `${params.dirpath}/${src}`);
-    } else if (tagName === "source" && src && isRelativePath(src)) {
-      setAttribute(elem, "src", `${params.dirpath}/${src}`);
-    } else if (tagName === "audio" && src && isRelativePath(src)) {
-      setAttribute(elem, "src", `${params.dirpath}/${src}`);
-    } else if (tagName === "video" && src && isRelativePath(src)) {
-      setAttribute(elem, "src", `${params.dirpath}/${src}`);
-    } else if (tagName === "track" && src && isRelativePath(src)) {
-      setAttribute(elem, "src", `${params.dirpath}/${src}`);
-    } else if (tagName === "iframe" && src && isRelativePath(src)) {
-      setAttribute(elem, "src", `${params.dirpath}/${src}`);
-    } else if (tagName === "object" && data && isRelativePath(data)) {
-      setAttribute(elem, "data", `${params.dirpath}/${data}`);
-    } else if (tagName === "input" && src && isRelativePath(src)) {
-      setAttribute(elem, "src", `${params.dirpath}/${src}`);
-    } else if (tagName === "area" && href && isRelativePath(href)) {
-      setAttribute(elem, "href", `${params.dirpath}/${href}`);
-    } else if (tagName === "base" && href && isRelativePath(href)) {
-      setAttribute(elem, "href", `${params.dirpath}/${href}`);
+      if (tagName === "img") {
+        (elem as HTMLImageElement).src = relpath;
+      } else if (tagName === "a") {
+        safeAnchorEl.setHref(elem as HTMLAnchorElement, relpath);
+      } else if (tagName === "source") {
+        (elem as HTMLSourceElement).src = relpath;
+      } else if (tagName === "audio") {
+        (elem as HTMLAudioElement).src = relpath;
+      } else if (tagName === "video") {
+        (elem as HTMLVideoElement).src = relpath;
+      } else if (tagName === "track") {
+        (elem as HTMLTrackElement).src = relpath;
+      } else if (tagName === "input") {
+        (elem as HTMLInputElement).src = relpath;
+      } else if (tagName === "area") {
+        safeAreaEl.setHref(elem as HTMLAreaElement, relpath);
+      } else {
+        this.log("Unable to rebase relative path for element:", tagName);
+      }
     }
   };
 
@@ -468,6 +460,11 @@ export namespace RendererPlugins {
         // If the result is false, set the node's display to none.
         if (elem.style) elem.style.display = result ? display : "none";
         else setAttribute(elem, "style", `display: ${result ? display : "none"};`);
+        // if (elem.style) {
+        //   elem.style.display = result ? display : "none";
+        // } else {
+        //   setAttribute(elem, "style", `display: ${result ? display : "none"};`);
+        // }
       });
     }
   };

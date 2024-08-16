@@ -5,8 +5,11 @@ import { IRenderer } from "./core.js";
 import { ParserParams } from "./interfaces.js";
 
 export class Renderer extends IRenderer {
-  parseHTML(content: string, params: ParserParams = { rootDocument: false }): DocumentFragment {
-    return htmlparser2.parseDocument(content) as unknown as DocumentFragment;
+  parseHTML(
+    content: string,
+    params: ParserParams = { rootDocument: false }
+  ): Document | DocumentFragment {
+    return htmlparser2.parseDocument(content) as unknown as Document;
   }
   serializeHTML(root: Node | DocumentFragment | Document): string {
     return renderDOM(root as any);

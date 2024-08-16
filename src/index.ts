@@ -4,15 +4,14 @@ import { ParserParams, RenderParams } from "./interfaces.js";
 import { IRenderer } from "./core.js";
 
 export class Renderer extends IRenderer {
-  parseHTML(content: string, params: ParserParams = { rootDocument: false }): DocumentFragment {
-    const dom = new JSDOM();
+  parseHTML(
+    content: string,
+    params: ParserParams = { rootDocument: false }
+  ): Document | DocumentFragment {
     if (params.rootDocument) {
-      const DOMParser = dom.window.DOMParser;
-      return new DOMParser().parseFromString(content, "text/html") as unknown as DocumentFragment;
+      return new JSDOM(content).window.document as Document;
     } else {
-      const range = dom.window.document.createRange();
-      range.selectNodeContents(dom.window.document.body);
-      return range.createContextualFragment(content);
+      return JSDOM.fragment(content);
     }
   }
   serializeHTML(root: Node | DocumentFragment | Document): string {

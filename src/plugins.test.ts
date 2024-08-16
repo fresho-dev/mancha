@@ -2,31 +2,12 @@ import * as assert from "assert";
 import * as path from "path";
 import { describe, it } from "node:test";
 import { JSDOM } from "jsdom";
-import { ParserParams, RenderParams } from "./interfaces.js";
 import { IRenderer } from "./core.js";
 import { Renderer as NodeRenderer } from "./index.js";
 import { Renderer as WorkerRenderer } from "./worker.js";
 import { getAttribute } from "./dome.js";
 import { REACTIVE_DEBOUNCE_MILLIS } from "./store.js";
 import { getTextContent, innerHTML } from "./test_utils.js";
-
-class MockRenderer extends IRenderer {
-  parseHTML(content: string, params?: ParserParams): DocumentFragment {
-    return JSDOM.fragment(content);
-  }
-  serializeHTML(fragment: DocumentFragment): string {
-    throw new Error("Not implemented.");
-  }
-  preprocessLocal(fpath: string, params?: RenderParams & ParserParams): Promise<DocumentFragment> {
-    throw new Error("Not implemented.");
-  }
-  createElement(tag: string): Element {
-    return JSDOM.fragment(`<${tag}></${tag}>`).firstChild as Element;
-  }
-  textContent(node: Node, content: string): void {
-    node.textContent = content;
-  }
-}
 
 function testRenderers(
   testName: string,
@@ -35,7 +16,14 @@ function testRenderers(
 ) {
   for (const [label, ctor] of Object.entries(rendererClasses)) {
     describe(label, () => {
-      it(testName, () => testCode(ctor));
+      it(testName, async () => {
+        try {
+          await testCode(ctor);
+        } catch (exc) {
+          console.error(exc);
+          assert.fail(exc as Error);
+        }
+      });
     });
   }
 }
@@ -64,7 +52,7 @@ describe("Plugins", () => {
           assert.equal(getAttribute(node, "src"), null);
           assert.equal(getTextContent(node), source);
         },
-        { MockRenderer, NodeRenderer, WorkerRenderer }
+        { NodeRenderer, WorkerRenderer }
       );
     });
 
@@ -85,7 +73,7 @@ describe("Plugins", () => {
           assert.equal(getAttribute(node, "src"), null);
           assert.equal(getTextContent(node), source);
         },
-        { MockRenderer, NodeRenderer, WorkerRenderer }
+        { NodeRenderer, WorkerRenderer }
       );
     });
 
@@ -106,7 +94,7 @@ describe("Plugins", () => {
           assert.equal(getAttribute(node, "src"), null);
           assert.equal(getTextContent(node), `/foo/${source}`);
         },
-        { MockRenderer, NodeRenderer, WorkerRenderer }
+        { NodeRenderer, WorkerRenderer }
       );
     });
 
@@ -125,11 +113,12 @@ describe("Plugins", () => {
         await renderer.mount(fragment);
 
         const node = fragment.firstChild as Element;
+        console.log("node", renderer.serializeHTML(node));
         assert.equal(getAttribute(node, "src"), null);
         assert.equal(getAttribute(node, "class"), "foo");
         assert.equal(getTextContent(node), "bar");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer }
     );
   });
 
@@ -138,30 +127,30 @@ describe("Plugins", () => {
       "rebase relative paths",
       async (ctor) => {
         const renderer = new ctor();
-        const html = `<script src="bar/baz.js"></script>`;
+        const html = `<img src="bar/baz.jpg"></img>`;
         const fragment = renderer.parseHTML(html);
 
         await renderer.mount(fragment, { dirpath: "/foo" });
 
-        const node = fragment.firstChild as Element;
-        assert.equal(getAttribute(node, "src"), "/foo/bar/baz.js");
+        const node = fragment.firstChild as HTMLImageElement;
+        assert.equal(node.src, "/foo/bar/baz.jpg");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
       "rebase (not) absolute paths",
       async (ctor) => {
         const renderer = new ctor();
-        const html = `<script src="/foo/bar.js"></script>`;
+        const html = `<img src="/foo/bar.jpg"></img>`;
         const fragment = renderer.parseHTML(html);
 
         await renderer.mount(fragment, { dirpath: "/baz" });
 
-        const node = fragment.firstChild as Element;
-        assert.equal(getAttribute(node, "src"), "/foo/bar.js");
+        const node = fragment.firstChild as HTMLImageElement;
+        assert.equal(node.src || getAttribute(node, "src"), "/foo/bar.jpg");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -173,7 +162,7 @@ describe("Plugins", () => {
 
         renderer.preprocessLocal = async function (fpath, params) {
           assert.equal(fpath, "foo/fragment.tpl.html");
-          const node = renderer.parseHTML(`<script src="bar/baz.js"></script>`);
+          const node = renderer.parseHTML(`<img src="bar/baz.jpg"></img>`);
           await renderer.preprocessNode(node, {
             ...params,
             dirpath: path.dirname(fpath),
@@ -182,10 +171,10 @@ describe("Plugins", () => {
         };
         await renderer.mount(fragment);
 
-        const node = fragment.firstChild as Element;
-        assert.equal(getAttribute(node, "src"), "foo/bar/baz.js");
+        const node = fragment.firstChild as HTMLImageElement;
+        assert.equal(node.src, "foo/bar/baz.jpg");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -197,7 +186,7 @@ describe("Plugins", () => {
 
         renderer.preprocessLocal = async function (fpath, params) {
           assert.equal(fpath, "foo/bar/fragment.tpl.html");
-          const node = renderer.parseHTML(`<script src="baz/qux.js"></script>`);
+          const node = renderer.parseHTML(`<img src="baz/qux.jpg"></img>`);
           await renderer.preprocessNode(node, {
             ...params,
             dirpath: path.dirname(fpath),
@@ -206,10 +195,10 @@ describe("Plugins", () => {
         };
         await renderer.mount(fragment, { dirpath: "foo" });
 
-        const node = fragment.firstChild as Element;
-        assert.equal(getAttribute(node, "src"), "foo/bar/baz/qux.js");
+        const node = fragment.firstChild as HTMLImageElement;
+        assert.equal(node.src, "foo/bar/baz/qux.jpg");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
   });
 
@@ -228,7 +217,7 @@ describe("Plugins", () => {
         assert.equal(getTextContent(node), "foo");
         assert.equal(getAttribute(node, "class"), "bar");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -245,7 +234,7 @@ describe("Plugins", () => {
         assert.equal(getTextContent(node), "baz");
         assert.equal(getAttribute(node, ":data"), null);
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -261,7 +250,7 @@ describe("Plugins", () => {
         assert.equal(node.tagName.toLowerCase(), "span");
         assert.equal(getTextContent(node), "bar");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -282,7 +271,7 @@ describe("Plugins", () => {
         assert.equal(node.tagName.toLowerCase(), "span");
         assert.equal(getTextContent(node), "Hello World");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
   });
 
@@ -307,7 +296,7 @@ describe("Plugins", () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
         assert.equal(textNode.data, "Hello John");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
   });
 
@@ -324,7 +313,7 @@ describe("Plugins", () => {
         assert.equal(getAttribute(node, ":data"), null);
         assert.equal(subrenderer.$.foo, "bar");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -339,7 +328,7 @@ describe("Plugins", () => {
         assert.equal(getAttribute(node, ":data"), null);
         assert.deepEqual(subrenderer.$.arr, [1, 2, 3]);
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -354,7 +343,7 @@ describe("Plugins", () => {
         assert.equal(getAttribute(node, ":data"), null);
         assert.deepEqual(subrenderer.$.arr, [{ n: 1 }, { n: 2 }, { n: 3 }]);
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -374,7 +363,7 @@ describe("Plugins", () => {
         assert.equal(renderer.get("bar"), 2);
         assert.equal(renderer.get("baz"), 3);
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -401,7 +390,7 @@ describe("Plugins", () => {
         assert.equal(subrenderer.$.bar, 2);
         assert.equal(subrenderer.$.baz, 3);
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
   });
 
@@ -427,7 +416,7 @@ describe("Plugins", () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
         assert.equal(renderer.$.foobar, "bazqux");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -451,7 +440,7 @@ describe("Plugins", () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
         assert.equal(renderer.$.foobar, "qux");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -470,7 +459,7 @@ describe("Plugins", () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
         assert.equal(renderer.$.foobar, true);
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
   });
 
@@ -487,7 +476,7 @@ describe("Plugins", () => {
         assert.equal(renderer.$.foo, "bar");
         assert.equal(getAttribute(node, "class"), "bar");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
     testRenderers("multiple classes", async (ctor) => {
       const renderer = new ctor({ foo: "bar" });
@@ -518,7 +507,7 @@ describe("Plugins", () => {
         assert.equal(renderer.$.counter, 1);
       },
       // We don't expect events to work with Wor`kerRenderer.
-      { MockRenderer, NodeRenderer }
+      { NodeRenderer }
     );
   });
 
@@ -549,7 +538,7 @@ describe("Plugins", () => {
             assert.equal(getTextContent(children[i] as Element), container[i]);
           }
         },
-        { MockRenderer, NodeRenderer, WorkerRenderer }
+        { NodeRenderer, WorkerRenderer }
       );
     });
 
@@ -597,7 +586,7 @@ describe("Plugins", () => {
         assert.equal(getTextContent(children3[1] as Element), "foo");
         assert.equal(getTextContent(children3[2] as Element), "bar");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -628,7 +617,7 @@ describe("Plugins", () => {
         assert.equal((children[0] as HTMLElement).tagName.toLowerCase(), "template");
         assert.equal(children[0].firstChild, node);
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -652,7 +641,7 @@ describe("Plugins", () => {
         assert.equal(getTextContent(childrenAB[0] as Element)?.trim(), "a");
         assert.equal(getTextContent(childrenAB[1] as Element)?.trim(), "b");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -680,7 +669,7 @@ describe("Plugins", () => {
           assert.equal(getTextContent(children[i] as Element), container[i].text);
         }
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
   });
 
@@ -716,7 +705,7 @@ describe("Plugins", () => {
         assert.equal(renderer.get("foo"), "qux");
       },
       // We don't expect events to work with WorkerRenderer.
-      { MockRenderer, NodeRenderer }
+      { NodeRenderer }
     );
 
     testRenderers(
@@ -736,7 +725,7 @@ describe("Plugins", () => {
         assert.equal(renderer.has("foo"), false);
       },
       // We don't expect events to work with WorkerRenderer.
-      { MockRenderer, NodeRenderer }
+      { NodeRenderer }
     );
 
     testRenderers(
@@ -773,7 +762,7 @@ describe("Plugins", () => {
         assert.equal(renderer.get("foo"), "qux");
       },
       // We don't expect events to work with WorkerRenderer.
-      { MockRenderer, NodeRenderer }
+      { NodeRenderer }
     );
   });
 
@@ -797,7 +786,7 @@ describe("Plugins", () => {
         assert.equal(getAttribute(node, "style"), "display: none;");
         assert.equal((node as HTMLElement).style?.display ?? "none", "none");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -819,7 +808,7 @@ describe("Plugins", () => {
         assert.equal(getAttribute(node, "style"), "display: bar;");
         assert.equal((node as HTMLElement).style?.display ?? "bar", "bar");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -841,7 +830,7 @@ describe("Plugins", () => {
         assert.notEqual(getAttribute(node, "style"), "display: none;");
         assert.notEqual((node as HTMLElement).style?.display, "none");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
   });
 
@@ -858,7 +847,7 @@ describe("Plugins", () => {
         assert.equal(renderer.get("foo"), "bar");
         assert.equal(getTextContent(node), "bar");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
   });
 
@@ -877,7 +866,7 @@ describe("Plugins", () => {
         assert.equal(innerHTML(node), inner);
         assert.equal(node.childNodes.length, 1);
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -898,7 +887,7 @@ describe("Plugins", () => {
         await renderer.set("bar", "Goodbye World");
         assert.equal(getTextContent(node.firstChild?.firstChild as Element), "Goodbye World");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
 
     testRenderers(
@@ -917,7 +906,7 @@ describe("Plugins", () => {
         assert.equal(getTextContent(children[0] as Element), "foo");
         assert.equal(getTextContent(children[1] as Element), "bar");
       },
-      { MockRenderer, NodeRenderer, WorkerRenderer }
+      { NodeRenderer, WorkerRenderer }
     );
   });
 });

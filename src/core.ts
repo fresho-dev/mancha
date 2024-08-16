@@ -15,7 +15,7 @@ export abstract class IRenderer extends SignalStore {
   protected readonly dirpath: string = "";
   readonly _skipNodes: Set<Node> = new Set();
   readonly _customElements: Map<string, Node> = new Map();
-  abstract parseHTML(content: string, params?: ParserParams): DocumentFragment;
+  abstract parseHTML(content: string, params?: ParserParams): Document | DocumentFragment;
   abstract serializeHTML(root: DocumentFragment | Node): string;
   abstract createElement(tag: string, owner?: Document | null): Element;
   abstract textContent(node: Node, tag: string): void;
@@ -62,7 +62,7 @@ export abstract class IRenderer extends SignalStore {
   async preprocessString(
     content: string,
     params?: RenderParams & ParserParams
-  ): Promise<DocumentFragment> {
+  ): Promise<Document | DocumentFragment> {
     this.log("Preprocessing string content with params:\n", params);
     const fragment = this.parseHTML(content, params);
     await this.preprocessNode(fragment, params);
@@ -78,7 +78,7 @@ export abstract class IRenderer extends SignalStore {
   async preprocessRemote(
     fpath: string,
     params?: RenderParams & ParserParams
-  ): Promise<DocumentFragment> {
+  ): Promise<Document | DocumentFragment> {
     const fetchOptions: RequestInit = {};
     if (params?.cache) fetchOptions.cache = params.cache;
     const content = await fetch(fpath, fetchOptions).then((res) => res.text());
@@ -98,7 +98,7 @@ export abstract class IRenderer extends SignalStore {
   async preprocessLocal(
     fpath: string,
     params?: RenderParams & ParserParams
-  ): Promise<DocumentFragment> {
+  ): Promise<Document | DocumentFragment> {
     const content = await this.fetchLocal(fpath, params);
     return this.preprocessString(content, {
       ...params,
