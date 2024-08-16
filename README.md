@@ -118,13 +118,13 @@ element tag or attributes match a specific criteria. Here's the list of attribut
   ```html
   <div :for="item in ['a', 'b', 'c']">{{ item }}</div>
   ```
-- `$text` sets the `textContent` value of a node
+- `:text` sets the `textContent` value of a node
   ```html
-  <div :data="{foo: 'bar'}" $text="foo"></div>
+  <div :data="{foo: 'bar'}" :text="foo"></div>
   ```
-- `$html` sets the `innerHTML` value of a node
+- `:html` sets the `innerHTML` value of a node
   ```html
-  <div $html="<span>Hello World</span>"></div>
+  <div :html="<span>Hello World</span>"></div>
   ```
 - `:show` toggles `$elem.style.display` to `none`
   ```html

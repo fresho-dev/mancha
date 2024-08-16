@@ -81,10 +81,8 @@ export function cloneAttribute(
   if (hasProperty(elemFrom, "attribs") && hasProperty(elemDest, "attribs")) {
     elemDest.attribs[name] = elemFrom.attribs[name];
   } else {
-    const attr = (elemFrom as Element)?.getAttributeNode?.(name);
-    (elemDest as Element)?.setAttributeNode?.(attr?.cloneNode(true) as Attr);
-    // const attr = (elemFrom as Element)?.getAttribute?.(name);
-    // setAttribute(elemDest as Element, name, attr || "");
+    const attr = (elemFrom as Element)?.getAttribute?.(name);
+    setAttribute(elemDest as Element, name, attr || "");
   }
 }
 

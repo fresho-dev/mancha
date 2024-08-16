@@ -25,7 +25,7 @@ const KW_ATTRIBUTES = new Set([
   ":for",
   ":show",
   "@watch",
-  "$html",
+  ":html",
 ]);
 
 /** @internal */
@@ -258,12 +258,12 @@ export namespace RendererPlugins {
   export const resolveTextAttributes: RendererPlugin = async function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as Element;
-    const textAttr = getAttribute(elem, "$text");
+    const textAttr = getAttribute(elem, ":text");
     if (textAttr) {
-      this.log("$text attribute found in:\n", nodeToString(node, 128));
+      this.log(":text attribute found in:\n", nodeToString(node, 128));
 
       // Remove the attribute from the node.
-      removeAttribute(elem, "$text");
+      removeAttribute(elem, ":text");
 
       // Compute the function's result and track dependencies.
       const setTextContent = (content: string) => this.textContent(node, content);
@@ -276,12 +276,12 @@ export namespace RendererPlugins {
   export const resolveHtmlAttribute: RendererPlugin = async function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as Element;
-    const htmlAttr = getAttribute(elem, "$html");
+    const htmlAttr = getAttribute(elem, ":html");
     if (htmlAttr) {
-      this.log("$html attribute found in:\n", nodeToString(node, 128));
+      this.log(":html attribute found in:\n", nodeToString(node, 128));
 
       // Remove the attribute from the node.
-      removeAttribute(elem, "$html");
+      removeAttribute(elem, ":html");
 
       // Compute the function's result and track dependencies.
       return this.effect(function () {

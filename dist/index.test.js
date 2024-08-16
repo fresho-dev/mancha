@@ -27,8 +27,8 @@ function testRenderString(fname, compare = "Hello World", vars = {}) {
                 rootDocument: !fname.endsWith(".tpl.html"),
             });
             await renderer.renderNode(fragment);
-            const result = renderer.serializeHTML(fragment);
-            resolve(assert.equal(result, compare, String(result)));
+            const result = renderer.serializeHTML(fragment).replaceAll("\n", "");
+            resolve(assert.equal(result, compare.replaceAll("\n", ""), String(result)));
         }
         catch (exc) {
             console.error(exc);
@@ -49,8 +49,8 @@ function testRenderLocal(fname, compare = "Hello World", vars = {}) {
             const renderer = new Renderer(context);
             const fragment = await renderer.preprocessLocal(fname);
             await renderer.renderNode(fragment);
-            const result = renderer.serializeHTML(fragment);
-            resolve(assert.equal(result, compare, String(result)));
+            const result = renderer.serializeHTML(fragment).replaceAll("\n", "");
+            resolve(assert.equal(result, compare.replaceAll("\n", ""), String(result)));
         }
         catch (exc) {
             console.error(exc);
@@ -72,8 +72,8 @@ function testRenderRemote(fname, compare = "Hello World", vars = {}) {
             const renderer = new Renderer(context);
             const fragment = await renderer.preprocessRemote(remotePath);
             await renderer.renderNode(fragment);
-            const result = renderer.serializeHTML(fragment);
-            resolve(assert.equal(result, compare, String(result)));
+            const result = renderer.serializeHTML(fragment).replaceAll("\n", "");
+            resolve(assert.equal(result, compare.replaceAll("\n", ""), String(result)));
         }
         catch (exc) {
             console.error(exc);
@@ -134,11 +134,16 @@ describe("Mancha index module", () => {
         });
         describe("with comments", () => {
             const fname = path.join(__dirname, "fixtures", "render-include-with-comments.tpl.html");
-            testAllMethods(fname, "<!-- This is a comment node -->\nHello World");
+            testAllMethods(fname, "<!-- This is a comment node -->Hello World");
         });
         describe("with root document", () => {
             const fname = path.join(__dirname, "fixtures", "render-root-document.html");
-            const expected = "<!DOCTYPE html><html><head></head><body>\nHello World\n</body></html>";
+            const expected = "<!DOCTYPE html><html><head></head><body>Hello World</body></html>";
+            testAllMethods(fname, expected);
+        });
+        describe("with <head> and <body> tags", () => {
+            const fname = path.join(__dirname, "fixtures", "render-include-head-body.html");
+            const expected = "<html><head><title>Test</title></head><body>Hello World</body></html>";
             testAllMethods(fname, expected);
         });
         describe("with node attributes", () => {

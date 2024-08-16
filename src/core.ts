@@ -186,9 +186,9 @@ export abstract class IRenderer extends SignalStore {
       await RendererPlugins.resolveDataAttribute.call(this, node, params);
       // Resolve the :for attribute in the node.
       await RendererPlugins.resolveForAttribute.call(this, node, params);
-      // Resolve the $text attribute in the node.
+      // Resolve the :text attribute in the node.
       await RendererPlugins.resolveTextAttributes.call(this, node, params);
-      // Resolve the $html attribute in the node.
+      // Resolve the :html attribute in the node.
       await RendererPlugins.resolveHtmlAttribute.call(this, node, params);
       // Resolve the :show attribute in the node.
       await RendererPlugins.resolveShowAttribute.call(this, node, params);

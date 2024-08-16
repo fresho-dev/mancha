@@ -1,10 +1,9 @@
-/// <reference types="node" />
 import { IRenderer } from "./core.js";
 export interface ParserParams {
     /** Whether the file parsed is a root document, or a document fragment. */
     rootDocument?: boolean;
     /** Encoding to use when processing local files. */
-    encoding?: BufferEncoding;
+    encoding?: "ascii" | "utf8";
 }
 /** The RendererParams interface defines the parameters that can be passed to the renderer. */
 export interface RenderParams {

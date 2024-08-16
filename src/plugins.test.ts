@@ -102,7 +102,7 @@ describe("Plugins", () => {
       `propagates attributes to first child`,
       async (ctor) => {
         const renderer = new ctor({ a: "foo", b: "bar" });
-        const html = `<include src="foo.html" :class="a" $text="b"></include>`;
+        const html = `<include src="foo.html" :class="a" :text="b"></include>`;
         const fragment = renderer.parseHTML(html);
 
         renderer.preprocessLocal = async function (fpath, params) {
@@ -204,12 +204,12 @@ describe("Plugins", () => {
 
   describe("<custom-element>", () => {
     testRenderers(
-      "custom element with $text and :class attributes",
+      "custom element with :text and :class attributes",
       async (ctor) => {
         const renderer = new ctor({ a: "foo", b: "bar" });
         const customElement = "<span>Hello World</span>";
         const template = `<template is="custom-element">${customElement}</template>`;
-        const html = `<custom-element $text="a" :class="b"></custom-element>`;
+        const html = `<custom-element :text="a" :class="b"></custom-element>`;
         const fragment = renderer.parseHTML(template + html);
         await renderer.mount(fragment);
         const node = fragment.firstChild as Element;
@@ -621,10 +621,10 @@ describe("Plugins", () => {
     );
 
     testRenderers(
-      "template node with $text property",
+      "template node with :text property",
       async (ctor) => {
         const renderer = new ctor();
-        const html = `<div $text="item" :for="item in items"></div>`;
+        const html = `<div :text="item" :for="item in items"></div>`;
         const fragment = renderer.parseHTML(html);
 
         renderer.set("items", ["1", "2"]);
@@ -834,16 +834,16 @@ describe("Plugins", () => {
     );
   });
 
-  describe("$text", () => {
+  describe(":text", () => {
     testRenderers(
       "render simple text string",
       async (ctor) => {
         const renderer = new ctor({ foo: "bar" });
-        const html = `<div $text="foo"></div>`;
+        const html = `<div :text="foo"></div>`;
         const fragment = renderer.parseHTML(html);
         const node = fragment.firstChild as HTMLElement;
         await renderer.mount(fragment);
-        assert.equal(getAttribute(node, "$text"), null);
+        assert.equal(getAttribute(node, ":text"), null);
         assert.equal(renderer.get("foo"), "bar");
         assert.equal(getTextContent(node), "bar");
       },
@@ -851,12 +851,12 @@ describe("Plugins", () => {
     );
   });
 
-  describe("$html", () => {
+  describe(":html", () => {
     testRenderers(
       "render simple HTML",
       async (ctor) => {
         const renderer = new ctor();
-        const html = `<div $html="foo" />`;
+        const html = `<div :html="foo" />`;
         const fragment = renderer.parseHTML(html);
         const node = fragment.firstChild as HTMLElement;
 
@@ -873,7 +873,7 @@ describe("Plugins", () => {
       "render contents of HTML",
       async (ctor) => {
         const renderer = new ctor();
-        const html = `<div $html="foo"></div>`;
+        const html = `<div :html="foo"></div>`;
         const fragment = renderer.parseHTML(html);
         const node = fragment.firstChild as HTMLElement;
 
@@ -894,11 +894,11 @@ describe("Plugins", () => {
       "render HTML within a :for",
       async (ctor) => {
         const renderer = new ctor();
-        const html = `<div :for="item in items" $html="inner"></div>`;
+        const html = `<div :for="item in items" :html="inner"></div>`;
         const fragment = renderer.parseHTML(html);
 
         renderer.set("items", [{ text: "foo" }, { text: "bar" }]);
-        renderer.set("inner", `<span $text="item.text"></span>`);
+        renderer.set("inner", `<span :text="item.text"></span>`);
         await renderer.mount(fragment);
 
         const children = Array.from(fragment.childNodes).slice(1);

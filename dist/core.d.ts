@@ -10,7 +10,7 @@ export declare abstract class IRenderer extends SignalStore {
     protected readonly dirpath: string;
     readonly _skipNodes: Set<Node>;
     readonly _customElements: Map<string, Node>;
-    abstract parseHTML(content: string, params?: ParserParams): DocumentFragment;
+    abstract parseHTML(content: string, params?: ParserParams): Document | DocumentFragment;
     abstract serializeHTML(root: DocumentFragment | Node): string;
     abstract createElement(tag: string, owner?: Document | null): Element;
     abstract textContent(node: Node, tag: string): void;
@@ -43,21 +43,21 @@ export declare abstract class IRenderer extends SignalStore {
      * @param params - Optional rendering and parsing parameters.
      * @returns A promise that resolves to a DocumentFragment representing the preprocessed content.
      */
-    preprocessString(content: string, params?: RenderParams & ParserParams): Promise<DocumentFragment>;
+    preprocessString(content: string, params?: RenderParams & ParserParams): Promise<Document | DocumentFragment>;
     /**
      * Preprocesses a remote file by fetching its content and applying preprocessing steps.
      * @param fpath - The path to the remote file.
      * @param params - Optional parameters for rendering and parsing.
      * @returns A Promise that resolves to a DocumentFragment representing the preprocessed content.
      */
-    preprocessRemote(fpath: string, params?: RenderParams & ParserParams): Promise<DocumentFragment>;
+    preprocessRemote(fpath: string, params?: RenderParams & ParserParams): Promise<Document | DocumentFragment>;
     /**
      * Preprocesses a local file by fetching its content and applying preprocessing steps.
      * @param fpath - The path to the local file.
      * @param params - Optional parameters for rendering and parsing.
      * @returns A promise that resolves to the preprocessed document fragment.
      */
-    preprocessLocal(fpath: string, params?: RenderParams & ParserParams): Promise<DocumentFragment>;
+    preprocessLocal(fpath: string, params?: RenderParams & ParserParams): Promise<Document | DocumentFragment>;
     /**
      * Creates a deep copy of the current renderer instance.
      * @returns A new instance of the renderer with the same state as the original.

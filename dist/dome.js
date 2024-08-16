@@ -1,3 +1,12 @@
+import { safeAttrPrefix } from "safevalues";
+import { safeElement } from "safevalues/dom";
+const SAFE_ATTRS = [
+    safeAttrPrefix `style`,
+    safeAttrPrefix `class`,
+    safeAttrPrefix `@`,
+    safeAttrPrefix `:`,
+    safeAttrPrefix `$`,
+];
 /**
  * Traverses the DOM tree starting from the given root node and yields each child node.
  * Nodes in the `skip` set will be skipped during traversal.
@@ -48,7 +57,7 @@ export function setAttribute(elem, name, value) {
     if (hasProperty(elem, "attribs"))
         elem.attribs[name] = value;
     else
-        elem.setAttribute?.(name, value);
+        safeElement.setPrefixedAttribute(SAFE_ATTRS, elem, name, value);
 }
 export function removeAttribute(elem, name) {
     if (hasProperty(elem, "attribs"))
@@ -61,8 +70,8 @@ export function cloneAttribute(elemFrom, elemDest, name) {
         elemDest.attribs[name] = elemFrom.attribs[name];
     }
     else {
-        const attr = elemFrom?.getAttributeNode?.(name);
-        elemDest?.setAttributeNode?.(attr?.cloneNode(true));
+        const attr = elemFrom?.getAttribute?.(name);
+        setAttribute(elemDest, name, attr || "");
     }
 }
 export function firstElementChild(elem) {

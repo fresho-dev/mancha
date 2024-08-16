@@ -13,7 +13,7 @@ GulpClient.task("clean", function (done) {
 
 GulpClient.task("ts", function () {
   // The gulp-typescript plugin is deprecated.
-  return run("tsc -p .").exec();
+  return run("tsec -p .").exec();
 });
 
 GulpClient.task("css", function () {

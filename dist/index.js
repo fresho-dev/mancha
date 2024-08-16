@@ -3,15 +3,11 @@ import { JSDOM } from "jsdom";
 import { IRenderer } from "./core.js";
 export class Renderer extends IRenderer {
     parseHTML(content, params = { rootDocument: false }) {
-        const dom = new JSDOM();
         if (params.rootDocument) {
-            const DOMParser = dom.window.DOMParser;
-            return new DOMParser().parseFromString(content, "text/html");
+            return new JSDOM(content).window.document;
         }
         else {
-            const range = dom.window.document.createRange();
-            range.selectNodeContents(dom.window.document.body);
-            return range.createContextualFragment(content);
+            return JSDOM.fragment(content);
         }
     }
     serializeHTML(root) {

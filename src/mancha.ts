@@ -1,3 +1,4 @@
+import { safeStyleEl } from "safevalues/dom";
 import { Renderer } from "./browser.js";
 import basicCssRules from "./css_gen_basic.js";
 import utilsCssRules from "./css_gen_utils.js";
@@ -26,7 +27,7 @@ if (globalThis.document?.currentScript?.hasAttribute("css")) {
     const style = document.createElement("style");
     switch (styleName) {
       case "basic":
-        style.textContent = basicCssRules();
+        safeStyleEl.setTextContent(style, basicCssRules());
         break;
       case "utils":
         style.textContent = utilsCssRules();
