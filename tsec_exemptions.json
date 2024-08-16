@@ -1,0 +1,4 @@
+{
+    "ban-domparser-parsefromstring": ["src/browser.ts"],
+    "ban-range-createcontextualfragment": ["src/browser.ts"]
+}
