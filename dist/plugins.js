@@ -1,4 +1,4 @@
-import { appendChild, cloneAttribute, createElement, ellipsize, firstElementChild, getAttribute, getNodeValue, insertBefore, isRelativePath, nodeToString, removeAttribute, removeChild, replaceChildren, replaceWith, setAttribute, setNodeValue, setTextContent, traverse, } from "./dome.js";
+import { appendChild, cloneAttribute, ellipsize, firstElementChild, getAttribute, insertBefore, isRelativePath, nodeToString, removeAttribute, removeChild, replaceChildren, replaceWith, setAttribute, traverse, } from "./dome.js";
 import { Iterator } from "./iterator.js";
 const KW_ATTRIBUTES = new Set([
     ":bind",
@@ -158,7 +158,7 @@ export var RendererPlugins;
         }
     };
     RendererPlugins.resolveTextNodeExpressions = async function (node, params) {
-        const content = getNodeValue(node) || "";
+        const content = node.nodeValue || "";
         if (node.nodeType !== 3 || !content?.trim())
             return;
         this.log(`Processing node content value:\n`, ellipsize(content, 128));
@@ -173,7 +173,7 @@ export var RendererPlugins;
                 const result = this.eval(expr, { $elem: node });
                 updatedContent = updatedContent.replace(`{{ ${expr} }}`, String(result));
             }
-            setNodeValue(node, updatedContent);
+            node.nodeValue = updatedContent;
         });
     };
     RendererPlugins.resolveDataAttribute = async function (node, params) {
@@ -245,8 +245,9 @@ export var RendererPlugins;
             // Remove the attribute from the node.
             removeAttribute(elem, "$text");
             // Compute the function's result and track dependencies.
+            const setTextContent = (content) => this.textContent(node, content);
             return this.effect(function () {
-                setTextContent(node, this.eval(textAttr, { $elem: node }));
+                setTextContent(this.eval(textAttr, { $elem: node }));
             });
         }
     };
@@ -301,7 +302,7 @@ export var RendererPlugins;
             }
             // Place the template node into a template element.
             const parent = node.parentNode;
-            const template = createElement("template", node.ownerDocument);
+            const template = this.createElement("template", node.ownerDocument);
             insertBefore(parent, template, node);
             removeChild(parent, node);
             appendChild(template, node);

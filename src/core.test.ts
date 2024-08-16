@@ -14,6 +14,12 @@ class MockRenderer extends IRenderer {
   preprocessLocal(fpath: string, params?: RenderParams & ParserParams): Promise<DocumentFragment> {
     throw new Error("Not implemented.");
   }
+  createElement(tag: string): Element {
+    throw new Error("Not implemented.");
+  }
+  textContent(node: Node, content: string): void {
+    throw new Error("Not implemented.");
+  }
 }
 
 describe("Core", () => {

@@ -20,6 +20,12 @@ export class Renderer extends IRenderer {
     const XMLSerializer = dom.window.XMLSerializer;
     return new XMLSerializer().serializeToString(root).replace(/\s?xmlns="[^"]+"/gm, "");
   }
+  createElement(tag: string, owner?: Document | null): Element {
+    return (owner || new JSDOM().window.document).createElement(tag);
+  }
+  textContent(node: Node, content: string): void {
+    node.textContent = content;
+  }
 
   async fetchLocal(fpath: string, params?: RenderParams & ParserParams): Promise<string> {
     return fs.readFile(fpath, { encoding: params?.encoding || "utf8" });

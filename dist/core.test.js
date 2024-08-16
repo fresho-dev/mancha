@@ -12,6 +12,12 @@ class MockRenderer extends IRenderer {
     preprocessLocal(fpath, params) {
         throw new Error("Not implemented.");
     }
+    createElement(tag) {
+        throw new Error("Not implemented.");
+    }
+    textContent(node, content) {
+        throw new Error("Not implemented.");
+    }
 }
 describe("Core", () => {
     describe("clone", () => {

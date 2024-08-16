@@ -2,7 +2,7 @@ import * as assert from "assert";
 import * as htmlparser2 from "htmlparser2";
 import { describe, it } from "node:test";
 import { JSDOM } from "jsdom";
-import { appendChild, attributeNameToCamelCase, createElement, getAttribute, getNodeValue, getTextContent, insertBefore, replaceChildren, setNodeValue, setTextContent, traverse, } from "./dome.js";
+import { appendChild, attributeNameToCamelCase, getAttribute, insertBefore, replaceChildren, traverse, } from "./dome.js";
 const HTML_PARSERS = {
     jsdom: (html) => JSDOM.fragment(html),
     htmlparser2: (html) => htmlparser2.parseDocument(html),
@@ -62,31 +62,22 @@ describe("Dome", () => {
             assert.equal(attributeNameToCamelCase("foo-bar"), "fooBar");
         });
     });
-    describe("get and set text content", () => {
-        testHtmlParsers("get and set text content", async (htmlParser) => {
-            const fragment = htmlParser("<div>Hello World</div>");
-            const node = fragment.childNodes[0];
-            assert.equal(getTextContent(node), "Hello World");
-            const text = "Hello Universe";
-            setTextContent(node, text);
-            assert.equal(getTextContent(node), text);
-        });
-    });
     describe("get and set node value", () => {
         testHtmlParsers("get and set node value", async (htmlParser) => {
             const fragment = htmlParser("Hello World");
             const node = fragment.childNodes[0];
-            assert.equal(getNodeValue(node), "Hello World");
+            assert.equal(node.nodeValue, "Hello World");
             const text = "Hello Universe";
-            setNodeValue(node, text);
-            assert.equal(getNodeValue(node), text);
+            node.nodeValue = text;
+            // setNodeValue(node, text);
+            assert.equal(node.nodeValue, text);
         });
     });
     describe("create element", () => {
         testHtmlParsers("create element", async (htmlParser) => {
             const fragment = htmlParser("<div></div>");
             const node = fragment.childNodes[0];
-            const elem = createElement("span", node.ownerDocument);
+            const elem = htmlParser("<span></span>").childNodes[0];
             appendChild(node, elem);
             assert.equal(elem.parentNode, node);
             assert.equal(node.firstChild, elem);
@@ -98,7 +89,7 @@ describe("Dome", () => {
         testHtmlParsers("insert before first element", async (htmlParser) => {
             const fragment = htmlParser("<div><span></span><span></span></div>");
             const node = fragment.childNodes[0];
-            const elem = createElement("span", node.ownerDocument);
+            const elem = htmlParser("<span></span>").childNodes[0];
             const reference = node.children[0];
             insertBefore(node, elem, reference);
             assert.equal(node.children[0], elem);
@@ -110,9 +101,9 @@ describe("Dome", () => {
         testHtmlParsers("replace children", async (htmlParser) => {
             const fragment = htmlParser("<div><span></span><span></span></div>");
             const node = fragment.childNodes[0];
-            const elem1 = createElement("span", node.ownerDocument);
-            const elem2 = createElement("span", node.ownerDocument);
-            const elem3 = createElement("span", node.ownerDocument);
+            const elem1 = htmlParser("<span></span>").childNodes[0];
+            const elem2 = htmlParser("<span></span>").childNodes[0];
+            const elem3 = htmlParser("<span></span>").childNodes[0];
             replaceChildren(node, elem1, elem2, elem3);
             assert.equal(node.children[0], elem1);
             assert.equal(node.children[1], elem2);

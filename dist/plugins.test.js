@@ -5,8 +5,9 @@ import { JSDOM } from "jsdom";
 import { IRenderer } from "./core.js";
 import { Renderer as NodeRenderer } from "./index.js";
 import { Renderer as WorkerRenderer } from "./worker.js";
-import { getAttribute, innerHTML, getTextContent } from "./dome.js";
+import { getAttribute } from "./dome.js";
 import { REACTIVE_DEBOUNCE_MILLIS } from "./store.js";
+import { getTextContent, innerHTML } from "./test_utils.js";
 class MockRenderer extends IRenderer {
     parseHTML(content, params) {
         return JSDOM.fragment(content);
@@ -16,6 +17,12 @@ class MockRenderer extends IRenderer {
     }
     preprocessLocal(fpath, params) {
         throw new Error("Not implemented.");
+    }
+    createElement(tag) {
+        return JSDOM.fragment(`<${tag}></${tag}>`).firstChild;
+    }
+    textContent(node, content) {
+        node.textContent = content;
     }
 }
 function testRenderers(testName, testCode, rendererClasses = {}) {

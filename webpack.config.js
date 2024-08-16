@@ -9,9 +9,6 @@ export default {
   output: {
     filename: "[name].js",
   },
-  externals: {
-    htmlparser2: "window.htmlparser2",
-  },
   module: {
     rules: [
       {

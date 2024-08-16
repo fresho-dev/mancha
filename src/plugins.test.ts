@@ -6,8 +6,9 @@ import { ParserParams, RenderParams } from "./interfaces.js";
 import { IRenderer } from "./core.js";
 import { Renderer as NodeRenderer } from "./index.js";
 import { Renderer as WorkerRenderer } from "./worker.js";
-import { getAttribute, innerHTML, getTextContent } from "./dome.js";
+import { getAttribute } from "./dome.js";
 import { REACTIVE_DEBOUNCE_MILLIS } from "./store.js";
+import { getTextContent, innerHTML } from "./test_utils.js";
 
 class MockRenderer extends IRenderer {
   parseHTML(content: string, params?: ParserParams): DocumentFragment {
@@ -18,6 +19,12 @@ class MockRenderer extends IRenderer {
   }
   preprocessLocal(fpath: string, params?: RenderParams & ParserParams): Promise<DocumentFragment> {
     throw new Error("Not implemented.");
+  }
+  createElement(tag: string): Element {
+    return JSDOM.fragment(`<${tag}></${tag}>`).firstChild as Element;
+  }
+  textContent(node: Node, content: string): void {
+    node.textContent = content;
   }
 }
 

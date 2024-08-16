@@ -12,6 +12,8 @@ export declare abstract class IRenderer extends SignalStore {
     readonly _customElements: Map<string, Node>;
     abstract parseHTML(content: string, params?: ParserParams): DocumentFragment;
     abstract serializeHTML(root: DocumentFragment | Node): string;
+    abstract createElement(tag: string, owner?: Document | null): Element;
+    abstract textContent(node: Node, tag: string): void;
     /**
      * Sets the debugging flag for the current instance.
      *

@@ -20,6 +20,12 @@ export class Renderer extends IRenderer {
     // In the browser, "local" paths (i.e., relative paths) can still be fetched.
     return this.preprocessRemote(fpath, params);
   }
+  createElement(tag: string, owner?: Document | null): Element {
+    return (owner || document).createElement(tag);
+  }
+  textContent(node: Node, content: string): void {
+    node.textContent = content;
+  }
 }
 
 export const Mancha = new Renderer();

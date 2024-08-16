@@ -1,4 +1,3 @@
-import { DomUtils, parseDocument } from "htmlparser2";
 /**
  * Traverses the DOM tree starting from the given root node and yields each child node.
  * Nodes in the `skip` set will be skipped during traversal.
@@ -25,10 +24,10 @@ export function* traverse(root, skip = new Set()) {
         }
     }
 }
-function hasProperty(obj, prop) {
+export function hasProperty(obj, prop) {
     return typeof obj?.[prop] !== "undefined";
 }
-function hasFunction(obj, func) {
+export function hasFunction(obj, func) {
     return typeof obj?.[func] === "function";
 }
 /**
@@ -90,6 +89,15 @@ export function replaceWith(original, ...replacement) {
             .concat(Array.from(parent.childNodes).slice(index + 1));
     }
 }
+export function replaceChildren(parent, ...nodes) {
+    if (hasFunction(parent, "replaceChildren")) {
+        parent.replaceChildren(...nodes);
+    }
+    else {
+        parent.childNodes = nodes;
+        nodes.forEach((node) => (node.parentNode = parent));
+    }
+}
 export function appendChild(parent, node) {
     if (hasFunction(node, "appendChild")) {
         return parent.appendChild(node);
@@ -105,17 +113,8 @@ export function removeChild(parent, node) {
         return parent.removeChild(node);
     }
     else {
-        DomUtils.removeElement(node);
+        replaceChildren(parent, ...Array.from(parent.childNodes).filter((child) => child !== node));
         return node;
-    }
-}
-export function replaceChildren(parent, ...nodes) {
-    if (hasFunction(parent, "replaceChildren")) {
-        parent.replaceChildren(...nodes);
-    }
-    else {
-        parent.childNodes = nodes;
-        nodes.forEach((node) => (node.parentNode = parent));
     }
 }
 export function insertBefore(parent, node, reference) {
@@ -130,48 +129,6 @@ export function insertBefore(parent, node, reference) {
         return node;
     }
 }
-export function innerHTML(elem) {
-    if (hasProperty(elem, "innerHTML"))
-        return elem.innerHTML;
-    else
-        return DomUtils.getInnerHTML(elem);
-}
-export function innerText(elem) {
-    if (hasProperty(elem, "innerText"))
-        return elem.innerText;
-    else
-        return DomUtils.innerText(elem);
-}
-export function getTextContent(elem) {
-    if (hasProperty(elem, "textContent"))
-        return elem.textContent;
-    else
-        return DomUtils.textContent(elem);
-}
-export function setTextContent(elem, value) {
-    if (hasProperty(elem, "textContent"))
-        elem.textContent = value;
-    else
-        elem.children = [parseDocument(value).firstChild];
-}
-export function getNodeValue(node) {
-    if (hasProperty(node, "nodeValue"))
-        return node.nodeValue;
-    else
-        return node.data;
-}
-export function setNodeValue(node, value) {
-    if (hasProperty(node, "nodeValue"))
-        node.nodeValue = value;
-    else
-        node.data = value;
-}
-export function createElement(tagName, document) {
-    if (document)
-        return document.createElement(tagName);
-    else
-        return parseDocument(`<${tagName}></${tagName}>`).firstChild;
-}
 export function ellipsize(str, maxLength = 0) {
     if (!str)
         return "";
@@ -181,7 +138,7 @@ export function ellipsize(str, maxLength = 0) {
         return str.slice(0, maxLength - 1) + "…";
 }
 export function nodeToString(node, maxLength = 0) {
-    return ellipsize(node.outerHTML || getNodeValue(node) || String(node), maxLength);
+    return ellipsize(node.outerHTML || node.nodeValue || String(node), maxLength);
 }
 /**
  * Returns the directory name from a given file path.

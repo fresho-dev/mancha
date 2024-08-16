@@ -7,6 +7,8 @@
  * @returns A generator that yields each child node in the DOM tree.
  */
 export declare function traverse(root: Node | DocumentFragment | Document, skip?: Set<Node>): Generator<ChildNode>;
+export declare function hasProperty(obj: any, prop: string): boolean;
+export declare function hasFunction(obj: any, func: string): boolean;
 /**
  * Converts from an attribute name to camelCase, e.g. `foo-bar` becomes `fooBar`.
  * @param name attribute name
@@ -19,17 +21,10 @@ export declare function removeAttribute(elem: Element | any, name: string): void
 export declare function cloneAttribute(elemFrom: Element | any, elemDest: Element | any, name: string): void;
 export declare function firstElementChild(elem: Element): Element | null;
 export declare function replaceWith(original: ChildNode, ...replacement: Node[]): void;
-export declare function appendChild(parent: Node, node: Node): Node;
-export declare function removeChild(parent: Node, node: Node): Node;
 export declare function replaceChildren(parent: ParentNode, ...nodes: Node[]): void;
+export declare function appendChild(parent: Node, node: Node): Node;
+export declare function removeChild(parent: ParentNode, node: Node): Node;
 export declare function insertBefore(parent: Node, node: Node, reference: ChildNode | null): Node;
-export declare function innerHTML(elem: Element): string;
-export declare function innerText(elem: Element): string | null;
-export declare function getTextContent(elem: Element): string | null;
-export declare function setTextContent(elem: Element, value: string): void;
-export declare function getNodeValue(node: Node): string | null;
-export declare function setNodeValue(node: Node, value: string | null): void;
-export declare function createElement(tagName: string, document: Document | null): Element;
 export declare function ellipsize(str: string | null, maxLength?: number): string;
 export declare function nodeToString(node: Node, maxLength?: number): string;
 /**

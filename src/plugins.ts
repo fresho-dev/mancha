@@ -1,12 +1,9 @@
 import {
   appendChild,
-  attributeNameToCamelCase,
   cloneAttribute,
-  createElement,
   ellipsize,
   firstElementChild,
   getAttribute,
-  getNodeValue,
   insertBefore,
   isRelativePath,
   nodeToString,
@@ -15,8 +12,6 @@ import {
   replaceChildren,
   replaceWith,
   setAttribute,
-  setNodeValue,
-  setTextContent,
   traverse,
 } from "./dome.js";
 import { ParserParams, RenderParams, RendererPlugin } from "./interfaces.js";
@@ -178,7 +173,7 @@ export namespace RendererPlugins {
   };
 
   export const resolveTextNodeExpressions: RendererPlugin = async function (node, params) {
-    const content = getNodeValue(node) || "";
+    const content = node.nodeValue || "";
     if (node.nodeType !== 3 || !content?.trim()) return;
     this.log(`Processing node content value:\n`, ellipsize(content, 128));
 
@@ -194,7 +189,7 @@ export namespace RendererPlugins {
         const result = this.eval(expr, { $elem: node }) as string;
         updatedContent = updatedContent.replace(`{{ ${expr} }}`, String(result));
       }
-      setNodeValue(node, updatedContent);
+      node.nodeValue = updatedContent;
     });
   };
 
@@ -279,8 +274,9 @@ export namespace RendererPlugins {
       removeAttribute(elem, "$text");
 
       // Compute the function's result and track dependencies.
+      const setTextContent = (content: string) => this.textContent(node, content);
       return this.effect(function () {
-        setTextContent(node as Element, this.eval(textAttr, { $elem: node }) as string);
+        setTextContent(this.eval(textAttr, { $elem: node }) as string);
       });
     }
   };
@@ -342,7 +338,7 @@ export namespace RendererPlugins {
 
       // Place the template node into a template element.
       const parent = node.parentNode!!;
-      const template = createElement("template", node.ownerDocument);
+      const template = this.createElement("template", node.ownerDocument);
       insertBefore(parent, template as Node, node);
       removeChild(parent, node);
       appendChild(template as Node, node);

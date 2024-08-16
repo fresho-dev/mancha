@@ -1,5 +1,3 @@
-import { DomUtils, parseDocument } from "htmlparser2";
-
 /**
  * Traverses the DOM tree starting from the given root node and yields each child node.
  * Nodes in the `skip` set will be skipped during traversal.
@@ -32,11 +30,11 @@ export function* traverse(
   }
 }
 
-function hasProperty(obj: any, prop: string): boolean {
+export function hasProperty(obj: any, prop: string): boolean {
   return typeof obj?.[prop] !== "undefined";
 }
 
-function hasFunction(obj: any, func: string): boolean {
+export function hasFunction(obj: any, func: string): boolean {
   return typeof obj?.[func] === "function";
 }
 
@@ -101,6 +99,15 @@ export function replaceWith(original: ChildNode, ...replacement: Node[]): void {
   }
 }
 
+export function replaceChildren(parent: ParentNode, ...nodes: Node[]): void {
+  if (hasFunction(parent, "replaceChildren")) {
+    (parent as ParentNode).replaceChildren(...(nodes as Node[]));
+  } else {
+    (parent as any).childNodes = nodes as ChildNode[];
+    nodes.forEach((node) => ((node as any).parentNode = parent));
+  }
+}
+
 export function appendChild(parent: Node, node: Node): Node {
   if (hasFunction(node, "appendChild")) {
     return (parent as Node).appendChild(node as Node);
@@ -111,21 +118,12 @@ export function appendChild(parent: Node, node: Node): Node {
   }
 }
 
-export function removeChild(parent: Node, node: Node): Node {
+export function removeChild(parent: ParentNode, node: Node): Node {
   if (hasFunction(node, "removeChild")) {
     return (parent as Node).removeChild(node as Node);
   } else {
-    DomUtils.removeElement(node as any);
+    replaceChildren(parent, ...Array.from(parent.childNodes).filter((child) => child !== node));
     return node;
-  }
-}
-
-export function replaceChildren(parent: ParentNode, ...nodes: Node[]): void {
-  if (hasFunction(parent, "replaceChildren")) {
-    (parent as ParentNode).replaceChildren(...(nodes as Node[]));
-  } else {
-    (parent as any).childNodes = nodes as ChildNode[];
-    nodes.forEach((node) => ((node as any).parentNode = parent));
   }
 }
 
@@ -140,41 +138,6 @@ export function insertBefore(parent: Node, node: Node, reference: ChildNode | nu
   }
 }
 
-export function innerHTML(elem: Element): string {
-  if (hasProperty(elem, "innerHTML")) return elem.innerHTML;
-  else return DomUtils.getInnerHTML(elem as any);
-}
-
-export function innerText(elem: Element): string | null {
-  if (hasProperty(elem, "innerText")) return (elem as HTMLElement).innerText;
-  else return DomUtils.innerText(elem as any);
-}
-
-export function getTextContent(elem: Element): string | null {
-  if (hasProperty(elem, "textContent")) return elem.textContent;
-  else return DomUtils.textContent(elem as any);
-}
-
-export function setTextContent(elem: Element, value: string): void {
-  if (hasProperty(elem, "textContent")) elem.textContent = value;
-  else (elem as any).children = [parseDocument(value).firstChild];
-}
-
-export function getNodeValue(node: Node): string | null {
-  if (hasProperty(node, "nodeValue")) return node.nodeValue;
-  else return (node as any).data;
-}
-
-export function setNodeValue(node: Node, value: string | null): void {
-  if (hasProperty(node, "nodeValue")) node.nodeValue = value;
-  else (node as any).data = value;
-}
-
-export function createElement(tagName: string, document: Document | null): Element {
-  if (document) return document.createElement(tagName);
-  else return parseDocument(`<${tagName}></${tagName}>`).firstChild as unknown as Element;
-}
-
 export function ellipsize(str: string | null, maxLength: number = 0): string {
   if (!str) return "";
   else if (str.length <= maxLength) return str;
@@ -182,7 +145,7 @@ export function ellipsize(str: string | null, maxLength: number = 0): string {
 }
 
 export function nodeToString(node: Node, maxLength: number = 0): string {
-  return ellipsize((node as any).outerHTML || getNodeValue(node) || String(node), maxLength);
+  return ellipsize((node as any).outerHTML || node.nodeValue || String(node), maxLength);
 }
 
 /**
