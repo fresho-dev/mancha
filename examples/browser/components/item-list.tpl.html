@@ -16,7 +16,7 @@
     <span :for="item in basket">{{ item.icon }}</span>
   </div>
   <div class="flex flex-row gap-1">
-    <button :for="fruit in fruits" @click="basket.push(fruit)"
+    <button :for="fruit in fruits" :on:click="basket.push(fruit)"
       class="p-1 border-solid rounded-sm cursor-pointer bg-transparent hover:bg-gray-200">
       {{ fruit.icon }}
     </button>

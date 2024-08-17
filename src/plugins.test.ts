@@ -102,7 +102,7 @@ describe("Plugins", () => {
       `propagates attributes to first child`,
       async (ctor) => {
         const renderer = new ctor({ a: "foo", b: "bar" });
-        const html = `<include src="foo.html" :class="a" :text="b"></include>`;
+        const html = `<include src="foo.html" :on:click="fn()" :class="a" :text="b"></include>`;
         const fragment = renderer.parseHTML(html);
 
         renderer.preprocessLocal = async function (fpath, params) {
@@ -115,6 +115,7 @@ describe("Plugins", () => {
         const node = fragment.firstChild as Element;
         console.log("node", renderer.serializeHTML(node));
         assert.equal(getAttribute(node, "src"), null);
+        assert.equal(getAttribute(node, ":on:click"), null);
         assert.equal(getAttribute(node, "class"), "foo");
         assert.equal(getTextContent(node), "bar");
       },
@@ -394,75 +395,6 @@ describe("Plugins", () => {
     );
   });
 
-  describe("@watch", () => {
-    testRenderers(
-      "simple watch",
-      async (ctor) => {
-        const renderer = new ctor({ foo: "foo", bar: "bar", foobar: null });
-        const html = `<div @watch="foobar = foo + bar"></div>`;
-        const fragment = renderer.parseHTML(html);
-        const node = fragment.firstChild as Element;
-        await renderer.mount(fragment);
-        assert.equal(getAttribute(node, "@watch"), null);
-        assert.equal(renderer.$.foobar, "foobar");
-
-        // Change one of the dependencies and observe result.
-        renderer.set("foo", "baz");
-        await new Promise((resolve) => setTimeout(resolve, 10));
-        assert.equal(renderer.$.foobar, "bazbar");
-
-        // Change the other dependency and observe result.
-        renderer.set("bar", "qux");
-        await new Promise((resolve) => setTimeout(resolve, 10));
-        assert.equal(renderer.$.foobar, "bazqux");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
-
-    testRenderers(
-      "watch nested property",
-      async (ctor) => {
-        const renderer = new ctor({ foo: { bar: "bar" }, foobar: null });
-        const html = `<div @watch="foobar = foo.bar"></div>`;
-        const fragment = renderer.parseHTML(html);
-        const node = fragment.firstChild as Element;
-        await renderer.mount(fragment);
-        assert.equal(getAttribute(node, "@watch"), null);
-        assert.equal(renderer.$.foobar, "bar");
-
-        // Set subproperty directly.
-        renderer.$.foo!!.bar = "baz";
-        await new Promise((resolve) => setTimeout(resolve, 10));
-        assert.equal(renderer.$.foobar, "baz");
-
-        // Replace parent object.
-        renderer.set("foo", { bar: "qux" });
-        await new Promise((resolve) => setTimeout(resolve, 10));
-        assert.equal(renderer.$.foobar, "qux");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
-
-    testRenderers(
-      "watch boolean expression with two variables",
-      async (ctor) => {
-        const renderer = new ctor({ foo: true, bar: false, foobar: null });
-        const html = `<div @watch="foobar = !foo && !bar"></div>`;
-        const fragment = renderer.parseHTML(html);
-        const node = fragment.firstChild as Element;
-        await renderer.mount(fragment);
-
-        assert.equal(getAttribute(node, "@watch"), null);
-        assert.equal(renderer.$.foobar, false);
-
-        renderer.$.foo = false;
-        await new Promise((resolve) => setTimeout(resolve, 10));
-        assert.equal(renderer.$.foobar, true);
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
-  });
-
   describe(":class", () => {
     testRenderers(
       "single class",
@@ -491,12 +423,12 @@ describe("Plugins", () => {
     });
   });
 
-  describe("@event", () => {
+  describe("on:event", () => {
     testRenderers(
       "click",
       async (ctor) => {
         const renderer = new ctor({ counter: 0 });
-        const html = `<div @click="counter = counter + 1"></div>`;
+        const html = `<div :on:click="counter = counter + 1"></div>`;
         const fragment = renderer.parseHTML(html);
         const node = fragment.firstChild as HTMLElement;
         await renderer.mount(fragment);
@@ -732,7 +664,7 @@ describe("Plugins", () => {
       "binds a text input value with custom events",
       async (ctor) => {
         // Since we're dealing with events, we need to create a full document.
-        const html = `<input :bind="foo" :bind-events="my-custom-event" />`;
+        const html = `<input :bind="foo" :bind:on="my-custom-event" />`;
         const dom = new JSDOM(html);
         const doc = dom.window.document;
         const node = doc.body.firstChild as HTMLInputElement;

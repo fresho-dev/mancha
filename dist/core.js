@@ -157,8 +157,6 @@ export class IRenderer extends SignalStore {
             await RendererPlugins.resolveShowAttribute.call(this, node, params);
             // Resolve the :class attribute in the node.
             await RendererPlugins.resolveClassAttribute.call(this, node, params);
-            // Resolve the @watch attribute in the node.
-            await RendererPlugins.resolveWatchAttribute.call(this, node, params);
             // Resolve the :bind attribute in the node.
             await RendererPlugins.resolveBindAttribute.call(this, node, params);
             // Resolve all @events in the node.

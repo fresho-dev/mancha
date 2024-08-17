@@ -15,7 +15,7 @@ Here's a small sample of the things that you can do with `mancha`:
   <template is="counter">
     <div>
       <slot></slot>
-      <button @click="count = count + 1">Counter: {{ count }}</button>
+      <button :on:click="count = count + 1">Counter: {{ count }}</button>
     </div>
   </template>
 
@@ -98,7 +98,7 @@ preprocessing consist of:
   </template>
 
   <!-- Any node traversed after registration can use the component. -->
-  <my-red-button @click="console.log('clicked')">
+  <my-red-button :on:click="console.log('clicked')">
     <!-- The contents within will replace the `<slot></slot>` tag. -->
     Click Me
   </my-red-button>
@@ -130,19 +130,15 @@ element tag or attributes match a specific criteria. Here's the list of attribut
   ```html
   <div :data="{foo: false}" :show="foo"></div>
   ```
-- `@watch` executes an expression anytime its dependencies change
-  ```html
-  <div :data="{foo: 'bar'}" @watch="console.log('foo changed:', foo)"></div>
-  ```
 - `:bind` binds (two-way) a variable to the `value` or `checked` property of the element.
   ```html
   <div :data="{name: 'Stranger'}">
     <input type="text" :bind="name" />
   </div>
   ```
-- `@{event}` adds an event listener for `event` to the node
+- `:on:{event}` adds an event listener for `event` to the node
   ```html
-  <button @click="console.log('clicked')"></button>
+  <button :on:click="console.log('clicked')"></button>
   ```
 - `{{ value }}` replaces `value` in text nodes
   ```html

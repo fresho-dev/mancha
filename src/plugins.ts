@@ -18,16 +18,6 @@ import {
 import { ParserParams, RenderParams, RendererPlugin } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
 
-const KW_ATTRIBUTES = new Set([
-  ":bind",
-  ":bind-events",
-  ":data",
-  ":for",
-  ":show",
-  "@watch",
-  ":html",
-]);
-
 /** @internal */
 export namespace RendererPlugins {
   export const resolveIncludes: RendererPlugin = async function (node, params) {
@@ -238,23 +228,6 @@ export namespace RendererPlugins {
     }
   };
 
-  export const resolveWatchAttribute: RendererPlugin = async function (node, params) {
-    if (this._skipNodes.has(node)) return;
-    const elem = node as Element;
-    const watchAttr = getAttribute(elem, "@watch");
-    if (watchAttr) {
-      this.log("@watch attribute found in:\n", nodeToString(node, 128));
-
-      // Remove the attribute from the node.
-      removeAttribute(elem, "@watch");
-
-      // Compute the function's result.
-      await this.effect(function () {
-        return this.eval(watchAttr, { $elem: node });
-      });
-    }
-  };
-
   export const resolveTextAttributes: RendererPlugin = async function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as Element;
@@ -300,13 +273,13 @@ export namespace RendererPlugins {
     if (this._skipNodes.has(node)) return;
     const elem = node as Element;
     for (const attr of Array.from(elem.attributes || [])) {
-      if (attr.name.startsWith("@") && !KW_ATTRIBUTES.has(attr.name)) {
+      if (attr.name.startsWith(":on:")) {
         this.log(attr.name, "attribute found in:\n", nodeToString(node, 128));
 
         // Remove the processed attributes from node.
         removeAttribute(elem, attr.name);
 
-        node.addEventListener?.(attr.name.substring(1), (event) => {
+        node.addEventListener?.(attr.name.substring(4), (event) => {
           return this.eval(attr.value, { $elem: node, $event: event });
         });
       }
@@ -404,11 +377,11 @@ export namespace RendererPlugins {
 
       // The change events we listen for can be overriden by user.
       const defaultEvents = ["change", "input"];
-      const updateEvents = getAttribute(elem, ":bind-events")?.split(",") || defaultEvents;
+      const updateEvents = getAttribute(elem, ":bind:on")?.split(",") || defaultEvents;
 
       // Remove the processed attributes from node.
       removeAttribute(elem, ":bind");
-      removeAttribute(elem, ":bind-events");
+      removeAttribute(elem, ":bind:on");
 
       // If the element is of type checkbox, we bind to the "checked" property.
       const prop = getAttribute(elem, "type") === "checkbox" ? "checked" : "value";
