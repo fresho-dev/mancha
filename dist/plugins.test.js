@@ -82,7 +82,7 @@ describe("Plugins", () => {
             const node = fragment.firstChild;
             console.log("node", renderer.serializeHTML(node));
             assert.equal(getAttribute(node, "src"), null);
-            assert.equal(getAttribute(node, "on:click"), null);
+            assert.equal(getAttribute(node, ":on:click"), null);
             assert.equal(getAttribute(node, "class"), "foo");
             assert.equal(getTextContent(node), "bar");
         }, { NodeRenderer });
@@ -593,6 +593,17 @@ describe("Plugins", () => {
             assert.equal(children.length, 2);
             assert.equal(getTextContent(children[0]), "foo");
             assert.equal(getTextContent(children[1]), "bar");
+        }, { NodeRenderer, WorkerRenderer });
+    });
+    describe(":property", () => {
+        testRenderers("processes arbitrary attributes into properties", async (ctor) => {
+            const renderer = new ctor({ foo: "example.com" });
+            const html = `<a :href="foo"></a>`;
+            const fragment = renderer.parseHTML(html);
+            const node = fragment.firstChild;
+            await renderer.mount(fragment);
+            assert.equal(getAttribute(node, ":href"), null);
+            assert.equal(node.href, "example.com");
         }, { NodeRenderer, WorkerRenderer });
     });
 });

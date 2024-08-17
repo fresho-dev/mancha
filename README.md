@@ -140,6 +140,10 @@ element tag or attributes match a specific criteria. Here's the list of attribut
   ```html
   <button :on:click="console.log('clicked')"></button>
   ```
+- `:{attribute}` sets the corresponding property for `attribute` in the node
+  ```html
+  <a :href="buildUrl()"></a>
+  ```
 - `{{ value }}` replaces `value` in text nodes
   ```html
   <button :data="{label: 'Click Me'}">{{ label }}</button>

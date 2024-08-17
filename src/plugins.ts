@@ -1,6 +1,7 @@
 import { safeAnchorEl, safeAreaEl } from "safevalues/dom";
 import {
   appendChild,
+  attributeNameToCamelCase,
   cloneAttribute,
   ellipsize,
   firstElementChild,
@@ -433,12 +434,26 @@ export namespace RendererPlugins {
         // If the result is false, set the node's display to none.
         if (elem.style) elem.style.display = result ? display : "none";
         else setAttribute(elem, "style", `display: ${result ? display : "none"};`);
-        // if (elem.style) {
-        //   elem.style.display = result ? display : "none";
-        // } else {
-        //   setAttribute(elem, "style", `display: ${result ? display : "none"};`);
-        // }
       });
+    }
+  };
+
+  export const resolveCustomAttribute: RendererPlugin = async function (node, params) {
+    if (this._skipNodes.has(node)) return;
+    const elem = node as Element;
+    for (const attr of Array.from(elem.attributes || [])) {
+      if (attr.name.startsWith(":")) {
+        this.log(attr.name, "attribute found in:\n", nodeToString(node, 128));
+
+        // Remove the processed attributes from node.
+        removeAttribute(elem, attr.name);
+
+        const propName = attributeNameToCamelCase(attr.name.substring(1));
+        this.effect(function () {
+          const propValue = this.eval(attr.value, { $elem: node });
+          (elem as any)[propName] = propValue;
+        });
+      }
     }
   };
 }

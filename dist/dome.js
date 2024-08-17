@@ -1,9 +1,9 @@
 import { safeAttrPrefix } from "safevalues";
 import { safeElement } from "safevalues/dom";
 const SAFE_ATTRS = [
+    safeAttrPrefix `:`,
     safeAttrPrefix `style`,
     safeAttrPrefix `class`,
-    safeAttrPrefix `:`,
 ];
 /**
  * Traverses the DOM tree starting from the given root node and yields each child node.

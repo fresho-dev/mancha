@@ -196,10 +196,12 @@ export abstract class IRenderer extends SignalStore {
       await RendererPlugins.resolveClassAttribute.call(this, node, params);
       // Resolve the :bind attribute in the node.
       await RendererPlugins.resolveBindAttribute.call(this, node, params);
-      // Resolve all @events in the node.
+      // Resolve all :on:event attributes in the node.
       await RendererPlugins.resolveEventAttributes.call(this, node, params);
       // Replace all the {{ variables }} in the text.
       await RendererPlugins.resolveTextNodeExpressions.call(this, node, params);
+      // Resolve the :{attr} attribute in the node.
+      await RendererPlugins.resolveCustomAttribute.call(this, node, params);
     }
 
     // Return the input node, which should now be fully rendered.
