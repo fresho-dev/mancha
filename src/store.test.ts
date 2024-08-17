@@ -169,6 +169,24 @@ describe("SignalStore", () => {
       });
     });
 
+    it("returns strings as-is", async () => {
+      const store = new SignalStore();
+      const result = store.eval("'foo'");
+      assert.equal(result, "foo");
+    });
+
+    it("string concatenation", async () => {
+      const store = new SignalStore({ foo: 'bar' });
+      const result = store.eval("'foo' + foo");
+      assert.equal(result, "foobar");
+    });
+
+    it("calling string methods", async () => {
+      const store = new SignalStore({ foo: 'bar' });
+      const result = store.eval("('foo' + foo).toUpperCase()");
+      assert.equal(result, "FOOBAR");
+    });
+
     it("use `globalThis` in function", async () => {
       const store = new SignalStore();
       (globalThis as any).foo = "bar";
