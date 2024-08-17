@@ -219,7 +219,13 @@ export class SignalStore extends IDebouncer {
     } else {
       // Otherwise, perform the expression evaluation.
       const fn = this.cachedExpressionFunction(expr);
-      return fn(thisArg, args);
+      try {
+        return fn(thisArg, args);
+      } catch (exc) {
+        console.error(`Failed to evaluate expression: ${expr}`);
+        console.error(exc);
+        return null;
+      }
     }
   }
 }
