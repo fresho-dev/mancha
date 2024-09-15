@@ -1,7 +1,7 @@
 import * as fs from "fs/promises";
-import run from "gulp-run";
 import GulpClient from "gulp";
 import csso from "gulp-csso";
+import { exec } from "child_process";
 
 // Clean tasks
 
@@ -11,9 +11,10 @@ GulpClient.task("clean", function (done) {
 
 // Build tasks
 
-GulpClient.task("ts", function () {
-  // The gulp-typescript plugin is deprecated.
-  return run("tsec -p .").exec();
+GulpClient.task("ts", function (done) {
+  return exec("tsec -p .", (err, stdout, stderr) => {
+    done(err || stderr);
+  });
 });
 
 GulpClient.task("css", function () {
