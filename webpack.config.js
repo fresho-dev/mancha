@@ -19,6 +19,8 @@ export default {
   },
   optimization: {
     minimize: true,
-    minimizer: [new TerserPlugin({ extractComments: false })],
+    minimizer: [
+      new TerserPlugin({ extractComments: false, terserOptions: { output: { comments: false } } }),
+    ],
   },
 };
