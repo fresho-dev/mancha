@@ -364,7 +364,16 @@ export namespace RendererPlugins {
           insertBefore(parent, child, reference);
         }
 
-        return Promise.all(awaiters);
+        return Promise.all(awaiters).then(() => {
+          // Hacky workaround: if the parent node is a <select> element, we have to reselect the
+          // value to trigger the change event.
+          if (parent.nodeName?.toUpperCase() === "SELECT") {
+            const elem = parent as HTMLSelectElement;
+            const value = elem.value;
+            elem.value = "";
+            elem.value = value;
+          }
+        });
       });
     }
   };
