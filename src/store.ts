@@ -175,8 +175,8 @@ export class SignalStore extends IDebouncer {
 
     // If the expression includes assignment, save the left-hand side for later.
     let assignResult: string | null = null;
-    if (expr.includes("=")) {
-      const [lhs, rhs] = expr.split("=");
+    if (expr.includes(" = ")) {
+      const [lhs, rhs] = expr.split(" = ");
       assignResult = lhs.trim();
       expr = rhs.trim();
     }
