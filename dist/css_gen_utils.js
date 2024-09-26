@@ -137,6 +137,7 @@ const PROPS_CUSTOM = {
     "border-solid": { "border-style": "solid" },
     "border-dashed": { "border-style": "dashed" },
     "border-dotted": { "border-style": "dotted" },
+    "border-collapse": { "border-collapse": "collapse" },
     // Radius.
     "rounded-none": { "border-radius": "0" },
     rounded: { "border-radius": ".25rem" },
