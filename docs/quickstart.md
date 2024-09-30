@@ -16,7 +16,7 @@ For example, a basic form might look like this
 
 ```html
 <body :data="{ name: null }">
-  <form class="flex flex-col max-w-md p-4 bg-white rounded-lg" :on:submit="$event.preventDefault()">
+  <form class="flex flex-col max-w-md p-4 bg-white rounded-lg" :on:submit="console.log('submitted')">
     <label class="w-full mb-4">
       <span class="block text-sm font-medium text-gray-700">Name</span>
       <input
@@ -36,8 +36,9 @@ For example, a basic form might look like this
 </body>
 ```
 
-In the code above, the `:on:submit` tag simply prevents the form submission from refreshing the
-page. To provide more complex handlers, you can define callbacks as a function:
+In the code above, the `:on:submit` tag simply prints 'submitted' to the console. Note that `Mancha`
+automatically prevents the form submission from refreshing the page by calling
+`event.prevenDefault()`. To provide more complex handlers, you can define callbacks as a function:
 
 ```html
 <body :data="{ name: null, message: null }">
@@ -70,7 +71,7 @@ page. To provide more complex handlers, you can define callbacks as a function:
 
   // We can use the $ shorthand to access the form data and define variables.
   $.handleForm = function (event) {
-    event.preventDefault();
+    console.log(event);
     this.message = `Hello, ${this.name}!`;
   };
 
@@ -114,7 +115,7 @@ the `<script>` tag that imports `Mancha`, and explicitly call the `mount()` func
 
   // We can use the $ shorthand to access the form data and define variables.
   $.handleForm = function (event) {
-    event.preventDefault();
+    console.log(event);
     this.message = `Hello, ${this.name}!`;
   };
 
