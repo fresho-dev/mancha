@@ -6,7 +6,7 @@ browser or the server. It can be used as a command-line tool, or imported as a J
 Here's a small sample of the things that you can do with `mancha`:
 
 ```html
-<!-- Use the bundled file from `unkpg` and include basic CSS utilities. -->
+<!-- Use the bundled file from `unkpg` and load a drop-in replacement for Tailwind CSS. -->
 <script src="//unpkg.com/mancha" target="main" css="utils" init></script>
 
 <!-- Scoped variables using the `:data` attribute. -->
@@ -112,7 +112,7 @@ element tag or attributes match a specific criteria. Here's the list of attribut
 
 - `:data` provides scoped variables to all subnodes, evaluated asynchronously
   ```html
-  <div :data="{name: 'Stranger', ...(await fetch(url).then(res => res.json()))}"></div>
+  <div :data="{ name: 'Stranger' }"></div>
   ```
 - `:for` clones the node and repeats it
   ```html
@@ -132,7 +132,7 @@ element tag or attributes match a specific criteria. Here's the list of attribut
   ```
 - `:bind` binds (two-way) a variable to the `value` or `checked` property of the element.
   ```html
-  <div :data="{name: 'Stranger'}">
+  <div :data="{ name: 'Stranger' }">
     <input type="text" :bind="name" />
   </div>
   ```
@@ -148,6 +148,53 @@ element tag or attributes match a specific criteria. Here's the list of attribut
   ```html
   <button :data="{label: 'Click Me'}">{{ label }}</button>
   ```
+
+## Scoping
+
+Contents of the `:data` attribute are only available to subnodes in the HTML tree. This is better
+illustrated with an example:
+
+```html
+<body :data="{ name: 'stranger' }">
+  <!-- Hello, stranger -->
+  <h1>Hello, {{ name }}</h1>
+
+  <!-- undefined -->
+  <span>{{ message }}</span>
+
+  <!-- How are you, danger? The secret message is "secret" -->
+  <p :data="{ name: 'danger', message: 'secret' }">
+    How are you, {{ name }}? The secret message is: "{{ message }}".
+  </p>
+</body>
+```
+
+By default, the target root element is the `body` tag. So, any variables defined in the body's
+`:data` attribute are available to the main renderer and all subrenderers.
+
+In the example above, the variable `message` is only available to the `<p>` tag and all elements
+under that tag, if any. Since the variables are not accessible via the global object, you'll need
+to retrieve the renderer from the element's properties:
+
+```js
+// Explicitly render the body, so we can await it and then modify variables.
+const { $ } = Mancha;
+await $.mount(document.body);
+
+// This modifies the `name` variable in all the renderer contexts.
+$.name = "world";
+
+// This has no effect in the output, because the content of the `<p>` tag is
+// bound to its local variable and `message` was undefined at rendering time.
+$.message = "bandit";
+
+// We extract the subrenderer from the element's properties. Only elements
+// with `:data` attribute have a `renderer` property.
+const subrenderer = document.querySelector("p").renderer;
+
+// This modifies the `message` variable only in the `<p>` tag.
+subrenderer.$.message = "banana";
+```
 
 ## Styling
 
@@ -173,7 +220,7 @@ To use `mancha` on the client (browser), use the `mancha` bundled file available
   <span>Hello, {{ name }}!</span>
 </body>
 
-<script src="//unpkg.com/mancha" target="body" css="basic+utils" defer init></script>
+<script src="//unpkg.com/mancha" target="body" css="basic+utils" init></script>
 ```
 
 Script tag attributes:
