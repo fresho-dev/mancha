@@ -241,10 +241,16 @@ export var RendererPlugins;
         const elem = node;
         for (const attr of Array.from(elem.attributes || [])) {
             if (attr.name.startsWith(":on:")) {
+                const eventName = attr.name.substring(4);
                 this.log(attr.name, "attribute found in:\n", nodeToString(node, 128));
                 // Remove the processed attributes from node.
                 removeAttribute(elem, attr.name);
-                node.addEventListener?.(attr.name.substring(4), (event) => {
+                // Special case: disable the annoying, default page reload behavior for form elements.
+                const preventDefault = eventName === "submit" && elem.tagName.toUpperCase() === "FORM";
+                // Evaluate the expression and return its result.
+                node.addEventListener?.(eventName, (event) => {
+                    if (preventDefault)
+                        event.preventDefault();
                     return this.eval(attr.value, { $elem: node, $event: event });
                 });
             }
