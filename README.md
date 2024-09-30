@@ -110,7 +110,7 @@ Once the HTML has been preprocessed, it is rendered by traversing every node in 
 a series of plugins. Each plugin is only applied if specific conditions are met such as the HTML
 element tag or attributes match a specific criteria. Here's the list of attributes handled:
 
-- `:data` provides scoped variables to all subnodes, evaluated asynchronously
+- `:data` provides scoped variables to all subnodes, evaluated using `jexpr`
   ```html
   <div :data="{ name: 'Stranger' }"></div>
   ```
@@ -148,6 +148,67 @@ element tag or attributes match a specific criteria. Here's the list of attribut
   ```html
   <button :data="{label: 'Click Me'}">{{ label }}</button>
   ```
+
+## Evaluation
+
+To avoid violation of Content Security Policy (CSP) that forbids the use of `eval()`, `Mancha`
+evaluates all expressions using [`jexpr`][jexpr]. This means that only simple expressions are
+allowed, and spaces must be used to separate different expressions tokens. For example:
+
+```html
+<!-- Valid expression: string concatenation -->
+<body :data="{ pos: 1 }">
+  <p :text="'you are number ' + pos + ' in the queue'"></p>
+</body>
+
+<!-- Valid expression: boolean logic -->
+<body :data="{ pos: 1, finished: false }">
+  <p :show="pos >= 1 && !finished">you are number {{ pos }} in the queue</p>
+</body>
+
+<!-- Valid expression: ternary operators -->
+<body :data="{ pos: 1 }">
+  <p :text="pos % 2 == 0 ? 'even' : 'odd'"></p>
+</body>
+
+<!-- Valid expression: function calling -->
+<body :data="{ pos : 1 }">
+  <p :text="buildQueueMessage()"></p>
+  <script>
+    const { $ } = Mancha;
+    $.buildQueueMessage = function () {
+      return "you are number " + this.pos + " in the queue";
+    };
+    // Alternatively, anonymous functions without `this`:
+    // $.buildQueueMessage = () => 'you are number ' + $.pos + ' in the queue';
+  </script>
+</body>
+
+<!-- Valid expression: simple assignment -->
+<body :data="{ pos: 1 }">
+  <p :text="'you are number ' + pos + ' in the queue'"></p>
+  <button :on:click="pos = pos + 1">Click to get there faster</button>
+</body>
+
+<!-- Invalid expression: missing spaces -->
+<body :data="{ pos: 1 }">
+  <p :text="'you are number '+pos+' in the queue'"></p>
+</body>
+
+<!-- Invalid expression: multiple statements -->
+<button :on:click="console.log('yes'); answer = 'no'"></button>
+
+<!-- Invalid expression: function definition -->
+<body :data="{ foo: () => 'yes' }">
+  <p :text="foo()"></p>
+</body>
+
+<!-- Invalid expression: complex assignment -->
+<body :data="{ pos: 1 }">
+  <p :text="'you are number ' + pos + ' in the queue'"></p>
+  <button :on:click="pos++">Click to get there faster</button>
+</body>
+```
 
 ## Scoping
 
@@ -289,9 +350,7 @@ For a more complete example, see [examples/express](./examples/express).
 ### Web Worker Runtime Server Side Rendering (SSR)
 
 For servers hosted as worker runtimes, such as `Cloudflare Workers`, you will need to import a
-stripped down version of `mancha` that does not have the ability to read local files or evaluate
-expressions. The contents of any `{{ value }}` must be an existing variable in the renderer
-instance, since string evaluation is not permitted in some runtimes.
+stripped down version of `mancha` that does not have the ability to read local files.
 
 ```js
 import { Renderer } from "mancha/dist/worker";
