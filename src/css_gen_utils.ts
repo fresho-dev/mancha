@@ -53,6 +53,10 @@ const PROPS_CUSTOM = {
   "text-right": { "text-align": "right" },
   "text-center": { "text-align": "center" },
   "text-justify": { "text-align": "justify" },
+  // Text overflow.
+  "truncate": { "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis" },
+  "text-elipsis": { "text-overflow": "ellipsis" },
+  "text-clip": { "text-overflow": "clip" },
   // Font size.
   "text-xs": { "font-size": ".75rem" },
   "text-sm": { "font-size": ".875rem" },
