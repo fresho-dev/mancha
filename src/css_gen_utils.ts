@@ -54,7 +54,7 @@ const PROPS_CUSTOM = {
   "text-center": { "text-align": "center" },
   "text-justify": { "text-align": "justify" },
   // Text overflow.
-  "truncate": { "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis" },
+  truncate: { "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis" },
   "text-elipsis": { "text-overflow": "ellipsis" },
   "text-clip": { "text-overflow": "clip" },
   // Font size.
@@ -153,9 +153,15 @@ const PROPS_CUSTOM = {
   // Shadows.
   shadow: { "box-shadow": "0 0 1px 0 rgba(0, 0, 0, 0.05)" },
   "shadow-sm": { "box-shadow": "0 1px 2px 0 rgba(0, 0, 0, 0.05)" },
-  "shadow-md": { "box-shadow": "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)" },
-  "shadow-lg": { "box-shadow": "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)" },
-  "shadow-xl": { "box-shadow": "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)" },
+  "shadow-md": {
+    "box-shadow": "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+  },
+  "shadow-lg": {
+    "box-shadow": "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+  },
+  "shadow-xl": {
+    "box-shadow": "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+  },
   "shadow-2xl": { "box-shadow": "0 25px 50px -12px rgba(0, 0, 0, 0.25)" },
   "shadow-inner": { "box-shadow": "inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)" },
   "shadow-outline": { "box-shadow": "0 0 0 3px rgba(66, 153, 225, 0.5)" },
@@ -418,6 +424,10 @@ const PROPS_COLORS = {
   },
 };
 
+function hexColor(color: number): string {
+  return `#${color.toString(16).padStart(6, "0")}`;
+}
+
 function wrapPseudoStates(klass: string): string[] {
   return PSEUDO_STATES.map((state) => `.${state}\\:${klass}:${state}`);
 }
@@ -634,17 +644,17 @@ function colors(): string[] {
     [`border-${color}`, `border-color: ${value}`],
   ]);
   const mains = Object.entries(PROPS_COLORS).flatMap(([color, shades]) => [
-    [`text-${color}`, `color: #${shades[500].toString(16)}`],
-    [`fill-${color}`, `fill: #${shades[500].toString(16)}`],
-    [`bg-${color}`, `background-color: #${shades[500].toString(16)}`],
-    [`border-${color}`, `border-color: #${shades[500].toString(16)}`],
+    [`text-${color}`, `color: ${hexColor(shades[500])}`],
+    [`fill-${color}`, `fill: ${hexColor(shades[500])}`],
+    [`bg-${color}`, `background-color: ${hexColor(shades[500])}`],
+    [`border-${color}`, `border-color: ${hexColor(shades[500])}`],
   ]);
   const shades = Object.entries(PROPS_COLORS).flatMap(([color, shades]) =>
     Object.entries(shades).flatMap(([shade, hex]) => [
-      [`text-${color}-${shade}`, `color: #${hex.toString(16)}`],
-      [`fill-${color}-${shade}`, `fill: #${hex.toString(16)}`],
-      [`bg-${color}-${shade}`, `background-color: #${hex.toString(16)}`],
-      [`border-${color}-${shade}`, `border-color: #${hex.toString(16)}`],
+      [`text-${color}-${shade}`, `color: ${hexColor(hex)}`],
+      [`fill-${color}-${shade}`, `fill: ${hexColor(hex)}`],
+      [`bg-${color}-${shade}`, `background-color: ${hexColor(hex)}`],
+      [`border-${color}-${shade}`, `border-color: ${hexColor(hex)}`],
     ])
   );
   return ([] as string[][])
@@ -682,12 +692,11 @@ export default function rules(): string {
       ...colors(),
       // Opacity.
       ...opacity(),
+      // Position.
+      ...posneg(PROPS_POSITION),
       // Sizing.
       ...posneg(PROPS_SIZING),
       ...autoxy(PROPS_SIZING),
-      // Position.
-      ...posneg(PROPS_POSITION),
-      ...autoxy(PROPS_POSITION),
       // Spacing.
       ...tblr(PROPS_SPACING),
       ...posneg(PROPS_SPACING),
