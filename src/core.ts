@@ -117,7 +117,7 @@ export abstract class IRenderer extends SignalStore {
     // Attach ourselves as the parent of the new instance.
     instance.set("$parent", this.$);
 
-    // Add a reference to the root renderer, or assume we are the root renderer.
+    // Add a reference to the root renderer, or assume that we are the root renderer.
     instance.set("$root", this.get("$root") ?? this.$);
 
     // Custom elements are shared across all instances.
