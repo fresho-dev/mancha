@@ -183,10 +183,10 @@ export abstract class IRenderer extends SignalStore {
     // Do these steps one at a time to avoid any potential race conditions.
     for (const node of traverse(root, this._skipNodes)) {
       this.log("Rendering node:\n", nodeToString(node, 128));
-      // Resolve the :data attribute in the node.
-      await RendererPlugins.resolveDataAttribute.call(this, node, params);
       // Resolve the :for attribute in the node.
       await RendererPlugins.resolveForAttribute.call(this, node, params);
+      // Resolve the :data attribute in the node.
+      await RendererPlugins.resolveDataAttribute.call(this, node, params);
       // Resolve the :text attribute in the node.
       await RendererPlugins.resolveTextAttributes.call(this, node, params);
       // Resolve the :html attribute in the node.
