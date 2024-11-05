@@ -59,10 +59,10 @@ export declare abstract class IRenderer extends SignalStore {
      */
     preprocessLocal(fpath: string, params?: RenderParams & ParserParams): Promise<Document | DocumentFragment>;
     /**
-     * Creates a deep copy of the current renderer instance.
+     * Creates a subrenderer from the current renderer instance.
      * @returns A new instance of the renderer with the same state as the original.
      */
-    clone(): IRenderer;
+    subrenderer(): IRenderer;
     /**
      * Logs the provided arguments if debugging is enabled.
      * @param args - The arguments to be logged.

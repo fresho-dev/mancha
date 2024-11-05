@@ -386,9 +386,9 @@ describe("Plugins", () => {
         assert.equal(renderer.$.bar, 2);
         assert.equal(renderer.$.baz, undefined);
 
-        // The subrenderer has all the properties + the new one.
-        assert.equal(subrenderer.$.foo, 1);
-        assert.equal(subrenderer.$.bar, 2);
+        // The subrenderer did not inherit parent properties, it only has the new one.
+        assert.equal(subrenderer.$.foo, undefined);
+        assert.equal(subrenderer.$.bar, undefined);
         assert.equal(subrenderer.$.baz, 3);
       },
       { NodeRenderer, WorkerRenderer }
@@ -826,7 +826,7 @@ describe("Plugins", () => {
       "render HTML within a :for",
       async (ctor) => {
         const renderer = new ctor();
-        const html = `<div :for="item in items" :html="inner"></div>`;
+        const html = `<div :for="item in items" :html="$parent.inner"></div>`;
         const fragment = renderer.parseHTML(html);
 
         renderer.set("items", [{ text: "foo" }, { text: "bar" }]);

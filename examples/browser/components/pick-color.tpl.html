@@ -1,8 +1,9 @@
-<label :data="{color: 'green'}">
+<label :data="{color: 'green'}" class="flex flex-row gap-1">
   <span>Pick a color:</span>
   <select :bind="color">
     <option value="red">Red</option>
     <option value="green">Green</option>
     <option value="blue">Blue</option>
   </select>
+  <span class="rounded-sm inline-block w-6" :class="'bg-' + color"> </span>
 </label>

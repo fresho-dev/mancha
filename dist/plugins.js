@@ -164,7 +164,7 @@ export var RendererPlugins;
             // Remove the attribute from the node.
             removeAttribute(elem, ":data");
             // Create a subrenderer and process the tag, unless it's the root node.
-            const subrenderer = params?.rootNode === node ? this : this.clone();
+            const subrenderer = params?.rootNode === node ? this : this.subrenderer();
             node.renderer = subrenderer;
             // Evaluate the expression.
             const result = subrenderer.eval(dataAttr, { $elem: node });
@@ -302,7 +302,7 @@ export var RendererPlugins;
                 const awaiters = [];
                 for (const item of items) {
                     // Create a subrenderer that will hold the loop item and all node descendants.
-                    const subrenderer = this.clone();
+                    const subrenderer = this.subrenderer();
                     subrenderer.set(loopKey, item);
                     // Create a new HTML element for each item and add them to parent node.
                     const copy = node.cloneNode(true);

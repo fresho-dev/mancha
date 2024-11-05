@@ -231,7 +231,7 @@ illustrated with an example:
 ```
 
 By default, the target root element is the `body` tag. So, any variables defined in the body's
-`:data` attribute are available to the main renderer and all subrenderers.
+`:data` attribute are available to the main renderer.
 
 In the example above, the variable `message` is only available to the `<p>` tag and all elements
 under that tag, if any. Since the variables are not accessible via the global object, you'll need
