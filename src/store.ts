@@ -35,6 +35,40 @@ function isProxified<T extends object>(object: T) {
   return object instanceof SignalStore || (object as any)["__is_proxy__"];
 }
 
+export function getAncestorValue(store: Map<string, unknown>, key: string): unknown | undefined {
+  if (store.has(key)) {
+    return store.get(key);
+  } else if (store.has("$parent")) {
+    const parent = store.get("$parent") as Map<string, unknown>;
+    return getAncestorValue(parent, key);
+  } else {
+    return undefined;
+  }
+}
+
+export function getAncestorKeyStore(
+  store: Map<string, unknown>,
+  key: string
+): Map<string, unknown> | null {
+  if (store.has(key)) {
+    return store;
+  } else if (store.has("$parent")) {
+    const parent = store.get("$parent") as Map<string, unknown>;
+    return getAncestorKeyStore(parent, key);
+  } else {
+    return null;
+  }
+}
+
+export function setAncestorValue(store: Map<string, unknown>, key: string, value: unknown): void {
+  const ancestor = getAncestorKeyStore(store, key);
+  if (ancestor) {
+    ancestor.set(key, value);
+  } else {
+    store.set(key, value);
+  }
+}
+
 export class SignalStore extends IDebouncer {
   protected readonly evalkeys: string[] = ["$elem", "$event"];
   protected readonly expressionCache: Map<string, Function> = new Map();
@@ -105,7 +139,7 @@ export class SignalStore extends IDebouncer {
 
   get<T>(key: string, observer?: Observer<T>): unknown | null {
     if (observer) this.watch(key, observer);
-    return this.store.get(key);
+    return getAncestorValue(this.store, key);
   }
 
   async set(key: string, value: unknown): Promise<void> {
@@ -117,7 +151,7 @@ export class SignalStore extends IDebouncer {
     if (value && typeof value === "object") {
       value = this.wrapObject(value, callback);
     }
-    this.store.set(key, value);
+    setAncestorValue(this.store, key, value);
     await callback();
   }
 

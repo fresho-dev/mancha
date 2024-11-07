@@ -1,6 +1,6 @@
 import * as assert from "assert";
 import { describe, it } from "node:test";
-import { SignalStore } from "./store.js";
+import { getAncestorValue, SignalStore } from "./store.js";
 
 describe("SignalStore", () => {
   describe("properties", () => {
@@ -16,6 +16,25 @@ describe("SignalStore", () => {
       // Update existing value.
       await store.set("a", 0);
       assert.equal(store.get("a"), 0);
+    });
+
+    it("gets ancestor value", async () => {
+      const parent = new SignalStore({ a: 1 });
+      const child = new SignalStore({ $parent: parent });
+      const value1 = child.get("a");
+      const value2 = parent.get("a");
+      assert.equal(value1, 1);
+      assert.equal(value2, 1);
+    });
+
+    it("sets ancestor value", async () => {
+      const parent = new SignalStore({ a: 1 });
+      const child = new SignalStore({ $parent: parent });
+      child.set("a", 2);
+      const value1 = child.get("a");
+      const value2 = parent.get("a");
+      assert.equal(value1, 2);
+      assert.equal(value2, 2);
     });
   });
 
@@ -176,13 +195,13 @@ describe("SignalStore", () => {
     });
 
     it("string concatenation", async () => {
-      const store = new SignalStore({ foo: 'bar' });
+      const store = new SignalStore({ foo: "bar" });
       const result = store.eval("'foo' + foo");
       assert.equal(result, "foobar");
     });
 
     it("calling string methods", async () => {
-      const store = new SignalStore({ foo: 'bar' });
+      const store = new SignalStore({ foo: "bar" });
       const result = store.eval("('foo' + foo).toUpperCase()");
       assert.equal(result, "FOOBAR");
     });

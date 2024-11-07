@@ -25,6 +25,39 @@ const AST_FACTORY = new jexpr.EvalAstFactory();
 function isProxified(object) {
     return object instanceof SignalStore || object["__is_proxy__"];
 }
+export function getAncestorValue(store, key) {
+    if (store.has(key)) {
+        return store.get(key);
+    }
+    else if (store.has("$parent")) {
+        const parent = store.get("$parent");
+        return getAncestorValue(parent, key);
+    }
+    else {
+        return undefined;
+    }
+}
+export function getAncestorKeyStore(store, key) {
+    if (store.has(key)) {
+        return store;
+    }
+    else if (store.has("$parent")) {
+        const parent = store.get("$parent");
+        return getAncestorKeyStore(parent, key);
+    }
+    else {
+        return null;
+    }
+}
+export function setAncestorValue(store, key, value) {
+    const ancestor = getAncestorKeyStore(store, key);
+    if (ancestor) {
+        ancestor.set(key, value);
+    }
+    else {
+        store.set(key, value);
+    }
+}
 export class SignalStore extends IDebouncer {
     evalkeys = ["$elem", "$event"];
     expressionCache = new Map();
@@ -88,7 +121,7 @@ export class SignalStore extends IDebouncer {
     get(key, observer) {
         if (observer)
             this.watch(key, observer);
-        return this.store.get(key);
+        return getAncestorValue(this.store, key);
     }
     async set(key, value) {
         if (value === this.store.get(key))
@@ -100,7 +133,7 @@ export class SignalStore extends IDebouncer {
         if (value && typeof value === "object") {
             value = this.wrapObject(value, callback);
         }
-        this.store.set(key, value);
+        setAncestorValue(this.store, key, value);
         await callback();
     }
     del(key) {
