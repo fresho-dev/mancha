@@ -1,5 +1,3 @@
-import { sanitizeHtml } from "safevalues";
-import { safeRange, safeDomParser } from "safevalues/dom";
 import { IRenderer } from "./core.js";
 import { dirname } from "./dome.js";
 import { ParserParams, RenderParams } from "./interfaces.js";

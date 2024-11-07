@@ -115,10 +115,10 @@ export abstract class IRenderer extends SignalStore {
     const instance = new (this.constructor as any)().debug(this.debugging) as IRenderer;
 
     // Attach ourselves as the parent of the new instance.
-    instance.set("$parent", this.$);
+    instance.set("$parent", this);
 
     // Add a reference to the root renderer, or assume that we are the root renderer.
-    instance.set("$root", this.get("$root") ?? this.$);
+    instance.set("$root", this.get("$root") ?? this);
 
     // Custom elements are shared across all instances.
     (instance as any)._customElements = this._customElements;

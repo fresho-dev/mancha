@@ -151,7 +151,7 @@ export class SignalStore extends IDebouncer {
         const keyval = Object.fromEntries(keys.map((key) => [key, undefined]));
         return new Proxy(keyval, {
             get: (_, prop, receiver) => {
-                if (typeof prop === "string" && this.store.has(prop)) {
+                if (typeof prop === "string" && getAncestorKeyStore(this.store, prop)) {
                     return this.get(prop, observer);
                 }
                 else if (prop === "$") {

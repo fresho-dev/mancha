@@ -268,9 +268,9 @@ describe("Plugins", () => {
             assert.equal(renderer.$.foo, 1);
             assert.equal(renderer.$.bar, 2);
             assert.equal(renderer.$.baz, undefined);
-            // The subrenderer did not inherit parent properties, it only has the new one.
-            assert.equal(subrenderer.$.foo, undefined);
-            assert.equal(subrenderer.$.bar, undefined);
+            // The subrenderer inherited parent properties, and has the new one.
+            assert.equal(subrenderer.$.foo, 1);
+            assert.equal(subrenderer.$.bar, 2);
             assert.equal(subrenderer.$.baz, 3);
         }, { NodeRenderer, WorkerRenderer });
     });

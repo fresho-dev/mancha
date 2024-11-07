@@ -27,6 +27,15 @@ describe("SignalStore", () => {
       assert.equal(value2, 1);
     });
 
+    it("gets proxified ancestor value", async () => {
+      const parent = new SignalStore({ a: 1 });
+      const child = new SignalStore({ $parent: parent });
+      const value1 = child.$.a;
+      const value2 = parent.$.a;
+      assert.equal(value1, 1);
+      assert.equal(value2, 1);
+    });
+
     it("sets ancestor value", async () => {
       const parent = new SignalStore({ a: 1 });
       const child = new SignalStore({ $parent: parent });
@@ -36,6 +45,16 @@ describe("SignalStore", () => {
       assert.equal(value1, 2);
       assert.equal(value2, 2);
     });
+  });
+
+  it("sets proxified ancestor value", async () => {
+    const parent = new SignalStore({ a: 1 });
+    const child = new SignalStore({ $parent: parent });
+    child.$.a = 2;
+    const value1 = child.get("a");
+    const value2 = parent.get("a");
+    assert.equal(value1, 2);
+    assert.equal(value2, 2);
   });
 
   describe("effect", () => {
