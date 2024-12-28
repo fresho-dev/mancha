@@ -1,7 +1,7 @@
 import { ParserParams, RenderParams } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
 import { RendererPlugins } from "./plugins.js";
-import { dirname, nodeToString, traverse } from "./dome.js";
+import { dirname, nodeToString, setProperty, traverse } from "./dome.js";
 import { SignalStore } from "./store.js";
 
 export type EvalListener = (result: any, dependencies: string[]) => any;
@@ -201,8 +201,10 @@ export abstract class IRenderer extends SignalStore {
       await RendererPlugins.resolveEventAttributes.call(this, node, params);
       // Replace all the {{ variables }} in the text.
       await RendererPlugins.resolveTextNodeExpressions.call(this, node, params);
-      // Resolve the :{attr} attribute in the node.
+      // Resolve the :attr:{name} attribute in the node.
       await RendererPlugins.resolveCustomAttribute.call(this, node, params);
+      // Resolve the :prop:{name} attribute in the node.
+      await RendererPlugins.resolveCustomProperty.call(this, node, params);
     }
 
     // Return the input node, which should now be fully rendered.
@@ -226,6 +228,6 @@ export abstract class IRenderer extends SignalStore {
     await this.renderNode(root, params);
 
     // Attach ourselves to the HTML node.
-    (root as any).renderer = this;
+    setProperty(root as Element, "renderer", this);
   }
 }

@@ -595,15 +595,27 @@ describe("Plugins", () => {
             assert.equal(getTextContent(children[1]), "bar");
         }, { NodeRenderer, WorkerRenderer });
     });
-    describe(":property", () => {
-        testRenderers("processes arbitrary attributes into properties", async (ctor) => {
+    describe(":attr", () => {
+        testRenderers("processes arbitrary attributes", async (ctor) => {
             const renderer = new ctor({ foo: "example.com" });
-            const html = `<a :href="foo"></a>`;
+            const html = `<a :attr:custom-attr="foo"></a>`;
             const fragment = renderer.parseHTML(html);
             const node = fragment.firstChild;
             await renderer.mount(fragment);
-            assert.equal(getAttribute(node, ":href"), null);
-            assert.equal(node.href, "example.com");
+            assert.equal(getAttribute(node, ":attr:custom-attr"), null);
+            assert.equal(getAttribute(node, "custom-attr"), "example.com");
+        }, { NodeRenderer, WorkerRenderer });
+    });
+    describe(":prop", () => {
+        testRenderers("processes arbitrary properties", async (ctor) => {
+            const renderer = new ctor({ foo: "example.com" });
+            const html = `<a :prop:custom-prop="foo"></a>`;
+            const fragment = renderer.parseHTML(html);
+            const node = fragment.firstChild;
+            await renderer.mount(fragment);
+            assert.equal(getAttribute(node, "custom-prop"), null);
+            assert.equal(getAttribute(node, ":prop:href"), null);
+            assert.equal(node.customProp, "example.com");
         }, { NodeRenderer, WorkerRenderer });
     });
 });

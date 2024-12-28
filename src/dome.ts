@@ -1,11 +1,9 @@
 import { safeAttrPrefix } from "safevalues";
 import { safeElement } from "safevalues/dom";
 
-const SAFE_ATTRS = [
-  safeAttrPrefix`:`,
-  safeAttrPrefix`style`,
-  safeAttrPrefix`class`,
-];
+type ElementWithAttribs = Element & { attribs?: { [key: string]: string } };
+
+const SAFE_ATTRS = [safeAttrPrefix`:`, safeAttrPrefix`style`, safeAttrPrefix`class`];
 
 /**
  * Traverses the DOM tree starting from the given root node and yields each child node.
@@ -56,31 +54,40 @@ export function attributeNameToCamelCase(name: string): string {
   return name.replace(/-./g, (c) => c[1].toUpperCase());
 }
 
-export function getAttribute(elem: Element | any, name: string): string | null {
-  if (hasProperty(elem, "attribs")) return (elem as any).attribs?.[name] ?? null;
+export function getAttribute(elem: ElementWithAttribs, name: string): string | null {
+  if (hasProperty(elem, "attribs")) return elem.attribs?.[name] ?? null;
   else return elem.getAttribute?.(name);
 }
 
-export function setAttribute(elem: Element | any, name: string, value: string): void {
-  if (hasProperty(elem, "attribs")) (elem as any).attribs[name] = value;
+export function setAttribute(elem: ElementWithAttribs, name: string, value: string): void {
+  if (hasProperty(elem, "attribs")) elem.attribs!![name] = value;
+  else (elem as any).setAttribute?.(name, value);
+}
+
+export function safeSetAttribute(elem: ElementWithAttribs, name: string, value: string): void {
+  if (hasProperty(elem, "attribs")) elem.attribs!![name] = value;
   else safeElement.setPrefixedAttribute(SAFE_ATTRS, elem, name, value);
 }
 
-export function removeAttribute(elem: Element | any, name: string): void {
-  if (hasProperty(elem, "attribs")) delete elem.attribs[name];
+export function setProperty(elem: ElementWithAttribs, name: string, value: any): void {
+  (elem as any)[name] = value;
+}
+
+export function removeAttribute(elem: ElementWithAttribs, name: string): void {
+  if (hasProperty(elem, "attribs")) delete elem.attribs!![name];
   else elem.removeAttribute?.(name);
 }
 
 export function cloneAttribute(
-  elemFrom: Element | any,
-  elemDest: Element | any,
+  elemFrom: ElementWithAttribs,
+  elemDest: ElementWithAttribs,
   name: string
 ): void {
   if (hasProperty(elemFrom, "attribs") && hasProperty(elemDest, "attribs")) {
-    elemDest.attribs[name] = elemFrom.attribs[name];
+    elemDest.attribs!![name] = elemFrom.attribs!![name];
   } else {
     const attr = (elemFrom as Element)?.getAttribute?.(name);
-    setAttribute(elemDest as Element, name, attr || "");
+    safeSetAttribute(elemDest as Element, name, attr || "");
   }
 }
 
@@ -154,7 +161,7 @@ export function ellipsize(str: string | null, maxLength: number = 0): string {
 }
 
 export function nodeToString(node: Node, maxLength: number = 0): string {
-  return ellipsize((node as any).outerHTML || node.nodeValue || String(node), maxLength);
+  return ellipsize((node as HTMLElement).outerHTML || node.nodeValue || String(node), maxLength);
 }
 
 /**

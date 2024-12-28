@@ -1,6 +1,6 @@
 import { Iterator } from "./iterator.js";
 import { RendererPlugins } from "./plugins.js";
-import { dirname, nodeToString, traverse } from "./dome.js";
+import { dirname, nodeToString, setProperty, traverse } from "./dome.js";
 import { SignalStore } from "./store.js";
 /**
  * Represents an abstract class for rendering and manipulating HTML content.
@@ -163,8 +163,10 @@ export class IRenderer extends SignalStore {
             await RendererPlugins.resolveEventAttributes.call(this, node, params);
             // Replace all the {{ variables }} in the text.
             await RendererPlugins.resolveTextNodeExpressions.call(this, node, params);
-            // Resolve the :{attr} attribute in the node.
+            // Resolve the :attr:{name} attribute in the node.
             await RendererPlugins.resolveCustomAttribute.call(this, node, params);
+            // Resolve the :prop:{name} attribute in the node.
+            await RendererPlugins.resolveCustomProperty.call(this, node, params);
         }
         // Return the input node, which should now be fully rendered.
         return root;
@@ -183,6 +185,6 @@ export class IRenderer extends SignalStore {
         // Now that the DOM is complete, render all the nodes.
         await this.renderNode(root, params);
         // Attach ourselves to the HTML node.
-        root.renderer = this;
+        setProperty(root, "renderer", this);
     }
 }

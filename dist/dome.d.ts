@@ -1,3 +1,8 @@
+type ElementWithAttribs = Element & {
+    attribs?: {
+        [key: string]: string;
+    };
+};
 /**
  * Traverses the DOM tree starting from the given root node and yields each child node.
  * Nodes in the `skip` set will be skipped during traversal.
@@ -15,10 +20,12 @@ export declare function hasFunction(obj: any, func: string): boolean;
  * @returns camel-cased attribute name
  */
 export declare function attributeNameToCamelCase(name: string): string;
-export declare function getAttribute(elem: Element | any, name: string): string | null;
-export declare function setAttribute(elem: Element | any, name: string, value: string): void;
-export declare function removeAttribute(elem: Element | any, name: string): void;
-export declare function cloneAttribute(elemFrom: Element | any, elemDest: Element | any, name: string): void;
+export declare function getAttribute(elem: ElementWithAttribs, name: string): string | null;
+export declare function setAttribute(elem: ElementWithAttribs, name: string, value: string): void;
+export declare function safeSetAttribute(elem: ElementWithAttribs, name: string, value: string): void;
+export declare function setProperty(elem: ElementWithAttribs, name: string, value: any): void;
+export declare function removeAttribute(elem: ElementWithAttribs, name: string): void;
+export declare function cloneAttribute(elemFrom: ElementWithAttribs, elemDest: ElementWithAttribs, name: string): void;
 export declare function firstElementChild(elem: Element): Element | null;
 export declare function replaceWith(original: ChildNode, ...replacement: Node[]): void;
 export declare function replaceChildren(parent: ParentNode, ...nodes: Node[]): void;
@@ -40,3 +47,4 @@ export declare function dirname(fpath: string): string;
  * @returns A boolean indicating whether the file path is relative or not.
  */
 export declare function isRelativePath(fpath: string): boolean;
+export {};

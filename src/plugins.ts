@@ -13,7 +13,9 @@ import {
   removeChild,
   replaceChildren,
   replaceWith,
+  safeSetAttribute,
   setAttribute,
+  setProperty,
   traverse,
 } from "./dome.js";
 import { ParserParams, RenderParams, RendererPlugin } from "./interfaces.js";
@@ -224,7 +226,11 @@ export namespace RendererPlugins {
       // Compute the function's result.
       return this.effect(function () {
         const result = this.eval(classAttr, { $elem: node });
-        setAttribute(elem, "class", (result ? `${originalClass} ${result}` : originalClass).trim());
+        safeSetAttribute(
+          elem,
+          "class",
+          (result ? `${originalClass} ${result}` : originalClass).trim()
+        );
       });
     }
   };
@@ -439,7 +445,7 @@ export namespace RendererPlugins {
         const result = this.eval(showExpr, { $elem: node });
         // If the result is false, set the node's display to none.
         if (elem.style) elem.style.display = result ? display : "none";
-        else setAttribute(elem, "style", `display: ${result ? display : "none"};`);
+        else safeSetAttribute(elem, "style", `display: ${result ? display : "none"};`);
       });
     }
   };
@@ -448,16 +454,37 @@ export namespace RendererPlugins {
     if (this._skipNodes.has(node)) return;
     const elem = node as Element;
     for (const attr of Array.from(elem.attributes || [])) {
-      if (attr.name.startsWith(":")) {
+      const prefix = ":attr:";
+      if (attr.name.startsWith(prefix)) {
         this.log(attr.name, "attribute found in:\n", nodeToString(node, 128));
 
         // Remove the processed attributes from node.
         removeAttribute(elem, attr.name);
 
-        const propName = attributeNameToCamelCase(attr.name.substring(1));
+        const attrName = attr.name.split(prefix, 2).at(-1)!!;
+        this.effect(function () {
+          const attrValue = this.eval(attr.value, { $elem: node });
+          setAttribute(elem, attrName, attrValue as string);
+        });
+      }
+    }
+  };
+
+  export const resolveCustomProperty: RendererPlugin = async function (node, params) {
+    if (this._skipNodes.has(node)) return;
+    const elem = node as Element;
+    for (const attr of Array.from(elem.attributes || [])) {
+      const prefix = ":prop:";
+      if (attr.name.startsWith(prefix)) {
+        this.log(attr.name, "property found in:\n", nodeToString(node, 128));
+
+        // Remove the processed attributes from node.
+        removeAttribute(elem, attr.name);
+
+        const propName = attributeNameToCamelCase(attr.name.split(prefix, 2).at(-1)!!);
         this.effect(function () {
           const propValue = this.eval(attr.value, { $elem: node });
-          (elem as any)[propName] = propValue;
+          setProperty(elem, propName, propValue);
         });
       }
     }

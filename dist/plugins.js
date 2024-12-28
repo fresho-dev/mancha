@@ -1,5 +1,5 @@
 import { safeAnchorEl, safeAreaEl } from "safevalues/dom";
-import { appendChild, attributeNameToCamelCase, cloneAttribute, ellipsize, firstElementChild, getAttribute, insertBefore, isRelativePath, nodeToString, removeAttribute, removeChild, replaceChildren, replaceWith, setAttribute, traverse, } from "./dome.js";
+import { appendChild, attributeNameToCamelCase, cloneAttribute, ellipsize, firstElementChild, getAttribute, insertBefore, isRelativePath, nodeToString, removeAttribute, removeChild, replaceChildren, replaceWith, safeSetAttribute, setAttribute, setProperty, traverse, } from "./dome.js";
 import { Iterator } from "./iterator.js";
 /** @internal */
 export var RendererPlugins;
@@ -194,7 +194,7 @@ export var RendererPlugins;
             // Compute the function's result.
             return this.effect(function () {
                 const result = this.eval(classAttr, { $elem: node });
-                setAttribute(elem, "class", (result ? `${originalClass} ${result}` : originalClass).trim());
+                safeSetAttribute(elem, "class", (result ? `${originalClass} ${result}` : originalClass).trim());
             });
         }
     };
@@ -379,7 +379,7 @@ export var RendererPlugins;
                 if (elem.style)
                     elem.style.display = result ? display : "none";
                 else
-                    setAttribute(elem, "style", `display: ${result ? display : "none"};`);
+                    safeSetAttribute(elem, "style", `display: ${result ? display : "none"};`);
             });
         }
     };
@@ -388,14 +388,33 @@ export var RendererPlugins;
             return;
         const elem = node;
         for (const attr of Array.from(elem.attributes || [])) {
-            if (attr.name.startsWith(":")) {
+            const prefix = ":attr:";
+            if (attr.name.startsWith(prefix)) {
                 this.log(attr.name, "attribute found in:\n", nodeToString(node, 128));
                 // Remove the processed attributes from node.
                 removeAttribute(elem, attr.name);
-                const propName = attributeNameToCamelCase(attr.name.substring(1));
+                const attrName = attr.name.split(prefix, 2).at(-1);
+                this.effect(function () {
+                    const attrValue = this.eval(attr.value, { $elem: node });
+                    setAttribute(elem, attrName, attrValue);
+                });
+            }
+        }
+    };
+    RendererPlugins.resolveCustomProperty = async function (node, params) {
+        if (this._skipNodes.has(node))
+            return;
+        const elem = node;
+        for (const attr of Array.from(elem.attributes || [])) {
+            const prefix = ":prop:";
+            if (attr.name.startsWith(prefix)) {
+                this.log(attr.name, "property found in:\n", nodeToString(node, 128));
+                // Remove the processed attributes from node.
+                removeAttribute(elem, attr.name);
+                const propName = attributeNameToCamelCase(attr.name.split(prefix, 2).at(-1));
                 this.effect(function () {
                     const propValue = this.eval(attr.value, { $elem: node });
-                    elem[propName] = propValue;
+                    setProperty(elem, propName, propValue);
                 });
             }
         }

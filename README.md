@@ -130,6 +130,10 @@ element tag or attributes match a specific criteria. Here's the list of attribut
   ```html
   <div :data="{foo: false}" :show="foo"></div>
   ```
+- `:class` appends rendered text to existing class attribute
+  ```html
+  <span :class="error ? 'red' : 'blue'" class="text-xl">...</span>
+  ```
 - `:bind` binds (two-way) a variable to the `value` or `checked` property of the element.
   ```html
   <div :data="{ name: 'Stranger' }">
@@ -140,9 +144,13 @@ element tag or attributes match a specific criteria. Here's the list of attribut
   ```html
   <button :on:click="console.log('clicked')"></button>
   ```
-- `:{attribute}` sets the corresponding property for `attribute` in the node
+- `:attr:{name}` sets the corresponding attribute for `name` in the node
   ```html
-  <a :href="buildUrl()"></a>
+  <a :attr:href="buildUrl()"></a>
+  ```
+- `:prop:{name}` sets the corresponding property for (camel-case converted) `name` in the node
+  ```html
+  <video :prop:src="buildSrc()"></video>
   ```
 - `{{ value }}` replaces `value` in text nodes
   ```html
