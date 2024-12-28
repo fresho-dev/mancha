@@ -605,6 +605,15 @@ describe("Plugins", () => {
             assert.equal(getAttribute(node, ":attr:custom-attr"), null);
             assert.equal(getAttribute(node, "custom-attr"), "example.com");
         }, { NodeRenderer, WorkerRenderer });
+        testRenderers("processes href attributes", async (ctor) => {
+            const renderer = new ctor({ foo: "example.com" });
+            const html = `<a :attr:href="foo"></a>`;
+            const fragment = renderer.parseHTML(html);
+            const node = fragment.firstChild;
+            await renderer.mount(fragment);
+            assert.equal(getAttribute(node, ":attr:href"), null);
+            assert.equal(getAttribute(node, "href"), "example.com");
+        }, { NodeRenderer, WorkerRenderer });
     });
     describe(":prop", () => {
         testRenderers("processes arbitrary properties", async (ctor) => {
@@ -614,8 +623,16 @@ describe("Plugins", () => {
             const node = fragment.firstChild;
             await renderer.mount(fragment);
             assert.equal(getAttribute(node, "custom-prop"), null);
-            assert.equal(getAttribute(node, ":prop:href"), null);
             assert.equal(node.customProp, "example.com");
+        }, { NodeRenderer, WorkerRenderer });
+        testRenderers("processes href properties", async (ctor) => {
+            const renderer = new ctor({ foo: "example.com" });
+            const html = `<a :prop:href="foo"></a>`;
+            const fragment = renderer.parseHTML(html);
+            const node = fragment.firstChild;
+            await renderer.mount(fragment);
+            assert.equal(getAttribute(node, ":prop:href"), null);
+            assert.equal(node.href, "example.com");
         }, { NodeRenderer, WorkerRenderer });
     });
 });
