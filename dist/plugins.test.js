@@ -1,12 +1,10 @@
-import * as assert from "assert";
 import * as path from "path";
-import { describe, it } from "node:test";
 import { JSDOM } from "jsdom";
 import { Renderer as NodeRenderer } from "./index.js";
 import { Renderer as WorkerRenderer } from "./worker.js";
 import { getAttribute } from "./dome.js";
 import { REACTIVE_DEBOUNCE_MILLIS } from "./store.js";
-import { getTextContent, innerHTML } from "./test_utils.js";
+import { assert, getTextContent, innerHTML } from "./test_utils.js";
 function testRenderers(testName, testCode, rendererClasses = {}) {
     for (const [label, ctor] of Object.entries(rendererClasses)) {
         describe(label, () => {
@@ -16,7 +14,7 @@ function testRenderers(testName, testCode, rendererClasses = {}) {
                 }
                 catch (exc) {
                     console.error(exc);
-                    assert.fail(exc);
+                    assert.fail(exc.message);
                 }
             });
         });
@@ -378,7 +376,7 @@ describe("Plugins", () => {
             const fragment = renderer.parseHTML(html);
             const node = fragment.firstChild;
             const parent = node.parentNode;
-            assert.notEqual(parent, null);
+            assert.ok(parent);
             // Create renderer with no array => fails.
             await renderer.mount(fragment);
             assert.equal(renderer.get("item"), null);

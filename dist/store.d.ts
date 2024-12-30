@@ -8,7 +8,7 @@ declare abstract class IDebouncer {
 }
 /** Default debouncer time in millis. */
 export declare const REACTIVE_DEBOUNCE_MILLIS = 10;
-export declare function getAncestorValue(store: Map<string, unknown>, key: string): unknown | undefined;
+export declare function getAncestorValue(store: Map<string, unknown>, key: string): unknown | null;
 export declare function getAncestorKeyStore(store: Map<string, unknown>, key: string): Map<string, unknown> | null;
 export declare function setAncestorValue(store: Map<string, unknown>, key: string, value: unknown): void;
 export declare class SignalStore extends IDebouncer {

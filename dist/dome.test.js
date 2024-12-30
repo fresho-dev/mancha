@@ -1,8 +1,7 @@
-import * as assert from "assert";
 import * as htmlparser2 from "htmlparser2";
-import { describe, it } from "node:test";
 import { JSDOM } from "jsdom";
 import { appendChild, attributeNameToCamelCase, getAttribute, insertBefore, replaceChildren, traverse, } from "./dome.js";
+import { assert } from "./test_utils.js";
 const HTML_PARSERS = {
     jsdom: (html) => JSDOM.fragment(html),
     htmlparser2: (html) => htmlparser2.parseDocument(html),

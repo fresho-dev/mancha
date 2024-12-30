@@ -1,6 +1,4 @@
-import * as assert from "assert";
 import * as htmlparser2 from "htmlparser2";
-import { describe, it } from "node:test";
 import { JSDOM } from "jsdom";
 import {
   appendChild,
@@ -10,7 +8,7 @@ import {
   replaceChildren,
   traverse,
 } from "./dome.js";
-import { getTextContent } from "./test_utils.js";
+import { assert } from "./test_utils.js";
 
 const HTML_PARSERS = {
   jsdom: (html: string) => JSDOM.fragment(html),

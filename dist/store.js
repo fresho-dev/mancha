@@ -34,7 +34,7 @@ export function getAncestorValue(store, key) {
         return getAncestorValue(parent, key);
     }
     else {
-        return undefined;
+        return null;
     }
 }
 export function getAncestorKeyStore(store, key) {

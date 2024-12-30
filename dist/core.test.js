@@ -1,7 +1,6 @@
-import * as assert from "assert";
-import { describe, it } from "node:test";
 import { JSDOM } from "jsdom";
 import { IRenderer } from "./core.js";
+import { assert } from "./test_utils.js";
 class MockRenderer extends IRenderer {
     parseHTML(content, params) {
         throw new Error("Not implemented.");

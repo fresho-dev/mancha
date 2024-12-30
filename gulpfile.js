@@ -13,7 +13,9 @@ GulpClient.task("clean", function (done) {
 
 GulpClient.task("ts", function (done) {
   return exec("tsec -p .", (err, stdout, stderr) => {
-    done(err || stderr);
+    if (stdout) console.log(stdout);
+    if (stderr) console.error(stderr);
+    done(err || new Error(stderr));
   });
 });
 

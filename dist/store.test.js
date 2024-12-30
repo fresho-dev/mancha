@@ -1,6 +1,5 @@
-import * as assert from "assert";
-import { describe, it } from "node:test";
 import { SignalStore } from "./store.js";
+import { assert } from "./test_utils.js";
 describe("SignalStore", () => {
     describe("properties", () => {
         it("init, get and set", async () => {
@@ -130,11 +129,11 @@ describe("SignalStore", () => {
                 store.effect(() => {
                     throw error;
                 });
-            }, error);
+            }, error.message);
             // Asynchronous.
             await assert.rejects(store.effect(async () => {
                 throw error;
-            }), error);
+            }), error.message);
         });
     });
     describe("eval", () => {

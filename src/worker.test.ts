@@ -1,8 +1,7 @@
-import * as assert from "assert";
-import { describe, it } from "node:test";
 import { JSDOM } from "jsdom";
 import { Renderer } from "./worker.js";
 import { traverse } from "./dome.js";
+import { assert } from "./test_utils.js";
 
 describe("Worker", () => {
   describe("parse and serialize", () => {

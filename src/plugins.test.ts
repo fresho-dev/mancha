@@ -1,13 +1,11 @@
-import * as assert from "assert";
 import * as path from "path";
-import { describe, it } from "node:test";
 import { JSDOM } from "jsdom";
 import { IRenderer } from "./core.js";
 import { Renderer as NodeRenderer } from "./index.js";
 import { Renderer as WorkerRenderer } from "./worker.js";
 import { getAttribute } from "./dome.js";
 import { REACTIVE_DEBOUNCE_MILLIS } from "./store.js";
-import { getTextContent, innerHTML } from "./test_utils.js";
+import { assert, getTextContent, innerHTML } from "./test_utils.js";
 
 function testRenderers(
   testName: string,
@@ -21,7 +19,7 @@ function testRenderers(
           await testCode(ctor);
         } catch (exc) {
           console.error(exc);
-          assert.fail(exc as Error);
+          assert.fail((exc as Error).message);
         }
       });
     });
@@ -529,7 +527,7 @@ describe("Plugins", () => {
         const fragment = renderer.parseHTML(html);
         const node = fragment.firstChild as HTMLElement;
         const parent = node.parentNode;
-        assert.notEqual(parent, null);
+        assert.ok(parent);
 
         // Create renderer with no array => fails.
         await renderer.mount(fragment);

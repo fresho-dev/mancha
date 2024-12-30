@@ -35,14 +35,14 @@ function isProxified<T extends object>(object: T) {
   return object instanceof SignalStore || (object as any)["__is_proxy__"];
 }
 
-export function getAncestorValue(store: Map<string, unknown>, key: string): unknown | undefined {
+export function getAncestorValue(store: Map<string, unknown>, key: string): unknown | null {
   if (store.has(key)) {
     return store.get(key);
   } else if (store.has("$parent")) {
     const parent = store.get("$parent") as Map<string, unknown>;
     return getAncestorValue(parent, key);
   } else {
-    return undefined;
+    return null;
   }
 }
 

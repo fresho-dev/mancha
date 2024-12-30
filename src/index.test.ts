@@ -1,11 +1,10 @@
-import * as assert from "assert";
 import * as fs from "fs";
 import * as path from "path";
 // @ts-ignore
 import * as StaticServer from "static-server";
 import { fileURLToPath } from "url";
-import { after, before, describe, it } from "node:test";
 import { Renderer } from "./index.js";
+import { assert } from "./test_utils.js";
 
 // Fix `__filename` and `__dirname`: https://stackoverflow.com/a/64383997.
 const __filename = fileURLToPath(import.meta.url);
