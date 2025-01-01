@@ -3,7 +3,7 @@ import { safeRange, safeDomParser } from "safevalues/dom";
 import { dirname } from "./dome.js";
 import { IRenderer } from "./core.js";
 export class Renderer extends IRenderer {
-    dirpath = dirname(self.location.href);
+    dirpath = dirname(globalThis.location?.href ?? "");
     parseHTML(content, params = { rootDocument: false }) {
         if (params.rootDocument) {
             const parser = new DOMParser();

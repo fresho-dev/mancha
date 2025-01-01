@@ -1,5 +1,5 @@
 import { safeAnchorEl, safeAreaEl } from "safevalues/dom";
-import { appendChild, attributeNameToCamelCase, cloneAttribute, ellipsize, firstElementChild, getAttribute, insertBefore, isRelativePath, nodeToString, removeAttribute, removeChild, replaceChildren, replaceWith, safeSetAttribute, setAttribute, setProperty, traverse, } from "./dome.js";
+import { appendChild, attributeNameToCamelCase, cloneAttribute, ellipsize, firstElementChild, getAttribute, getAttributeOrDataset, insertBefore, isRelativePath, nodeToString, removeAttribute, removeChild, replaceChildren, replaceWith, safeSetAttribute, setAttribute, setProperty, traverse, } from "./dome.js";
 import { Iterator } from "./iterator.js";
 /** @internal */
 export var RendererPlugins;
@@ -103,11 +103,11 @@ export var RendererPlugins;
     };
     RendererPlugins.registerCustomElements = async function (node, params) {
         const elem = node;
-        if (elem.tagName?.toLowerCase() === "template" && getAttribute(elem, "is")) {
-            const tagName = getAttribute(elem, "is")?.toLowerCase();
-            if (!this._customElements.has(tagName)) {
-                this.log(`Registering custom element: ${tagName}\n`, nodeToString(elem, 128));
-                this._customElements.set(tagName, elem.cloneNode(true));
+        const customTagName = getAttributeOrDataset(elem, "is")?.toLowerCase();
+        if (elem.tagName?.toLowerCase() === "template" && customTagName) {
+            if (!this._customElements.has(customTagName)) {
+                this.log(`Registering custom element: ${customTagName}\n`, nodeToString(elem, 128));
+                this._customElements.set(customTagName, elem.cloneNode(true));
                 // Remove the node from the DOM.
                 removeChild(elem.parentNode, elem);
             }

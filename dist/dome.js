@@ -47,6 +47,10 @@ export function getAttribute(elem, name) {
     else
         return elem.getAttribute?.(name);
 }
+export function getAttributeOrDataset(elem, name, attributePrefix = "") {
+    return (getAttribute(elem, attributePrefix + name) ||
+        (elem.dataset?.[attributeNameToCamelCase(name)] ?? null));
+}
 export function setAttribute(elem, name, value) {
     if (hasProperty(elem, "attribs"))
         elem.attribs[name] = value;
@@ -71,6 +75,10 @@ export function removeAttribute(elem, name) {
 export function cloneAttribute(elemFrom, elemDest, name) {
     if (hasProperty(elemFrom, "attribs") && hasProperty(elemDest, "attribs")) {
         elemDest.attribs[name] = elemFrom.attribs[name];
+    }
+    else if (name.startsWith("data-")) {
+        const datasetKey = attributeNameToCamelCase(name.slice(5));
+        elemDest.dataset[datasetKey] = elemFrom.dataset?.[datasetKey];
     }
     else {
         const attr = elemFrom?.getAttribute?.(name);

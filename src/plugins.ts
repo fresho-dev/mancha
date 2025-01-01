@@ -1,4 +1,4 @@
-import { safeAnchorEl, safeAreaEl } from "safevalues/dom";
+import { safeAnchorEl, safeAreaEl, safeInputEl } from "safevalues/dom";
 import {
   appendChild,
   attributeNameToCamelCase,
@@ -6,6 +6,7 @@ import {
   ellipsize,
   firstElementChild,
   getAttribute,
+  getAttributeOrDataset,
   insertBefore,
   isRelativePath,
   nodeToString,
@@ -122,11 +123,11 @@ export namespace RendererPlugins {
 
   export const registerCustomElements: RendererPlugin = async function (node, params) {
     const elem = node as Element;
-    if (elem.tagName?.toLowerCase() === "template" && getAttribute(elem, "is")) {
-      const tagName = getAttribute(elem, "is")?.toLowerCase() as string;
-      if (!this._customElements.has(tagName)) {
-        this.log(`Registering custom element: ${tagName}\n`, nodeToString(elem, 128));
-        this._customElements.set(tagName, elem.cloneNode(true));
+    const customTagName = getAttributeOrDataset(elem, "is")?.toLowerCase();
+    if (elem.tagName?.toLowerCase() === "template" && customTagName) {
+      if (!this._customElements.has(customTagName)) {
+        this.log(`Registering custom element: ${customTagName}\n`, nodeToString(elem, 128));
+        this._customElements.set(customTagName, elem.cloneNode(true));
         // Remove the node from the DOM.
         removeChild(elem.parentNode!!, elem);
       }

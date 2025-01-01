@@ -9,7 +9,9 @@
   "scripts": {
     "clean": "rm -rf dist/",
     "build": "gulp build && webpack",
-    "test": "npx mocha dist/*.test.js",
+    "test_node": "mocha dist/*.test.js",
+    "test_browser": "web-test-runner --node-resolve --compatibility all --puppeteer dist/*browser.test.js",
+    "test": "npm run test_node && npm run test_browser",
     "webpack": "webpack",
     "cli": "node dist/cli.js"
   },

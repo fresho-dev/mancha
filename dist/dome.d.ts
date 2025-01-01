@@ -1,4 +1,5 @@
 type ElementWithAttribs = Element & {
+    dataset?: DOMStringMap;
     attribs?: {
         [key: string]: string;
     };
@@ -21,6 +22,7 @@ export declare function hasFunction(obj: any, func: string): boolean;
  */
 export declare function attributeNameToCamelCase(name: string): string;
 export declare function getAttribute(elem: ElementWithAttribs, name: string): string | null;
+export declare function getAttributeOrDataset(elem: ElementWithAttribs, name: string, attributePrefix?: string): string | null;
 export declare function setAttribute(elem: ElementWithAttribs, name: string, value: string): void;
 export declare function safeSetAttribute(elem: ElementWithAttribs, name: string, value: string): void;
 export declare function setProperty(elem: ElementWithAttribs, name: string, value: any): void;

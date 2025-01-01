@@ -1,6 +1,6 @@
 import * as htmlparser2 from "htmlparser2";
 import { JSDOM } from "jsdom";
-import { appendChild, attributeNameToCamelCase, getAttribute, insertBefore, replaceChildren, traverse, } from "./dome.js";
+import { appendChild, attributeNameToCamelCase, cloneAttribute, getAttribute, getAttributeOrDataset, insertBefore, replaceChildren, traverse, } from "./dome.js";
 import { assert } from "./test_utils.js";
 const HTML_PARSERS = {
     jsdom: (html) => JSDOM.fragment(html),
@@ -59,6 +59,38 @@ describe("Dome", () => {
         });
         it("converts to camel case", () => {
             assert.equal(attributeNameToCamelCase("foo-bar"), "fooBar");
+        });
+        it('gets attribute ":foo-baz"', () => {
+            const fragment = JSDOM.fragment('<div :foo-baz="bar"></div>');
+            const node = fragment.childNodes[0];
+            assert.equal(getAttributeOrDataset(node, "foo-baz", ":"), "bar");
+        });
+        it('gets dataset attribute "foo"', () => {
+            const fragment = JSDOM.fragment('<div data-foo-baz="bar"></div>');
+            const node = fragment.childNodes[0];
+            assert.equal(getAttributeOrDataset(node, "foo-baz", ":"), "bar");
+        });
+    });
+    describe("clone attribute", () => {
+        it('clones ":foo" attribute', () => {
+            const fragment = JSDOM.fragment('<div :foo="bar"></div><div></div>');
+            const node = fragment.childNodes[0];
+            const clone = fragment.childNodes[1];
+            cloneAttribute(node, clone, ":foo");
+            assert.equal(getAttribute(clone, ":foo"), "bar");
+        });
+        it('clones "data-foo" attribute', () => {
+            const fragment = JSDOM.fragment('<div data-foo="bar"></div><div></div>');
+            const node = fragment.childNodes[0];
+            const clone = fragment.childNodes[1];
+            cloneAttribute(node, clone, "data-foo");
+            assert.equal(getAttribute(clone, "data-foo"), "bar");
+        });
+        it('fails to clone unsafe "foo" attribute', () => {
+            const fragment = JSDOM.fragment('<div foo="bar"></div><div></div>');
+            const node = fragment.childNodes[0];
+            const clone = fragment.childNodes[1];
+            assert.throws(() => cloneAttribute(node, clone, "foo"));
         });
     });
     describe("get and set node value", () => {

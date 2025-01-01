@@ -5,7 +5,7 @@ import { ParserParams, RenderParams } from "./interfaces.js";
 import { IRenderer } from "./core.js";
 
 export class Renderer extends IRenderer {
-  protected readonly dirpath: string = dirname(self.location.href);
+  protected readonly dirpath: string = dirname(globalThis.location?.href ?? "");
   parseHTML(
     content: string,
     params: ParserParams = { rootDocument: false }

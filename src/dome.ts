@@ -1,7 +1,10 @@
 import { safeAttrPrefix } from "safevalues";
 import { safeElement } from "safevalues/dom";
 
-type ElementWithAttribs = Element & { attribs?: { [key: string]: string } };
+type ElementWithAttribs = Element & {
+  dataset?: DOMStringMap;
+  attribs?: { [key: string]: string };
+};
 
 const SAFE_ATTRS = [safeAttrPrefix`:`, safeAttrPrefix`style`, safeAttrPrefix`class`];
 
@@ -59,6 +62,17 @@ export function getAttribute(elem: ElementWithAttribs, name: string): string | n
   else return elem.getAttribute?.(name);
 }
 
+export function getAttributeOrDataset(
+  elem: ElementWithAttribs,
+  name: string,
+  attributePrefix: string = ""
+): string | null {
+  return (
+    getAttribute(elem, attributePrefix + name) ||
+    (elem.dataset?.[attributeNameToCamelCase(name)] ?? null)
+  );
+}
+
 export function setAttribute(elem: ElementWithAttribs, name: string, value: string): void {
   if (hasProperty(elem, "attribs")) elem.attribs!![name] = value;
   else (elem as any).setAttribute?.(name, value);
@@ -85,6 +99,9 @@ export function cloneAttribute(
 ): void {
   if (hasProperty(elemFrom, "attribs") && hasProperty(elemDest, "attribs")) {
     elemDest.attribs!![name] = elemFrom.attribs!![name];
+  } else if (name.startsWith("data-")) {
+    const datasetKey = attributeNameToCamelCase(name.slice(5));
+    elemDest.dataset![datasetKey] = elemFrom.dataset?.[datasetKey];
   } else {
     const attr = (elemFrom as Element)?.getAttribute?.(name);
     safeSetAttribute(elemDest as Element, name, attr || "");
