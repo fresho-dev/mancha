@@ -10,6 +10,7 @@ import {
   insertBefore,
   isRelativePath,
   nodeToString,
+  removeAttributeOrDataset,
   removeAttribute,
   removeChild,
   replaceChildren,
@@ -95,29 +96,29 @@ export namespace RendererPlugins {
 
     // Early exit: if there is no element attribute to rebase, we can skip this step.
     const pathref = src || href;
-    if (pathref && isRelativePath(pathref)) {
-      const relpath = `${params.dirpath}/${pathref}`;
-      this.log("Rebasing relative path as:", relpath);
+    if (!pathref || !isRelativePath(pathref)) return;
 
-      if (tagName === "img") {
-        (elem as HTMLImageElement).src = relpath;
-      } else if (tagName === "a") {
-        safeAnchorEl.setHref(elem as HTMLAnchorElement, relpath);
-      } else if (tagName === "source") {
-        (elem as HTMLSourceElement).src = relpath;
-      } else if (tagName === "audio") {
-        (elem as HTMLAudioElement).src = relpath;
-      } else if (tagName === "video") {
-        (elem as HTMLVideoElement).src = relpath;
-      } else if (tagName === "track") {
-        (elem as HTMLTrackElement).src = relpath;
-      } else if (tagName === "input") {
-        (elem as HTMLInputElement).src = relpath;
-      } else if (tagName === "area") {
-        safeAreaEl.setHref(elem as HTMLAreaElement, relpath);
-      } else {
-        this.log("Unable to rebase relative path for element:", tagName);
-      }
+    const relpath = `${params.dirpath}/${pathref}`;
+    this.log("Rebasing relative path as:", relpath);
+
+    if (tagName === "img") {
+      (elem as HTMLImageElement).src = relpath;
+    } else if (tagName === "a") {
+      safeAnchorEl.setHref(elem as HTMLAnchorElement, relpath);
+    } else if (tagName === "source") {
+      (elem as HTMLSourceElement).src = relpath;
+    } else if (tagName === "audio") {
+      (elem as HTMLAudioElement).src = relpath;
+    } else if (tagName === "video") {
+      (elem as HTMLVideoElement).src = relpath;
+    } else if (tagName === "track") {
+      (elem as HTMLTrackElement).src = relpath;
+    } else if (tagName === "input") {
+      (elem as HTMLInputElement).src = relpath;
+    } else if (tagName === "area") {
+      safeAreaEl.setHref(elem as HTMLAreaElement, relpath);
+    } else {
+      this.log("Unable to rebase relative path for element:", tagName);
     }
   };
 
@@ -303,12 +304,12 @@ export namespace RendererPlugins {
   export const resolveForAttribute: RendererPlugin = async function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as Element;
-    const forAttr = getAttribute(elem, ":for")?.trim();
+    const forAttr = getAttributeOrDataset(elem, "for", ":")?.trim();
     if (forAttr) {
       this.log(":for attribute found in:\n", nodeToString(node, 128));
 
       // Remove the processed attributes from node.
-      removeAttribute(elem, ":for");
+      removeAttributeOrDataset(elem, "for", ":");
 
       // Ensure the node and its children are not processed by subsequent steps.
       for (const child of traverse(node, this._skipNodes)) {

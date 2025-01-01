@@ -92,6 +92,15 @@ export function removeAttribute(elem: ElementWithAttribs, name: string): void {
   else elem.removeAttribute?.(name);
 }
 
+export function removeAttributeOrDataset(
+  elem: ElementWithAttribs,
+  name: string,
+  prefix: string = ""
+): void {
+  removeAttribute(elem, `${prefix}${name}`);
+  removeAttribute(elem, `data-${name}`);
+}
+
 export function cloneAttribute(
   elemFrom: ElementWithAttribs,
   elemDest: ElementWithAttribs,
