@@ -5,10 +5,11 @@
   "main": "dist/index.js",
   "type": "module",
   "types": "dist/index.d.ts",
-  "unpkg": "dist/mancha.js",
+  "unpkg": "mancha.js",
   "scripts": {
     "clean": "rm -rf dist/",
     "build": "gulp build && webpack",
+    "preinstall": "npm run build",
     "test_node": "mocha dist/*.test.js",
     "test_browser": "web-test-runner --node-resolve --compatibility all --puppeteer dist/*browser.test.js",
     "test": "npm run test_node && npm run test_browser",
