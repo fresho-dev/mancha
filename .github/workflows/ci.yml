@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: npm install --include=dev
+      - name: Build project
+        run: npm run build
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    name: Test
+    steps:
+      - name: Test project
+        run: npm run test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'dist'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
