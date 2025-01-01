@@ -68,3 +68,6 @@ typings/
 
 # example build outputs
 public/
+
+# Binary assets are served via Github Pages
+dist/
