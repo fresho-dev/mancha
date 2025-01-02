@@ -10,6 +10,7 @@
     "strict": true,
     "stripInternal": true,
     "moduleResolution": "node",
+    "types": ["mocha"],
     "plugins": [
       {
         "name": "tsec",
