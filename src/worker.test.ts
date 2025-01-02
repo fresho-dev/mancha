@@ -5,7 +5,7 @@ import { assert } from "./test_utils.js";
 import { testSuite as pluginsTestSuite } from "./plugins.test.js";
 import { testSuite as ssrTestSuite } from "./ssr.test.js";
 
-describe("htmlparser2", () => {
+describe("Worker Renderer Implementation", () => {
   // Plugins test suite.
   pluginsTestSuite(Renderer);
 

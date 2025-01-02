@@ -63,7 +63,8 @@ front-end development. Whether you decide to break up your app into reusable par
 `<include>` or create custom web components, you can write HTML as if your mother was watching.
 
 `mancha` implements its own reactivity engine, so the bundled browser module contains no external
-dependencies.
+dependencies with the exception of [`jexpr`][jexpr] for safe expression evaluation (see the
+[dependencies section](#dependencies)).
 
 ## Preprocessing
 
@@ -161,7 +162,7 @@ element tag or attributes match a specific criteria. Here's the list of attribut
 
 To avoid violation of Content Security Policy (CSP) that forbids the use of `eval()`, `Mancha`
 evaluates all expressions using [`jexpr`][jexpr]. This means that only simple expressions are
-allowed, and spaces must be used to separate different expressions tokens. For example:
+allowed, and spaces must be used to separate different expression tokens. For example:
 
 ```html
 <!-- Valid expression: string concatenation -->
@@ -218,13 +219,13 @@ allowed, and spaces must be used to separate different expressions tokens. For e
 </body>
 ```
 
-## Scoping
+## Variable Scoping
 
 Contents of the `:data` attribute are only available to subnodes in the HTML tree. This is better
 illustrated with an example:
 
 ```html
-<body :data="{ name: 'stranger' }">
+<body :data="{ name: 'stranger', key: '1234' }">
   <!-- Hello, stranger -->
   <h1>Hello, {{ name }}</h1>
 
@@ -233,7 +234,7 @@ illustrated with an example:
 
   <!-- How are you, danger? The secret message is "secret" -->
   <p :data="{ name: 'danger', message: 'secret' }">
-    How are you, {{ name }}? The secret message is: "{{ message }}".
+    How are you, {{ name }}? The secret message is: "{{ message }}"".
   </p>
 </body>
 ```
@@ -264,6 +265,19 @@ const subrenderer = document.querySelector("p").renderer;
 // This modifies the `message` variable only in the `<p>` tag.
 subrenderer.$.message = "banana";
 ```
+
+To access variables defined in the parent renderer, you can use the subrenderer's `$parent`
+attribute:
+
+```html
+<body :data="{ name: 'stranger' }">
+  <!-- Hello, stranger! -->
+  <p :data="{}">Hello, {{ $parent.name }}!</p>
+</body>
+```
+
+Renderers also have a `$root` attribute, which references the root element where `mancha` was
+mounted and defaults to the document's body, unless explicitly provided.
 
 ## Styling
 
