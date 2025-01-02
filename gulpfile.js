@@ -11,12 +11,13 @@ GulpClient.task("clean", function (done) {
 
 // Build tasks
 
-GulpClient.task("ts", function (done) {
-  return exec("tsec -p .", (err, stdout, stderr) => {
-    if (stdout) console.log(stdout);
-    if (stderr) console.error(stderr);
-    done(err || new Error(stderr));
-  });
+GulpClient.task("ts", async function (done) {
+  const { err, stderr, stdout } = await new Promise((resolve) =>
+    exec("tsec -p .", (err, stdout, stderr) => resolve({ err, stdout, stderr }))
+  );
+  if (stdout) console.log(stdout);
+  if (stderr) console.error(stderr);
+  done(err);
 });
 
 GulpClient.task("css", function () {
