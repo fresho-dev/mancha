@@ -1,22 +1,54 @@
-import { sanitizeHtml } from "safevalues";
-import { safeRange, safeDomParser } from "safevalues/dom";
+import { HtmlSanitizerBuilder } from "safevalues";
+import { safeDomParser } from "safevalues/dom";
 import { dirname } from "./dome.js";
 import { ParserParams, RenderParams } from "./interfaces.js";
-import { IRenderer } from "./core.js";
+import { IRenderer } from "./renderer.js";
+
+const TRUSTED_ATTRIBS = [
+  ":data",
+  ":for",
+  ":text",
+  ":html",
+  ":show",
+  ":class",
+  ":bind",
+  ":on:click",
+  ":on:input",
+  ":on:change",
+  ":on:submit",
+  ":attr:src",
+  ":attr:href",
+  ":attr:title",
+  ":prop:checked",
+  ":prop:selected",
+  ":prop:disabled",
+];
 
 export class Renderer extends IRenderer {
-  protected readonly dirpath: string = dirname(globalThis.location?.href ?? "");
+  readonly impl = "safe_browser";
+  protected readonly dirpath: string = dirname(globalThis.location?.href ?? "http://localhost/");
   parseHTML(
     content: string,
     params: ParserParams = { rootDocument: false }
   ): Document | DocumentFragment {
+    // Replace all attributes in content from :colon:notation to data-dash-notation.
+    for (const attr of TRUSTED_ATTRIBS) {
+      content = content.replace(
+        new RegExp(`\\s:${attr.slice(1)}=`, "g"),
+        ` data-${attr.slice(1).replace(":", "-")}=`
+      );
+    }
+
+    const sanitizer = new HtmlSanitizerBuilder()
+      .allowClassAttributes()
+      .allowStyleAttributes()
+      .allowDataAttributes(TRUSTED_ATTRIBS.map((attr) => `data-${attr.slice(1).replace(":", "-")}`))
+      .build();
     if (params.rootDocument) {
       const parser = new DOMParser();
-      return safeDomParser.parseFromString(parser, sanitizeHtml(content), "text/html");
+      return safeDomParser.parseFromString(parser, sanitizer.sanitize(content), "text/html");
     } else {
-      const range = document.createRange();
-      range.selectNodeContents(document.body);
-      return safeRange.createContextualFragment(range, sanitizeHtml(content));
+      return sanitizer.sanitizeToFragment(content);
     }
   }
   serializeHTML(root: Node | DocumentFragment): string {
