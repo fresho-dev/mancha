@@ -19,6 +19,7 @@ import {
   setAttribute,
   setProperty,
   traverse,
+  hasProperty,
 } from "./dome.js";
 import { ParserParams, RenderParams, RendererPlugin } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
@@ -42,7 +43,7 @@ export namespace RendererPlugins {
     // The included file will replace this tag, and all elements will be fully preprocessed.
     const handler = (fragment: Document | DocumentFragment) => {
       // Add whatever attributes the include tag had to the first child.
-      const child = fragment.firstChild as Element | null;
+      const child = firstElementChild(fragment as unknown as Element);
       for (const attr of Array.from(elem.attributes)) {
         if (child && attr.name !== "src") cloneAttribute(elem, child, attr.name);
       }
@@ -101,7 +102,9 @@ export namespace RendererPlugins {
     const relpath = `${params.dirpath}/${pathref}`;
     this.log("Rebasing relative path as:", relpath);
 
-    if (tagName === "img") {
+    if (hasProperty(elem, "attribs")) {
+      setAttribute(elem, src ? "src" : "href", relpath);
+    } else if (tagName === "img") {
       (elem as HTMLImageElement).src = relpath;
     } else if (tagName === "a") {
       safeAnchorEl.setHref(elem as HTMLAnchorElement, relpath);

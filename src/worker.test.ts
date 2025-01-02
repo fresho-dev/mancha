@@ -2,8 +2,16 @@ import { JSDOM } from "jsdom";
 import { Renderer } from "./worker.js";
 import { traverse } from "./dome.js";
 import { assert } from "./test_utils.js";
+import { testSuite as pluginsTestSuite } from "./plugins.test.js";
+import { testSuite as ssrTestSuite } from "./ssr.test.js";
 
-describe("Worker", () => {
+describe("htmlparser2", () => {
+  // Plugins test suite.
+  pluginsTestSuite(Renderer);
+
+  // Server-side rendering test suite.
+  ssrTestSuite(Renderer);
+
   describe("parse and serialize", () => {
     it("simple string", () => {
       const renderer = new Renderer();

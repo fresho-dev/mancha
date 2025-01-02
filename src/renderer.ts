@@ -11,6 +11,7 @@ export type EvalListener = (result: any, dependencies: string[]) => any;
  * Extends the `ReactiveProxyStore` class.
  */
 export abstract class IRenderer extends SignalStore {
+  abstract readonly impl: string;
   protected debugging: boolean = false;
   protected readonly dirpath: string = "";
   readonly _skipNodes: Set<Node> = new Set();

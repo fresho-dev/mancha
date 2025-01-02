@@ -1,8 +1,9 @@
-import { IRenderer } from "./core.js";
+import { IRenderer } from "./renderer.js";
 import { dirname } from "./dome.js";
 import { ParserParams, RenderParams } from "./interfaces.js";
 export class Renderer extends IRenderer {
-  protected readonly dirpath: string = dirname(globalThis.location?.href ?? "");
+  readonly impl = "browser";
+  protected readonly dirpath: string = dirname(globalThis.location?.href ?? "http://localhost/");
   parseHTML(
     content: string,
     params: ParserParams = { rootDocument: false }

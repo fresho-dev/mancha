@@ -1,27 +1,11 @@
 import { Renderer } from "./browser.js";
-import { assert } from "./test_utils.js";
+import { testSuite as pluginsTestSuite } from "./plugins.test.js";
+import { testSuite as rendererTestSuite } from "./renderer.test.js";
 
-(typeof window === "undefined" ? xdescribe : describe)("Browser", () => {
-  describe("parseHTML", () => {
-    it("parses root document", () => {
-      const renderer = new Renderer();
-      const html = "<html><head></head><body></body></html>";
-      const doc = renderer.parseHTML(html, { rootDocument: true });
-      assert.ok(doc instanceof Document);
-    });
+describe("Browser", () => {
+  // Plugins test suite.
+  pluginsTestSuite(Renderer);
 
-    it("parses document fragment", () => {
-      const renderer = new Renderer();
-      const html = "<div></div>";
-      const doc = renderer.parseHTML(html);
-      assert.ok(doc instanceof DocumentFragment);
-    });
-
-    it("parses simple DIV element", () => {
-      const renderer = new Renderer();
-      const html = "<div></div>";
-      const fragment = renderer.parseHTML(html) as DocumentFragment;
-      assert.equal(fragment.children.length, 1);
-    });
-  });
+  // Apply the test suites to the `Renderer` class.
+  rendererTestSuite(Renderer);
 });

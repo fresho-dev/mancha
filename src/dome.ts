@@ -59,7 +59,7 @@ export function attributeNameToCamelCase(name: string): string {
 
 export function getAttribute(elem: ElementWithAttribs, name: string): string | null {
   if (hasProperty(elem, "attribs")) return elem.attribs?.[name] ?? null;
-  else return elem.getAttribute?.(name);
+  else return elem.getAttribute?.(name) ?? null;
 }
 
 export function getAttributeOrDataset(

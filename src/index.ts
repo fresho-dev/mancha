@@ -1,9 +1,10 @@
 import * as fs from "fs/promises";
 import { JSDOM } from "jsdom";
 import { ParserParams, RenderParams } from "./interfaces.js";
-import { IRenderer } from "./core.js";
+import { IRenderer } from "./renderer.js";
 
 export class Renderer extends IRenderer {
+  readonly impl = "jsdom";
   parseHTML(
     content: string,
     params: ParserParams = { rootDocument: false }

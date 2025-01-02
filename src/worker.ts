@@ -1,10 +1,11 @@
 import * as htmlparser2 from "htmlparser2";
 import { Element, Text } from "domhandler";
 import { render as renderDOM } from "dom-serializer";
-import { IRenderer } from "./core.js";
+import { IRenderer } from "./renderer.js";
 import { ParserParams } from "./interfaces.js";
 
 export class Renderer extends IRenderer {
+  readonly impl = "htmlparser2";
   parseHTML(
     content: string,
     params: ParserParams = { rootDocument: false }

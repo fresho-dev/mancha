@@ -1,47 +1,23 @@
-import * as path from "path";
-import { JSDOM } from "jsdom";
-import { IRenderer } from "./core.js";
-import { Renderer as NodeRenderer } from "./index.js";
-import { Renderer as WorkerRenderer } from "./worker.js";
-import { getAttribute } from "./dome.js";
+import { IRenderer } from "./renderer.js";
+import { dirname, getAttribute } from "./dome.js";
 import { REACTIVE_DEBOUNCE_MILLIS } from "./store.js";
 import { assert, getTextContent, innerHTML } from "./test_utils.js";
 
-function testRenderers(
-  testName: string,
-  testCode: (ctor: new (...args: any[]) => IRenderer) => Promise<any>,
-  rendererClasses: { [label: string]: new (...args: any[]) => IRenderer } = {}
-) {
-  for (const [label, ctor] of Object.entries(rendererClasses)) {
-    describe(label, () => {
-      it(testName, async () => {
-        try {
-          await testCode(ctor);
-        } catch (exc) {
-          console.error(exc);
-          assert.fail((exc as Error).message);
-        }
-      });
-    });
-  }
-}
-
-describe("Plugins", () => {
-  describe("<include>", () => {
-    [
-      "http://foo.com/bar.html",
-      "https://foo.com/bar.html",
-      "//foo.com/bar.html",
-      "//foo.com/baz/../bar.html",
-    ].forEach((source) => {
-      testRenderers(
-        `includes a remote source using absolute path (${source})`,
-        async (ctor) => {
+export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
+  describe("Plugins Test Suite", () => {
+    describe("<include>", () => {
+      [
+        "http://foo.com/bar.html",
+        "https://foo.com/bar.html",
+        "//foo.com/bar.html",
+        "//foo.com/baz/../bar.html",
+      ].forEach((source) => {
+        it(`includes a remote source using absolute path (${source})`, async function () {
           const renderer = new ctor();
           const html = `<include src="${source}"></include>`;
           const fragment = renderer.parseHTML(html);
 
-          renderer.preprocessRemote = async function (fpath, params) {
+          renderer.preprocessRemote = async function (fpath, _) {
             return renderer.parseHTML(`<div>${fpath}</div>`) as unknown as DocumentFragment;
           };
           await renderer.mount(fragment);
@@ -49,15 +25,11 @@ describe("Plugins", () => {
           const node = fragment.firstChild as Element;
           assert.equal(getAttribute(node, "src"), null);
           assert.equal(getTextContent(node), source);
-        },
-        { NodeRenderer, WorkerRenderer }
-      );
-    });
+        });
+      });
 
-    ["/bar.html", "/baz/../bar.html"].forEach((source) => {
-      testRenderers(
-        `includes a local source using absolute path (${source})`,
-        async (ctor) => {
+      ["/bar.html", "/baz/../bar.html"].forEach((source) => {
+        it(`includes a local source using absolute path (${source})`, async function () {
           const renderer = new ctor();
           const html = `<include src="${source}"></include>`;
           const fragment = renderer.parseHTML(html);
@@ -70,15 +42,11 @@ describe("Plugins", () => {
           const node = fragment.firstChild as Element;
           assert.equal(getAttribute(node, "src"), null);
           assert.equal(getTextContent(node), source);
-        },
-        { NodeRenderer, WorkerRenderer }
-      );
-    });
+        });
+      });
 
-    ["bar.html", "./bar.html", "baz/../bar.html"].forEach((source) => {
-      testRenderers(
-        `includes a local source using relative path (${source})`,
-        async (ctor) => {
+      ["bar.html", "./bar.html", "baz/../bar.html"].forEach((source) => {
+        it(`includes a local source using relative path (${source})`, async function () {
           const renderer = new ctor();
           const html = `<include src="${source}"></include>`;
           const fragment = renderer.parseHTML(html);
@@ -91,14 +59,10 @@ describe("Plugins", () => {
           const node = fragment.firstChild as Element;
           assert.equal(getAttribute(node, "src"), null);
           assert.equal(getTextContent(node), `/foo/${source}`);
-        },
-        { NodeRenderer, WorkerRenderer }
-      );
-    });
+        });
+      });
 
-    testRenderers(
-      `propagates attributes to first child`,
-      async (ctor) => {
+      it(`propagates attributes to first child`, async function () {
         const renderer = new ctor({ a: "foo", b: "bar" });
         const html = `<include src="foo.html" :on:click="fn()" :class="a" :text="b"></include>`;
         const fragment = renderer.parseHTML(html);
@@ -108,23 +72,18 @@ describe("Plugins", () => {
             `<span>Hello</span> <span>World</span>`
           ) as unknown as DocumentFragment;
         };
-        await renderer.mount(fragment);
+        await renderer.mount(fragment, { dirpath: "." });
 
         const node = fragment.firstChild as Element;
-        console.log("node", renderer.serializeHTML(node));
         assert.equal(getAttribute(node, "src"), null);
         assert.equal(getAttribute(node, ":on:click"), null);
         assert.equal(getAttribute(node, "class"), "foo");
         assert.equal(getTextContent(node), "bar");
-      },
-      { NodeRenderer }
-    );
-  });
+      });
+    });
 
-  describe("rebase", () => {
-    testRenderers(
-      "rebase relative paths",
-      async (ctor) => {
+    describe("rebase", () => {
+      it("rebase relative paths", async function () {
         const renderer = new ctor();
         const html = `<img src="bar/baz.jpg"></img>`;
         const fragment = renderer.parseHTML(html);
@@ -132,14 +91,10 @@ describe("Plugins", () => {
         await renderer.mount(fragment, { dirpath: "/foo" });
 
         const node = fragment.firstChild as HTMLImageElement;
-        assert.equal(node.src, "/foo/bar/baz.jpg");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+        assert.equal(getAttribute(node, "src"), "/foo/bar/baz.jpg");
+      });
 
-    testRenderers(
-      "rebase (not) absolute paths",
-      async (ctor) => {
+      it("rebase (not) absolute paths", async function () {
         const renderer = new ctor();
         const html = `<img src="/foo/bar.jpg"></img>`;
         const fragment = renderer.parseHTML(html);
@@ -147,14 +102,10 @@ describe("Plugins", () => {
         await renderer.mount(fragment, { dirpath: "/baz" });
 
         const node = fragment.firstChild as HTMLImageElement;
-        assert.equal(node.src || getAttribute(node, "src"), "/foo/bar.jpg");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+        assert.equal(getAttribute(node, "src"), "/foo/bar.jpg");
+      });
 
-    testRenderers(
-      "rebase relative paths with indirection",
-      async (ctor) => {
+      it("rebase relative paths with indirection", async function () {
         const renderer = new ctor();
         const html = `<include src="foo/fragment.tpl.html"></include>`;
         const fragment = renderer.parseHTML(html);
@@ -164,21 +115,17 @@ describe("Plugins", () => {
           const node = renderer.parseHTML(`<img src="bar/baz.jpg"></img>`);
           await renderer.preprocessNode(node, {
             ...params,
-            dirpath: path.dirname(fpath),
+            dirpath: dirname(fpath),
           });
           return node;
         };
-        await renderer.mount(fragment);
+        await renderer.mount(fragment, { dirpath: "." });
 
         const node = fragment.firstChild as HTMLImageElement;
-        assert.equal(node.src, "foo/bar/baz.jpg");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+        assert.equal(getAttribute(node, "src"), "foo/bar/baz.jpg");
+      });
 
-    testRenderers(
-      "rebase relative paths with indirection and base path",
-      async (ctor) => {
+      it("rebase relative paths with indirection and base path", async function () {
         const renderer = new ctor();
         const html = `<include src="bar/fragment.tpl.html"></include>`;
         const fragment = renderer.parseHTML(html);
@@ -188,23 +135,19 @@ describe("Plugins", () => {
           const node = renderer.parseHTML(`<img src="baz/qux.jpg"></img>`);
           await renderer.preprocessNode(node, {
             ...params,
-            dirpath: path.dirname(fpath),
+            dirpath: dirname(fpath),
           });
           return node;
         };
         await renderer.mount(fragment, { dirpath: "foo" });
 
         const node = fragment.firstChild as HTMLImageElement;
-        assert.equal(node.src, "foo/bar/baz/qux.jpg");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
-  });
+        assert.equal(getAttribute(node, "src"), "foo/bar/baz/qux.jpg");
+      });
+    });
 
-  describe("<custom-element>", () => {
-    testRenderers(
-      "custom element with :text and :class attributes",
-      async (ctor) => {
+    describe("<custom-element>", () => {
+      it("custom element with :text and :class attributes", async function () {
         const renderer = new ctor({ a: "foo", b: "bar" });
         const customElement = "<span>Hello World</span>";
         const template = `<template is="custom-element">${customElement}</template>`;
@@ -215,13 +158,9 @@ describe("Plugins", () => {
         assert.equal(node.tagName.toLowerCase(), "span");
         assert.equal(getTextContent(node), "foo");
         assert.equal(getAttribute(node, "class"), "bar");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+      });
 
-    testRenderers(
-      "custom element with :data attribute",
-      async (ctor) => {
+      it("custom element with :data attribute", async function () {
         const renderer = new ctor();
         const customElement = "<span>{{ foo.bar }}</span>";
         const template = `<template is="custom-element">${customElement}</template>`;
@@ -232,13 +171,9 @@ describe("Plugins", () => {
         assert.equal(node.tagName.toLowerCase(), "span");
         assert.equal(getTextContent(node), "baz");
         assert.equal(getAttribute(node, ":data"), null);
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+      });
 
-    testRenderers(
-      "custom element with <slot/>",
-      async (ctor) => {
+      it("custom element with <slot/>", async function () {
         const renderer = new ctor({ foo: "bar" });
         const customElement = "<span><slot/></span>";
         const template = `<template is="custom-element">${customElement}</template>`;
@@ -248,13 +183,9 @@ describe("Plugins", () => {
         const node = fragment.firstChild as Element;
         assert.equal(node.tagName.toLowerCase(), "span");
         assert.equal(getTextContent(node), "bar");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+      });
 
-    testRenderers(
-      "custom element from include",
-      async (ctor) => {
+      it("custom element from include", async function () {
         const renderer = new ctor();
         const html = `<custom-element></custom-element>`;
         const include = `<include src="foo.html"></include>`;
@@ -264,20 +195,16 @@ describe("Plugins", () => {
           const template = `<template is="custom-element">${customElement}</template>`;
           return this.preprocessString(template) as unknown as DocumentFragment;
         };
-        await renderer.mount(fragment);
+        await renderer.mount(fragment, { dirpath: "." });
 
         const node = fragment.firstChild as Element;
         assert.equal(node.tagName.toLowerCase(), "span");
         assert.equal(getTextContent(node), "Hello World");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
-  });
+      });
+    });
 
-  describe("{{ expressions }}", () => {
-    testRenderers(
-      "resolves single variable",
-      async (ctor) => {
+    describe("{{ expressions }}", () => {
+      it("resolves single variable", async function () {
         const content = "Hello {{ name }}";
         const renderer = new ctor({ name: "World" });
         const fragment = renderer.parseHTML(content);
@@ -294,15 +221,11 @@ describe("Plugins", () => {
         renderer.set("name", "John");
         await new Promise((resolve) => setTimeout(resolve, 10));
         assert.equal(textNode.data, "Hello John");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
-  });
+      });
+    });
 
-  describe(":data", () => {
-    testRenderers(
-      "initializes unseen value",
-      async (ctor) => {
+    describe(":data", () => {
+      it("initializes unseen value", async function () {
         const renderer = new ctor();
         const html = `<div :data="{foo: 'bar'}"></div>`;
         const fragment = renderer.parseHTML(html);
@@ -311,13 +234,9 @@ describe("Plugins", () => {
         const subrenderer = (node as any).renderer;
         assert.equal(getAttribute(node, ":data"), null);
         assert.equal(subrenderer.$.foo, "bar");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+      });
 
-    testRenderers(
-      "initializes an array of values",
-      async (ctor) => {
+      it("initializes an array of values", async function () {
         const renderer = new ctor();
         const html = `<div :data="{arr: [1, 2, 3]}"></div>`;
         const fragment = renderer.parseHTML(html);
@@ -326,13 +245,9 @@ describe("Plugins", () => {
         const subrenderer = (node as any).renderer;
         assert.equal(getAttribute(node, ":data"), null);
         assert.deepEqual(subrenderer.$.arr, [1, 2, 3]);
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+      });
 
-    testRenderers(
-      "initializes an array of objects",
-      async (ctor) => {
+      it("initializes an array of objects", async function () {
         const renderer = new ctor();
         const html = `<div :data="{arr: [{n: 1}, {n: 2}, {n: 3}]}"></div>`;
         const fragment = renderer.parseHTML(html);
@@ -341,13 +256,9 @@ describe("Plugins", () => {
         const subrenderer = (node as any).renderer;
         assert.equal(getAttribute(node, ":data"), null);
         assert.deepEqual(subrenderer.$.arr, [{ n: 1 }, { n: 2 }, { n: 3 }]);
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+      });
 
-    testRenderers(
-      "initializes avoiding subrenderer",
-      async (ctor) => {
+      it("initializes avoiding subrenderer", async function () {
         const renderer = new ctor({ foo: 1, bar: 2 });
         const html = `<div :data="{ baz: 3 }"></div>`;
         const fragment = renderer.parseHTML(html);
@@ -361,13 +272,9 @@ describe("Plugins", () => {
         assert.equal(renderer.get("foo"), 1);
         assert.equal(renderer.get("bar"), 2);
         assert.equal(renderer.get("baz"), 3);
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+      });
 
-    testRenderers(
-      "initializes using subrenderer",
-      async (ctor) => {
+      it("initializes using subrenderer", async function () {
         const renderer = new ctor({ foo: 1, bar: 2 });
         const html = `<div><div :data="{ baz: 3 }"></div><div>`;
         const fragment = renderer.parseHTML(html);
@@ -388,15 +295,11 @@ describe("Plugins", () => {
         assert.equal(subrenderer.$.foo, 1);
         assert.equal(subrenderer.$.bar, 2);
         assert.equal(subrenderer.$.baz, 3);
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
-  });
+      });
+    });
 
-  describe(":class", () => {
-    testRenderers(
-      "single class",
-      async (ctor) => {
+    describe(":class", () => {
+      it("single class", async function () {
         const renderer = new ctor({ foo: "bar" });
         const html = `<div :class="foo"></div>`;
         const fragment = renderer.parseHTML(html);
@@ -405,26 +308,25 @@ describe("Plugins", () => {
         assert.equal(getAttribute(node, ":class"), null);
         assert.equal(renderer.$.foo, "bar");
         assert.equal(getAttribute(node, "class"), "bar");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
-    testRenderers("multiple classes", async (ctor) => {
-      const renderer = new ctor({ foo: "bar" });
-      const html = `<div class="foo" :class="foo"></div>`;
-      const fragment = renderer.parseHTML(html);
-      const node = fragment.firstChild as HTMLElement;
-      await renderer.mount(fragment);
-      assert.equal(getAttribute(node, ":class"), null);
-      assert.equal(renderer.$.foo, "bar");
-      assert.equal(renderer.$.bar, "baz");
-      assert.equal(getAttribute(node, "class"), "foo bar");
+      });
+      it("multiple classes", async function () {
+        const renderer = new ctor({ foo: "bar", bar: "baz" });
+        const html = `<div class="foo" :class="foo"></div>`;
+        const fragment = renderer.parseHTML(html);
+        const node = fragment.firstChild as HTMLElement;
+        await renderer.mount(fragment);
+        assert.equal(getAttribute(node, ":class"), null);
+        assert.equal(renderer.$.foo, "bar");
+        assert.equal(renderer.$.bar, "baz");
+        assert.equal(getAttribute(node, "class"), "foo bar");
+      });
     });
-  });
 
-  describe("on:event", () => {
-    testRenderers(
-      "click",
-      async (ctor) => {
+    describe("on:event", function () {
+      it("click", async function () {
+        // Skip test if renderer does not support events.
+        if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
         const renderer = new ctor({ counter: 0 });
         const html = `<div :on:click="counter = counter + 1"></div>`;
         const fragment = renderer.parseHTML(html);
@@ -435,17 +337,12 @@ describe("Plugins", () => {
         node.click?.();
         await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
         assert.equal(renderer.$.counter, 1);
-      },
-      // We don't expect events to work with Wor`kerRenderer.
-      { NodeRenderer }
-    );
-  });
+      });
+    });
 
-  describe(":for", () => {
-    [0, 1, 10].forEach((n) => {
-      testRenderers(
-        `container with ${n} items`,
-        async (ctor) => {
+    describe(":for", () => {
+      [0, 1, 10].forEach((n) => {
+        it(`container with ${n} items`, async function () {
           const renderer = new ctor();
           const html = `<div :for="item in items">{{ item }}</div>`;
           const fragment = renderer.parseHTML(html);
@@ -467,14 +364,10 @@ describe("Plugins", () => {
           for (let i = 0; i < container.length; i++) {
             assert.equal(getTextContent(children[i] as Element), container[i]);
           }
-        },
-        { NodeRenderer, WorkerRenderer }
-      );
-    });
+        });
+      });
 
-    testRenderers(
-      "container that updates items",
-      async (ctor) => {
+      it("container that updates items", async function () {
         const renderer = new ctor();
         const html = `<div :for="item in items">{{ item }}</div>`;
         const fragment = renderer.parseHTML(html);
@@ -515,13 +408,9 @@ describe("Plugins", () => {
         assert.equal(children3.length, renderer.$.items.length + 1);
         assert.equal(getTextContent(children3[1] as Element), "foo");
         assert.equal(getTextContent(children3[2] as Element), "bar");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+      });
 
-    testRenderers(
-      "container does not resolve initially",
-      async (ctor) => {
+      it("container does not resolve initially", async function () {
         const renderer = new ctor();
         const html = `<div :for="item in items">{{ item }}</div>`;
         const fragment = renderer.parseHTML(html);
@@ -546,13 +435,9 @@ describe("Plugins", () => {
         assert.equal(children.length, 1);
         assert.equal((children[0] as HTMLElement).tagName.toLowerCase(), "template");
         assert.equal(children[0].firstChild, node);
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+      });
 
-    testRenderers(
-      "template node with :text property",
-      async (ctor) => {
+      it("template node with :text property", async function () {
         const renderer = new ctor();
         const html = `<div :text="item" :for="item in items"></div>`;
         const fragment = renderer.parseHTML(html);
@@ -570,13 +455,9 @@ describe("Plugins", () => {
         assert.equal(childrenAB.length, 2);
         assert.equal(getTextContent(childrenAB[0] as Element)?.trim(), "a");
         assert.equal(getTextContent(childrenAB[1] as Element)?.trim(), "b");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+      });
 
-    testRenderers(
-      `container with object items`,
-      async (ctor) => {
+      it(`container with object items`, async function () {
         const renderer = new ctor();
         const html = `<div :for="item in items">{{ item.text }}</div>`;
         const fragment = renderer.parseHTML(html);
@@ -598,19 +479,17 @@ describe("Plugins", () => {
         for (let i = 0; i < container.length; i++) {
           assert.equal(getTextContent(children[i] as Element), container[i].text);
         }
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
-  });
+      });
+    });
 
-  describe(":bind", () => {
-    testRenderers(
-      "binds a text input value with existing store key",
-      async (ctor) => {
+    describe(":bind", () => {
+      it("binds a text input value with existing store key", async function () {
+        // Skip test if renderer does not support events.
+        if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
         // Since we're dealing with events, we need to create a full document.
-        const html = `<input :bind="foo" />`;
-        const dom = new JSDOM(html);
-        const doc = dom.window.document;
+        const doc = globalThis.document.implementation.createHTMLDocument();
+        (doc.body as any).innerHTML = `<input :bind="foo" />`;
         const node = doc.body.firstChild as HTMLInputElement;
 
         const renderer = new ctor();
@@ -630,21 +509,18 @@ describe("Plugins", () => {
 
         // Update the node value, and watch the store value react.
         node.value = "qux";
-        node.dispatchEvent(new dom.window.Event("change"));
+        node.dispatchEvent(new globalThis.window.Event("change"));
         await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
         assert.equal(renderer.get("foo"), "qux");
-      },
-      // We don't expect events to work with WorkerRenderer.
-      { NodeRenderer }
-    );
+      });
 
-    testRenderers(
-      "fails to bind a text input value with undefined variable",
-      async (ctor) => {
+      it("fails to bind a text input value with undefined variable", async function () {
+        // Skip test if renderer does not support events.
+        if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
         // Since we're dealing with events, we need to create a full document.
-        const html = `<input :bind="foo" />`;
-        const dom = new JSDOM(html, {});
-        const doc = dom.window.document;
+        const doc = globalThis.document.implementation.createHTMLDocument();
+        (doc.body as any).innerHTML = `<input :bind="foo" />`;
 
         // Value does not exist in store before mount().
         const renderer = new ctor();
@@ -653,18 +529,15 @@ describe("Plugins", () => {
         // After mount(), the value is still not in the store.
         await renderer.mount(doc.body);
         assert.equal(renderer.has("foo"), false);
-      },
-      // We don't expect events to work with WorkerRenderer.
-      { NodeRenderer }
-    );
+      });
 
-    testRenderers(
-      "binds a text input value with custom events",
-      async (ctor) => {
+      it("binds a text input value with custom events", async function () {
+        // Skip test if renderer does not support events.
+        if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
         // Since we're dealing with events, we need to create a full document.
-        const html = `<input :bind="foo" :bind:on="my-custom-event" />`;
-        const dom = new JSDOM(html);
-        const doc = dom.window.document;
+        const doc = globalThis.document.implementation.createHTMLDocument();
+        (doc.body as any).innerHTML = `<input :bind="foo" :bind:on="my-custom-event" />`;
         const node = doc.body.firstChild as HTMLInputElement;
 
         const renderer = new ctor();
@@ -684,22 +557,17 @@ describe("Plugins", () => {
 
         // Update the node value, and watch the store value react only to the right event.
         node.value = "qux";
-        node.dispatchEvent(new dom.window.Event("change"));
+        node.dispatchEvent(new globalThis.window.Event("change"));
         await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
         assert.equal(renderer.get("foo"), "baz");
-        node.dispatchEvent(new dom.window.Event("my-custom-event"));
+        node.dispatchEvent(new globalThis.window.Event("my-custom-event"));
         await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
         assert.equal(renderer.get("foo"), "qux");
-      },
-      // We don't expect events to work with WorkerRenderer.
-      { NodeRenderer }
-    );
-  });
+      });
+    });
 
-  describe(":show", () => {
-    testRenderers(
-      "shows then hides an element",
-      async (ctor) => {
+    describe(":show", () => {
+      it("shows then hides an element", async function () {
         const renderer = new ctor();
         const html = `<div :show="foo" />`;
         const fragment = renderer.parseHTML(html);
@@ -715,15 +583,11 @@ describe("Plugins", () => {
         await renderer.set("foo", false);
         assert.equal(getAttribute(node, "style"), "display: none;");
         assert.equal((node as HTMLElement).style?.display ?? "none", "none");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+      });
 
-    testRenderers(
-      "hides then shows an element",
-      async (ctor) => {
+      it("hides then shows an element", async function () {
         const renderer = new ctor();
-        const html = `<div :show="foo" style="display: bar;" />`;
+        const html = `<div :show="foo" style="display: table;" />`;
         const fragment = renderer.parseHTML(html);
         const node = fragment.firstChild as HTMLElement;
 
@@ -735,15 +599,11 @@ describe("Plugins", () => {
         assert.equal((node as HTMLElement).style?.display ?? "none", "none");
 
         await renderer.set("foo", true);
-        assert.equal(getAttribute(node, "style"), "display: bar;");
-        assert.equal((node as HTMLElement).style?.display ?? "bar", "bar");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+        assert.equal(getAttribute(node, "style"), "display: table;");
+        assert.equal((node as HTMLElement).style?.display ?? "table", "table");
+      });
 
-    testRenderers(
-      "hides an element based on data from the same element",
-      async (ctor) => {
+      it("hides an element based on data from the same element", async function () {
         const renderer = new ctor();
         const html = `<div :data="{ show: false }" :show="show" />`;
         const fragment = renderer.parseHTML(html);
@@ -759,15 +619,11 @@ describe("Plugins", () => {
         await subrenderer.set("show", true);
         assert.notEqual(getAttribute(node, "style"), "display: none;");
         assert.notEqual((node as HTMLElement).style?.display, "none");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
-  });
+      });
+    });
 
-  describe(":text", () => {
-    testRenderers(
-      "render simple text string",
-      async (ctor) => {
+    describe(":text", () => {
+      it("render simple text string", async function () {
         const renderer = new ctor({ foo: "bar" });
         const html = `<div :text="foo"></div>`;
         const fragment = renderer.parseHTML(html);
@@ -776,15 +632,11 @@ describe("Plugins", () => {
         assert.equal(getAttribute(node, ":text"), null);
         assert.equal(renderer.get("foo"), "bar");
         assert.equal(getTextContent(node), "bar");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
-  });
+      });
+    });
 
-  describe(":html", () => {
-    testRenderers(
-      "render simple HTML",
-      async (ctor) => {
+    describe(":html", () => {
+      it("render simple HTML", async function () {
         const renderer = new ctor();
         const html = `<div :html="foo" />`;
         const fragment = renderer.parseHTML(html);
@@ -795,13 +647,9 @@ describe("Plugins", () => {
         await renderer.mount(fragment);
         assert.equal(innerHTML(node), inner);
         assert.equal(node.childNodes.length, 1);
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+      });
 
-    testRenderers(
-      "render contents of HTML",
-      async (ctor) => {
+      it("render contents of HTML", async function () {
         const renderer = new ctor();
         const html = `<div :html="foo"></div>`;
         const fragment = renderer.parseHTML(html);
@@ -816,13 +664,9 @@ describe("Plugins", () => {
         // Modify content and observe changes.
         await renderer.set("bar", "Goodbye World");
         assert.equal(getTextContent(node.firstChild?.firstChild as Element), "Goodbye World");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+      });
 
-    testRenderers(
-      "render HTML within a :for",
-      async (ctor) => {
+      it("render HTML within a :for", async function () {
         const renderer = new ctor();
         const html = `<div :for="item in items" :html="$parent.inner"></div>`;
         const fragment = renderer.parseHTML(html);
@@ -835,15 +679,11 @@ describe("Plugins", () => {
         assert.equal(children.length, 2);
         assert.equal(getTextContent(children[0] as Element), "foo");
         assert.equal(getTextContent(children[1] as Element), "bar");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
-  });
+      });
+    });
 
-  describe(":attr", () => {
-    testRenderers(
-      "processes arbitrary attributes",
-      async (ctor) => {
+    describe(":attr", () => {
+      it("processes arbitrary attributes", async function () {
         const renderer = new ctor({ foo: "example.com" });
         const html = `<a :attr:custom-attr="foo"></a>`;
         const fragment = renderer.parseHTML(html);
@@ -851,12 +691,8 @@ describe("Plugins", () => {
         await renderer.mount(fragment);
         assert.equal(getAttribute(node, ":attr:custom-attr"), null);
         assert.equal(getAttribute(node, "custom-attr"), "example.com");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
-    testRenderers(
-      "processes href attributes",
-      async (ctor) => {
+      });
+      it("processes href attributes", async function () {
         const renderer = new ctor({ foo: "example.com" });
         const html = `<a :attr:href="foo"></a>`;
         const fragment = renderer.parseHTML(html);
@@ -864,15 +700,11 @@ describe("Plugins", () => {
         await renderer.mount(fragment);
         assert.equal(getAttribute(node, ":attr:href"), null);
         assert.equal(getAttribute(node, "href"), "example.com");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
-  });
+      });
+    });
 
-  describe(":prop", () => {
-    testRenderers(
-      "processes arbitrary properties",
-      async (ctor) => {
+    describe(":prop", () => {
+      it("processes arbitrary properties", async function () {
         const renderer = new ctor({ foo: "example.com" });
         const html = `<a :prop:custom-prop="foo"></a>`;
         const fragment = renderer.parseHTML(html);
@@ -880,21 +712,16 @@ describe("Plugins", () => {
         await renderer.mount(fragment);
         assert.equal(getAttribute(node, "custom-prop"), null);
         assert.equal((node as any).customProp, "example.com");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
-    testRenderers(
-      "processes href properties",
-      async (ctor) => {
-        const renderer = new ctor({ foo: "example.com" });
+      });
+      it("processes href properties", async function () {
+        const renderer = new ctor({ foo: "https://example.com/" });
         const html = `<a :prop:href="foo"></a>`;
         const fragment = renderer.parseHTML(html);
-        const node = fragment.firstChild as HTMLElement;
+        const elem = fragment.firstChild as HTMLAnchorElement;
         await renderer.mount(fragment);
-        assert.equal(getAttribute(node, ":prop:href"), null);
-        assert.equal((node as any).href, "example.com");
-      },
-      { NodeRenderer, WorkerRenderer }
-    );
+        assert.equal(getAttribute(elem, ":prop:href"), null);
+        assert.equal(elem.href, "https://example.com/");
+      });
+    });
   });
-});
+}
