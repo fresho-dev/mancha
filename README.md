@@ -286,7 +286,7 @@ component was designed to be used in the browser, and it's enabled by adding a `
 to the `<script>` tag that loads `mancha`. The supported rulesets are:
 
 - `basic`: inspired by [these rules](https://www.swyx.io/css-100-bytes), the full CSS can be found
-  [here](./src/css_raw_basic.css).
+  [here](./src/css_gen_basic.ts).
 - `utils`: utility classes inspired by [tailwindcss](https://tailwindcss.com), the resulting CSS is
   a drop-in replacement for a subset of the classes provided by `tailwindcss` with the main
   exception of the color palette which is borrowed from
