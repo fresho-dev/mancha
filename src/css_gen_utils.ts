@@ -480,34 +480,40 @@ function posneg(props: { [key: string]: string }): string[] {
 }
 
 function autoxy(props: { [key: string]: string }): string[] {
-  return Object.entries(props).flatMap(([prop, klass]) => [
-    // Auto.
-    `.${klass}-auto { ${prop}: auto; }`,
-    // Auto x-axis.
-    `.${klass}x-auto { ${prop}-left: auto; ${prop}-right: auto; }`,
-    // Auto y-axis.
-    `.${klass}y-auto { ${prop}-top: auto; ${prop}-bottom: auto; }`,
-    // Zero x-axis.
-    `.${klass}x-0 { ${prop}-left: 0; ${prop}-right: 0; }`,
-    // Zero y-axis.
-    `.${klass}y-0 { ${prop}-top: 0; ${prop}-bottom: 0; }`,
-    // Positive REM units x-axis.
-    ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(
-      ([k, v]) => `.${klass}x-${k} { ${prop}-left: ${v}rem; ${prop}-right: ${v}rem; }`
-    ),
-    // Positive REM units y-axis.
-    ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(
-      ([k, v]) => `.${klass}y-${k} { ${prop}-top: ${v}rem; ${prop}-bottom: ${v}rem; }`
-    ),
-    // Positive PX units x-axis.
-    ...UNITS_ALL.map((v) => `.${klass}x-${v}px { ${prop}-left: ${v}px; ${prop}-right: ${v}px; }`),
-    // Positive PX units y-axis.
-    ...UNITS_ALL.map((v) => `.${klass}y-${v}px { ${prop}-top: ${v}px; ${prop}-bottom: ${v}px; }`),
-    // Positive percent units x-axis.
-    ...PERCENTS.map((v) => `.${klass}x-${v}\\% { ${prop}-left: ${v}%; ${prop}-right: ${v}%; }`),
-    // Positive percent units y-axis.
-    ...PERCENTS.map((v) => `.${klass}y-${v}\\% { ${prop}-top: ${v}%; ${prop}-bottom: ${v}%; }`),
-  ]);
+  return Object.entries(props)
+    .flatMap(([prop, klass]) => [
+      // Auto.
+      `.${klass}-auto { ${prop}: auto; }`,
+      // Auto x-axis.
+      `.${klass}x-auto { ${prop}-left: auto; ${prop}-right: auto; }`,
+      // Auto y-axis.
+      `.${klass}y-auto { ${prop}-top: auto; ${prop}-bottom: auto; }`,
+      // Zero x-axis.
+      `.${klass}x-0 { ${prop}-left: 0; ${prop}-right: 0; }`,
+      // Zero y-axis.
+      `.${klass}y-0 { ${prop}-top: 0; ${prop}-bottom: 0; }`,
+      // Positive REM units x-axis.
+      ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(
+        ([k, v]) => `.${klass}x-${k} { ${prop}-left: ${v}rem; ${prop}-right: ${v}rem; }`
+      ),
+      // Positive REM units y-axis.
+      ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(
+        ([k, v]) => `.${klass}y-${k} { ${prop}-top: ${v}rem; ${prop}-bottom: ${v}rem; }`
+      ),
+      // Positive PX units x-axis.
+      ...UNITS_ALL.map((v) => `.${klass}x-${v}px { ${prop}-left: ${v}px; ${prop}-right: ${v}px; }`),
+      // Positive PX units y-axis.
+      ...UNITS_ALL.map((v) => `.${klass}y-${v}px { ${prop}-top: ${v}px; ${prop}-bottom: ${v}px; }`),
+      // Positive percent units x-axis.
+      ...PERCENTS.map((v) => `.${klass}x-${v}\\% { ${prop}-left: ${v}%; ${prop}-right: ${v}%; }`),
+      // Positive percent units y-axis.
+      ...PERCENTS.map((v) => `.${klass}y-${v}\\% { ${prop}-top: ${v}%; ${prop}-bottom: ${v}%; }`),
+    ])
+    .flatMap(([klass, rule]) => [
+      `.${klass} { ${rule} }`,
+      `${wrapPseudoStates(klass).join(",")} { ${rule} }`,
+      ...wrapMediaQueries(klass, rule),
+    ]);
 }
 
 function tblr(props: { [key: string]: string }): string[] {
@@ -619,7 +625,11 @@ function between(): string[] {
     ...UNITS_ALL.map((v) => `.gap-x-${v}px { column-gap: ${v}px }`),
     // Positive PX units for row gap.
     ...UNITS_ALL.map((v) => `.gap-y-${v}px { row-gap: ${v}px }`),
-  ];
+  ].flatMap(([klass, rule]) => [
+    `.${klass} { ${rule} }`,
+    `${wrapPseudoStates(klass).join(",")} { ${rule} }`,
+    ...wrapMediaQueries(klass, rule),
+  ]);
 }
 
 function custom(): string[] {
