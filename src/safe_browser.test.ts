@@ -5,7 +5,7 @@ import { assert } from "./test_utils.js";
 
 describe("SafeBrowser", () => {
   // Plugins test suite.
-  //   pluginsTestSuite(Renderer);
+  pluginsTestSuite(Renderer);
 
   // Apply the test suites to the `Renderer` class.
   rendererTestSuite(Renderer);

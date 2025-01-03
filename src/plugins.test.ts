@@ -147,6 +147,29 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
     });
 
     describe("<custom-element>", () => {
+      it("custom element registration", async function () {
+        const renderer = new ctor();
+        const customElement = "<span>Hello World</span>";
+        const template = `<template is="custom-element">${customElement}</template>`;
+        const fragment = renderer.parseHTML(template);
+        await renderer.mount(fragment);
+        assert.equal(renderer._customElements.has("custom-element"), true);
+        const tpl = renderer._customElements.get("custom-element")! as HTMLTemplateElement;
+        assert.equal(innerHTML(tpl), customElement);
+      });
+
+      it("custom element with no attributes", async function () {
+        const renderer = new ctor();
+        const customElement = "<span>Hello World</span>";
+        const template = `<template is="custom-element">${customElement}</template>`;
+        const html = `<custom-element></custom-element>`;
+        const fragment = renderer.parseHTML(template + html);
+        await renderer.mount(fragment);
+        const node = fragment.firstChild as Element;
+        assert.equal(node.tagName.toLowerCase(), "span");
+        assert.equal(getTextContent(node), "Hello World");
+      });
+
       it("custom element with :text and :class attributes", async function () {
         const renderer = new ctor({ a: "foo", b: "bar" });
         const customElement = "<span>Hello World</span>";
@@ -683,16 +706,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
     });
 
     describe(":attr", () => {
-      it("processes arbitrary attributes", async function () {
-        const renderer = new ctor({ foo: "example.com" });
-        const html = `<a :attr:custom-attr="foo"></a>`;
-        const fragment = renderer.parseHTML(html);
-        const node = fragment.firstChild as HTMLElement;
-        await renderer.mount(fragment);
-        assert.equal(getAttribute(node, ":attr:custom-attr"), null);
-        assert.equal(getAttribute(node, "custom-attr"), "example.com");
-      });
-      it("processes href attributes", async function () {
+      it("processes href attribute", async function () {
         const renderer = new ctor({ foo: "example.com" });
         const html = `<a :attr:href="foo"></a>`;
         const fragment = renderer.parseHTML(html);
@@ -701,19 +715,32 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
         assert.equal(getAttribute(node, ":attr:href"), null);
         assert.equal(getAttribute(node, "href"), "example.com");
       });
-    });
-
-    describe(":prop", () => {
-      it("processes arbitrary properties", async function () {
+      it("processes custom attribute", async function () {
+        // Skip test if renderer does not support unsafe attributes.
+        if (["safe_browser"].includes(new ctor().impl)) this.skip();
         const renderer = new ctor({ foo: "example.com" });
-        const html = `<a :prop:custom-prop="foo"></a>`;
+        const html = `<a :attr:custom-attr="foo"></a>`;
         const fragment = renderer.parseHTML(html);
         const node = fragment.firstChild as HTMLElement;
         await renderer.mount(fragment);
-        assert.equal(getAttribute(node, "custom-prop"), null);
-        assert.equal((node as any).customProp, "example.com");
+        assert.equal(getAttribute(node, ":attr:custom-attr"), null);
+        assert.equal(getAttribute(node, "custom-attr"), "example.com");
       });
-      it("processes href properties", async function () {
+    });
+
+    describe(":prop", () => {
+      it("processes disabled property", async function () {
+        const renderer = new ctor({ foo: true });
+        const html = `<option :prop:disabled="foo">value</option>`;
+        const fragment = renderer.parseHTML(html);
+        const elem = fragment.firstChild as HTMLButtonElement;
+        await renderer.mount(fragment);
+        assert.equal(getAttribute(elem, ":prop:disabled"), null);
+        assert.equal(elem.disabled, true);
+      });
+      it("processes href property", async function () {
+        // Skip test if renderer does not support unsafe properties.
+        if (["safe_browser"].includes(new ctor().impl)) this.skip();
         const renderer = new ctor({ foo: "https://example.com/" });
         const html = `<a :prop:href="foo"></a>`;
         const fragment = renderer.parseHTML(html);
@@ -721,6 +748,17 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
         await renderer.mount(fragment);
         assert.equal(getAttribute(elem, ":prop:href"), null);
         assert.equal(elem.href, "https://example.com/");
+      });
+      it("processes custom property", async function () {
+        // Skip test if renderer does not support unsafe properties.
+        if (["safe_browser"].includes(new ctor().impl)) this.skip();
+        const renderer = new ctor({ foo: "example.com" });
+        const html = `<a :prop:custom-prop="foo"></a>`;
+        const fragment = renderer.parseHTML(html);
+        const node = fragment.firstChild as HTMLElement;
+        await renderer.mount(fragment);
+        assert.equal(getAttribute(node, "custom-prop"), null);
+        assert.equal((node as any).customProp, "example.com");
       });
     });
   });

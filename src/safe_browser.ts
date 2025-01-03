@@ -31,7 +31,7 @@ export class Renderer extends IRenderer {
     content: string,
     params: ParserParams = { rootDocument: false }
   ): Document | DocumentFragment {
-    // Replace all attributes in content from :colon:notation to data-dash-notation.
+    // Replace all attributes in content from :colon:notation to data-hyphen-notation.
     for (const attr of TRUSTED_ATTRIBS) {
       content = content.replace(
         new RegExp(`\\s:${attr.slice(1)}=`, "g"),
@@ -39,11 +39,37 @@ export class Renderer extends IRenderer {
       );
     }
 
+    // Replace <include src="..."> tags with <link rel="subresource" href="..."> tags.
+    content = content.replace(
+      /<include(.*) src="([^"]+)"(.*)><\/include>/g,
+      `<link $1 rel="subresource" href="$2" $3>`
+    );
+
+    // Replace <template is="..."> tags with <div role="template" alt="...">.
+    content = content.replace(
+      /<template is="([^"]+)">([\s\S]*)<\/template>/g,
+      `<div role="template" alt="$1">$2</div>`
+    );
+
+    // Replace <custom-element> tags with <div role="custom-element">.
+    content = content.replace(
+      /<(\w+)-(\w+)(.*)>([\s\S]*)<\/(\w+)-(\w+)>/g,
+      `<div role="$1-$2" $3>$4</div>`
+    );
+    this.log(
+      "allowed attribs:",
+      TRUSTED_ATTRIBS.map((attr) => `data-${attr.slice(1).replace(":", "-")}`)
+    );
+
+    // Sanitize the content.
     const sanitizer = new HtmlSanitizerBuilder()
       .allowClassAttributes()
       .allowStyleAttributes()
       .allowDataAttributes(TRUSTED_ATTRIBS.map((attr) => `data-${attr.slice(1).replace(":", "-")}`))
       .build();
+
+    this.log("parseHTML", content);
+    this.log("sanitized", String(sanitizer.sanitize(content)));
     if (params.rootDocument) {
       const parser = new DOMParser();
       return safeDomParser.parseFromString(parser, sanitizer.sanitize(content), "text/html");

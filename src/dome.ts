@@ -84,7 +84,21 @@ export function safeSetAttribute(elem: ElementWithAttribs, name: string, value: 
 }
 
 export function setProperty(elem: ElementWithAttribs, name: string, value: any): void {
-  (elem as any)[name] = value;
+  switch (name) {
+    // Directly set some safe, known properties.
+    case "disabled":
+      (elem as HTMLOptionElement).disabled = value;
+      return;
+    case "selected":
+      (elem as HTMLOptionElement).selected = value;
+      return;
+    case "checked":
+      (elem as HTMLInputElement).checked = value;
+      return;
+    // Fall back to setting the property directly (unsafe).
+    default:
+      (elem as any)[name] = value;
+  }
 }
 
 export function removeAttribute(elem: ElementWithAttribs, name: string): void {
@@ -152,7 +166,7 @@ export function replaceChildren(parent: ParentNode, ...nodes: Node[]): void {
 
 export function appendChild(parent: Node, node: Node): Node {
   if (hasFunction(node, "appendChild")) {
-    return (parent as Node).appendChild(node as Node);
+    return parent.appendChild(node);
   } else {
     (parent as any).childNodes.push(node as ChildNode);
     (node as any).parentNode = parent;
@@ -162,7 +176,7 @@ export function appendChild(parent: Node, node: Node): Node {
 
 export function removeChild(parent: ParentNode, node: Node): Node {
   if (hasFunction(node, "removeChild")) {
-    return (parent as Node).removeChild(node as Node);
+    return parent.removeChild(node);
   } else {
     replaceChildren(parent, ...Array.from(parent.childNodes).filter((child) => child !== node));
     return node;
@@ -187,6 +201,11 @@ export function ellipsize(str: string | null, maxLength: number = 0): string {
 }
 
 export function nodeToString(node: Node, maxLength: number = 0): string {
+  if (globalThis.DocumentFragment && node instanceof DocumentFragment) {
+    return Array.from(node.childNodes)
+      .map((node) => nodeToString(node, maxLength))
+      .join("");
+  }
   return ellipsize((node as HTMLElement).outerHTML || node.nodeValue || String(node), maxLength);
 }
 
