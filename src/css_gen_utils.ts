@@ -116,6 +116,8 @@ const PROPS_CUSTOM = {
   "overflow-x-auto": { "overflow-x": "auto" },
   "overflow-y-auto": { "overflow-y": "auto" },
   "overflow-hidden": { overflow: "hidden" },
+  "overflow-x-hidden": { "overflow-x": "hidden" },
+  "overflow-y-hidden": { "overflow-y": "hidden" },
   "overflow-visible": { overflow: "visible" },
   // Cursors.
   "cursor-pointer": { cursor: "pointer" },
@@ -493,13 +495,15 @@ function autoxy(props: { [key: string]: string }): string[] {
       // Zero y-axis.
       [`${klass}y-0`, `${prop}-top: 0; ${prop}-bottom: 0;`],
       // Positive REM units x-axis.
-      ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(
-        ([k, v]) => [`${klass}x-${k}`, `${prop}-left: ${v}rem; ${prop}-right: ${v}rem;`]
-      ),
+      ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(([k, v]) => [
+        `${klass}x-${k}`,
+        `${prop}-left: ${v}rem; ${prop}-right: ${v}rem;`,
+      ]),
       // Positive REM units y-axis.
-      ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(
-        ([k, v]) => [`${klass}y-${k}`, `${prop}-top: ${v}rem; ${prop}-bottom: ${v}rem;`]
-      ),
+      ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(([k, v]) => [
+        `${klass}y-${k}`,
+        `${prop}-top: ${v}rem; ${prop}-bottom: ${v}rem;`,
+      ]),
       // Positive PX units x-axis.
       ...UNITS_ALL.map((v) => [`${klass}x-${v}px`, `${prop}-left: ${v}px; ${prop}-right: ${v}px;`]),
       // Positive PX units y-axis.
@@ -600,13 +604,15 @@ function between(): string[] {
     // Zero for y margin.
     [`space-y-0 > *`, `margin-top: 0`],
     // Positive REM units for x margin.
-    ...UNITS_ALL.map(
-      (v) => [`space-x-${v} > :not(:first-child)`, `margin-left: ${v * REM_UNIT}rem`]
-    ),
+    ...UNITS_ALL.map((v) => [
+      `space-x-${v} > :not(:first-child)`,
+      `margin-left: ${v * REM_UNIT}rem`,
+    ]),
     // Positive REM units for y margin.
-    ...UNITS_ALL.map(
-      (v) => [`space-y-${v} > :not(:first-child)`, `margin-top: ${v * REM_UNIT}rem`]
-    ),
+    ...UNITS_ALL.map((v) => [
+      `space-y-${v} > :not(:first-child)`,
+      `margin-top: ${v * REM_UNIT}rem`,
+    ]),
     // Positive PX units for x margin.
     ...UNITS_ALL.map((v) => [`space-x-${v}px > :not(:first-child)`, `margin-left: ${v}px`]),
     // Positive PX units for y margin.
