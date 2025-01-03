@@ -470,7 +470,7 @@ function posneg(props: { [key: string]: string }): string[] {
       // Positive percent units.
       ...PERCENTS.map((v) => [`${klass}-${v}\\%`, `${prop}: ${v}%`]),
       // Negative percent units.
-      ...PERCENTS.map((v) => [`-${klass}-${v}\\%`, ` ${prop}: -${v}%`]),
+      ...PERCENTS.map((v) => [`-${klass}-${v}\\%`, `${prop}: -${v}%`]),
     ])
     .flatMap(([klass, rule]) => [
       `.${klass} { ${rule} }`,
@@ -483,31 +483,31 @@ function autoxy(props: { [key: string]: string }): string[] {
   return Object.entries(props)
     .flatMap(([prop, klass]) => [
       // Auto.
-      `.${klass}-auto { ${prop}: auto; }`,
+      [`.${klass}-auto`, `${prop}: auto`],
       // Auto x-axis.
-      `.${klass}x-auto { ${prop}-left: auto; ${prop}-right: auto; }`,
+      [`.${klass}x-auto`, `${prop}-left: auto; ${prop}-right: auto;`],
       // Auto y-axis.
-      `.${klass}y-auto { ${prop}-top: auto; ${prop}-bottom: auto; }`,
+      [`.${klass}y-auto`, `${prop}-top: auto; ${prop}-bottom: auto;`],
       // Zero x-axis.
-      `.${klass}x-0 { ${prop}-left: 0; ${prop}-right: 0; }`,
+      [`.${klass}x-0`, `${prop}-left: 0; ${prop}-right: 0;`],
       // Zero y-axis.
-      `.${klass}y-0 { ${prop}-top: 0; ${prop}-bottom: 0; }`,
+      [`.${klass}y-0`, `${prop}-top: 0; ${prop}-bottom: 0;`],
       // Positive REM units x-axis.
       ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(
-        ([k, v]) => `.${klass}x-${k} { ${prop}-left: ${v}rem; ${prop}-right: ${v}rem; }`
+        ([k, v]) => [`.${klass}x-${k}`, `${prop}-left: ${v}rem; ${prop}-right: ${v}rem;`]
       ),
       // Positive REM units y-axis.
       ...UNITS_ALL.map((v) => [v, v * REM_UNIT]).map(
-        ([k, v]) => `.${klass}y-${k} { ${prop}-top: ${v}rem; ${prop}-bottom: ${v}rem; }`
+        ([k, v]) => [`.${klass}y-${k}`, `${prop}-top: ${v}rem; ${prop}-bottom: ${v}rem;`]
       ),
       // Positive PX units x-axis.
-      ...UNITS_ALL.map((v) => `.${klass}x-${v}px { ${prop}-left: ${v}px; ${prop}-right: ${v}px; }`),
+      ...UNITS_ALL.map((v) => [`.${klass}x-${v}px`, `${prop}-left: ${v}px; ${prop}-right: ${v}px;`]),
       // Positive PX units y-axis.
-      ...UNITS_ALL.map((v) => `.${klass}y-${v}px { ${prop}-top: ${v}px; ${prop}-bottom: ${v}px; }`),
+      ...UNITS_ALL.map((v) => [`.${klass}y-${v}px`, `${prop}-top: ${v}px; ${prop}-bottom: ${v}px;`]),
       // Positive percent units x-axis.
-      ...PERCENTS.map((v) => `.${klass}x-${v}\\% { ${prop}-left: ${v}%; ${prop}-right: ${v}%; }`),
+      ...PERCENTS.map((v) => [`.${klass}x-${v}\\%`, `${prop}-left: ${v}%; ${prop}-right: ${v}%;`]),
       // Positive percent units y-axis.
-      ...PERCENTS.map((v) => `.${klass}y-${v}\\% { ${prop}-top: ${v}%; ${prop}-bottom: ${v}%; }`),
+      ...PERCENTS.map((v) => [`.${klass}y-${v}\\%`, `${prop}-top: ${v}%; ${prop}-bottom: ${v}%;`]),
     ])
     .flatMap(([klass, rule]) => [
       `.${klass} { ${rule} }`,
@@ -596,35 +596,35 @@ function border(): string[] {
 function between(): string[] {
   return [
     // Zero for x margin.
-    `.space-x-0 > * { margin-left: 0 }`,
+    [`.space-x-0 > *`, `margin-left: 0`],
     // Zero for y margin.
-    `.space-y-0 > * { margin-top: 0 }`,
+    [`.space-y-0 > *`, `margin-top: 0`],
     // Positive REM units for x margin.
     ...UNITS_ALL.map(
-      (v) => `.space-x-${v} > :not(:first-child) { margin-left: ${v * REM_UNIT}rem }`
+      (v) => [`.space-x-${v} > :not(:first-child)`, `margin-left: ${v * REM_UNIT}rem`]
     ),
     // Positive REM units for y margin.
     ...UNITS_ALL.map(
-      (v) => `.space-y-${v} > :not(:first-child) { margin-top: ${v * REM_UNIT}rem }`
+      (v) => [`.space-y-${v} > :not(:first-child)`, `margin-top: ${v * REM_UNIT}rem`]
     ),
     // Positive PX units for x margin.
-    ...UNITS_ALL.map((v) => `.space-x-${v}px > :not(:first-child) { margin-left: ${v}px }`),
+    ...UNITS_ALL.map((v) => [`.space-x-${v}px > :not(:first-child)`, `margin-left: ${v}px`]),
     // Positive PX units for y margin.
-    ...UNITS_ALL.map((v) => `.space-y-${v}px > :not(:first-child) { margin-top: ${v}px }`),
+    ...UNITS_ALL.map((v) => [`.space-y-${v}px > :not(:first-child)`, `margin-top: ${v}px`]),
     // Zero for gap.
-    `.gap-0 { gap: 0 }`,
+    [`.gap-0`, `gap: 0`],
     // Positive REM units for gap.
-    ...UNITS_ALL.map((v) => `.gap-${v} { gap: ${v * REM_UNIT}rem }`),
+    ...UNITS_ALL.map((v) => [`.gap-${v}`, `gap: ${v * REM_UNIT}rem`]),
     // Positive PX units for gap.
-    ...UNITS_ALL.map((v) => `.gap-${v}px { gap: ${v}px }`),
+    ...UNITS_ALL.map((v) => [`.gap-${v}px`, `gap: ${v}px`]),
     // Positive REM units for col gap.
-    ...UNITS_ALL.map((v) => `.gap-x-${v} { column-gap: ${v * REM_UNIT}rem }`),
+    ...UNITS_ALL.map((v) => [`.gap-x-${v}`, `column-gap: ${v * REM_UNIT}rem`]),
     // Positive REM units for row gap.
-    ...UNITS_ALL.map((v) => `.gap-y-${v} { row-gap: ${v * REM_UNIT}rem }`),
+    ...UNITS_ALL.map((v) => [`.gap-y-${v}`, `row-gap: ${v * REM_UNIT}rem`]),
     // Positive PX units for col gap.
-    ...UNITS_ALL.map((v) => `.gap-x-${v}px { column-gap: ${v}px }`),
+    ...UNITS_ALL.map((v) => [`.gap-x-${v}px`, `column-gap: ${v}px`]),
     // Positive PX units for row gap.
-    ...UNITS_ALL.map((v) => `.gap-y-${v}px { row-gap: ${v}px }`),
+    ...UNITS_ALL.map((v) => [`.gap-y-${v}px`, `row-gap: ${v}px`]),
   ].flatMap(([klass, rule]) => [
     `.${klass} { ${rule} }`,
     `${wrapPseudoStates(klass).join(",")} { ${rule} }`,
