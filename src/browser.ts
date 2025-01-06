@@ -1,6 +1,9 @@
 import { IRenderer } from "./renderer.js";
 import { dirname } from "./dome.js";
 import { ParserParams, RenderParams } from "./interfaces.js";
+export { default as basicCssRules } from "./css_gen_basic.js";
+export { default as utilsCssRules } from "./css_gen_utils.js";
+
 export class Renderer extends IRenderer {
   readonly impl = "browser";
   protected readonly dirpath: string = dirname(globalThis.location?.href ?? "http://localhost/");

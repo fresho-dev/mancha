@@ -1,0 +1,6 @@
+{
+  "name": "mancha-esmodule-loading-example",
+  "scripts": {
+    "start": "npx http-server . --port 0"
+  }
+}

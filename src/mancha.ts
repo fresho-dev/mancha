@@ -1,7 +1,5 @@
 import { safeStyleEl } from "safevalues/dom";
-import { Renderer } from "./browser.js";
-import basicCssRules from "./css_gen_basic.js";
-import utilsCssRules from "./css_gen_utils.js";
+import { Renderer, basicCssRules, utilsCssRules } from "./browser.js";
 
 const Mancha = new Renderer();
 (globalThis as any)["Mancha"] = Mancha;
