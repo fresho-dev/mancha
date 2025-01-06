@@ -232,9 +232,9 @@ illustrated with an example:
   <!-- undefined -->
   <span>{{ message }}</span>
 
-  <!-- How are you, danger? The secret message is "secret" -->
+  <!-- How are you, danger? The secret message is "secret" and the key is "1234" -->
   <p :data="{ name: 'danger', message: 'secret' }">
-    How are you, {{ name }}? The secret message is: "{{ message }}"".
+    How are you, {{ name }}? The secret message is "{{ message }}" and the key is "{{ key }}"
   </p>
 </body>
 ```
@@ -266,18 +266,32 @@ const subrenderer = document.querySelector("p").renderer;
 subrenderer.$.message = "banana";
 ```
 
-To access variables defined in the parent renderer, you can use the subrenderer's `$parent`
-attribute:
+When accessing variables, `mancha` searches the current renderer first, then the parent, the
+parent's parent, and so forth until the root renderer is reached. If the requested variable is not
+found in the current renderer or any of the ancestor renderers, then `null` is returned:
 
 ```html
 <body :data="{ name: 'stranger' }">
   <!-- Hello, stranger! -->
-  <p :data="{}">Hello, {{ $parent.name }}!</p>
+  <p :data="{}">Hello, {{ name }}!</p>
 </body>
 ```
 
-Renderers also have a `$root` attribute, which references the root element where `mancha` was
-mounted and defaults to the document's body, unless explicitly provided.
+When setting a variable, there are 3 possible cases:
+
+1. The variable has already been defined in the current renderer. Then it gets updated in the
+   current renderer.
+1. The variable is undefined in the current renderer but has already been defined in an ancestor
+   renderer. Then it gets updated in the corresponding ancestor renderer.
+1. The variable is not defined in the current renderer or any ancestor renderers. Then it is set in
+   the current renderer.
+
+NOTE: This does not apply to variables defined via `:data` attribute, which always set a new
+variable for the newly created renderer.
+
+Renderers also have a `$parent` and `$root` attributes. The `$parent` attribute references the
+immediate ancestor renderer if any, or it's `null` otherwise. The `$root` attribute references the
+root renderer where `mancha` was mounted, which could be a self-reference.
 
 ## Styling
 
