@@ -8,8 +8,7 @@
   "unpkg": "dist/mancha.js",
   "scripts": {
     "clean": "rm -rf dist/",
-    "webpack": "webpack",
-    "build": "gulp build && webpack --config=webpack.config.js && webpack --config=webpack.config.esmodule.js",
+    "build": "gulp build",
     "preinstall": "npm run build",
     "test_node": "mocha dist/*.test.js",
     "test_browser": "web-test-runner --node-resolve --compatibility all --puppeteer dist/*browser.test.js",

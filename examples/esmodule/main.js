@@ -1,4 +1,4 @@
-import { Renderer } from "./browser.min.js";
+import { Renderer } from "./browser.js";
 
 export async function main() {
   const renderer = new Renderer();
