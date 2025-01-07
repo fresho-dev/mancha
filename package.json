@@ -1,6 +1,6 @@
 {
   "name": "mancha",
-  "version": "0.12.5",
+  "version": "0.12.6",
   "description": "Javscript HTML rendering engine",
   "main": "dist/index.js",
   "type": "module",
@@ -9,7 +9,7 @@
   "scripts": {
     "clean": "rm -rf dist/",
     "build": "npx gulp build",
-    "preinstall": "npm run build",
+    "prepare": "npm run build",
     "test_node": "mocha dist/*.test.js",
     "test_browser": "web-test-runner --node-resolve --compatibility all --puppeteer dist/*browser.test.js",
     "test": "npm run test_node && npm run test_browser",
