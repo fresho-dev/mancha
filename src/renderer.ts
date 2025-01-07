@@ -169,7 +169,7 @@ export abstract class IRenderer extends SignalStore {
   }
 
   /**
-   * Renders the node by applies all the registered rendering plugins.
+   * Renders the node and applies all the registered rendering plugins.
    *
    * @template T - The type of the root node (Document, DocumentFragment, or Node).
    * @param {T} root - The root node to render.

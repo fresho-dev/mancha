@@ -56,16 +56,18 @@ export class Renderer extends IRenderer {
       /<(\w+)-(\w+)(.*)>([\s\S]*)<\/(\w+)-(\w+)>/g,
       `<div role="$1-$2" $3>$4</div>`
     );
-    this.log(
-      "allowed attribs:",
-      TRUSTED_ATTRIBS.map((attr) => `data-${attr.slice(1).replace(":", "-")}`)
-    );
+
+    // The data-* equivalent of our trusted attributes are allowed.
+    const dataAttribs = TRUSTED_ATTRIBS.map((attr) => `data-${attr.slice(1).replace(":", "-")}`);
+
+    // Allow data-testid for testing purposes.
+    dataAttribs.push("data-testid");
 
     // Sanitize the content.
     const sanitizer = new HtmlSanitizerBuilder()
+      .allowDataAttributes(dataAttribs)
       .allowClassAttributes()
       .allowStyleAttributes()
-      .allowDataAttributes(TRUSTED_ATTRIBS.map((attr) => `data-${attr.slice(1).replace(":", "-")}`))
       .build();
 
     this.log("parseHTML", content);

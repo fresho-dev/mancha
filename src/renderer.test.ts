@@ -1,26 +1,6 @@
 import { IRenderer } from "./renderer.js";
-import { ParserParams, RenderParams } from "./interfaces.js";
 import { assert } from "./test_utils.js";
 import { getAttributeOrDataset } from "./dome.js";
-
-class MockRenderer extends IRenderer {
-  readonly impl = "mock";
-  parseHTML(content: string, params?: ParserParams): DocumentFragment {
-    throw new Error("Not implemented.");
-  }
-  serializeHTML(fragment: DocumentFragment): string {
-    throw new Error("Not implemented.");
-  }
-  preprocessLocal(fpath: string, params?: RenderParams & ParserParams): Promise<DocumentFragment> {
-    throw new Error("Not implemented.");
-  }
-  createElement(tag: string): Element {
-    throw new Error("Not implemented.");
-  }
-  textContent(node: Node, content: string): void {
-    throw new Error("Not implemented.");
-  }
-}
 
 export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
   describe("parseHTML", () => {
@@ -94,6 +74,15 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
       assert.equal(elems[1].textContent, "1");
       assert.equal(elems[2].textContent, "2");
       assert.equal(elems[3].textContent, "3");
+    });
+  });
+
+  describe("eval", () => {
+    it("evaluates a property from ancestor", async function () {
+      const renderer = new ctor({ a: 1 });
+      const subrenderer = renderer.subrenderer();
+      const result = subrenderer.eval("a");
+      assert.equal(result, 1);
     });
   });
 }
