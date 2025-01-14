@@ -33,36 +33,62 @@ const PROPS_SIZING_MINMAX = {
 };
 const PROPS_CUSTOM = {
   // Based on https://tailwindcss.com.
-  // Text style.
-  bold: { "font-weight": "bold" },
-  semibold: { "font-weight": 600 },
-  italic: { "font-style": "italic" },
-  underline: { "text-decoration": "underline" },
-  "no-underline": { "text-decoration": "none" },
-  "decoration-none": { "text-decoration": "none" },
-  "line-through": { "text-decoration": "line-through" },
-  uppercase: { "text-transform": "uppercase" },
-  lowercase: { "text-transform": "lowercase" },
-  capitalize: { "text-transform": "capitalize" },
+  // Font family.
   "font-mono": { "font-family": "monospace" },
   "font-sans": { "font-family": "sans-serif" },
   "font-serif": { "font-family": "serif" },
   "font-cursive": { "font-family": "cursive" },
-  // Text position.
-  "text-left": { "text-align": "left" },
-  "text-right": { "text-align": "right" },
-  "text-center": { "text-align": "center" },
-  "text-justify": { "text-align": "justify" },
-  // Text overflow.
-  truncate: { "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis" },
-  "text-elipsis": { "text-overflow": "ellipsis" },
-  "text-clip": { "text-overflow": "clip" },
   // Font size.
   "text-xs": { "font-size": ".75rem" },
   "text-sm": { "font-size": ".875rem" },
   "text-base": { "font-size": "1rem" },
   "text-lg": { "font-size": "1.125rem" },
   "text-xl": { "font-size": "1.25rem" },
+  // Font weight.
+  "font-thin": { "font-weight": 100 },
+  "font-extralight": { "font-weight": 200 },
+  "font-light": { "font-weight": 300 },
+  "font-normal": { "font-weight": 400 },
+  "font-medium": { "font-weight": 500 },
+  "font-semibold": { "font-weight": 600 },
+  "font-bold": { "font-weight": 700 },
+  "font-extrabold": { "font-weight": 800 },
+  "font-black": { "font-weight": 900 },
+  // Font style.
+  italic: { "font-style": "italic" },
+  "not-italic": { "font-style": "normal" },
+  // Letter spacing.
+  "tracking-tighter": { "letter-spacing": "-0.05em" },
+  "tracking-tight": { "letter-spacing": "-0.025em" },
+  "tracking-normal": { "letter-spacing": "0" },
+  "tracking-wide": { "letter-spacing": "0.025em" },
+  "tracking-wider": { "letter-spacing": "0.05em" },
+  "tracking-widest": { "letter-spacing": "0.1em" },
+  // Line height.
+  "leading-none": { "line-height": "1" },
+  "leading-tight": { "line-height": "1.25" },
+  "leading-snug": { "line-height": "1.375" },
+  "leading-normal": { "line-height": "1.5" },
+  "leading-relaxed": { "line-height": "1.625" },
+  "leading-loose": { "line-height": "2" },
+  // Text align.
+  "text-left": { "text-align": "left" },
+  "text-right": { "text-align": "right" },
+  "text-center": { "text-align": "center" },
+  "text-justify": { "text-align": "justify" },
+  // Text decoration.
+  underline: { "text-decoration": "underline" },
+  "no-underline": { "text-decoration": "none" },
+  "decoration-none": { "text-decoration": "none" },
+  "line-through": { "text-decoration": "line-through" },
+  // Text transform.
+  uppercase: { "text-transform": "uppercase" },
+  lowercase: { "text-transform": "lowercase" },
+  capitalize: { "text-transform": "capitalize" },
+  // Text overflow.
+  truncate: { "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis" },
+  "text-elipsis": { "text-overflow": "ellipsis" },
+  "text-clip": { "text-overflow": "clip" },
   // Position.
   relative: { position: "relative" },
   fixed: { position: "fixed" },
@@ -83,7 +109,7 @@ const PROPS_CUSTOM = {
   visible: { visibility: "visible" },
   invisible: { visibility: "hidden" },
   collapse: { visibility: "collapse" },
-  // List.
+  // List style type.
   "list-none": { "list-style-type": "none" },
   "list-disc": { "list-style-type": "disc" },
   "list-decimal": { "list-style-type": "decimal" },
