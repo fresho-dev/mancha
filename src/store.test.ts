@@ -44,6 +44,12 @@ describe("SignalStore", () => {
       assert.equal(value1, 2);
       assert.equal(value2, 2);
     });
+
+    it("sets property with '.' in name", async () => {
+      const store = new SignalStore();
+      store.set("a.b", 1);
+      assert.equal(store.get("a.b"), 1);
+    });
   });
 
   it("sets proxified ancestor value", async () => {
@@ -204,6 +210,15 @@ describe("SignalStore", () => {
         const result = await store.eval(expression);
         assert.equal(result, expected);
       });
+    });
+
+    it("modifies variables in nested objects", async () => {
+      const object = { x: { a: 1 } };
+      const fn = "x.a = x.a + 1";
+      const store = new SignalStore(object);
+      const result = await store.eval(fn);
+      assert.equal(result, undefined);
+      assert.deepEqual(store.get("x"), { a: 2 });
     });
 
     it("returns strings as-is", async () => {

@@ -69,6 +69,15 @@ export function setAncestorValue(store: Map<string, unknown>, key: string, value
   }
 }
 
+export function setNestedProperty(obj: any, path: string, value: any): void {
+  const keys = path.split(".");
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (!(keys[i] in obj)) obj[keys[i]] = {};
+    obj = obj[keys[i]];
+  }
+  obj[keys[keys.length - 1]] = value;
+}
+
 export class SignalStore extends IDebouncer {
   protected readonly evalkeys: string[] = ["$elem", "$event"];
   protected readonly expressionCache: Map<string, Function> = new Map();
@@ -223,7 +232,7 @@ export class SignalStore extends IDebouncer {
         ?.map((id) => [id, args[id] ?? thisArg[id] ?? (globalThis as any)[id]]);
       const res = ast?.evaluate(Object.fromEntries(ctx || []));
       if (assignResult) {
-        thisArg[assignResult] = res;
+        setNestedProperty(thisArg, assignResult, res);
       } else {
         return res;
       }
