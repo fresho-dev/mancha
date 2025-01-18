@@ -213,12 +213,20 @@ describe("SignalStore", () => {
     });
 
     it("modifies variables in nested objects", async () => {
-      const object = { x: { a: 1 } };
+      const object = { x: { a: 0 } };
       const fn = "x.a = x.a + 1";
       const store = new SignalStore(object);
+      let notified = 0;
+      store.effect(function () {
+        this.x.a;
+        notified++;
+      });
+      assert.equal(notified, 1);
       const result = await store.eval(fn);
       assert.equal(result, undefined);
-      assert.deepEqual(store.get("x"), { a: 2 });
+      assert.deepEqual(store.get("x"), { a: 1 });
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      assert.equal(notified, 2);
     });
 
     it("returns strings as-is", async () => {
@@ -295,7 +303,6 @@ describe("SignalStore", () => {
 
     it("runs effect for short-circuit expressions", async () => {
       const store = new SignalStore({ a: false, b: false });
-      const { $ } = store;
       let result = null;
       store.effect(function () {
         result = this.eval("a && b");
