@@ -145,6 +145,8 @@ const PROPS_CUSTOM = {
   "overflow-x-hidden": { "overflow-x": "hidden" },
   "overflow-y-hidden": { "overflow-y": "hidden" },
   "overflow-visible": { overflow: "visible" },
+  // Z-index.
+  "z-auto": { "z-index": "auto" },
   // Cursors.
   "cursor-pointer": { cursor: "pointer" },
   "cursor-wait": { cursor: "wait" },
@@ -616,6 +618,17 @@ function border(): string[] {
   return [
     // Pixel units for border width.
     ...UNITS_SM.map((v) => [`border-${v}`, `border-width: ${v}px`]),
+  ].flatMap(([klass, rule]) => [
+    `.${klass} { ${rule} }`,
+    `${wrapPseudoStates(klass).join(",")} { ${rule} }`,
+    ...wrapMediaQueries(klass, rule),
+  ]);
+}
+
+function zIndex(): string[] {
+  return [
+    // Percent units reused as values for z-index.
+    ...PERCENTS.map((v) => [`z-${v}`, `z-index: ${v}`]),
   ].flatMap(([klass, rule]) => [
     `.${klass} { ${rule} }`,
     `${wrapPseudoStates(klass).join(",")} { ${rule} }`,
