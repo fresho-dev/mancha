@@ -10,6 +10,7 @@ const UNITS_LG = [16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60];
 const UNITS_XL = [64, 72, 80, 96, 112, 128, 144, 160, 192, 224, 256, 288, 320, 384, 448, 512];
 const UNITS_ALL = [...UNITS_SM, ...UNITS_LG, ...UNITS_XL, ...Object.values(MEDIA_BREAKPOINTS)];
 const PERCENTS = [1, 2, 5, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 95, 98, 99, 100];
+const DURATIONS = [75, 100, 150, 200, 300, 500, 700, 1000];
 const PSEUDO_STATES = ["hover", "focus", "disabled", "active"];
 const PROPS_SPACING = {
   margin: "m",
@@ -636,6 +637,17 @@ function zIndex(): string[] {
   ]);
 }
 
+function transitions(): string[] {
+  return [
+    // Positive milliseconds for transition.
+    ...DURATIONS.map((v) => [`duration-${v}`, `transition-duration: ${v}ms`]),
+  ].flatMap(([klass, rule]) => [
+    `.${klass} { ${rule} }`,
+    `${wrapPseudoStates(klass).join(",")} { ${rule} }`,
+    ...wrapMediaQueries(klass, rule),
+  ]);
+}
+
 function between(): string[] {
   return [
     // Zero for x margin.
@@ -749,6 +761,8 @@ export default function rules(): string {
       ...opacity(),
       // Z-Index.
       ...zIndex(),
+      // Transitions.
+      ...transitions(),
       // Position.
       ...posneg(PROPS_POSITION),
       // Sizing.
