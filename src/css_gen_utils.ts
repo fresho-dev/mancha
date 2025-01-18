@@ -747,6 +747,8 @@ export default function rules(): string {
       ...colors(),
       // Opacity.
       ...opacity(),
+      // Z-Index.
+      ...zIndex(),
       // Position.
       ...posneg(PROPS_POSITION),
       // Sizing.
