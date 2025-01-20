@@ -406,7 +406,7 @@ export namespace RendererPlugins {
 
   export const resolveBindAttribute: RendererPlugin = async function (node, params) {
     if (this._skipNodes.has(node)) return;
-    const elem = node as HTMLElement;
+    const elem = node as HTMLInputElement;
     const bindExpr = getAttributeOrDataset(elem, "bind", ":");
     if (bindExpr) {
       this.log(":bind attribute found in:\n", nodeToString(node, 128));
@@ -415,7 +415,7 @@ export namespace RendererPlugins {
       const defaultEvents = ["change", "input"];
       const updateEvents =
         getAttribute(elem, ":bind:on")?.split(",") ||
-        elem.dataset["bindOn"]?.split(",") ||
+        elem.dataset?.["bindOn"]?.split(",") ||
         defaultEvents;
 
       // Remove the processed attributes from node.
@@ -429,7 +429,8 @@ export namespace RendererPlugins {
       // Watch for updates in the store and bind our property ==> node value.
       this.effect(function () {
         const result = this.eval(bindExpr, { $elem: node });
-        (elem as any)[prop] = result;
+        if (prop === "checked") elem.checked = !!result;
+        else elem.value = result as string;
       });
 
       // Bind node value ==> our property.
