@@ -90,6 +90,13 @@ const PROPS_CUSTOM = {
   truncate: { "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis" },
   "text-elipsis": { "text-overflow": "ellipsis" },
   "text-clip": { "text-overflow": "clip" },
+  // Whitespace.
+  "whitespace-normal": { "white-space": "normal" },
+  "whitespace-no-wrap": { "white-space": "nowrap" },
+  "whitespace-pre": { "white-space": "pre" },
+  "whitespace-pre-line": { "white-space": "pre-line" },
+  "whitespace-pre-wrap": { "white-space": "pre-wrap" },
+  "whitespace-break-spaces": { "white-space": "break-spaces" },
   // Position.
   relative: { position: "relative" },
   fixed: { position: "fixed" },
