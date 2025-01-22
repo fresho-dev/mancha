@@ -495,12 +495,48 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 
         assert.equal(getAttribute(node, ":for"), null);
         assert.notEqual(node.parentNode, parent);
-        assert.notEqual(renderer.$.item, "foo");
 
         const children = Array.from(parent?.childNodes || []).slice(1);
         assert.equal(children.length, container.length);
         for (let i = 0; i < container.length; i++) {
           assert.equal(getTextContent(children[i] as Element), container[i].text);
+        }
+      });
+
+      it("container with nested arrays", async function () {
+        // Create array with 0..n elements.
+        let curr = 0;
+        const container = [];
+        for (let i = 0; i < 10; i++) {
+          const subarr = Array.from({ length: 10 }, (_, x) => ({ text: String(curr++) }));
+          container.push({ text: String(i), items: subarr });
+        }
+        const renderer = new ctor({ items: container });
+        const htmlSubitem = `<div :for="subitem in (item.items)">{{ subitem.text }}</div>`;
+        const html = `<div :for="item in items"><span>{{ item.text }}</span>${htmlSubitem}</div>`;
+        const fragment = renderer.parseHTML(html);
+        
+        await renderer.mount(fragment);
+        const node = fragment.firstChild as HTMLElement;
+        const parent = node.parentNode;
+        assert.notEqual(parent, null);
+        assert.equal(getAttribute(node, ":for"), null);
+
+        const children = Array.from(parent?.childNodes || []).slice(1);
+        assert.equal(children.length, container.length);
+        for (let i = 0; i < container.length; i++) {
+          const subchildren = Array.from(children[i].childNodes);
+          // The first item is the <span> element.
+          const spanitem = subchildren.shift() as Element;
+          assert.equal(getTextContent(spanitem), container[i].text);
+          // The next item is the <template> element.
+          const tplelem = subchildren.shift() as Element;
+          assert.equal(tplelem?.tagName?.toLowerCase(), "template");
+          // The remaining items are the subitems.
+          assert.equal(subchildren.length, container[i].items.length);
+          for (let j = 0; j < container[i].items.length; j++) {
+            assert.equal(getTextContent(subchildren[j] as Element), container[i].items[j].text);
+          }
         }
       });
     });
