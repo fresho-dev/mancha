@@ -64,6 +64,13 @@ const PROPS_CUSTOM = {
   // Font style.
   italic: { "font-style": "italic" },
   "not-italic": { "font-style": "normal" },
+  // Sizing.
+  "w-max": { width: "max-content" },
+  "w-min": { width: "min-content" },
+  "w-fit": { width: "fit-content" },
+  "h-max": { height: "max-content" },
+  "h-min": { height: "min-content" },
+  "h-fit": { height: "fit-content" },
   // Letter spacing.
   "tracking-tighter": { "letter-spacing": "-0.05em" },
   "tracking-tight": { "letter-spacing": "-0.025em" },
