@@ -45,6 +45,12 @@ const PROPS_CUSTOM = {
   "text-base": { "font-size": "1rem" },
   "text-lg": { "font-size": "1.125rem" },
   "text-xl": { "font-size": "1.25rem" },
+  "text-2xl": { "font-size": "1.5rem" },
+  "text-3xl": { "font-size": "1.875rem" },
+  "text-4xl": { "font-size": "2.25rem" },
+  "text-5xl": { "font-size": "3rem" },
+  "text-6xl": { "font-size": "3.75rem" },
+  "text-7xl": { "font-size": "4.5rem" },
   // Font weight.
   "font-thin": { "font-weight": 100 },
   "font-extralight": { "font-weight": 200 },
@@ -696,6 +702,22 @@ function between(): string[] {
   ]);
 }
 
+function textSizes(): string[] {
+  return [
+    // 100 font sizes in single pixel increments.
+    ...Array.from({ length: 100 }, (_, i) => i).map((v) => [`text-${v}px`, `font-size: ${v}px`]),
+    // 100 font sizes in REM_UNIT (0.25) increments.
+    ...Array.from({ length: 100 }, (_, i) => i * REM_UNIT).map((v) => [
+      `text-${v}rem`,
+      `font-size: ${v}rem`,
+    ]),
+  ].flatMap(([klass, rule]) => [
+    `.${klass} { ${rule} }`,
+    `${wrapPseudoStates(klass).join(",")} { ${rule} }`,
+    ...wrapMediaQueries(klass, rule),
+  ]);
+}
+
 function custom(): string[] {
   return Object.entries(PROPS_CUSTOM).flatMap(([klass, props]) =>
     Object.entries(props).flatMap(([propkey, propval]) => [
@@ -784,6 +806,8 @@ export default function rules(): string {
       ...posneg(PROPS_SIZING_MINMAX),
       // Border.
       ...border(),
+      // Text sizes.
+      ...textSizes(),
     ]
       // Sort lexicographical to ensure media queries appear after their base rules.
       .sort(ruleSorter)
