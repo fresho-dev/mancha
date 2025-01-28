@@ -103,6 +103,11 @@ const PROPS_CUSTOM = {
   truncate: { "white-space": "nowrap", overflow: "hidden", "text-overflow": "ellipsis" },
   "text-elipsis": { "text-overflow": "ellipsis" },
   "text-clip": { "text-overflow": "clip" },
+  // Text wrap.
+  "text-wrap": { "text-wrap": "wrap" },
+  "text-nowrap": { "text-wrap": "nowrap" },
+  "text-balance": { "text-wrap": "balance" },
+  "text-pretty": { "text-wrap": "pretty" },  
   // Whitespace.
   "whitespace-normal": { "white-space": "normal" },
   "whitespace-no-wrap": { "white-space": "nowrap" },
