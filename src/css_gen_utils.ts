@@ -192,7 +192,6 @@ const PROPS_CUSTOM = {
   "resize-y": { resize: "vertical" },
   "resize-none": { resize: "none" },
   // Borders.
-  border: { border: "1px solid" },
   "border-none": { border: "none" },
   "border-solid": { "border-style": "solid" },
   "border-dashed": { "border-style": "dashed" },
@@ -648,16 +647,16 @@ function border(): string[] {
     [`border-x`, `border-inline-width: 1px`],
     [`border-y`, `border-block-width: 1px`],
     // Pixel units for border width.
-    ...UNITS_SM.map((v) => [`border-${v}`, `border-width: ${v}px`]),
+    ...[0, ...UNITS_SM].map((v) => [`border-${v}`, `border-width: ${v}px`]),
     // Pixel units for border x and y.
-    ...UNITS_SM.map((v) => [`border-x-${v}`, `border-inline-width: ${v}px;`]),
-    ...UNITS_SM.map((v) => [`border-y-${v}`, `border-block-width: ${v}px;`]),
+    ...[0, ...UNITS_SM].map((v) => [`border-x-${v}`, `border-inline-width: ${v}px;`]),
+    ...[0, ...UNITS_SM].map((v) => [`border-y-${v}`, `border-block-width: ${v}px;`]),
     // TBLR border.
     ...["top", "bottom", "left", "right"].flatMap((dir) => [
       // Single pixel border.
       [`border-${dir.slice(0, 1)}`, `border-${dir}: 1px`],
       // Pixel units for border width.
-      ...UNITS_SM.map((v) => [`border-${dir.slice(0, 1)}-${v}`, `border-${dir}-width: ${v}px`]),
+      ...[0, ...UNITS_SM].map((v) => [`border-${dir.slice(0, 1)}-${v}`, `border-${dir}-width: ${v}px`]),
     ]),
   ].flatMap(([klass, rule]) => [
     `.${klass} { ${rule} }`,
