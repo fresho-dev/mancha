@@ -642,8 +642,23 @@ function tblr(props: { [key: string]: string }): string[] {
 
 function border(): string[] {
   return [
+    // Single pixel border.
+    [`border`, `border: 1px`],
+    // Single pixel border x and y.
+    [`border-x`, `border-inline-width: 1px`],
+    [`border-y`, `border-block-width: 1px`],
     // Pixel units for border width.
     ...UNITS_SM.map((v) => [`border-${v}`, `border-width: ${v}px`]),
+    // Pixel units for border x and y.
+    ...UNITS_SM.map((v) => [`border-x-${v}`, `border-inline-width: ${v}px;`]),
+    ...UNITS_SM.map((v) => [`border-y-${v}`, `border-block-width: ${v}px;`]),
+    // TBLR border.
+    ...["top", "bottom", "left", "right"].flatMap((dir) => [
+      // Single pixel border.
+      [`border-${dir.slice(0, 1)}`, `border-${dir}: 1px`],
+      // Pixel units for border width.
+      ...UNITS_SM.map((v) => [`border-${dir.slice(0, 1)}-${v}`, `border-${dir}-width: ${v}px`]),
+    ]),
   ].flatMap(([klass, rule]) => [
     `.${klass} { ${rule} }`,
     `${wrapPseudoStates(klass).join(",")} { ${rule} }`,
