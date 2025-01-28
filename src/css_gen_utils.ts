@@ -6,8 +6,8 @@ const MEDIA_BREAKPOINTS = {
 };
 const REM_UNIT = 0.25;
 const UNITS_SM = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-const UNITS_LG = [16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60];
-const UNITS_XL = [64, 72, 80, 96, 112, 128, 144, 160, 192, 224, 256, 288, 320, 384, 448, 512];
+const UNITS_LG = [16, 20, 24, 25, 28, 30, 32, 36, 40, 44, 48, 50, 52, 56, 60];
+const UNITS_XL = [64, 72, 80, 96, 100, 112, 128, 144, 160, 192, 200, 224, 256, 288, 300, 320, 384, 400, 448, 500, 512];
 const UNITS_ALL = [...UNITS_SM, ...UNITS_LG, ...UNITS_XL, ...Object.values(MEDIA_BREAKPOINTS)];
 const PERCENTS = [1, 2, 5, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 95, 98, 99, 100];
 const DURATIONS = [75, 100, 150, 200, 300, 500, 700, 1000];
