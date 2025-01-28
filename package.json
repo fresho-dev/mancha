@@ -11,7 +11,7 @@
     "build": "npx gulp build",
     "prepare": "npm run build",
     "test_node": "mocha dist/*.test.js",
-    "test_browser": "web-test-runner --node-resolve --compatibility all --puppeteer dist/*browser.test.js",
+    "test_browser": "web-test-runner --node-resolve --compatibility all --puppeteer dist/*browser.test.js --no-sandbox",
     "test": "npm run test_node && npm run test_browser",
     "check_size": "brotli -c dist/mancha.js | wc -c",
     "cli": "node dist/cli.js"
