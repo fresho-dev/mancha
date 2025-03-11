@@ -7,7 +7,10 @@ const MEDIA_BREAKPOINTS = {
 const REM_UNIT = 0.25;
 const UNITS_SM = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 const UNITS_LG = [16, 20, 24, 25, 28, 30, 32, 36, 40, 44, 48, 50, 52, 56, 60];
-const UNITS_XL = [64, 72, 80, 96, 100, 112, 128, 144, 160, 192, 200, 224, 256, 288, 300, 320, 384, 400, 448, 500, 512];
+const UNITS_XL = [
+  64, 72, 80, 96, 100, 112, 128, 144, 160, 192, 200, 224, 256, 288, 300, 320, 384, 400, 448, 500,
+  512,
+];
 const UNITS_ALL = [...UNITS_SM, ...UNITS_LG, ...UNITS_XL, ...Object.values(MEDIA_BREAKPOINTS)];
 const PERCENTS = [1, 2, 5, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 95, 98, 99, 100];
 const DURATIONS = [75, 100, 150, 200, 300, 500, 700, 1000];
@@ -107,7 +110,7 @@ const PROPS_CUSTOM = {
   "text-wrap": { "text-wrap": "wrap" },
   "text-nowrap": { "text-wrap": "nowrap" },
   "text-balance": { "text-wrap": "balance" },
-  "text-pretty": { "text-wrap": "pretty" },  
+  "text-pretty": { "text-wrap": "pretty" },
   // Whitespace.
   "whitespace-normal": { "white-space": "normal" },
   "whitespace-nowrap": { "white-space": "nowrap" },
@@ -171,6 +174,16 @@ const PROPS_CUSTOM = {
   "overflow-x-hidden": { "overflow-x": "hidden" },
   "overflow-y-hidden": { "overflow-y": "hidden" },
   "overflow-visible": { overflow: "visible" },
+  // Overscroll.
+  "overscroll-auto": { "overscroll-behavior": "auto" },
+  "overscroll-contain": { "overscroll-behavior": "contain" },
+  "overscroll-none": { "overscroll-behavior": "none" },
+  "overscroll-x-auto": { "overscroll-behavior-x": "auto" },
+  "overscroll-x-contain": { "overscroll-behavior-x": "contain" },
+  "overscroll-x-none": { "overscroll-behavior-x": "none" },
+  "overscroll-y-auto": { "overscroll-behavior-y": "auto" },
+  "overscroll-y-contain": { "overscroll-behavior-y": "contain" },
+  "overscroll-y-none": { "overscroll-behavior-y": "none" },
   // Z-index.
   "z-auto": { "z-index": "auto" },
   // Cursors.
@@ -656,7 +669,10 @@ function border(): string[] {
       // Single pixel border.
       [`border-${dir.slice(0, 1)}`, `border-${dir}: 1px`],
       // Pixel units for border width.
-      ...[0, ...UNITS_SM].map((v) => [`border-${dir.slice(0, 1)}-${v}`, `border-${dir}-width: ${v}px`]),
+      ...[0, ...UNITS_SM].map((v) => [
+        `border-${dir.slice(0, 1)}-${v}`,
+        `border-${dir}-width: ${v}px`,
+      ]),
     ]),
   ].flatMap(([klass, rule]) => [
     `.${klass} { ${rule} }`,
