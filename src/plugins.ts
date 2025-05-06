@@ -337,14 +337,15 @@ export namespace RendererPlugins {
         this._skipNodes.add(child);
       }
 
+      // Save the original node style to restore it later.
+      const originalStyle = getAttribute(elem, "style") || "";
+      setAttribute(elem, "style", "display: none;");
+
       // Place the template node into a template element.
       const parent = node.parentNode!!;
       const template = this.createElement("template", node.ownerDocument);
-      setAttribute(template, "style", "display: none;");
       insertBefore(parent, template as Node, node);
       removeChild(parent, node);
-
-      await new Promise((resolve) => setTimeout(resolve, 0));
       appendChild(template as Node, node);
       this.log(":for template:\n", nodeToString(template, 128));
 
@@ -384,6 +385,9 @@ export namespace RendererPlugins {
 
           // Create a new HTML element for each item and add them to parent node.
           const copy = node.cloneNode(true);
+
+          // Restore the original style of the node.
+          setAttribute(copy as Element, "style", originalStyle);
 
           // Also add the new element to the store.
           children.push(copy);
