@@ -340,6 +340,7 @@ export namespace RendererPlugins {
       // Place the template node into a template element.
       const parent = node.parentNode!!;
       const template = this.createElement("template", node.ownerDocument);
+      setAttribute(template, "style", "display: none;");
       insertBefore(parent, template as Node, node);
       removeChild(parent, node);
       appendChild(template as Node, node);
