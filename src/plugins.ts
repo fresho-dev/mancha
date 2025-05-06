@@ -343,6 +343,8 @@ export namespace RendererPlugins {
       setAttribute(template, "style", "display: none;");
       insertBefore(parent, template as Node, node);
       removeChild(parent, node);
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
       appendChild(template as Node, node);
       this.log(":for template:\n", nodeToString(template, 128));
 
