@@ -515,7 +515,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
         const htmlSubitem = `<div :for="subitem in (item.items)">{{ subitem.text }}</div>`;
         const html = `<div :for="item in items"><span>{{ item.text }}</span>${htmlSubitem}</div>`;
         const fragment = renderer.parseHTML(html);
-        
+
         await renderer.mount(fragment);
         const node = fragment.firstChild as HTMLElement;
         const parent = node.parentNode;
@@ -538,6 +538,28 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
             assert.equal(getTextContent(subchildren[j] as Element), container[i].items[j].text);
           }
         }
+      });
+
+      it("template element is not displayed", async function () {
+        const renderer = new ctor();
+        const html = `<div :for="item in items">{{ item }}</div>`;
+        const fragment = renderer.parseHTML(html);
+        const node = fragment.firstChild as HTMLElement;
+        const parent = node.parentNode;
+        assert.notEqual(parent, null);
+
+        // Create array with a single element.
+        renderer.set("items", ["foo"]);
+        await renderer.mount(fragment);
+
+        assert.equal(getAttribute(node, ":for"), null);
+        const [tplelem, childelem] = Array.from(fragment.childNodes) as Element[];
+        assert.equal(tplelem?.tagName?.toLowerCase(), "template");
+        assert.equal(childelem?.tagName?.toLowerCase(), "div");
+
+        // The template element has display none, and the child element has the text.
+        assert.equal(getAttribute(tplelem, "style"), "display: none;");
+        assert.equal(getTextContent(childelem), "foo");
       });
     });
 
