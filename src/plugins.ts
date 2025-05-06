@@ -338,6 +338,7 @@ export namespace RendererPlugins {
       }
 
       // Save the original node style to restore it later.
+      // NOTE: This is a hack because Chrome is sometimes displaying the contents of <template>.
       const originalStyle = getAttribute(elem, "style") || "";
       setAttribute(elem, "style", "display: none;");
 
