@@ -205,6 +205,7 @@ const PROPS_CUSTOM = {
   "resize-y": { resize: "vertical" },
   "resize-none": { resize: "none" },
   // Borders.
+  border: { border: "1px solid" },
   "border-none": { border: "none" },
   "border-solid": { "border-style": "solid" },
   "border-dashed": { "border-style": "dashed" },
