@@ -115,11 +115,13 @@ export abstract class IRenderer extends SignalStore {
   subrenderer(): IRenderer {
     const instance = new (this.constructor as any)().debug(this.debugging) as IRenderer;
 
+    // NOTE: Using the store object directly to avoid modifying ancestor values.
+
     // Attach ourselves as the parent of the new instance.
-    instance.set("$parent", this);
+    instance.store.set("$parent", this);
 
     // Add a reference to the root renderer, or assume that we are the root renderer.
-    instance.set("$rootRenderer", this.get("$rootRenderer") ?? this);
+    instance.store.set("$rootRenderer", this.get("$rootRenderer") ?? this);
 
     // Custom elements are shared across all instances.
     (instance as any)._customElements = this._customElements;
@@ -225,8 +227,9 @@ export abstract class IRenderer extends SignalStore {
     // Attach ourselves to the HTML node.
     setProperty(root as Element, "renderer", this);
 
-    // Attach the HTML node to the root renderer.
-    this.set("$rootNode", root);
+    // Attach the HTML node to the renderer instance.
+    // NOTE: Using the store object directly to avoid modifying ancestor values.
+    this.store.set("$rootNode", root);
 
     // Preprocess all the elements recursively first.
     await this.preprocessNode(root, params);

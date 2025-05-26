@@ -75,6 +75,33 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
       assert.equal(elems[2].textContent, "2");
       assert.equal(elems[3].textContent, "3");
     });
+
+    it("sets the $rootNode property", async function () {
+      const renderer = new ctor();
+      const html = "<div></div>";
+      const fragment = renderer.parseHTML(html);
+      await renderer.mount(fragment);
+      assert.equal(renderer.$.$rootNode, fragment);
+    });
+  });
+
+  describe("subrenderer", () => {
+    it("creates a subrenderer with the same root node", function () {
+      const renderer = new ctor();
+      const subrenderer = renderer.subrenderer();
+      assert.equal(subrenderer.$.$rootNode, renderer.$.$rootNode);
+    });
+
+    it("does not override the root node", async function () {
+      const renderer = new ctor();
+      const fragment1 = renderer.parseHTML("<div></div>");
+      await renderer.mount(fragment1);
+      const subrenderer = renderer.subrenderer();
+      assert.equal(subrenderer.$.$rootNode, renderer.$.$rootNode);
+      const fragment2 = subrenderer.parseHTML("<span></span>");
+      await subrenderer.mount(fragment2);
+      assert.notEqual(subrenderer.$.$rootNode, renderer.$.$rootNode);
+    });
   });
 
   describe("eval", () => {
