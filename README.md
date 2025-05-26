@@ -289,9 +289,14 @@ When setting a variable, there are 3 possible cases:
 NOTE: This does not apply to variables defined via `:data` attribute, which always set a new
 variable for the newly created renderer.
 
-Renderers also have a `$parent` and `$root` attributes. The `$parent` attribute references the
-immediate ancestor renderer if any, or it's `null` otherwise. The `$root` attribute references the
-root renderer where `mancha` was mounted, which could be a self-reference.
+Renderers also have a `$parent`, `$rootRenderer` and `$rootNode` attributes. The `$parent` attribute
+references the immediate ancestor renderer if any, or it's `null` otherwise. The `$rootRenderer`
+attribute references the root renderer where `mancha` was mounted, which could be a self-reference.
+Finally, the `$rootNode` attribute references the HTML node where `mancha` was mounted.
+
+While evaluating expressions, there will also be an `$elem` attribute which references the current
+element being rendered or, in the case of events, the element dispatching the event as well as the
+corresponding `$event` attribute.
 
 ## Styling
 
