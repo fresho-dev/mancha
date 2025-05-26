@@ -119,7 +119,7 @@ export abstract class IRenderer extends SignalStore {
     instance.set("$parent", this);
 
     // Add a reference to the root renderer, or assume that we are the root renderer.
-    instance.set("$root", this.get("$root") ?? this);
+    instance.set("$rootRenderer", this.get("$rootRenderer") ?? this);
 
     // Custom elements are shared across all instances.
     (instance as any)._customElements = this._customElements;
@@ -222,13 +222,16 @@ export abstract class IRenderer extends SignalStore {
   async mount(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void> {
     params = { ...params, rootNode: root };
 
+    // Attach ourselves to the HTML node.
+    setProperty(root as Element, "renderer", this);
+
+    // Attach the HTML node to the root renderer.
+    this.set("$rootNode", root);
+
     // Preprocess all the elements recursively first.
     await this.preprocessNode(root, params);
 
     // Now that the DOM is complete, render all the nodes.
     await this.renderNode(root, params);
-
-    // Attach ourselves to the HTML node.
-    setProperty(root as Element, "renderer", this);
   }
 }
