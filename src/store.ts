@@ -35,37 +35,34 @@ function isProxified<T extends object>(object: T) {
   return object instanceof SignalStore || (object as any)["__is_proxy__"];
 }
 
-export function getAncestorValue(store: Map<string, unknown>, key: string): unknown | null {
-  if (store.has(key)) {
-    return store.get(key);
-  } else if (store.has("$parent")) {
-    const parent = store.get("$parent") as Map<string, unknown>;
-    return getAncestorValue(parent, key);
+export function getAncestorValue(store: SignalStore | null, key: string): unknown | null {
+  const map = store?._store;
+  if (map?.has(key)) {
+    return map.get(key);
+  } else if (map?.has("$parent")) {
+    return getAncestorValue(map.get("$parent") as SignalStore, key);
   } else {
     return null;
   }
 }
 
-export function getAncestorKeyStore(
-  store: Map<string, unknown>,
-  key: string
-): Map<string, unknown> | null {
-  if (store.has(key)) {
+export function getAncestorKeyStore(store: SignalStore | null, key: string): SignalStore | null {
+  const map = store?._store;
+  if (map?.has(key)) {
     return store;
-  } else if (store.has("$parent")) {
-    const parent = store.get("$parent") as Map<string, unknown>;
-    return getAncestorKeyStore(parent, key);
+  } else if (map?.has("$parent")) {
+    return getAncestorKeyStore(map.get("$parent") as SignalStore, key);
   } else {
     return null;
   }
 }
 
-export function setAncestorValue(store: Map<string, unknown>, key: string, value: unknown): void {
+export function setAncestorValue(store: SignalStore, key: string, value: unknown): void {
   const ancestor = getAncestorKeyStore(store, key);
   if (ancestor) {
-    ancestor.set(key, value);
+    ancestor._store.set(key, value);
   } else {
-    store.set(key, value);
+    store._store.set(key, value);
   }
 }
 
@@ -81,9 +78,9 @@ export function setNestedProperty(obj: any, path: string, value: any): void {
 export class SignalStore extends IDebouncer {
   protected readonly evalkeys: string[] = ["$elem", "$event"];
   protected readonly expressionCache: Map<string, Function> = new Map();
-  protected readonly store = new Map<string, unknown>();
   protected readonly observers = new Map<string, Set<Observer<unknown>>>();
   protected _observer: Observer<unknown> | null = null;
+  readonly _store = new Map<string, unknown>();
   _lock: Promise<void> = Promise.resolve();
 
   constructor(data?: { [key: string]: any }) {
@@ -127,20 +124,22 @@ export class SignalStore extends IDebouncer {
     });
   }
 
-  protected watch<T>(key: string, observer: Observer<T>): void {
-    if (!this.observers.has(key)) {
-      this.observers.set(key, new Set());
+  watch<T>(key: string, observer: Observer<T>): void {
+    const owner = getAncestorKeyStore(this, key);
+    if (!owner) {
+      throw new Error(`Cannot watch key "${key}" as it does not exist in the store.`);
     }
-    if (!this.observers.get(key)?.has(observer)) {
-      this.observers.get(key)?.add(observer);
+    if (!owner.observers.has(key)) {
+      owner.observers.set(key, new Set());
+    }
+    if (!owner.observers.get(key)?.has(observer)) {
+      owner.observers.get(key)?.add(observer);
     }
   }
 
-  protected async notify(
-    key: string,
-    debounceMillis: number = REACTIVE_DEBOUNCE_MILLIS
-  ): Promise<void> {
-    const observers = Array.from(this.observers.get(key) || []);
+  async notify(key: string, debounceMillis: number = REACTIVE_DEBOUNCE_MILLIS): Promise<void> {
+    const owner = getAncestorKeyStore(this, key);
+    const observers = Array.from(owner?.observers.get(key) || []);
     await this.debounce(debounceMillis, () =>
       Promise.all(observers.map((observer) => observer.call(this.proxify(observer))))
     );
@@ -148,11 +147,11 @@ export class SignalStore extends IDebouncer {
 
   get<T>(key: string, observer?: Observer<T>): unknown | null {
     if (observer) this.watch(key, observer);
-    return getAncestorValue(this.store, key);
+    return getAncestorValue(this, key);
   }
 
   async set(key: string, value: unknown): Promise<void> {
-    if (value === this.store.get(key)) return;
+    if (value === this._store.get(key)) return;
     const callback = () => this.notify(key);
     if (value && typeof value === "function") {
       value = this.wrapFunction(value);
@@ -160,17 +159,17 @@ export class SignalStore extends IDebouncer {
     if (value && typeof value === "object") {
       value = this.wrapObject(value, callback);
     }
-    setAncestorValue(this.store, key, value);
+    setAncestorValue(this, key, value);
     await callback();
   }
 
   del(key: string): void {
-    this.store.delete(key);
+    this._store.delete(key);
     this.observers.delete(key);
   }
 
   has(key: string): boolean {
-    return this.store.has(key);
+    return this._store.has(key);
   }
 
   effect<T>(observer: Observer<T>): T {
@@ -178,11 +177,11 @@ export class SignalStore extends IDebouncer {
   }
 
   private proxify<T>(observer?: Observer<T>): SignalStoreProxy {
-    const keys = Array.from(this.store.entries()).map(([key]) => key);
+    const keys = Array.from(this._store.entries()).map(([key]) => key);
     const keyval = Object.fromEntries(keys.map((key) => [key, undefined]));
     return new Proxy(keyval as SignalStoreProxy, {
       get: (_, prop, receiver) => {
-        if (typeof prop === "string" && getAncestorKeyStore(this.store, prop)) {
+        if (typeof prop === "string" && getAncestorKeyStore(this, prop)) {
           return this.get(prop, observer);
         } else if (prop === "$") {
           return this.proxify(observer);
@@ -256,7 +255,7 @@ export class SignalStore extends IDebouncer {
   eval(expr: string, args: { [key: string]: any } = {}): unknown {
     // Determine whether we have already been proxified to avoid doing it again.
     const thisArg = this._observer ? (this as SignalStoreProxy) : this.$;
-    if (this.store.has(expr)) {
+    if (this._store.has(expr)) {
       // Shortcut: if the expression is just an item from the value store, use that directly.
       return thisArg[expr];
     } else {

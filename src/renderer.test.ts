@@ -102,6 +102,40 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
       await subrenderer.mount(fragment2);
       assert.notEqual(subrenderer.$.$rootNode, renderer.$.$rootNode);
     });
+
+    it("sets the $parent property", function () {
+      const renderer = new ctor();
+      const subrenderer = renderer.subrenderer();
+      assert.equal(subrenderer.$.$parent, renderer);
+    });
+
+    it("sets the $rootRenderer property", function () {
+      const renderer = new ctor();
+      const subrenderer = renderer.subrenderer();
+      assert.equal(subrenderer.$.$rootRenderer, renderer.get("$rootRenderer") ?? renderer);
+    });
+
+    it("modifying value in parent notifies subrenderer", async function () {
+      const renderer = new ctor({ a: 1 });
+      const subrenderer = renderer.subrenderer();
+      let notified = false;
+      subrenderer.watch("a", () => {
+        notified = true;
+      });
+      await renderer.set("a", 2);
+      assert.equal(notified, true);
+    });
+
+    it("modifying value in subrenderer notifies parent", async function () {
+      const renderer = new ctor({ a: 1 });
+      const subrenderer = renderer.subrenderer();
+      let notified = false;
+      renderer.watch("a", () => {
+        notified = true;
+      });
+      await subrenderer.set("a", 2);
+      assert.equal(notified, true);
+    });
   });
 
   describe("eval", () => {
