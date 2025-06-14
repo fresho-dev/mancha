@@ -218,7 +218,8 @@ export namespace RendererPlugins {
       const result = subrenderer.eval(dataAttr, { $elem: node }) as Object;
 
       // Await any promises in the result object.
-      await Promise.all(Object.entries(result).map(([key, value]) => subrenderer.set(key, value)));
+      // NOTE: Using the store object directly to avoid modifying ancestor values.
+      await Promise.all(Object.entries(result).map(([k, v]) => subrenderer._store.set(k, v)));
 
       // Skip all the children of the current node, if it's a subrenderer.
       if (subrenderer !== this) {
@@ -382,7 +383,9 @@ export namespace RendererPlugins {
         for (const item of items) {
           // Create a subrenderer that will hold the loop item and all node descendants.
           const subrenderer = this.subrenderer();
-          subrenderer.set(loopKey, item);
+
+          // NOTE: Using the store object directly to avoid modifying ancestor values.
+          subrenderer._store.set(loopKey, item);
 
           // Create a new HTML element for each item and add them to parent node.
           const copy = node.cloneNode(true);
