@@ -439,7 +439,8 @@ export namespace RendererPlugins {
 
       // If the bound expression is a simple variable and does not exist, create it.
       if (!bindExpr.includes(".") && !this.has(bindExpr)) {
-        this.set(bindExpr, null);
+        // NOTE: Setting the value to an empty string instead of undefined or null.
+        this.set(bindExpr, "");
       }
 
       // Watch for updates in the store and bind our property ==> node value.
