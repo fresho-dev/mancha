@@ -595,7 +595,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
         assert.equal(renderer.get("foo"), "qux");
       });
 
-      it("fails to bind a text input value with undefined variable", async function () {
+      it("binds to a text input value with undefined variable", async function () {
         // Skip test if renderer does not support events.
         if (["htmlparser2"].includes(new ctor().impl)) this.skip();
 
@@ -607,9 +607,9 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
         const renderer = new ctor();
         assert.equal(renderer.has("foo"), false);
 
-        // After mount(), the value is still not in the store.
+        // After mount(), the value has been set in the store.
         await renderer.mount(doc.body);
-        assert.equal(renderer.has("foo"), false);
+        assert.equal(renderer.has("foo"), true);
       });
 
       it("binds a text input value with custom events", async function () {

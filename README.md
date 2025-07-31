@@ -298,6 +298,29 @@ While evaluating expressions, there will also be an `$elem` attribute which refe
 element being rendered or, in the case of events, the element dispatching the event as well as the
 corresponding `$event` attribute.
 
+### URL Query Parameter Binding
+
+`mancha` provides a convenient way to establish a two-way binding between the state of your application and the URL query parameters. This is useful for preserving state across page reloads and for sharing links that restore the application to a specific state.
+
+This feature is enabled automatically. When a renderer is mounted to a DOM element, any variable in its store prefixed with `$$` will be automatically synchronized with the URL query parameters.
+
+- **Store to URL**: When you set a variable like `$.$$page = 2` (where `$` is the renderer's reactive proxy), the URL will be updated to `/?page=2`. If you set the value to a falsy value (e.g., `null`, `undefined`, `false`, `0`, or `''`), the parameter will be removed from the URL.
+
+- **URL to Store**: When the page loads or the user navigates using the browser's back/forward buttons, the store is automatically updated from the current URL's query parameters. For example, if the URL is `/?search=mancha`, the store variable `$$search` will be set to `"mancha"`.
+
+This allows you to react to URL changes declaratively within your components:
+
+```html
+<body :data="{ $$search: '' }">
+  <input type="text" :bind="$$search" placeholder="Search..." />
+  <div :show="$$search">Searching for: {{ $$search }}</div>
+</body>
+<script type="module">
+  import { Mancha } from "//unpkg.com/mancha";
+  await Mancha.mount(document.body);
+</script>
+```
+
 ## Styling
 
 Some basic styling rules are built into the library and can be optionally used. The styling

@@ -3,6 +3,7 @@ import { Iterator } from "./iterator.js";
 import { RendererPlugins } from "./plugins.js";
 import { dirname, nodeToString, setProperty, traverse } from "./dome.js";
 import { SignalStore } from "./store.js";
+import { setupQueryParamBindings } from "./query.js";
 
 export type EvalListener = (result: any, dependencies: string[]) => any;
 
@@ -227,6 +228,12 @@ export abstract class IRenderer extends SignalStore {
     // Attach ourselves to the HTML node.
     setProperty(root as Element, "renderer", this);
 
+    // Set ourselves as the root renderer if not already set.
+    if (!this.has("$rootRenderer")) {
+      // NOTE: Using the store object directly to avoid modifying ancestor values.
+      this._store.set("$rootRenderer", this);
+    }
+
     // Attach the HTML node to the renderer instance.
     // NOTE: Using the store object directly to avoid modifying ancestor values.
     this._store.set("$rootNode", root);
@@ -236,5 +243,10 @@ export abstract class IRenderer extends SignalStore {
 
     // Now that the DOM is complete, render all the nodes.
     await this.renderNode(root, params);
+
+    // Setup query parameter bindings.
+    if (this.get("$rootRenderer") === this) {
+      setupQueryParamBindings(this);
+    }
   }
 }
