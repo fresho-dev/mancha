@@ -46,15 +46,16 @@ export const assert = {
 if (!globalThis.window) {
   // Import JSDOM dynamically, because it's not available in browser context.
   const { JSDOM } = await import("jsdom");
-  const dom = new JSDOM();
+  const dom = new JSDOM(``, { url: "http://localhost/" });
 
   // Types.
   globalThis.Document = globalThis.Document || dom.window.Document;
   globalThis.DocumentFragment = globalThis.DocumentFragment || dom.window.DocumentFragment;
 
   // Objects and Classes.
-  globalThis.window = globalThis.window || dom.window;
+  globalThis.window = globalThis.window || (dom.window as unknown as Window & typeof globalThis);
   globalThis.document = globalThis.document || dom.window.document;
   globalThis.DOMParser = globalThis.DOMParser || dom.window.DOMParser;
   globalThis.XMLSerializer = globalThis.XMLSerializer || dom.window.XMLSerializer;
+  globalThis.PopStateEvent = globalThis.PopStateEvent || dom.window.PopStateEvent;
 }

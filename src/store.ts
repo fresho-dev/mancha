@@ -2,6 +2,7 @@ import * as jexpr from "jexpr";
 
 type SignalStoreProxy = SignalStore & { [key: string]: any };
 type Observer<T> = (this: SignalStoreProxy) => T;
+type KeyValueHandler = (this: SignalStoreProxy, key: string, value: any) => void;
 
 abstract class IDebouncer {
   timeouts: Map<Function, ReturnType<typeof setTimeout>> = new Map();
@@ -79,6 +80,7 @@ export class SignalStore extends IDebouncer {
   protected readonly evalkeys: string[] = ["$elem", "$event"];
   protected readonly expressionCache: Map<string, Function> = new Map();
   protected readonly observers = new Map<string, Set<Observer<unknown>>>();
+  protected readonly keyHandlers = new Map<RegExp, Set<KeyValueHandler>>();
   protected _observer: Observer<unknown> | null = null;
   readonly _store = new Map<string, unknown>();
   _lock: Promise<void> = Promise.resolve();
@@ -137,6 +139,13 @@ export class SignalStore extends IDebouncer {
     }
   }
 
+  addKeyHandler(pattern: RegExp, handler: KeyValueHandler): void {
+    if (!this.keyHandlers.has(pattern)) {
+      this.keyHandlers.set(pattern, new Set());
+    }
+    this.keyHandlers.get(pattern)!.add(handler);
+  }
+
   async notify(key: string, debounceMillis: number = REACTIVE_DEBOUNCE_MILLIS): Promise<void> {
     const owner = getAncestorKeyStore(this, key);
     const observers = Array.from(owner?.observers.get(key) || []);
@@ -160,10 +169,23 @@ export class SignalStore extends IDebouncer {
       value = this.wrapObject(value, callback);
     }
     setAncestorValue(this, key, value);
+
+    // Invoke any key handlers.
+    for (const [pattern, handlers] of this.keyHandlers.entries()) {
+      if (pattern.test(key)) {
+        for (const handler of handlers) {
+          await Promise.resolve(handler.call(this.$, key, value));
+        }
+      }
+    }
+
+    // Invoke the callback to notify observers.
     await callback();
   }
 
-  del(key: string): void {
+  async del(key: string): Promise<void> {
+    // By setting to null, we trigger observers before deletion.
+    await this.set(key, null);
     this._store.delete(key);
     this.observers.delete(key);
   }
@@ -178,7 +200,7 @@ export class SignalStore extends IDebouncer {
 
   private proxify<T>(observer?: Observer<T>): SignalStoreProxy {
     const keys = Array.from(this._store.entries()).map(([key]) => key);
-    const keyval = Object.fromEntries(keys.map((key) => [key, undefined]));
+    const keyval = Object.fromEntries(keys.map((key) => [key, null]));
     return new Proxy(keyval as SignalStoreProxy, {
       get: (_, prop, receiver) => {
         if (typeof prop === "string" && getAncestorKeyStore(this, prop)) {

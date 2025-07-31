@@ -16,7 +16,10 @@ For example, a basic form might look like this
 
 ```html
 <body :data="{ name: null }">
-  <form class="flex flex-col max-w-md p-4 bg-white rounded-lg" :on:submit="console.log('submitted')">
+  <form
+    class="flex flex-col max-w-md p-4 bg-white rounded-lg"
+    :on:submit="console.log('submitted')"
+  >
     <label class="w-full mb-4">
       <span class="block text-sm font-medium text-gray-700">Name</span>
       <input
@@ -127,3 +130,32 @@ the `<script>` tag that imports `Mancha`, and explicitly call the `mount()` func
   await $.mount(document.body);
 </script>
 ```
+
+## URL Query Parameter Binding
+
+`mancha` makes it easy to synchronize your application's state with the URL query parameters. This is particularly useful for maintaining state across page reloads or for creating shareable links.
+
+This feature works automatically for any variable prefixed with `$$`. When a `$$` variable is changed in your application, the URL is updated. Conversely, when the page loads, `mancha` reads the query parameters from the URL and populates the corresponding `$$` variables in your application's state.
+
+Here's how you can use it:
+
+```html
+<body :data="{ $$search: '' }">
+  <form class="flex flex-col max-w-md p-4 bg-white rounded-lg">
+    <label class="w-full mb-4">
+      <span class="block text-sm font-medium text-gray-700">Search</span>
+      <input
+        type="text"
+        :bind="$$search"
+        class="w-full mt-1 p-2 border border-gray-300 rounded-md focus:border-indigo-500"
+        placeholder="Type to see the URL change..."
+      />
+    </label>
+    <div :show="$$search" class="mt-2">
+      <p>Current search query: <span class="font-mono">{{ $$search }}</span></p>
+    </div>
+  </form>
+</body>
+```
+
+In this example, the input field is bound to `$$search`. As you type, the URL will be updated with a `search` query parameter (e.g., `?search=your-text`). If you reload the page with the query parameter in the URL, the input field will be automatically populated with the value from the URL.

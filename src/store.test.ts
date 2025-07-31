@@ -125,8 +125,8 @@ describe("SignalStore", () => {
       assert.ok(ops >= 1);
 
       // The effect stops getting called after the value is removed.
+      await store.del("a");
       ops = 0;
-      store.del("a");
       await store.set("a", 0);
       assert.equal(ops, 0);
     });
