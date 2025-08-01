@@ -228,25 +228,25 @@ export abstract class IRenderer extends SignalStore {
     // Attach ourselves to the HTML node.
     setProperty(root as Element, "renderer", this);
 
+    // Attach the HTML node to the renderer instance.
+    // NOTE: Using the store object directly to avoid modifying ancestor values.
+    this._store.set("$rootNode", root);
+
     // Set ourselves as the root renderer if not already set.
     if (!this.has("$rootRenderer")) {
       // NOTE: Using the store object directly to avoid modifying ancestor values.
       this._store.set("$rootRenderer", this);
     }
 
-    // Attach the HTML node to the renderer instance.
-    // NOTE: Using the store object directly to avoid modifying ancestor values.
-    this._store.set("$rootNode", root);
+    // Setup query parameter bindings if we are the root renderer.
+    if (this.get("$rootRenderer") === this) {
+      setupQueryParamBindings(this);
+    }
 
     // Preprocess all the elements recursively first.
     await this.preprocessNode(root, params);
 
     // Now that the DOM is complete, render all the nodes.
     await this.renderNode(root, params);
-
-    // Setup query parameter bindings.
-    if (this.get("$rootRenderer") === this) {
-      setupQueryParamBindings(this);
-    }
   }
 }
