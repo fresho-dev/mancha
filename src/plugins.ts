@@ -20,6 +20,7 @@ import {
   setProperty,
   traverse,
   hasProperty,
+  hasAttributeOrDataset,
 } from "./dome.js";
 import { ParserParams, RenderParams, RendererPlugin } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
@@ -309,7 +310,7 @@ export namespace RendererPlugins {
         this.log(attr.name, "attribute found in:\n", nodeToString(node, 128));
 
         // Look for a :prevent attribute to prevent default behavior.
-        const hasPreventAttr = getAttributeOrDataset(elem, "prevent", ":") !== null;
+        const hasPreventAttr = hasAttributeOrDataset(elem, "prevent", ":");
 
         // Remove the processed attributes from node.
         removeAttributeOrDataset(elem, attr.name);
