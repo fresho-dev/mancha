@@ -240,7 +240,7 @@ export abstract class IRenderer extends SignalStore {
 
     // Setup query parameter bindings if we are the root renderer.
     if (this.get("$rootRenderer") === this) {
-      setupQueryParamBindings(this);
+      await setupQueryParamBindings(this);
     }
 
     // Preprocess all the elements recursively first.
