@@ -190,6 +190,10 @@ export class SignalStore extends IDebouncer {
     this.observers.delete(key);
   }
 
+  keys(): string[] {
+    return Array.from(this._store.keys());
+  }
+
   has(key: string): boolean {
     return this._store.has(key);
   }
