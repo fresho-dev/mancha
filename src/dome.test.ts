@@ -6,6 +6,8 @@ import {
   cloneAttribute,
   getAttribute,
   getAttributeOrDataset,
+  hasAttribute,
+  hasAttributeOrDataset,
   insertBefore,
   replaceChildren,
   traverse,
@@ -93,6 +95,68 @@ describe("Dome", () => {
       const fragment = JSDOM.fragment('<div data-foo-baz="bar"></div>');
       const node = fragment.childNodes[0] as Element;
       assert.equal(getAttributeOrDataset(node, "foo-baz", ":"), "bar");
+    });
+  });
+
+  describe("hasAttribute", () => {
+    testHtmlParsers("check case insensitive", async (htmlParser) => {
+      const fragment = htmlParser('<div attr1="1" ATTR2="2" aTtR3="3"></div>');
+      const node = fragment.childNodes[0] as Element;
+      assert.equal(hasAttribute(node, "attr1"), true);
+      assert.equal(hasAttribute(node, "attr2"), true);
+      assert.equal(hasAttribute(node, "attr3"), true);
+      assert.equal(hasAttribute(node, "nonexistent"), false);
+    });
+
+    it('checks attribute ":foo-baz"', () => {
+      const fragment = JSDOM.fragment('<div :foo-baz="bar"></div>');
+      const node = fragment.childNodes[0] as Element;
+      assert.equal(hasAttribute(node, ":foo-baz"), true);
+      assert.equal(hasAttribute(node, ":nonexistent"), false);
+    });
+
+    it('checks dataset attribute "data-foo"', () => {
+      const fragment = JSDOM.fragment('<div data-foo-baz="bar"></div>');
+      const node = fragment.childNodes[0] as Element;
+      assert.equal(hasAttribute(node, "data-foo-baz"), true);
+      assert.equal(hasAttribute(node, "data-nonexistent"), false);
+    });
+  });
+
+  describe("hasAttributeOrDataset", () => {
+    it('checks attribute ":foo-baz"', () => {
+      const fragment = JSDOM.fragment('<div :foo-baz="bar"></div>');
+      const node = fragment.childNodes[0] as Element;
+      assert.equal(hasAttributeOrDataset(node, "foo-baz", ":"), true);
+      assert.equal(hasAttributeOrDataset(node, "nonexistent", ":"), false);
+    });
+
+    it('checks dataset attribute "foo"', () => {
+      const fragment = JSDOM.fragment('<div data-foo-baz="bar"></div>');
+      const node = fragment.childNodes[0] as Element;
+      assert.equal(hasAttributeOrDataset(node, "foo-baz", ":"), true);
+      assert.equal(hasAttributeOrDataset(node, "nonexistent", ":"), false);
+    });
+
+    it("prioritizes attribute over dataset", () => {
+      const fragment = JSDOM.fragment('<div :foo="attribute" data-foo="dataset"></div>');
+      const node = fragment.childNodes[0] as Element;
+      assert.equal(hasAttributeOrDataset(node, "foo", ":"), true);
+      // Should find the attribute even if dataset also exists
+      assert.equal(getAttributeOrDataset(node, "foo", ":"), "attribute");
+    });
+
+    it("falls back to dataset when attribute doesn't exist", () => {
+      const fragment = JSDOM.fragment('<div data-foo-bar="dataset"></div>');
+      const node = fragment.childNodes[0] as Element;
+      assert.equal(hasAttributeOrDataset(node, "foo-bar", ":"), true);
+      assert.equal(getAttributeOrDataset(node, "foo-bar", ":"), "dataset");
+    });
+
+    it("returns false when neither attribute nor dataset exist", () => {
+      const fragment = JSDOM.fragment('<div></div>');
+      const node = fragment.childNodes[0] as Element;
+      assert.equal(hasAttributeOrDataset(node, "nonexistent", ":"), false);
     });
   });
 

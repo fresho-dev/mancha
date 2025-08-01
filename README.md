@@ -135,7 +135,7 @@ element tag or attributes match a specific criteria. Here's the list of attribut
   ```html
   <span :class="error ? 'red' : 'blue'" class="text-xl">...</span>
   ```
-- `:bind` binds (two-way) a variable to the `value` or `checked` property of the element.
+- `:bind` binds (two-way) a variable to the `value` or `checked` property of the element
   ```html
   <div :data="{ name: 'Stranger' }">
     <input type="text" :bind="name" />
@@ -144,6 +144,10 @@ element tag or attributes match a specific criteria. Here's the list of attribut
 - `:on:{event}` adds an event listener for `event` to the node
   ```html
   <button :on:click="console.log('clicked')"></button>
+  ```
+- `:prevent` combined with `:on:{event}`, calls `event.preventDefault()` in the event handler
+  ```html
+  <a href="#" :on:click="console.log('clicked')" :prevent></a>
   ```
 - `:attr:{name}` sets the corresponding attribute for `name` in the node
   ```html

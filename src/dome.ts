@@ -62,6 +62,11 @@ export function getAttribute(elem: ElementWithAttribs, name: string): string | n
   else return elem.getAttribute?.(name) ?? null;
 }
 
+export function hasAttribute(elem: ElementWithAttribs, name: string): boolean {
+  if (hasProperty(elem, "attribs")) return name in (elem.attribs || {});
+  else return elem.hasAttribute?.(name) ?? false;
+}
+
 export function getAttributeOrDataset(
   elem: ElementWithAttribs,
   name: string,
@@ -70,6 +75,17 @@ export function getAttributeOrDataset(
   return (
     getAttribute(elem, attributePrefix + name) ||
     (elem.dataset?.[attributeNameToCamelCase(name)] ?? null)
+  );
+}
+
+export function hasAttributeOrDataset(
+  elem: ElementWithAttribs,
+  name: string,
+  attributePrefix: string = ""
+): boolean {
+  return (
+    hasAttribute(elem, attributePrefix + name) ||
+    hasProperty(elem.dataset, attributeNameToCamelCase(name))
   );
 }
 
