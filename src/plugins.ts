@@ -308,15 +308,19 @@ export namespace RendererPlugins {
         if (!eventName) throw new Error(`Invalid event attribute: ${attr.name}`);
         this.log(attr.name, "attribute found in:\n", nodeToString(node, 128));
 
+        // Look for a :prevent attribute to prevent default behavior.
+        const hasPreventAttr = getAttributeOrDataset(elem, "prevent", ":") !== null;
+
         // Remove the processed attributes from node.
-        removeAttribute(elem, attr.name);
+        removeAttributeOrDataset(elem, attr.name);
+        removeAttributeOrDataset(elem, "prevent", ":");
 
         // Special case: disable the annoying, default page reload behavior for form elements.
         const preventDefault = eventName === "submit" && elem.tagName.toUpperCase() === "FORM";
 
         // Evaluate the expression and return its result.
         node.addEventListener?.(eventName, (event) => {
-          if (preventDefault) event.preventDefault();
+          if (hasPreventAttr || preventDefault) event.preventDefault();
           return this.eval(attr.value, { $elem: node, $event: event });
         });
       }
