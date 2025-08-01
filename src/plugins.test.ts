@@ -1,10 +1,11 @@
 import { IRenderer } from "./renderer.js";
 import { dirname, getAttribute } from "./dome.js";
 import { REACTIVE_DEBOUNCE_MILLIS } from "./store.js";
-import { assert, getTextContent, innerHTML } from "./test_utils.js";
+import { assert, getTextContent, innerHTML, setupGlobalTestEnvironment } from "./test_utils.js";
 
 export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
   describe("Plugins Test Suite", () => {
+    before(() => setupGlobalTestEnvironment());
     describe("<include>", () => {
       [
         "http://foo.com/bar.html",

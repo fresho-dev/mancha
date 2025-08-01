@@ -13,6 +13,28 @@ export function getTextContent(elem: Element): string | null {
   else return DomUtils.textContent(elem as any);
 }
 
+export async function setupGlobalTestEnvironment() {
+  // Set up global test environment for DOM manipulation.
+
+  // Fall back to JSDOM for DOM manipulation during testing.
+  if (!globalThis.window) {
+    // Import JSDOM dynamically, because it's not available in browser context.
+    const { JSDOM } = await import("jsdom");
+    const dom = new JSDOM(``, { url: "http://localhost/" });
+
+    // Types.
+    globalThis.Document = globalThis.Document || dom.window.Document;
+    globalThis.DocumentFragment = globalThis.DocumentFragment || dom.window.DocumentFragment;
+
+    // Objects and Classes.
+    globalThis.window = globalThis.window || (dom.window as unknown as Window & typeof globalThis);
+    globalThis.document = globalThis.document || dom.window.document;
+    globalThis.DOMParser = globalThis.DOMParser || dom.window.DOMParser;
+    globalThis.XMLSerializer = globalThis.XMLSerializer || dom.window.XMLSerializer;
+    globalThis.PopStateEvent = globalThis.PopStateEvent || dom.window.PopStateEvent;
+  }
+}
+
 // Map the assert methods using Chai.
 chai.use(chaiAsPromised);
 export const assert = {
@@ -41,21 +63,3 @@ export const assert = {
     await chai.expect(p, message).to.eventually.be.rejected;
   },
 };
-
-// Fall back to JSDOM for DOM manipulation during testing.
-if (!globalThis.window) {
-  // Import JSDOM dynamically, because it's not available in browser context.
-  const { JSDOM } = await import("jsdom");
-  const dom = new JSDOM(``, { url: "http://localhost/" });
-
-  // Types.
-  globalThis.Document = globalThis.Document || dom.window.Document;
-  globalThis.DocumentFragment = globalThis.DocumentFragment || dom.window.DocumentFragment;
-
-  // Objects and Classes.
-  globalThis.window = globalThis.window || (dom.window as unknown as Window & typeof globalThis);
-  globalThis.document = globalThis.document || dom.window.document;
-  globalThis.DOMParser = globalThis.DOMParser || dom.window.DOMParser;
-  globalThis.XMLSerializer = globalThis.XMLSerializer || dom.window.XMLSerializer;
-  globalThis.PopStateEvent = globalThis.PopStateEvent || dom.window.PopStateEvent;
-}
