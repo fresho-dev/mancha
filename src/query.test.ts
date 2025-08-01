@@ -1,14 +1,22 @@
-import { assert } from "./test_utils.js";
+import { assert, setupGlobalTestEnvironment } from "./test_utils.js";
 import { Renderer } from "./browser.js";
 import { setupQueryParamBindings } from "./query.js";
 
+const START_HREF = 'http://localhost/';
+
 describe("Query Parameter Bindings", () => {
-  const originalHref = window.location.href;
+  // Set up the global test environment before running tests.
+  before(() => setupGlobalTestEnvironment());
+
+  beforeEach(() => {
+    // Reset the URL to a clean state before each test.
+    window.history.replaceState(null, "", START_HREF);
+  })
 
   // This will run after each test in this block
   afterEach(() => {
     // Reset the URL to a clean state.
-    window.history.replaceState(null, "", originalHref);
+    window.history.replaceState(null, "", START_HREF);
   });
 
   it("should initialize store from URL query parameters", async () => {

@@ -1,6 +1,11 @@
 import { IRenderer } from "./renderer.js";
 
 const KEY_PREFIX = "$$";
+const FALLBACK_URL = "http://localhost/";
+
+function getWindowURL(): URL {
+  return new URL(globalThis.window?.location?.href || FALLBACK_URL);
+}
 
 /**
  * Converts a store key to a URL parameter name by removing the KEY_PREFIX.
@@ -84,7 +89,7 @@ function updateUrlFromStore(url: URL, renderer: IRenderer): void {
     }
   }
   if (changed) {
-    window.history.replaceState({}, "", url.toString());
+    globalThis.window?.history?.replaceState({}, "", url.toString());
   }
 }
 
@@ -96,7 +101,7 @@ function updateUrlFromStore(url: URL, renderer: IRenderer): void {
  */
 function createStoreUpdater(renderer: IRenderer): () => void {
   return async () => {
-    const url = new URL(window.location.href);
+    const url = getWindowURL();
     const presentKeysInUrl = new Set<string>();
 
     // Add/update params in store from URL
@@ -129,7 +134,7 @@ function createStoreUpdater(renderer: IRenderer): () => void {
  * @param renderer The renderer instance.
  */
 export async function setupQueryParamBindings(renderer: IRenderer): Promise<void> {
-  const url = new URL(window.location.href);
+  const url = getWindowURL();
 
   // First, update store with URL parameters (URL takes precedence over existing store values)
   await updateStoreFromUrl(renderer, url);
@@ -139,14 +144,14 @@ export async function setupQueryParamBindings(renderer: IRenderer): Promise<void
 
   // Set up the URL updater to listen for changes in the store.
   renderer.addKeyHandler(new RegExp(`^\\$\\$`), (key, value) => {
-    const url = new URL(window.location.href);
+    const url = getWindowURL();
     const changed = updateUrlFromStoreValue(url, key, value);
 
     if (changed) {
-      window.history.replaceState({}, "", url.toString());
+      globalThis.window?.history?.replaceState({}, "", url.toString());
     }
   });
 
   // Set up the popstate listener to update the store when the URL changes.
-  window.addEventListener("popstate", createStoreUpdater(renderer));
+  globalThis.window?.addEventListener("popstate", createStoreUpdater(renderer));
 }
