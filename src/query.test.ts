@@ -41,24 +41,18 @@ describe("Query Parameter Bindings", () => {
   });
 
   it("should remove parameter from URL when a $$ key is set to undefined, null, or empty string", async () => {
-    window.history.replaceState(null, "", "/?foo=bar&baz=qux");
+    window.history.replaceState(null, "", "/?foo=bar&baz=qux&bar=val");
     const renderer = new Renderer();
     await setupQueryParamBindings(renderer);
 
     await renderer.set("$$foo", undefined);
-    assert.equal(window.location.search, "?baz=qux");
+    assert.equal(window.location.search, "?baz=qux&bar=val");
 
     await renderer.set("$$baz", null);
-    assert.equal(window.location.search, "");
+    assert.equal(window.location.search, "?bar=val");
 
-    window.history.replaceState(null, "", "/?a=1&b=2");
-    // The existing renderer's store is now out of sync with the URL.
-    // The popstate listener would fix it, but we are not triggering it.
-    // For this test, it's cleaner to create a new renderer.
-    const renderer2 = new Renderer();
-    await setupQueryParamBindings(renderer2);
-    await renderer2.set("$$a", "");
-    assert.equal(window.location.search, "?b=2");
+    await renderer.set("$$bar", "");
+    assert.equal(window.location.search, "");
   });
 
   it("should remove parameter from URL when a $$ key is set to a falsy value", async () => {
@@ -146,7 +140,6 @@ describe("Query Parameter Bindings", () => {
     await renderer.set("$$sort", "asc");
 
     await setupQueryParamBindings(renderer);
-    await new Promise((resolve) => setTimeout(resolve, 100)); // Allow async updates to complete
 
     const params = new URLSearchParams(window.location.search);
     assert.equal(params.get("page"), "2");
