@@ -167,6 +167,14 @@ In this example, the input field is bound to `$$search`. As you type, the URL wi
 
 Here's an example of how you can test a simple component:
 
+```html
+<!-- my-component.html -->
+<body>
+  <button data-testid="login-button" :show="!user">Login</button>
+  <button data-testid="logout-button" :show="user">Logout</button>
+</body>
+```
+
 ```js
 // test.js
 import { test, describe, before } from "node:test";
@@ -175,22 +183,17 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { Renderer } from "mancha";
 
+const componentPath = path.join(import.meta.dirname, "my-component.html");
 const findByTestId = (node, testId) => node.querySelector(`[data-testid="${testId}"]`);
 
 describe("My Component", () => {
-  let pageContent;
-
-  before(async () => {
-    // Read the component's HTML once before all tests
-    pageContent = await fs.readFile(path.join(import.meta.dirname, "my-component.html"), "utf8");
-  });
 
   test("renders correctly when logged out", async () => {
     // 1. Initialize the renderer with the desired state for this test case.
     const renderer = new Renderer({ user: null });
 
     // 2. Create a clean DOM fragment from the page content.
-    const fragment = renderer.parseHTML(pageContent);
+    const fragment = await renderer.preprocessLocal(componentPath);
 
     // 3. Mount the renderer to the fragment to apply data bindings.
     await renderer.mount(fragment);
@@ -207,10 +210,16 @@ describe("My Component", () => {
   });
 
   test("renders correctly when logged in", async () => {
+    // 1. Initialize the renderer with the desired state for this test case.
     const renderer = new Renderer({ user: { name: "John Doe" } });
-    const fragment = renderer.parseHTML(pageContent);
+
+    // 2. Create a clean DOM fragment from the page content.
+    const fragment = await renderer.preprocessLocal(componentPath);
+
+    // 3. Mount the renderer to the fragment to apply data bindings.
     await renderer.mount(fragment);
 
+    // 4. Find elements and assert their state.
     const loginButton = findByTestId(fragment, "login-button");
     const logoutButton = findByTestId(fragment, "logout-button");
 
@@ -220,10 +229,3 @@ describe("My Component", () => {
 });
 ```
 
-```html
-<!-- my-component.html -->
-<body>
-  <button data-testid="login-button" :show="!user">Login</button>
-  <button data-testid="logout-button" :show="user">Logout</button>
-</body>
-```
