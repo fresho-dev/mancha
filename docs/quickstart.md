@@ -132,6 +132,56 @@ the `<script>` tag that imports `Mancha`, and explicitly call the `mount()` func
 </script>
 ```
 
+## Reusable Components
+
+`mancha` supports custom components, which can be defined using the template tag:
+
+```html
+<!-- Use <template is="my-component-name"> to register a component. -->
+<template is="my-red-button">
+  <button style="background-color: red;">
+    <slot></slot>
+  </button>
+</template>
+```
+
+The components can live in their own, separate files. A common pattern is to separate each component into their own file, and import them all in a single "roll-up" file. For example, your files might look like this:
+
+```
+src/
+├─ components/
+|  ├─ footer.tpl.html
+|  ├─ my-red-button.tpl.html
+|  ├─ my-custom-component.tpl.html
+├─ index.html
+```
+
+Instead of importing the components individually, you could create a single file `registry.tpl.html` which imports all the custom components:
+
+```html
+<!-- src/components/registry.tpl.html -->
+<include src="./my-red-button.tpl.html" />
+<include src="./my-custom-component.tpl.html" />
+```
+
+Then in `index.html`:
+
+```html
+<!-- src/index.html -->
+<head>
+  <!-- ... -->
+</head>
+<body>
+  <!-- Include the custom component definition before using any of the components -->
+  <include src="components/registry.tpl.html" />
+
+  <!-- Now you can use any of the custom components -->
+  <my-red-button>Click Me!</my-red-button>
+
+  <!-- Any other components can also use the custom components, and don't need to re-import them -->
+  <include src="components/header.tpl.html"/>
+```
+
 ## URL Query Parameter Binding
 
 `mancha` makes it easy to synchronize your application's state with the URL query parameters. This is particularly useful for maintaining state across page reloads or for creating shareable links.
