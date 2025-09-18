@@ -179,7 +179,7 @@ Then in `index.html`:
   <my-red-button>Click Me!</my-red-button>
 
   <!-- Any other components can also use the custom components, and don't need to re-import them -->
-  <include src="components/header.tpl.html"/>
+  <include src="components/footer.tpl.html"/>
 ```
 
 ## URL Query Parameter Binding
