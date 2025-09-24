@@ -1,7 +1,6 @@
 # https://github.com/github/gitignore/blob/master/Node.gitignore
 
 # Node v8 stuff
-package-lock.json
 yarn.lock
 
 # Logs
