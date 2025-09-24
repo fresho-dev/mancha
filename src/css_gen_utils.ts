@@ -166,6 +166,13 @@ const PROPS_CUSTOM = {
   "items-stretch": { "align-items": "stretch" },
   "flex-grow": { "flex-grow": 1 },
   "flex-shrink": { "flex-shrink": 1 },
+  // Vertical alignment.
+  "align-baseline": { "vertical-align": "baseline" },
+  "align-top": { "vertical-align": "top" },
+  "align-middle": { "vertical-align": "middle" },
+  "align-bottom": { "vertical-align": "bottom" },
+  "align-text-top": { "vertical-align": "text-top" },
+  "align-text-bottom": { "vertical-align": "text-bottom" },
   // Overflow.
   "overflow-auto": { overflow: "auto" },
   "overflow-x-auto": { "overflow-x": "auto" },
