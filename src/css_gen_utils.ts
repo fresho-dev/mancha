@@ -532,7 +532,7 @@ function posneg(props: { [key: string]: string }): string[] {
       // Zero.
       [`${klass}-0`, `${prop}: 0`],
       // Screen.
-      [`${klass}-screen`, `${prop}: 100vw`],
+      [`${klass}-screen`, `${prop}: 100v${prop.includes('height') ? 'h' : 'w'}`],
       // Full.
       [`${klass}-full`, `${prop}: 100%`],
       // Positive REM units.
