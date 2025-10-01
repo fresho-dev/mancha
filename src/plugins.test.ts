@@ -346,11 +346,9 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
       });
     });
 
-    describe("on:event", function () {
+    describe("on:event", () => {
       it("click", async function () {
-        // Skip test if renderer does not support events.
         if (["htmlparser2"].includes(new ctor().impl)) this.skip();
-
         const renderer = new ctor({ counter: 0 });
         const html = `<div :on:click="counter = counter + 1"></div>`;
         const fragment = renderer.parseHTML(html);
@@ -361,6 +359,23 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
         node.click?.();
         await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
         assert.equal(renderer.$.counter, 1);
+      });
+
+      it("click.prevent", async function () {
+        if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+        const renderer = new ctor({ counter: 0 });
+        const html = `<a href="#" :on:click.prevent="counter = counter + 1"></a>`;
+        const fragment = renderer.parseHTML(html);
+        document.body.replaceChildren(fragment);
+        const node = document.body.firstChild as HTMLAnchorElement;
+        await renderer.mount(document.body);
+        assert.equal(renderer.$.counter, 0);
+
+        const event = new window.Event("click", { cancelable: true });
+        node.dispatchEvent(event);
+        await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
+        assert.equal(renderer.$.counter, 1);
+        assert.equal(event.defaultPrevented, true);
       });
     });
 
