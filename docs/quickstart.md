@@ -41,8 +41,8 @@ For example, a basic form might look like this
 
 In the code above, the `:on:submit` tag simply prints 'submitted' to the console. Note that `Mancha`
 automatically prevents the form submission from refreshing the page by calling
-`event.prevenDefault()`. You can also trigger this behavior with other events by adding a `:prevent`
-attribute to the element. To provide more complex handlers, you can define callbacks as a function:
+`event.preventDefault()`. You can also trigger this behavior with other events by adding a `.prevent`
+modifier to the event attribute, for example `:on:click.prevent`. To provide more complex handlers, you can define callbacks as a function:
 
 ```html
 <body :data="{ name: null, message: null }">
