@@ -20,7 +20,6 @@ import {
   setProperty,
   traverse,
   hasProperty,
-  hasAttributeOrDataset,
 } from "./dome.js";
 import { ParserParams, RenderParams, RendererPlugin } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
@@ -305,23 +304,28 @@ export namespace RendererPlugins {
     const elem = node as Element;
     for (const attr of Array.from(elem.attributes || [])) {
       if (attr.name.startsWith(":on:") || attr.name.startsWith("data-on-")) {
-        const eventName = attr.name.split(":on:", 2).at(-1)?.split("data-on-", 2).at(-1) || "";
+        let eventName: string = "";
+        let modifiers: string[] = [];
+
+        if (attr.name.startsWith(":on:")) {
+          [eventName, ...modifiers] = attr.name.substring(":on:".length).split(".");
+        } else if (attr.name.startsWith("data-on-")) {
+          [eventName, ...modifiers] = attr.name.substring("data-on-".length).split(".");
+        }
+
         if (!eventName) throw new Error(`Invalid event attribute: ${attr.name}`);
         this.log(attr.name, "attribute found in:\n", nodeToString(node, 128));
 
-        // Look for a :prevent attribute to prevent default behavior.
-        const hasPreventAttr = hasAttributeOrDataset(elem, "prevent", ":");
-
         // Remove the processed attributes from node.
         removeAttributeOrDataset(elem, attr.name);
-        removeAttributeOrDataset(elem, "prevent", ":");
 
         // Special case: disable the annoying, default page reload behavior for form elements.
         const preventDefault = eventName === "submit" && elem.tagName.toUpperCase() === "FORM";
 
-        // Evaluate the expression and return its result.
         node.addEventListener?.(eventName, (event) => {
-          if (hasPreventAttr || preventDefault) event.preventDefault();
+          if (modifiers.includes("prevent") || preventDefault) {
+            event.preventDefault();
+          }
           return this.eval(attr.value, { $elem: node, $event: event });
         });
       }
