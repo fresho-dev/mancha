@@ -145,9 +145,9 @@ element tag or attributes match a specific criteria. Here's the list of attribut
   ```html
   <button :on:click="console.log('clicked')"></button>
   ```
-- `:prevent` combined with `:on:{event}`, calls `event.preventDefault()` in the event handler
+- `:on:{event}.prevent` calls `event.preventDefault()` in the event handler
   ```html
-  <a href="#" :on:click="console.log('clicked')" :prevent></a>
+  <a href="#" :on:click.prevent="console.log('clicked')"></a>
   ```
 - `:attr:{name}` sets the corresponding attribute for `name` in the node
   ```html
