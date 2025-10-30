@@ -209,6 +209,8 @@ export abstract class IRenderer extends SignalStore {
       await RendererPlugins.resolveCustomAttribute.call(this, node, params);
       // Resolve the :prop:{name} attribute in the node.
       await RendererPlugins.resolveCustomProperty.call(this, node, params);
+      // Strip :types and data-types attributes from rendered output.
+      await RendererPlugins.stripTypes.call(this, node, params);
     }
 
     // Return the input node, which should now be fully rendered.

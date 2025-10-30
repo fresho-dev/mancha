@@ -1,5 +1,5 @@
 import { IRenderer } from "./renderer.js";
-import { dirname, getAttribute } from "./dome.js";
+import { dirname, getAttribute, traverse } from "./dome.js";
 import { REACTIVE_DEBOUNCE_MILLIS } from "./store.js";
 import { assert, getTextContent, innerHTML, setupGlobalTestEnvironment } from "./test_utils.js";
 
@@ -833,6 +833,54 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
         await renderer.mount(fragment);
         assert.equal(getAttribute(node, "custom-prop"), null);
         assert.equal((node as any).customProp, "example.com");
+      });
+    });
+
+    describe(":stripTypes plugin", () => {
+      it("strips :types attribute after rendering", async function () {
+        const renderer = new ctor({ name: "John" });
+        const html = `<div :types='{"name": "string"}'><span>{{ name }}</span></div>`;
+        const fragment = renderer.parseHTML(html);
+        const elem = fragment.firstChild as HTMLElement;
+
+        await renderer.mount(fragment);
+
+        // Verify :types attribute is removed after rendering
+        assert.equal(getAttribute(elem, ":types"), null);
+      });
+
+      it("strips data-types attribute after rendering", async function () {
+        const renderer = new ctor({ name: "Jane" });
+        const html = `<div data-types='{"name": "string"}'><span>{{ name }}</span></div>`;
+        const fragment = renderer.parseHTML(html);
+        const elem = fragment.firstChild as HTMLElement;
+
+        await renderer.mount(fragment);
+
+        // Verify data-types attribute is removed after rendering
+        assert.equal(getAttribute(elem, "data-types"), null);
+      });
+
+      it("strips types from nested elements", async function () {
+        const renderer = new ctor({ name: "Bob", age: 30 });
+        const html = `
+          <div :types='{"name": "string"}'>
+            <span>{{ name }}</span>
+            <div data-types='{"age": "number"}'>
+              <span>{{ age }}</span>
+            </div>
+          </div>
+        `;
+        const fragment = renderer.parseHTML(html);
+
+        await renderer.mount(fragment);
+
+        // Verify all types attributes are removed using traverse
+        for (const node of traverse(fragment)) {
+          const elem = node as Element;
+          assert.equal(getAttribute(elem, ":types"), null, "Should not have :types");
+          assert.equal(getAttribute(elem, "data-types"), null, "Should not have data-types");
+        }
       });
     });
   });

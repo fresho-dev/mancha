@@ -1,5 +1,9 @@
 # https://github.com/github/gitignore/blob/master/Node.gitignore
 
+# AI files
+.claude
+.gemini
+
 # Node v8 stuff
 yarn.lock
 

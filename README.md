@@ -161,6 +161,13 @@ element tag or attributes match a specific criteria. Here's the list of attribut
   ```html
   <button :data="{label: 'Click Me'}">{{ label }}</button>
   ```
+- `:types` **(experimental)** declares TypeScript types for static type checking
+  ```html
+  <div :types='{"user": "@import:./types/user.ts:User"}'>
+    <span>{{ user.name.toUpperCase() }}</span>
+  </div>
+  ```
+  See the [Type Checking section in the quickstart guide](./docs/quickstart.md#type-checking-experimental) for more details.
 
 ## Evaluation
 
