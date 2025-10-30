@@ -279,3 +279,282 @@ describe("My Component", () => {
 });
 ```
 
+## Type Checking (Experimental)
+
+**⚠️ This feature is experimental and may change in future versions.**
+
+`mancha` includes an experimental type checker that can validate your template expressions using TypeScript. This helps catch type errors during development before they become runtime errors.
+
+### Basic Type Checking
+
+Use the `:types` attribute to declare types for variables in your templates:
+
+```html
+<div :types='{"name": "string", "age": "number"}'>
+  <span>{{ name.toUpperCase() }}</span>
+  <span>{{ age.toFixed(0) }}</span>
+</div>
+```
+
+The type checker will validate that:
+- `name.toUpperCase()` is valid (string has toUpperCase method)
+- `age.toFixed(0)` is valid (number has toFixed method)
+- Using `name.toFixed()` would be an error (string doesn't have toFixed)
+
+### Running the Type Checker
+
+```bash
+# Check a single file
+npx mancha check src/index.html
+
+# Check with strict mode
+npx mancha check src/index.html --strict
+```
+
+### Stripping Types in Production
+
+The `:types` attributes are only used for static analysis and have no runtime behavior. However, you may want to remove them from your production HTML to reduce file size and avoid exposing type information:
+
+```bash
+# Render with types stripped
+npx mancha render src/index.html --output public/index.html --strip-types
+
+# Render without stripping (default)
+npx mancha render src/index.html --output public/index.html
+```
+
+The `--strip-types` flag removes all `:types` and `data-types` attributes from the rendered output.
+
+### Type Checking with For-Loops
+
+The type checker understands `:for` loops and infers the item type from the array:
+
+```html
+<div :types='{"users": "{ name: string, age: number }[]"}'>
+  <ul :for="user in users">
+    <!-- 'user' is automatically typed as { name: string, age: number } -->
+    <li>{{ user.name.toUpperCase() }}</li>
+    <li>{{ user.age.toFixed(0) }}</li>
+  </ul>
+</div>
+```
+
+### Nested Scopes
+
+Child scopes inherit types from parent scopes:
+
+```html
+<div :types='{"name": "string", "age": "number"}'>
+  <span>{{ name.toUpperCase() }}</span>
+
+  <div :types='{"city": "string"}'>
+    <!-- This scope has access to: name, age, and city -->
+    <span>{{ name.toLowerCase() }}</span>
+    <span>{{ city.toUpperCase() }}</span>
+    <span>{{ age.toFixed(0) }}</span>
+  </div>
+</div>
+```
+
+Child scopes can override parent types:
+
+```html
+<div :types='{"value": "string"}'>
+  <span>{{ value.toUpperCase() }}</span>
+
+  <div :types='{"value": "number"}'>
+    <!-- 'value' is now number, not string -->
+    <span>{{ value.toFixed(2) }}</span>
+  </div>
+
+  <!-- Back to string scope -->
+  <span>{{ value.toLowerCase() }}</span>
+</div>
+```
+
+### Importing Types (Experimental)
+
+**⚠️ This feature is highly experimental and the syntax may change.**
+
+You can import TypeScript types from external files using the `@import:` syntax:
+
+```typescript
+// types/user.ts
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  isAdmin: boolean;
+}
+
+export interface Product {
+  id: number;
+  name: string;
+  price: number;
+}
+```
+
+```html
+<!-- Import a single type -->
+<div :types='{"user": "@import:./types/user.ts:User"}'>
+  <span>{{ user.name.toUpperCase() }}</span>
+  <span>{{ user.email.toLowerCase() }}</span>
+  <span :show="user.isAdmin">Admin Badge</span>
+</div>
+```
+
+#### Import Syntax
+
+The format is: `@import:MODULE_PATH:TYPE_NAME`
+
+- **MODULE_PATH**:
+  - Starts with `.` → relative path (e.g., `./types/user.ts`)
+  - No `.` → library import (e.g., `moment`)
+- **TYPE_NAME**: The exported type/interface name
+
+#### Arrays of Imported Types
+
+```html
+<div :types='{"users": "@import:./types/user.ts:User[]"}'>
+  <ul :for="user in users">
+    <li>{{ user.name }} - {{ user.email }}</li>
+  </ul>
+</div>
+```
+
+#### Multiple Imports
+
+```html
+<div :types='{
+  "user": "@import:./types/user.ts:User",
+  "product": "@import:./types/user.ts:Product",
+  "count": "number"
+}'>
+  <span>{{ user.name }}</span>
+  <span>{{ product.name }} - ${{ product.price.toFixed(2) }}</span>
+  <span>Total: {{ count }}</span>
+</div>
+```
+
+#### Imports in Complex Types
+
+Use imports anywhere you'd use a type:
+
+```html
+<!-- In object types -->
+<div :types='{"response": "{ data: @import:./types/user.ts:User[], total: number }"}'>
+  <span>Total users: {{ response.total }}</span>
+  <ul :for="user in response.data">
+    <li>{{ user.name }}</li>
+  </ul>
+</div>
+
+<!-- With generics -->
+<div :types='{"response": "@import:./api.ts:ApiResponse<@import:./types/user.ts:User>"}'>
+  <span>{{ response.data.name }}</span>
+  <span>Status: {{ response.status }}</span>
+</div>
+
+<!-- With unions -->
+<div :types='{"user": "@import:./types/user.ts:User | null"}'>
+  <span :show="user !== null">{{ user.name }}</span>
+  <span :show="user === null">Not logged in</span>
+</div>
+```
+
+#### Nested Scopes with Imports
+
+Imports are inherited by nested scopes:
+
+```html
+<div :types='{"user": "@import:./types/user.ts:User"}'>
+  <span>{{ user.name }}</span>
+
+  <div :types='{"product": "@import:./types/user.ts:Product"}'>
+    <!-- Has access to both User and Product types -->
+    <span>{{ user.name }} bought {{ product.name }}</span>
+  </div>
+</div>
+```
+
+#### Complex Example
+
+```html
+<div :types='{"orders": "@import:./types/orders.ts:Order[]"}'>
+  <div :for="order in orders">
+    <h2>Order #{{ order.id }}</h2>
+    <p>Customer: {{ order.customer.name }}</p>
+
+    <div :types='{"selectedProduct": "@import:./types/products.ts:Product"}'>
+      <ul :for="item in order.items">
+        <li>
+          {{ item.product.name }} x {{ item.quantity }}
+          = ${{ (item.product.price * item.quantity).toFixed(2) }}
+        </li>
+      </ul>
+
+      <div :show="selectedProduct">
+        <h3>Selected: {{ selectedProduct.name }}</h3>
+        <p>${{ selectedProduct.price.toFixed(2) }}</p>
+      </div>
+    </div>
+
+    <p>Total: ${{ order.total.toFixed(2) }}</p>
+  </div>
+</div>
+```
+
+### Best Practices
+
+1. **Start Simple**: Add types gradually, starting with the most critical paths
+2. **Use Strict Mode**: Enable strict mode in your TypeScript config for better type safety
+3. **Import Shared Types**: Keep commonly used types in separate files and import them
+4. **Document Complex Types**: Add comments for complex object structures
+5. **Test Your Types**: Run the type checker in your CI/CD pipeline
+
+### Limitations
+
+- The type checker analyzes templates statically, not at runtime
+- Some dynamic JavaScript patterns may not be fully supported
+- Import paths must be resolvable by TypeScript
+- The import syntax is experimental and may change
+
+### Examples
+
+#### Form Validation
+
+```html
+<div :types='{
+  "formData": "{ name: string, email: string, age: number }",
+  "errors": "{ name?: string, email?: string, age?: string }"
+}'>
+  <form>
+    <input type="text" :bind="formData.name" />
+    <span :show="errors.name" class="error">{{ errors.name }}</span>
+
+    <input type="email" :bind="formData.email" />
+    <span :show="errors.email" class="error">{{ errors.email }}</span>
+
+    <input type="number" :bind="formData.age" />
+    <span :show="errors.age" class="error">{{ errors.age }}</span>
+  </form>
+</div>
+```
+
+#### API Response Handling
+
+```html
+<div :types='{
+  "response": "@import:./api.ts:ApiResponse<@import:./types/user.ts:User>",
+  "loading": "boolean",
+  "error": "string | null"
+}'>
+  <div :show="loading">Loading...</div>
+  <div :show="error">Error: {{ error }}</div>
+  <div :show="!loading && !error && response">
+    <h1>{{ response.data.name }}</h1>
+    <p>{{ response.data.email }}</p>
+  </div>
+</div>
+```
+

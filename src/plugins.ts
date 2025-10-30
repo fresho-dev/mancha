@@ -546,4 +546,16 @@ export namespace RendererPlugins {
       }
     }
   };
+
+  export const stripTypes: RendererPlugin = async function (node, params) {
+    const elem = node as Element;
+
+    // Remove :types and data-types attributes
+    if (getAttribute(elem, ":types")) {
+      removeAttribute(elem, ":types");
+    }
+    if (getAttribute(elem, "data-types")) {
+      removeAttribute(elem, "data-types");
+    }
+  };
 }
