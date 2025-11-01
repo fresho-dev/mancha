@@ -1,36 +1,61 @@
 import * as ts from "typescript";
 import * as fs from "fs/promises";
 import * as path from "path";
+import * as os from "os";
 import { JSDOM } from "jsdom";
 import { getAttributeOrDataset } from "./dome.js";
 
 export interface TypeCheckOptions {
   strict: boolean;
+  filePath?: string; // Optional path to the HTML file being checked (for correct module resolution)
 }
 
 async function getDiagnostics(
   content: string,
   options: TypeCheckOptions
 ): Promise<ts.Diagnostic[]> {
-  // Create temp file in src directory so relative imports resolve correctly
-  const srcDir = path.dirname(new URL(import.meta.url).pathname);
+  // Use OS temp directory to avoid interfering with project structure
+  // but configure baseUrl for correct module resolution if HTML file path is provided
+  const baseDir = options.filePath ? path.dirname(path.resolve(options.filePath)) : process.cwd();
   const tempFilePath = path.join(
-    srcDir,
+    os.tmpdir(),
     `temp_type_check_${Math.random().toString(36).substring(2, 15)}.ts`
   );
+
   await fs.writeFile(tempFilePath, content);
+
+  const host = ts.createCompilerHost({
+    noEmit: true,
+    strict: options.strict,
+    strictNullChecks: options.strict,
+    target: ts.ScriptTarget.ES2022,
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    baseUrl: baseDir,
+    skipLibCheck: true,
+    skipDefaultLibCheck: false,
+    allowImportingTsExtensions: true,
+    resolveJsonModule: true,
+    allowSyntheticDefaultImports: true,
+  });
 
   const program = ts.createProgram([tempFilePath], {
     noEmit: true,
     strict: options.strict,
     strictNullChecks: options.strict,
-    lib: ["es2022", "dom"],
     target: ts.ScriptTarget.ES2022,
-    module: ts.ModuleKind.None,
-    moduleResolution: ts.ModuleResolutionKind.NodeNext,
-  });
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    baseUrl: baseDir,
+    skipLibCheck: true,
+    skipDefaultLibCheck: false,
+    allowImportingTsExtensions: true,
+    resolveJsonModule: true,
+    allowSyntheticDefaultImports: true,
+  }, host);
 
   const allDiagnostics = ts.getPreEmitDiagnostics(program);
+
   await fs.unlink(tempFilePath);
 
   // Filter out irrelevant diagnostics (keep semantic errors 2000-2999 and strict mode errors 18000-18999)
@@ -49,17 +74,25 @@ interface ExpressionScope {
   }>;
 }
 // Replace @import:MODULE_PATH:TYPE_NAME with import("MODULE_PATH").TYPE_NAME
-function replaceImportSyntax(typeString: string): string {
-  return typeString.replace(/@import:([^:]+):([A-Za-z_][A-Za-z0-9_]*)/g, 'import("$1").$2');
+// and resolve relative paths to absolute paths
+function replaceImportSyntax(typeString: string, baseDir?: string): string {
+  return typeString.replace(/@import:([^:]+):([A-Za-z_][A-Za-z0-9_]*)/g, (match, modulePath, typeName) => {
+    // If baseDir is provided and the path is relative, resolve it to an absolute path
+    if (baseDir && (modulePath.startsWith('./') || modulePath.startsWith('../'))) {
+      const absolutePath = path.resolve(baseDir, modulePath);
+      return `import("${absolutePath}").${typeName}`;
+    }
+    return `import("${modulePath}").${typeName}`;
+  });
 }
 
-function buildTypeScriptSource(types: Map<string, string>, scope: ExpressionScope): string {
+function buildTypeScriptSource(types: Map<string, string>, scope: ExpressionScope, baseDir?: string): string {
   const namespace = `M${Math.random().toString(36).substring(2, 15)}`;
 
   // Apply import syntax transformation to all type values
   const declarations = Array.from(types.entries())
     .map(([key, value]) => {
-      const resolvedType = replaceImportSyntax(value);
+      const resolvedType = replaceImportSyntax(value, baseDir);
       return `declare let ${key}: ${resolvedType};`;
     })
     .join("\n");
@@ -196,7 +229,8 @@ async function processTypesElement(
     const expressions = getExpressionsExcludingNestedTypes(element);
 
     // Type check expressions in this scope
-    const source = buildTypeScriptSource(mergedTypes, expressions);
+    const baseDir = options.filePath ? path.dirname(path.resolve(options.filePath)) : undefined;
+    const source = buildTypeScriptSource(mergedTypes, expressions, baseDir);
     const diagnostics = await getDiagnostics(source, options);
     allDiagnostics.push(...diagnostics);
 
@@ -336,7 +370,9 @@ function getExpressionsExcludingNestedTypes(root: Element): ExpressionScope {
 
 export async function typeCheck(html: string, options: TypeCheckOptions): Promise<ts.Diagnostic[]> {
   const dom = new JSDOM(html);
+
   const allTypeNodes = dom.window.document.querySelectorAll("[\\:types], [data-types]");
+
   const allDiagnostics: ts.Diagnostic[] = [];
   const processedElements = new Set<Element>();
 

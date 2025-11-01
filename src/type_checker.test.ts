@@ -1,6 +1,11 @@
 import { typeCheck } from "./type_checker.js";
 import { assert, setupGlobalTestEnvironment } from "./test_utils.js";
 import * as ts from "typescript";
+import * as path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 describe("typeCheck", function () {
   // Type checking can be slow due to TypeScript compilation
@@ -8,6 +13,9 @@ describe("typeCheck", function () {
   this.timeout(15000);
 
   before(() => setupGlobalTestEnvironment());
+
+  // Helper: filePath for tests that import types from ./test_types/
+  const testFilePath = path.join(__dirname, "test.html");
 
   const findDiagnostic = (diagnostics: ts.Diagnostic[], messagePart: string) => {
     return diagnostics.find((d) =>
@@ -17,13 +25,13 @@ describe("typeCheck", function () {
 
   it("should find no errors in a valid template", async function () {
     const html = `<div :types='{"name": "string"}'><span>{{ name.toUpperCase() }}</span></div>`;
-    const diagnostics = await typeCheck(html, { strict: false });
+    const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
     assert.equal(diagnostics.length, 0, "Should have no diagnostics");
   });
 
   it("should report a type error for incorrect method usage", async function () {
     const html = `<div :types='{"name": "string"}'><span>{{ name.toFixed(2) }}</span></div>`;
-    const diagnostics = await typeCheck(html, { strict: false });
+    const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
     assert.ok(diagnostics.length > 0, "Should have diagnostics");
     assert.ok(
       findDiagnostic(diagnostics, "Property 'toFixed' does not exist on type 'string'"),
@@ -42,7 +50,7 @@ describe("typeCheck", function () {
         </ul>
       </div>
     `;
-    const diagnostics = await typeCheck(html, { strict: false });
+    const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
     assert.equal(diagnostics.length, 0, "Should have no diagnostics for various attributes");
   });
 
@@ -57,7 +65,7 @@ describe("typeCheck", function () {
         </ul>
       </div>
     `;
-    const diagnostics = await typeCheck(html, { strict: false });
+    const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
     assert.ok(diagnostics.length > 0);
     assert.ok(
       findDiagnostic(diagnostics, "Property 'toUpperCase' does not exist on type 'number'")
@@ -76,7 +84,7 @@ describe("typeCheck", function () {
         <span>{{ user.address.city.toUpperCase() }}</span>
       </div>
     `;
-    const diagnostics = await typeCheck(html, { strict: false });
+    const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
     assert.equal(diagnostics.length, 0, "Should handle complex objects");
   });
 
@@ -87,7 +95,7 @@ describe("typeCheck", function () {
         <span>{{ user.address.city.isNumber() }}</span>
       </div>
     `;
-    const diagnostics = await typeCheck(html, { strict: false });
+    const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
     assert.equal(diagnostics.length, 2);
     assert.ok(findDiagnostic(diagnostics, "Property 'toFixed' does not exist on type 'string'"));
     assert.ok(findDiagnostic(diagnostics, "Property 'isNumber' does not exist on type 'string'"));
@@ -116,7 +124,7 @@ describe("typeCheck", function () {
           </div>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should inherit types from outer scope");
     });
 
@@ -129,7 +137,7 @@ describe("typeCheck", function () {
           </div>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should allow override");
     });
 
@@ -142,7 +150,7 @@ describe("typeCheck", function () {
           </div>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 2);
       assert.ok(findDiagnostic(diagnostics, "Property 'toFixed' does not exist on type 'string'"));
       assert.ok(
@@ -165,7 +173,7 @@ describe("typeCheck", function () {
           </div>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle three levels");
     });
 
@@ -184,7 +192,7 @@ describe("typeCheck", function () {
           </ul>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle nested scopes with for loops");
     });
 
@@ -199,7 +207,7 @@ describe("typeCheck", function () {
           </div>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 2);
       assert.ok(findDiagnostic(diagnostics, "Property 'toFixed' does not exist on type 'string'"));
       assert.ok(
@@ -217,7 +225,7 @@ describe("typeCheck", function () {
           <span>{{ value.toLowerCase() }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Override should not affect outer scope");
     });
 
@@ -234,7 +242,7 @@ describe("typeCheck", function () {
           </div>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Sibling scopes should be independent");
     });
 
@@ -263,7 +271,7 @@ describe("typeCheck", function () {
           <span>{{ user.age.toFixed(0) }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle imported type");
     });
 
@@ -274,7 +282,7 @@ describe("typeCheck", function () {
           <span>{{ user.age.toUpperCase() }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 2);
       assert.ok(findDiagnostic(diagnostics, "Property 'toFixed' does not exist on type 'string'"));
       assert.ok(
@@ -291,7 +299,7 @@ describe("typeCheck", function () {
           </ul>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle array of imported types");
     });
 
@@ -304,7 +312,7 @@ describe("typeCheck", function () {
           </ul>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle imports in object types");
     });
 
@@ -320,7 +328,7 @@ describe("typeCheck", function () {
           <span>{{ count.toFixed(0) }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle multiple imports");
     });
 
@@ -335,7 +343,7 @@ describe("typeCheck", function () {
           <span>{{ admin.permissions.length }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle multiple imports from same file");
     });
 
@@ -349,7 +357,7 @@ describe("typeCheck", function () {
           </div>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should inherit imported types");
     });
 
@@ -363,7 +371,7 @@ describe("typeCheck", function () {
           </ul>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle imports with for-loops");
     });
 
@@ -380,7 +388,7 @@ describe("typeCheck", function () {
           </div>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle nested imports with for-loops");
     });
 
@@ -392,7 +400,7 @@ describe("typeCheck", function () {
           <span>{{ response.message.toLowerCase() }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle generic types with imports");
     });
 
@@ -402,7 +410,7 @@ describe("typeCheck", function () {
           <span :show="user !== null"></span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle union types with imports");
     });
 
@@ -413,7 +421,7 @@ describe("typeCheck", function () {
           <span>{{ response.count.toUpperCase() }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 2);
       assert.ok(findDiagnostic(diagnostics, "Property 'toFixed' does not exist on type 'string'"));
       assert.ok(
@@ -437,7 +445,7 @@ describe("typeCheck", function () {
           <span>{{ config.settings.product.price.toFixed(2) }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle deeply nested imports");
     });
   });
@@ -449,7 +457,7 @@ describe("typeCheck", function () {
           <span :show="typeof value === 'string'">{{ value }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle union types");
     });
 
@@ -459,7 +467,7 @@ describe("typeCheck", function () {
           <span>{{ value.toUpperCase() }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.ok(diagnostics.length > 0);
       assert.ok(
         findDiagnostic(
@@ -475,7 +483,7 @@ describe("typeCheck", function () {
           <span :show="name !== null">{{ name }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle union with null");
     });
 
@@ -485,7 +493,7 @@ describe("typeCheck", function () {
           <span :show="value !== undefined">{{ value }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle union with undefined");
     });
   });
@@ -630,7 +638,7 @@ describe("typeCheck", function () {
           <span :show="status === 'active'">Active</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle literal types");
     });
 
@@ -640,7 +648,7 @@ describe("typeCheck", function () {
           <span :show="code === 200">Success</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle numeric literals");
     });
   });
@@ -653,7 +661,7 @@ describe("typeCheck", function () {
           <span>{{ coords[1].toFixed(2) }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle tuple types");
     });
 
@@ -664,7 +672,7 @@ describe("typeCheck", function () {
           <span>{{ coords[1].toFixed(2) }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 2);
       assert.ok(
         findDiagnostic(diagnostics, "Property 'toUpperCase' does not exist on type 'number'")
@@ -681,7 +689,7 @@ describe("typeCheck", function () {
           <span :show="user.age !== undefined">{{ user.age }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle optional properties");
     });
   });
@@ -694,7 +702,7 @@ describe("typeCheck", function () {
           <span>{{ user.name.toUpperCase() }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle readonly properties");
     });
   });
@@ -708,7 +716,7 @@ describe("typeCheck", function () {
           </ul>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle Array<T> syntax");
     });
 
@@ -718,7 +726,7 @@ describe("typeCheck", function () {
           <span>{{ result }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle Promise types");
     });
 
@@ -730,7 +738,7 @@ describe("typeCheck", function () {
           </div>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle nested generics");
     });
   });
@@ -743,7 +751,7 @@ describe("typeCheck", function () {
           <span>{{ item.age.toFixed(0) }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle intersection types");
     });
   });
@@ -757,7 +765,7 @@ describe("typeCheck", function () {
           </ul>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle union in arrays");
     });
   });
@@ -769,7 +777,7 @@ describe("typeCheck", function () {
           <span>No types defined</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Empty types should be valid");
     });
 
@@ -779,7 +787,7 @@ describe("typeCheck", function () {
           <span>{{ data.a.b.c.d.toUpperCase() }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle deep nesting");
     });
 
@@ -789,7 +797,7 @@ describe("typeCheck", function () {
           <span>{{ data.a.b.c.d.toUpperCase() }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.ok(diagnostics.length > 0);
       assert.ok(
         findDiagnostic(diagnostics, "Property 'toUpperCase' does not exist on type 'number'")
@@ -803,7 +811,7 @@ describe("typeCheck", function () {
           <span>{{ data.another_key.toFixed(0) }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle special characters in keys");
     });
 
@@ -813,7 +821,7 @@ describe("typeCheck", function () {
           <span>{{ map.someKey }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle Record type");
     });
 
@@ -823,7 +831,7 @@ describe("typeCheck", function () {
           <span :show="user.name">{{ user.name }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle Partial type");
     });
 
@@ -834,7 +842,7 @@ describe("typeCheck", function () {
           <span>{{ user.age.toFixed(0) }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should handle Pick type");
     });
   });
@@ -846,7 +854,7 @@ describe("typeCheck", function () {
           <span>{{ name.toUpperCase() }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should recognize data-types attribute");
     });
 
@@ -856,7 +864,7 @@ describe("typeCheck", function () {
           <span>{{ name.toUpperCase() }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should recognize :types attribute");
     });
 
@@ -866,7 +874,7 @@ describe("typeCheck", function () {
           <span>{{ name.toUpperCase() }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should use :types (string) not data-types (number)");
     });
 
@@ -878,7 +886,7 @@ describe("typeCheck", function () {
           </div>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should recognize data-for attribute");
     });
 
@@ -890,7 +898,7 @@ describe("typeCheck", function () {
           </div>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(diagnostics.length, 0, "Should recognize :for attribute");
     });
 
@@ -902,7 +910,7 @@ describe("typeCheck", function () {
           </div>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.equal(
         diagnostics.length,
         0,
@@ -916,7 +924,7 @@ describe("typeCheck", function () {
           <span>{{ name.toFixed(2) }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.ok(diagnostics.length > 0, "Should detect error with data-types");
     });
 
@@ -928,8 +936,171 @@ describe("typeCheck", function () {
           </div>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.ok(diagnostics.length > 0, "Should detect error in data-for loop");
+    });
+  });
+
+  describe("parent directory imports", () => {
+    const nestedTestFilePath = path.join(__dirname, "test_types/nested/test.html");
+
+    it("should handle imports from parent directory", async function () {
+      const html = `
+        <div :types='{"user": "@import:../user.ts:User"}'>
+          <span>{{ user.name.toUpperCase() }}</span>
+          <span>{{ user.age.toFixed(0) }}</span>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: nestedTestFilePath });
+      assert.equal(diagnostics.length, 0, "Should handle parent directory imports");
+    });
+
+    it("should handle imports from multiple parent directories", async function () {
+      const html = `
+        <div :types='{"data": "@import:../user.ts:User"}'>
+          <span>{{ data.name }}</span>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: nestedTestFilePath });
+      assert.equal(diagnostics.length, 0, "Should resolve parent paths correctly");
+    });
+
+    it("should detect type errors with parent directory imports", async function () {
+      const html = `
+        <div :types='{"user": "@import:../user.ts:User"}'>
+          <span>{{ user.name.toFixed(2) }}</span>
+          <span>{{ user.age.toUpperCase() }}</span>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: nestedTestFilePath });
+      assert.equal(diagnostics.length, 2);
+      assert.ok(findDiagnostic(diagnostics, "Property 'toFixed' does not exist on type 'string'"));
+      assert.ok(
+        findDiagnostic(diagnostics, "Property 'toUpperCase' does not exist on type 'number'")
+      );
+    });
+  });
+
+  describe("global types availability", () => {
+    it("should have access to String global type methods", async function () {
+      const html = `
+        <div :types='{"text": "string"}'>
+          <span>{{ text.toUpperCase() }}</span>
+          <span>{{ text.toLowerCase() }}</span>
+          <span>{{ text.trim() }}</span>
+          <span>{{ text.substring(0, 5) }}</span>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      assert.equal(diagnostics.length, 0, "Should have String methods available");
+    });
+
+    it("should have access to Number global type methods", async function () {
+      const html = `
+        <div :types='{"value": "number"}'>
+          <span>{{ value.toFixed(2) }}</span>
+          <span>{{ value.toString() }}</span>
+          <span>{{ value.toExponential() }}</span>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      assert.equal(diagnostics.length, 0, "Should have Number methods available");
+    });
+
+    it("should have access to Array global type methods", async function () {
+      const html = `
+        <div :types='{"items": "string[]"}'>
+          <span>{{ items.length }}</span>
+          <span>{{ items.join(", ") }}</span>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      assert.equal(diagnostics.length, 0, "Should have Array methods available");
+    });
+
+    it("should detect when using wrong global type method", async function () {
+      const html = `
+        <div :types='{"text": "string"}'>
+          <span>{{ text.toFixed(2) }}</span>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      assert.ok(diagnostics.length > 0, "Should detect wrong method usage");
+      assert.ok(
+        findDiagnostic(diagnostics, "Property 'toFixed' does not exist on type 'string'")
+      );
+    });
+  });
+
+  describe("filePath option for path resolution", () => {
+    it("should resolve relative imports based on filePath", async function () {
+      const html = `
+        <div :types='{"user": "@import:./user.ts:User"}'>
+          <span>{{ user.name.toUpperCase() }}</span>
+        </div>
+      `;
+      const filePath = path.join(__dirname, "test_types/test.html");
+      const diagnostics = await typeCheck(html, { strict: false, filePath });
+      assert.equal(diagnostics.length, 0, "Should resolve based on filePath");
+    });
+
+    it("should handle filePath in different directory", async function () {
+      const html = `
+        <div :types='{"child": "@import:./child.ts:ChildData"}'>
+          <span>{{ child.name.toUpperCase() }}</span>
+          <span>{{ child.id.toFixed(0) }}</span>
+        </div>
+      `;
+      const filePath = path.join(__dirname, "test_types/nested/test.html");
+      const diagnostics = await typeCheck(html, { strict: false, filePath });
+      assert.equal(diagnostics.length, 0, "Should resolve in nested directory");
+    });
+
+    it("should work without filePath option for simple cases", async function () {
+      const html = `
+        <div :types='{"name": "string"}'>
+          <span>{{ name.toUpperCase() }}</span>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      assert.equal(diagnostics.length, 0, "Should work without filePath for inline types");
+    });
+  });
+
+  describe("performance regression tests", () => {
+    it("should complete type checking quickly even with imports", async function () {
+      const html = `
+        <div :types='{"user": "@import:./test_types/user.ts:User"}'>
+          <span>{{ user.name.toUpperCase() }}</span>
+        </div>
+      `;
+      const startTime = Date.now();
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      const duration = Date.now() - startTime;
+
+      // Type checking should complete in reasonable time (< 5 seconds)
+      assert.ok(duration < 5000, `Type checking took ${duration}ms, should be < 5000ms`);
+      assert.equal(diagnostics.length, 0);
+    });
+
+    it("should handle multiple nested elements efficiently", async function () {
+      const html = `
+        <div :types='{"users": "@import:./test_types/user.ts:User[]"}'>
+          <div :for="user in users">
+            <span>{{ user.name }}</span>
+            <div :types='{"product": "@import:./test_types/product.ts:Product"}'>
+              <span>{{ product.name }}</span>
+              <span>{{ user.email }}</span>
+            </div>
+          </div>
+        </div>
+      `;
+      const startTime = Date.now();
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      const duration = Date.now() - startTime;
+
+      assert.ok(duration < 5000, `Type checking took ${duration}ms, should be < 5000ms`);
+      assert.equal(diagnostics.length, 0);
     });
   });
 });

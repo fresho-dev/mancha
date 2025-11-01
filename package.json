@@ -37,6 +37,7 @@
     "htmlparser2": "^9.1.0",
     "jexpr": "^1.0.0-pre.9",
     "jsdom": "^27.0.1",
+    "mancha": "file:",
     "safevalues": "^0.6.0"
   },
   "devDependencies": {

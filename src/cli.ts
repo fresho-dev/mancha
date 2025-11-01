@@ -103,7 +103,7 @@ const args = yargs(hideBin(process.argv))
 
       for (const filePath of filesToCheck) {
         const htmlContent = await fs.readFile(filePath, "utf-8");
-        const diagnostics = await typeCheck(htmlContent, options);
+        const diagnostics = await typeCheck(htmlContent, { ...options, filePath });
 
         if (diagnostics.length > 0) {
           filesWithErrors++;
