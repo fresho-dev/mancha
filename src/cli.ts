@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import * as fs from "fs/promises";
+import { glob } from "glob";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { Mancha } from "./index.js";
@@ -74,24 +75,10 @@ const args = yargs(hideBin(process.argv))
       const filesToCheck: string[] = [];
 
       for (const input of inputs) {
-        const stat = await fs.stat(input);
-
-        if (stat.isDirectory()) {
-          // Read directory recursively
-          const files = await fs.readdir(input, {
-            recursive: argv.recursive,
-            withFileTypes: true,
-          });
-
-          for (const file of files) {
-            if (file.isFile() && (file.name.endsWith(".html") || file.name.endsWith(".htm"))) {
-              const fullPath = `${file.path}/${file.name}`;
-              filesToCheck.push(fullPath);
-            }
-          }
-        } else if (stat.isFile()) {
-          filesToCheck.push(input);
-        }
+        const isDirectory = (await fs.stat(input)).isDirectory();
+        const pattern = isDirectory ? `${input}/**/*.{html,htm}` : input;
+        const files = await glob(pattern, { nodir: true });
+        filesToCheck.push(...files);
       }
 
       if (filesToCheck.length === 0) {

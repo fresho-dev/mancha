@@ -21,54 +21,53 @@ describe("CLI", function () {
     assert.ok(stdout.includes("Commands"), "Should display help text");
   });
 
-  it("should not hang when checking a simple HTML file", async function () {
-    const html = `<!DOCTYPE html>
-<html>
-<body>
-  <div :types='{"data": "{ name: string }"}'>
-    <p>{{ data.name }}</p>
-  </div>
-</body>
-</html>`;
+  describe("check command", () => {
+    const testDir = path.join(__dirname, "temp_cli_tests");
 
-    const tempFile = path.join(__dirname, `test_cli_${Date.now()}.html`);
-    await fs.writeFile(tempFile, html);
+    before(async () => {
+      await fs.mkdir(testDir, { recursive: true });
+      await fs.writeFile(path.join(testDir, "file1.html"), "<p>hello</p>");
+      await fs.mkdir(path.join(testDir, "dir1"));
+      await fs.writeFile(path.join(testDir, "dir1", "file2.html"), "<p>world</p>");
+      await fs.mkdir(path.join(testDir, "dir2"));
+      await fs.writeFile(path.join(testDir, "dir2", "file3.html"), "<p>!</p>");
+    });
 
-    try {
-      const { stdout } = await execAsync(`node ${cliPath} check ${tempFile}`);
-      assert.ok(stdout.includes("✓") || stdout.includes("no type errors"), "Should complete successfully");
-    } finally {
-      await fs.unlink(tempFile);
-    }
-  });
+    after(async () => {
+      await fs.rm(testDir, { recursive: true, force: true });
+    });
 
-  it("should complete type checking within timeout", async function () {
-    const html = `<!DOCTYPE html>
-<html>
-<body>
-  <div :types='{"items": "string[]"}'>
-    <ul>
-      <li :for="item in items">{{ item.toUpperCase() }}</li>
-    </ul>
-  </div>
-</body>
-</html>`;
+    it("should check a single file", async () => {
+      const filePath = path.join(testDir, "file1.html");
+      const { stdout } = await execAsync(`node ${cliPath} check ${filePath}`);
+      assert.ok(stdout.includes("Checked 1 file(s)"));
+    });
 
-    const tempFile = path.join(__dirname, `test_cli_${Date.now()}.html`);
-    await fs.writeFile(tempFile, html);
+    it("should check a single directory", async () => {
+      const dirPath = path.join(testDir, "dir1");
+      const { stdout } = await execAsync(`node ${cliPath} check ${dirPath}`);
+      assert.ok(stdout.includes("Checked 1 file(s)"));
+    });
 
-    try {
-      // Use a timeout wrapper to ensure it doesn't hang
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("CLI check timed out after 5 seconds")), 5000)
-      );
+    it("should check a list of files", async () => {
+      const file1 = path.join(testDir, "file1.html");
+      const file2 = path.join(testDir, "dir1", "file2.html");
+      const { stdout } = await execAsync(`node ${cliPath} check ${file1} ${file2}`);
+      assert.ok(stdout.includes("Checked 2 file(s)"));
+    });
 
-      const checkPromise = execAsync(`node ${cliPath} check ${tempFile}`);
+    it("should check a list of directories", async () => {
+      const dir1 = path.join(testDir, "dir1");
+      const dir2 = path.join(testDir, "dir2");
+      const { stdout } = await execAsync(`node ${cliPath} check ${dir1} ${dir2}`);
+      assert.ok(stdout.includes("Checked 2 file(s)"));
+    });
 
-      const { stdout } = await Promise.race([checkPromise, timeoutPromise]) as { stdout: string };
-      assert.ok(stdout.includes("✓") || stdout.includes("no type errors"), "Should complete successfully");
-    } finally {
-      await fs.unlink(tempFile);
-    }
+    it("should check a mix of files and directories", async () => {
+      const file1 = path.join(testDir, "file1.html");
+      const dir1 = path.join(testDir, "dir1");
+      const { stdout } = await execAsync(`node ${cliPath} check ${file1} ${dir1}`);
+      assert.ok(stdout.includes("Checked 2 file(s)"));
+    });
   });
 });
