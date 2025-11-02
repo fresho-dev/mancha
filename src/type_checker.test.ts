@@ -1067,6 +1067,95 @@ describe("typeCheck", function () {
     });
   });
 
+  describe("external package imports", () => {
+    it("should handle imports from node_modules packages", async function () {
+      // This test assumes typescript is installed (which it is, as a devDependency)
+      const html = `
+        <div :types='{"program": "@import:typescript:Program"}'>
+          <span>{{ program }}</span>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      assert.equal(diagnostics.length, 0, "Should handle external package imports");
+    });
+
+    it("should handle imports from node_modules packages with nested paths", async function () {
+      // Test importing from a nested submodule path like yargs/helpers
+      // Note: Parser is a namespace, so we use Parser.Arguments which is a type
+      const html = `
+        <div :types='{"args": "@import:yargs/helpers:Parser.Arguments"}'>
+          <span>{{ args }}</span>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      assert.equal(diagnostics.length, 0, "Should handle nested paths in external packages");
+    });
+
+    it("should detect type errors on external package imports", async function () {
+      const html = `
+        <div :types='{"program": "@import:typescript:Program"}'>
+          <span>{{ program.toUpperCase() }}</span>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      assert.ok(diagnostics.length > 0, "Should detect type errors on external types");
+      assert.ok(
+        findDiagnostic(diagnostics, "Property 'toUpperCase' does not exist on type 'Program'")
+      );
+    });
+
+    it("should handle imports from local packages with exports subpaths", async function () {
+      // Test that packages with package.json exports work (like cloudflare-functions/fresho/resources)
+      // This requires the dashboard to have cloudflare-functions installed
+      const dashboardTestPath = path.join(
+        process.cwd(),
+        "../dashboard/test_type_check.html"
+      );
+      const html = `
+        <div :types='{"resources": "@import:cloudflare-functions/fresho/resources:FreshoResourcesResponse"}'>
+          <span>{{ resources }}</span>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: dashboardTestPath });
+      assert.equal(diagnostics.length, 0, "Should handle package exports subpaths");
+    });
+  });
+
+  describe("DOM API augmentations", () => {
+    it("should allow querySelector without null checking", async function () {
+      const html = `
+        <div :types='{}'>
+          <button :on:click="document.querySelector('#myDialog').showModal()">Open</button>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      // Should not error about querySelector potentially being null
+      assert.equal(diagnostics.length, 0, "querySelector should not require null checking");
+    });
+
+    it("should allow close() on querySelector results", async function () {
+      const html = `
+        <div :types='{}'>
+          <button :on:click="$elem.querySelector('dialog').close()">Close</button>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      // Should not error about close() method
+      assert.equal(diagnostics.length, 0, "close() should be available on querySelector results");
+    });
+
+    it("should allow showModal() on querySelector results", async function () {
+      const html = `
+        <div :types='{}'>
+          <button :on:click="document.querySelector('.dialog').showModal()">Show</button>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      // Should not error about showModal() method
+      assert.equal(diagnostics.length, 0, "showModal() should be available on querySelector results");
+    });
+  });
+
   describe("performance regression tests", () => {
     it("should complete type checking quickly even with imports", async function () {
       const html = `

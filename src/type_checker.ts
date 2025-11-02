@@ -14,17 +14,17 @@ async function getDiagnostics(
   content: string,
   options: TypeCheckOptions
 ): Promise<ts.Diagnostic[]> {
-  // Use OS temp directory to avoid interfering with project structure
-  // but configure baseUrl for correct module resolution if HTML file path is provided
+  // Create temp file in the same directory as the HTML file (or cwd if no filePath)
+  // This allows TypeScript's module resolution to find node_modules properly
   const baseDir = options.filePath ? path.dirname(path.resolve(options.filePath)) : process.cwd();
   const tempFilePath = path.join(
-    os.tmpdir(),
+    baseDir,
     `temp_type_check_${Math.random().toString(36).substring(2, 15)}.ts`
   );
 
   await fs.writeFile(tempFilePath, content);
 
-  const host = ts.createCompilerHost({
+  const compilerOptions: ts.CompilerOptions = {
     noEmit: true,
     strict: options.strict,
     strictNullChecks: options.strict,
@@ -32,27 +32,16 @@ async function getDiagnostics(
     module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler,
     baseUrl: baseDir,
+    lib: ["ES2022", "DOM"],
     skipLibCheck: true,
     skipDefaultLibCheck: false,
     allowImportingTsExtensions: true,
     resolveJsonModule: true,
     allowSyntheticDefaultImports: true,
-  });
+  };
 
-  const program = ts.createProgram([tempFilePath], {
-    noEmit: true,
-    strict: options.strict,
-    strictNullChecks: options.strict,
-    target: ts.ScriptTarget.ES2022,
-    module: ts.ModuleKind.ESNext,
-    moduleResolution: ts.ModuleResolutionKind.Bundler,
-    baseUrl: baseDir,
-    skipLibCheck: true,
-    skipDefaultLibCheck: false,
-    allowImportingTsExtensions: true,
-    resolveJsonModule: true,
-    allowSyntheticDefaultImports: true,
-  }, host);
+  const host = ts.createCompilerHost(compilerOptions);
+  const program = ts.createProgram([tempFilePath], compilerOptions, host);
 
   const allDiagnostics = ts.getPreEmitDiagnostics(program);
 
@@ -89,6 +78,16 @@ function replaceImportSyntax(typeString: string, baseDir?: string): string {
 function buildTypeScriptSource(types: Map<string, string>, scope: ExpressionScope, baseDir?: string): string {
   const namespace = `M${Math.random().toString(36).substring(2, 15)}`;
 
+  // Add reference directive for DOM lib
+  const libDirectives = `/// <reference lib="dom" />\n/// <reference lib="es2021" />`;
+
+  // Default mancha-specific globals available in all templates
+  // (Standard browser globals like document, window, prompt come from DOM lib)
+  const defaultGlobals = [
+    "declare const $elem: Element;",
+    "declare const $event: Event;",
+  ].join("\n");
+
   // Apply import syntax transformation to all type values
   const declarations = Array.from(types.entries())
     .map(([key, value]) => {
@@ -117,7 +116,30 @@ function buildTypeScriptSource(types: Map<string, string>, scope: ExpressionScop
   };
 
   const checks = buildChecks(scope);
-  return `namespace ${namespace} {\n${declarations}\n${checks}}`;
+
+  // Global augmentations are necessary because jexpr (mancha's expression parser) doesn't support:
+  // - Type assertions (as HTMLDialogElement)
+  // - Optional chaining (?.)
+  // - Null checking (if statements)
+  // So we augment querySelector to return non-null with dialog methods
+  const globalAugmentations = [
+    "interface TemplateElement extends Element {",
+    "  close(): void;",
+    "  showModal(): void;",
+    "}",
+    "",
+    "interface Element {",
+    "  querySelector<K extends keyof HTMLElementTagNameMap>(selector: K): HTMLElementTagNameMap[K];",
+    "  querySelector(selector: string): TemplateElement;",
+    "}",
+    "",
+    "interface Document {",
+    "  querySelector<K extends keyof HTMLElementTagNameMap>(selector: K): HTMLElementTagNameMap[K];",
+    "  querySelector(selector: string): TemplateElement;",
+    "}",
+  ].join("\n");
+
+  return `${libDirectives}\n${globalAugmentations}\nnamespace ${namespace} {\n${defaultGlobals}\n${declarations}\n${checks}}`;
 }
 
 // Helper to check if an element is nested within another :types element

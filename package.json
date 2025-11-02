@@ -8,7 +8,7 @@
   "unpkg": "dist/mancha.js",
   "scripts": {
     "clean": "rm -rf dist/",
-    "build": "npx gulp build",
+    "build": "gulp build",
     "prepare": "npm run build",
     "pretest": "npm run build",
     "test:node": "mocha dist/*.test.js",
@@ -37,8 +37,9 @@
     "htmlparser2": "^9.1.0",
     "jexpr": "^1.0.0-pre.9",
     "jsdom": "^27.0.1",
-    "mancha": "file:",
-    "safevalues": "^0.6.0"
+    "safevalues": "^0.6.0",
+    "typescript": "^5.9.3",
+    "yargs": "^17.7.2"
   },
   "devDependencies": {
     "@types/chai": "^5.2.3",
