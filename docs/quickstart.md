@@ -408,9 +408,27 @@ export interface Product {
 The format is: `@import:MODULE_PATH:TYPE_NAME`
 
 - **MODULE_PATH**:
-  - Starts with `.` → relative path (e.g., `./types/user.ts`)
-  - No `.` → library import (e.g., `moment`)
+  - Starts with `.` or `..` → relative path (e.g., `./types/user.ts`, `../shared/types.ts`)
+  - No `.` → external package from node_modules (e.g., `typescript`, `my-package/subpath`)
 - **TYPE_NAME**: The exported type/interface name
+
+**Examples of external package imports:**
+```html
+<!-- Import from a standard package -->
+<div :types='{"program": "@import:typescript:Program"}'>
+  <span>{{ program }}</span>
+</div>
+
+<!-- Import from package subpath (with package.json exports) -->
+<div :types='{"parser": "@import:yargs/helpers:Parser.Arguments"}'>
+  <span>{{ parser }}</span>
+</div>
+
+<!-- Import from your own packages in a monorepo -->
+<div :types='{"data": "@import:my-shared-lib/types:ApiResponse"}'>
+  <span>{{ data.status }}</span>
+</div>
+```
 
 #### Arrays of Imported Types
 
