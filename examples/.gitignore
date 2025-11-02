@@ -1,0 +1,6 @@
+# Ignore dependency lockfiles
+package-lock.json
+yarn.lock
+
+# Ignore installed dependencies
+node_modules/
