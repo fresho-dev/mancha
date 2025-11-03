@@ -9,7 +9,6 @@
   "scripts": {
     "clean": "rm -rf dist/",
     "build": "gulp build",
-    "prepare": "npm run build",
     "pretest": "npm run build",
     "test:node": "mocha dist/*.test.js",
     "test:browser": "web-test-runner dist/*browser.test.js --node-resolve --compatibility all --playwright --browsers chromium --no-sandbox",
