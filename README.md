@@ -167,6 +167,11 @@ element tag or attributes match a specific criteria. Here's the list of attribut
     <span>{{ user.name.toUpperCase() }}</span>
   </div>
   ```
+  The value of `:types` is parsed with `jexpr` during static analysis. It must evaluate to a plain
+  object whose values are strings containing TypeScript snippets. When you need quotes inside a type,
+  either escape them in a double-quoted attribute (e.g.
+  `<div :types="{\"status\": \"'active' | 'inactive'\"}">`) or, preferably, move the definition into a
+  TypeScript module and reference it via `@import`.
   See the [Type Checking section in the quickstart guide](./docs/quickstart.md#type-checking-experimental) for more details.
 
 ## Evaluation

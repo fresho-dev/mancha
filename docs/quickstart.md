@@ -301,6 +301,13 @@ The type checker will validate that:
 - `age.toFixed(0)` is valid (number has toFixed method)
 - Using `name.toFixed()` would be an error (string doesn't have toFixed)
 
+The `:types` payload is parsed with `jexpr`, so it must evaluate to a plain object whose **values are
+strings** containing TypeScript snippets. If the type checker encounters a non-string value it will
+emit an error that points at the offending key. When you need literal quotes inside a type, escape
+them in a double-quoted attribute (for example,
+`<div :types="{\"status\": \"'active' | 'inactive'\"}">`) or pull the definition into a TypeScript
+module and reference it via `@import`.
+
 ### Running the Type Checker
 
 ```bash
@@ -575,4 +582,3 @@ Imports are inherited by nested scopes:
   </div>
 </div>
 ```
-

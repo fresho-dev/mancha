@@ -1,8 +1,8 @@
 import * as ts from "typescript";
 import * as fs from "fs/promises";
 import * as path from "path";
-import * as os from "os";
 import { JSDOM } from "jsdom";
+import * as jexpr from "jexpr";
 import { getAttributeOrDataset } from "./dome.js";
 
 export interface TypeCheckOptions {
@@ -53,12 +53,41 @@ async function getDiagnostics(
   );
 }
 
+const AST_FACTORY = new jexpr.EvalAstFactory();
+
+function parseWithJexpr(expression: string) {
+  const ast = jexpr.parse(expression, AST_FACTORY);
+  if (!ast) {
+    throw new Error(`Failed to parse expression "${expression}" with jexpr`);
+  }
+  return ast;
+}
+
 // Structure to represent a scope of expressions, potentially with nested for loops
+interface AttributeExpressionSource {
+  kind: "attribute";
+  element: Element;
+  attributeName: string;
+  attributeKind: "default" | "for-items";
+}
+
+interface TextExpressionSource {
+  kind: "text";
+  node: Text;
+}
+
+type ExpressionSource = AttributeExpressionSource | TextExpressionSource;
+
+interface ExpressionEntry {
+  expression: string;
+  source: ExpressionSource;
+}
+
 interface ExpressionScope {
-  expressions: string[];
+  expressions: ExpressionEntry[];
   forLoops: Array<{
     itemName: string;
-    itemsExpression: string;
+    itemsExpression: ExpressionEntry;
     scope: ExpressionScope;
   }>;
 }
@@ -75,7 +104,53 @@ function replaceImportSyntax(typeString: string, baseDir?: string): string {
   });
 }
 
-function buildTypeScriptSource(types: Map<string, string>, scope: ExpressionScope, baseDir?: string): string {
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function ensurePlainObject(value: unknown, context: string): Record<string, unknown> {
+  if (!isPlainObject(value)) {
+    throw new Error(`${context} must evaluate to an object`);
+  }
+  return value;
+}
+
+function descriptorToTypeScript(
+  descriptor: unknown,
+  baseDir: string | undefined,
+  key: string
+): string {
+  if (typeof descriptor !== "string") {
+    const description =
+      typeof descriptor === "object" && descriptor !== null
+        ? JSON.stringify(descriptor)
+        : String(descriptor);
+    throw new Error(`Type for "${key}" must be a string, received ${description}`);
+  }
+
+  return replaceImportSyntax(descriptor, baseDir);
+}
+
+function parseTypesAttribute(
+  raw: string,
+  baseDir?: string
+): Map<string, string> {
+  const ast = parseWithJexpr(raw);
+  const value = ast.evaluate({});
+  const typeObject = ensurePlainObject(value, ":types expression");
+
+  const result = new Map<string, string>();
+  for (const [name, descriptor] of Object.entries(typeObject)) {
+    result.set(name, descriptorToTypeScript(descriptor, baseDir, name));
+  }
+  return result;
+}
+
+function buildTypeScriptSource(
+  types: Map<string, string>,
+  scope: ExpressionScope,
+  baseDir?: string
+): string {
   const namespace = `M${Math.random().toString(36).substring(2, 15)}`;
 
   // Add reference directive for DOM lib
@@ -101,13 +176,13 @@ function buildTypeScriptSource(types: Map<string, string>, scope: ExpressionScop
     let result = "";
 
     // Add expressions in current scope
-    for (const expr of currentScope.expressions) {
-      result += `${indent}(${expr});\n`;
+    for (const entry of currentScope.expressions) {
+      result += `${indent}(${entry.expression});\n`;
     }
 
     // Add for loops with their nested scopes
     for (const forLoop of currentScope.forLoops) {
-      result += `${indent}for (const ${forLoop.itemName} of ${forLoop.itemsExpression}) {\n`;
+      result += `${indent}for (const ${forLoop.itemName} of ${forLoop.itemsExpression.expression}) {\n`;
       result += buildChecks(forLoop.scope, indent + "  ");
       result += `${indent}}\n`;
     }
@@ -238,11 +313,11 @@ async function processTypesElement(
   const typesAttr = getAttributeOrDataset(element, "types", ":");
   if (!typesAttr) return allDiagnostics;
 
+  const baseDir = options.filePath ? path.dirname(path.resolve(options.filePath)) : undefined;
+
   try {
     // Parse types for this element
-    const elementTypes = new Map(
-      Object.entries(JSON.parse(typesAttr) as { [key: string]: string })
-    );
+    const elementTypes = parseTypesAttribute(typesAttr, baseDir);
 
     // Merge with parent types (element types override parent types)
     const mergedTypes = new Map([...parentTypes, ...elementTypes]);
@@ -250,8 +325,10 @@ async function processTypesElement(
     // Get expressions for this element (excluding nested :types descendants)
     const expressions = getExpressionsExcludingNestedTypes(element);
 
+    const jexprDiagnostics = validateExpressionsWithJexpr(expressions);
+    allDiagnostics.push(...jexprDiagnostics);
+
     // Type check expressions in this scope
-    const baseDir = options.filePath ? path.dirname(path.resolve(options.filePath)) : undefined;
     const source = buildTypeScriptSource(mergedTypes, expressions, baseDir);
     const diagnostics = await getDiagnostics(source, options);
     allDiagnostics.push(...diagnostics);
@@ -273,8 +350,19 @@ async function processTypesElement(
       );
       allDiagnostics.push(...nestedDiagnostics);
     }
-  } catch (e) {
-    console.error("Error parsing :types attribute:", e);
+  } catch (error) {
+    const tagName = element.tagName?.toLowerCase() ?? "element";
+    const message =
+      error instanceof Error ? error.message : typeof error === "string" ? error : String(error);
+    allDiagnostics.push({
+      file: undefined,
+      start: undefined,
+      length: undefined,
+      category: ts.DiagnosticCategory.Error,
+      code: 91001,
+      source: "mancha-type-checker",
+      messageText: `Failed to evaluate :types on <${tagName}>: ${message}`,
+    });
   }
 
   return allDiagnostics;
@@ -330,11 +418,27 @@ function getExpressionsExcludingNestedTypes(root: Element): ExpressionScope {
       const itemName = parts[0].trim();
       const itemsExpression = parts[1].trim();
 
-      currentScope.expressions.push(itemsExpression);
+      const attributeName = element.hasAttribute(":for")
+        ? ":for"
+        : element.hasAttribute("data-for")
+          ? "data-for"
+          : ":for";
+
+      const itemsExpressionEntry: ExpressionEntry = {
+        expression: itemsExpression,
+        source: {
+          kind: "attribute",
+          element,
+          attributeName,
+          attributeKind: "for-items",
+        },
+      };
+
+      currentScope.expressions.push(itemsExpressionEntry);
 
       const forScope: ExpressionScope = { expressions: [], forLoops: [] };
       processDescendants(element, forScope);
-      currentScope.forLoops.push({ itemName, itemsExpression, scope: forScope });
+      currentScope.forLoops.push({ itemName, itemsExpression: itemsExpressionEntry, scope: forScope });
     } else {
       // Process attributes
       for (const attr of Array.from(element.attributes)) {
@@ -343,7 +447,15 @@ function getExpressionsExcludingNestedTypes(root: Element): ExpressionScope {
           attr.name !== ":types" &&
           attr.name !== "data-types"
         ) {
-          currentScope.expressions.push(attr.value);
+          currentScope.expressions.push({
+            expression: attr.value,
+            source: {
+              kind: "attribute",
+              element,
+              attributeName: attr.name,
+              attributeKind: "default",
+            },
+          });
         }
       }
 
@@ -373,7 +485,10 @@ function getExpressionsExcludingNestedTypes(root: Element): ExpressionScope {
     if (text) {
       const matches = text.matchAll(/{{(.*?)}}/g);
       for (const match of matches) {
-        currentScope.expressions.push(match[1].trim());
+        currentScope.expressions.push({
+          expression: match[1].trim(),
+          source: { kind: "text", node: textNode },
+        });
       }
     }
   };
@@ -388,6 +503,66 @@ function getExpressionsExcludingNestedTypes(root: Element): ExpressionScope {
   }
 
   return scope;
+}
+
+function collectExpressions(scope: ExpressionScope, result: ExpressionEntry[] = []): ExpressionEntry[] {
+  for (const entry of scope.expressions) {
+    result.push(entry);
+  }
+  for (const loop of scope.forLoops) {
+    result.push(loop.itemsExpression);
+    collectExpressions(loop.scope, result);
+  }
+  return result;
+}
+
+function describeExpressionSource(source: ExpressionSource): string {
+  if (source.kind === "attribute") {
+    const tagName = source.element.tagName?.toLowerCase() ?? "element";
+    if (source.attributeKind === "for-items") {
+      return `:for items expression on <${tagName}>`;
+    }
+    return `attribute "${source.attributeName}" on <${tagName}>`;
+  }
+
+  const parentTag = source.node.parentElement?.tagName?.toLowerCase();
+  if (parentTag) {
+    return `text interpolation inside <${parentTag}>`;
+  }
+  return "text interpolation";
+}
+
+function createJexprDiagnostic(entry: ExpressionEntry, error: unknown): ts.Diagnostic {
+  const expressionPreview = entry.expression.trim() || entry.expression;
+  const errorMessage =
+    error instanceof Error ? error.message : typeof error === "string" ? error : String(error);
+  const message = `Unsupported expression for jexpr (${expressionPreview}) in ${describeExpressionSource(entry.source)}: ${errorMessage}`;
+  return {
+    file: undefined,
+    start: undefined,
+    length: undefined,
+    category: ts.DiagnosticCategory.Error,
+    code: 91002,
+    source: "mancha-type-checker",
+    messageText: message,
+  };
+}
+
+function validateExpressionsWithJexpr(scope: ExpressionScope): ts.Diagnostic[] {
+  const diagnostics: ts.Diagnostic[] = [];
+  const expressions = collectExpressions(scope);
+
+  for (const entry of expressions) {
+    const candidate = entry.expression.trim();
+    if (!candidate) continue;
+    try {
+      parseWithJexpr(candidate);
+    } catch (error) {
+      diagnostics.push(createJexprDiagnostic(entry, error));
+    }
+  }
+
+  return diagnostics;
 }
 
 export async function typeCheck(html: string, options: TypeCheckOptions): Promise<ts.Diagnostic[]> {
