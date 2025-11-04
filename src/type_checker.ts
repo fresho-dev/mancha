@@ -149,14 +149,13 @@ function buildTypeScriptSource(
   types: Map<string, string>,
   scope: ExpressionScope,
   baseDir?: string
-): string {
-  const namespace = `M${Math.random().toString(36).substring(2, 15)}`;
+): { source: string; expressionMap: Map<number, ExpressionEntry> } {
+  const namespace = `M`; // Use a constant namespace
 
   // Add reference directive for DOM lib
   const libDirectives = `/// <reference lib="dom" />\n/// <reference lib="es2021" />`;
 
   // Default mancha-specific globals available in all templates
-  // (Standard browser globals like document, window, prompt come from DOM lib)
   const defaultGlobals = [
     "declare const $elem: Element;",
     "declare const $event: Event;",
@@ -170,32 +169,7 @@ function buildTypeScriptSource(
     })
     .join("\n");
 
-  // Recursively build checks from scope
-  const buildChecks = (currentScope: ExpressionScope, indent: string = ""): string => {
-    let result = "";
-
-    // Add expressions in current scope
-    for (const entry of currentScope.expressions) {
-      result += `${indent}(${entry.expression});\n`;
-    }
-
-    // Add for loops with their nested scopes
-    for (const forLoop of currentScope.forLoops) {
-      result += `${indent}for (const ${forLoop.itemName} of ${forLoop.itemsExpression.expression}) {\n`;
-      result += buildChecks(forLoop.scope, indent + "  ");
-      result += `${indent}}\n`;
-    }
-
-    return result;
-  };
-
-  const checks = buildChecks(scope);
-
-  // Global augmentations are necessary because jexpr (mancha's expression parser) doesn't support:
-  // - Type assertions (as HTMLDialogElement)
-  // - Optional chaining (?.)
-  // - Null checking (if statements)
-  // So we augment querySelector to return non-null with dialog methods
+  // Global augmentations
   const globalAugmentations = [
     "interface TemplateElement extends Element {",
     "  close(): void;",
@@ -213,7 +187,46 @@ function buildTypeScriptSource(
     "}",
   ].join("\n");
 
-  return `${libDirectives}\n${globalAugmentations}\nnamespace ${namespace} {\n${defaultGlobals}\n${declarations}\n${checks}}`;
+  const prefix = `${libDirectives}\n${globalAugmentations}\nnamespace ${namespace} {\n${defaultGlobals}\n${declarations}\n`;
+  const suffix = `\n}`;
+  const expressionMap = new Map<number, ExpressionEntry>();
+  let currentOffset = prefix.length;
+
+  // Recursively build checks from scope
+  const buildChecks = (currentScope: ExpressionScope, indent: string = ""): string => {
+    let result = "";
+
+    // Add expressions in current scope
+    for (const entry of currentScope.expressions) {
+      const expressionPrefix = `${indent}(`;
+      const code = `${expressionPrefix}${entry.expression});\n`;
+      expressionMap.set(currentOffset + expressionPrefix.length, entry);
+      result += code;
+      currentOffset += code.length;
+    }
+
+    // Add for loops with their nested scopes
+    for (const forLoop of currentScope.forLoops) {
+      const expressionPrefix = `${indent}for (const ${forLoop.itemName} of (`;
+      const forLoopHeader = `${expressionPrefix}${forLoop.itemsExpression.expression})) {\n`;
+      expressionMap.set(currentOffset + expressionPrefix.length, forLoop.itemsExpression);
+
+      result += forLoopHeader;
+      currentOffset += forLoopHeader.length;
+
+      result += buildChecks(forLoop.scope, indent + "  ");
+
+      const closingBrace = `${indent}}\n`;
+      result += closingBrace;
+      currentOffset += closingBrace.length;
+    }
+
+    return result;
+  };
+
+  const checks = buildChecks(scope);
+  const source = `${prefix}${checks}${suffix}`;
+  return { source, expressionMap };
 }
 
 function getAttributeValueRange(
@@ -390,15 +403,49 @@ async function processTypesElement(
     const mergedTypes = new Map([...parentTypes, ...elementTypes]);
 
     // Get expressions for this element (excluding nested :types descendants)
-    const expressions = getExpressionsExcludingNestedTypes(element, dom, html);
+    const scope = getExpressionsExcludingNestedTypes(element, dom, html);
 
-    const jexprDiagnostics = validateExpressionsWithJexpr(expressions, htmlSourceFile);
+    const jexprDiagnostics = validateExpressionsWithJexpr(scope, htmlSourceFile);
     allDiagnostics.push(...jexprDiagnostics);
 
     // Type check expressions in this scope
-    const source = buildTypeScriptSource(mergedTypes, expressions, baseDir);
-    const diagnostics = await getDiagnostics(source, options);
-    allDiagnostics.push(...diagnostics);
+    const { source, expressionMap } = buildTypeScriptSource(mergedTypes, scope, baseDir);
+    const rawDiagnostics = await getDiagnostics(source, options);
+
+    // Remap diagnostics to original source locations
+    for (const diag of rawDiagnostics) {
+      if (diag.start === undefined) {
+        allDiagnostics.push(diag);
+        continue;
+      }
+
+      let bestMatch: { offset: number; entry: ExpressionEntry } | undefined;
+      for (const [offset, entry] of expressionMap.entries()) {
+        if (offset <= diag.start) {
+          if (!bestMatch || offset > bestMatch.offset) {
+            bestMatch = { offset, entry };
+          }
+        }
+      }
+
+      if (bestMatch && bestMatch.entry.range) {
+        const { range } = bestMatch.entry; // HTML range of the full expression
+        const tsOffsetInGeneratedCode = diag.start - bestMatch.offset; // Offset of the error within the generated `(expression);`
+        
+        // Adjust the HTML start and length based on the offset within the generated code
+        const newStart = range.start + tsOffsetInGeneratedCode;
+        const newLength = diag.length; // The length from TS diagnostic is usually correct for the error part
+
+        allDiagnostics.push({
+          ...diag,
+          file: htmlSourceFile,
+          start: newStart,
+          length: newLength,
+        });
+      } else {
+        allDiagnostics.push(diag);
+      }
+    }
 
     // Find and process nested :types elements
     const nestedTypesElements = findDirectNestedTypesElements(element);
@@ -596,14 +643,8 @@ function getExpressionsExcludingNestedTypes(root: Element, dom: JSDOM, html: str
     }
   };
 
-  // Start processing from root's children
-  for (const child of Array.from(root.childNodes)) {
-    if (child.nodeType === 1) {
-      processElement(child as Element, scope);
-    } else if (child.nodeType === 3) {
-      processTextNode(child as Text, scope);
-    }
-  }
+  // Start processing from root
+  processElement(root, scope);
 
   return scope;
 }
