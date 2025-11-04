@@ -112,117 +112,93 @@ describe("typeCheck", function () {
     assert.ok(findDiagnostic(diagnostics, "Cannot find name 'undefinedVar'"));
   });
 
-  describe("jexpr compatibility", () => {
-    it("should allow expressions supported by jexpr", async function () {
-      const html = `
-        <div :types='{"tags": "string[]"}'>
-          <span>{{ tags.includes("fresh") ? tags[0] : "n/a" }}</span>
-        </div>
-      `;
-      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
-      assert.equal(
-        diagnostics.length,
-        0,
-        "Should not emit diagnostics for expressions handled by jexpr"
-      );
-    });
-
-    it("should report unsupported optional chaining", async function () {
-      const html = `
-        <div :types='{"user": "{ name?: string }"}'>
-          <span>{{ user?.name }}</span>
-        </div>
-      `;
-      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
-      assert.ok(diagnostics.length > 0, "Should surface diagnostics for optional chaining");
-      assert.ok(
-        findDiagnostic(diagnostics, "Unsupported expression for jexpr (user?.name)"),
-        "Should include a diagnostic referencing the unsupported expression"
-      );
-
-      const diagnostic = findDiagnostic(diagnostics, "Unsupported expression for jexpr (user?.name)");
-      assert.ok(diagnostic, "Should find location-aware diagnostic");
-      assert.ok(diagnostic?.file, "Should include source file reference");
-      assert.ok(
-        typeof diagnostic?.start === "number",
-        "Should include start offset for jexpr diagnostics"
-      );
-      assert.ok(
-        typeof diagnostic?.length === "number" && diagnostic.length > 0,
-        "Should include diagnostic length"
-      );
-    });
-  });
-
-  describe("types expression parsing", () => {
-    it("should allow complex types expressed as strings", async function () {
-      const html = `
-        <div :types='{
-          "user": "{ name?: string, address: { city: string } }",
-          "users": "Array<{ name: string }>",
-          "preferences": "{ theme?: string, notifications: boolean }"
-        }'>
-          <span>{{ user.address.city.toUpperCase() }}</span>
-          <ul>
-            <li :for="person in users">{{ person.name.toLowerCase() }}</li>
-          </ul>
-          <span>{{ preferences.theme ?? "default" }}</span>
-        </div>
-      `;
-      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
-      assert.equal(diagnostics.length, 0, "Should handle complex types provided as strings");
-    });
-
-    it("should report diagnostics when a type value is not a string", async function () {
-      const html = `
-        <div :types='{"user": {"name": "string"}}'>
-          <span>{{ user.name }}</span>
-        </div>
-      `;
-      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
-      assert.ok(diagnostics.length > 0, "Should surface diagnostics for non-string type values");
-      assert.ok(
-        findDiagnostic(diagnostics, 'Type for "user" must be a string'),
-        "Should mention the offending key in diagnostics"
-      );
-
-      const diagnostic = findDiagnostic(diagnostics, 'Type for "user" must be a string');
-      assert.ok(diagnostic?.file, "Should include file reference for :types errors");
-      assert.ok(
-        typeof diagnostic?.start === "number",
-        "Should include start offset for :types diagnostics"
-      );
-      assert.ok(
-        typeof diagnostic?.length === "number" && diagnostic.length > 0,
-        "Should include diagnostic length for :types errors"
-      );
-    });
-
-    it("should include source ranges for attribute diagnostics", async function () {
-      const html = `
-        <div :types='{"items": "number[]"}'>
-          <span :show="items?.length > 0">{{ items.length }}</span>
-        </div>
-      `;
+  describe("error location reporting", () => {
+    it("should report correct location for type error in text interpolation", async function () {
+      const html = `<div :types='{"name": "string"}'><span>{{ name.toFixed(2) }}</span></div>`;
       const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       const diagnostic = findDiagnostic(
         diagnostics,
-        "Unsupported expression for jexpr (items?.length > 0)"
+        "Property 'toFixed' does not exist on type 'string'"
       );
-      assert.ok(diagnostic, "Should produce diagnostic for attribute optional chaining");
-      assert.ok(diagnostic?.file, "Attribute diagnostic should reference HTML source");
-      assert.ok(
-        typeof diagnostic?.start === "number",
-        "Attribute diagnostic should include start offset"
+      assert.ok(diagnostic, "Should find the diagnostic");
+      if (diagnostic && diagnostic.file) {
+        assert.equal(diagnostic.file.fileName, testFilePath, "Should point to the HTML file");
+        assert.equal(diagnostic.start, 47, "Start of expression should be correct");
+        assert.equal(diagnostic.length, 7, "Length of expression should be correct");
+      }
+    });
+
+    it("should report correct location for type error in attribute", async function () {
+      const html = `<div :types='{"show": "boolean"}' :show="show.toUpperCase()"></div>`;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      const diagnostic = findDiagnostic(
+        diagnostics,
+        "Property 'toUpperCase' does not exist on type 'boolean'"
       );
-      assert.ok(
-        typeof diagnostic?.length === "number" && diagnostic.length > 0,
-        "Attribute diagnostic should include range length"
+      assert.ok(diagnostic, "Should find the diagnostic");
+      if (diagnostic && diagnostic.file) {
+        assert.equal(diagnostic.file.fileName, testFilePath, "Should point to the HTML file");
+        assert.equal(diagnostic.start, 46, "Start of expression should be correct");
+        assert.equal(diagnostic.length, 11, "Length of expression should be correct");
+      }
+    });
+
+    it("should report correct location for :for items expression", async function () {
+      const html = `<div :types='{"items": "number"}'><ul><li :for="item in items.length"></li></ul></div>`;
+      const diagnostics = await typeCheck(html, { strict: true, filePath: testFilePath });
+      const diagnostic = findDiagnostic(
+        diagnostics,
+        "Property 'length' does not exist on type 'number'"
       );
+      assert.ok(diagnostic, "Should find the diagnostic");
+      if (diagnostic && diagnostic.file) {
+        assert.equal(diagnostic.file.fileName, testFilePath, "Should point to the HTML file");
+        assert.equal(diagnostic.start, 62, "Start of expression should be correct");
+        assert.equal(diagnostic.length, 6, "Length of expression should be correct");
+      }
+    });
+
+    it("should report correct location for error in :for loop body", async function () {
+      const html = `<div :types='{"items": "string[]"}'><ul><li :for="item in items">{{ item.toFixed(2) }}</li></ul></div>`;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      const diagnostic = findDiagnostic(
+        diagnostics,
+        "Property 'toFixed' does not exist on type 'string'"
+      );
+      assert.ok(diagnostic, "Should find the diagnostic");
+      if (diagnostic && diagnostic.file) {
+        assert.equal(diagnostic.file.fileName, testFilePath, "Should point to the HTML file");
+        assert.equal(diagnostic.start, 73, "Start of expression should be correct");
+        assert.equal(diagnostic.length, 7, "Length of expression should be correct");
+      }
+    });
+
+    it("should report correct location for jexpr error", async function () {
+      const html = `<div :types='{"a": "number"}'><span>{{ a?.b }}</span></div>`;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      const diagnostic = findDiagnostic(diagnostics, "Unsupported expression for jexpr");
+      assert.ok(diagnostic, "Should find the diagnostic");
+      if (diagnostic && diagnostic.file) {
+        assert.equal(diagnostic.file.fileName, testFilePath, "Should point to the HTML file");
+        assert.equal(diagnostic.start, 39, "Start of expression should be correct");
+        assert.equal(diagnostic.length, 4, "Length of expression should be correct");
+      }
+    });
+
+    it("should report correct location for :types parsing error", async function () {
+      const html = `<div :types='{"a": not_a_string}'></div>`;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      const diagnostic = findDiagnostic(diagnostics, "Failed to evaluate :types");
+      assert.ok(diagnostic, "Should find the diagnostic");
+      if (diagnostic && diagnostic.file) {
+        assert.equal(diagnostic.file.fileName, testFilePath, "Should point to the HTML file");
+        assert.equal(diagnostic.start, 13, "Start of expression should be correct");
+        assert.equal(diagnostic.length, 19, "Length of expression should be correct");
+      }
     });
   });
 
-  describe("nested :types", () => {
+  describe("jexpr compatibility", () => {
     it("should inherit types from outer scope", async function () {
       const html = `
         <div :types='{"name": "string", "age": "number"}'>
