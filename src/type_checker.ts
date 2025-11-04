@@ -55,6 +55,11 @@ async function getDiagnostics(
 
 const AST_FACTORY = new jexpr.EvalAstFactory();
 
+interface SourceRange {
+  start: number;
+  length: number;
+}
+
 function parseWithJexpr(expression: string) {
   const ast = jexpr.parse(expression, AST_FACTORY);
   if (!ast) {
@@ -81,6 +86,7 @@ type ExpressionSource = AttributeExpressionSource | TextExpressionSource;
 interface ExpressionEntry {
   expression: string;
   source: ExpressionSource;
+  range?: SourceRange;
 }
 
 interface ExpressionScope {
@@ -115,11 +121,7 @@ function ensurePlainObject(value: unknown, context: string): Record<string, unkn
   return value;
 }
 
-function descriptorToTypeScript(
-  descriptor: unknown,
-  baseDir: string | undefined,
-  key: string
-): string {
+function descriptorToTypeScript(descriptor: unknown, baseDir: string | undefined, key: string): string {
   if (typeof descriptor !== "string") {
     const description =
       typeof descriptor === "object" && descriptor !== null
@@ -131,10 +133,7 @@ function descriptorToTypeScript(
   return replaceImportSyntax(descriptor, baseDir);
 }
 
-function parseTypesAttribute(
-  raw: string,
-  baseDir?: string
-): Map<string, string> {
+function parseTypesAttribute(raw: string, baseDir: string | undefined): Map<string, string> {
   const ast = parseWithJexpr(raw);
   const value = ast.evaluate({});
   const typeObject = ensurePlainObject(value, ":types expression");
@@ -215,6 +214,70 @@ function buildTypeScriptSource(
   ].join("\n");
 
   return `${libDirectives}\n${globalAugmentations}\nnamespace ${namespace} {\n${defaultGlobals}\n${declarations}\n${checks}}`;
+}
+
+function getAttributeValueRange(
+  element: Element,
+  attributeName: string,
+  attrValue: string,
+  valueSubstring: string,
+  dom: JSDOM,
+  html: string,
+  valueOffsetInAttrValue?: number
+): SourceRange | undefined {
+  const elementLocation = dom.nodeLocation(element) as any;
+  if (!elementLocation) return undefined;
+
+  const attrLocation = elementLocation?.attrs?.[attributeName];
+  if (!attrLocation) return undefined;
+
+  const attrText = html.slice(attrLocation.startOffset, attrLocation.endOffset);
+  const equalsIndex = attrText.indexOf("=");
+
+  if (equalsIndex === -1) {
+    return { start: attrLocation.startOffset, length: attrLocation.endOffset - attrLocation.startOffset };
+  }
+
+  let cursor = equalsIndex + 1;
+  while (cursor < attrText.length && /\s/.test(attrText[cursor]!)) {
+    cursor++;
+  }
+
+  let baseOffset = cursor;
+  if (cursor < attrText.length && (attrText[cursor] === '"' || attrText[cursor] === "'")) {
+    baseOffset = cursor + 1;
+  }
+
+  let offsetWithinValue = valueOffsetInAttrValue;
+  if (offsetWithinValue == null || offsetWithinValue < 0) {
+    offsetWithinValue = attrValue.indexOf(valueSubstring);
+    if (offsetWithinValue < 0) {
+      offsetWithinValue = attrValue.trimStart().indexOf(valueSubstring);
+      if (offsetWithinValue < 0) {
+        offsetWithinValue = 0;
+      } else {
+        offsetWithinValue += attrValue.length - attrValue.trimStart().length;
+      }
+    }
+  }
+
+  const start = attrLocation.startOffset + baseOffset + offsetWithinValue;
+  return { start, length: valueSubstring.length };
+}
+
+function getTextExpressionRange(
+  textNode: Text,
+  match: RegExpMatchArray,
+  trimmedExpression: string,
+  dom: JSDOM
+): SourceRange | undefined {
+  const location = dom.nodeLocation(textNode) as any;
+  if (!location) return undefined;
+
+  const rawExpression = match[1] ?? "";
+  const leadingWhitespace = rawExpression.length - rawExpression.trimStart().length;
+  const start = location.startOffset + (match.index ?? 0) + 2 + leadingWhitespace;
+  return { start, length: trimmedExpression.length };
 }
 
 // Helper to check if an element is nested within another :types element
@@ -301,7 +364,10 @@ async function processTypesElement(
   element: Element,
   parentTypes: Map<string, string>,
   options: TypeCheckOptions,
-  processedElements: Set<Element>
+  processedElements: Set<Element>,
+  dom: JSDOM,
+  html: string,
+  htmlSourceFile: ts.SourceFile
 ): Promise<ts.Diagnostic[]> {
   // Skip if already processed
   if (processedElements.has(element)) {
@@ -314,6 +380,7 @@ async function processTypesElement(
   if (!typesAttr) return allDiagnostics;
 
   const baseDir = options.filePath ? path.dirname(path.resolve(options.filePath)) : undefined;
+  const typesAttrName = element.hasAttribute(":types") ? ":types" : "data-types";
 
   try {
     // Parse types for this element
@@ -323,9 +390,9 @@ async function processTypesElement(
     const mergedTypes = new Map([...parentTypes, ...elementTypes]);
 
     // Get expressions for this element (excluding nested :types descendants)
-    const expressions = getExpressionsExcludingNestedTypes(element);
+    const expressions = getExpressionsExcludingNestedTypes(element, dom, html);
 
-    const jexprDiagnostics = validateExpressionsWithJexpr(expressions);
+    const jexprDiagnostics = validateExpressionsWithJexpr(expressions, htmlSourceFile);
     allDiagnostics.push(...jexprDiagnostics);
 
     // Type check expressions in this scope
@@ -346,7 +413,10 @@ async function processTypesElement(
         nestedElement,
         nestedParentTypes,
         options,
-        processedElements
+        processedElements,
+        dom,
+        html,
+        htmlSourceFile
       );
       allDiagnostics.push(...nestedDiagnostics);
     }
@@ -354,10 +424,20 @@ async function processTypesElement(
     const tagName = element.tagName?.toLowerCase() ?? "element";
     const message =
       error instanceof Error ? error.message : typeof error === "string" ? error : String(error);
+    const attrRange = getAttributeValueRange(
+      element,
+      typesAttrName,
+      typesAttr,
+      typesAttr,
+      dom,
+      html,
+      0
+    );
+
     allDiagnostics.push({
-      file: undefined,
-      start: undefined,
-      length: undefined,
+      file: attrRange ? htmlSourceFile : undefined,
+      start: attrRange?.start,
+      length: attrRange?.length,
       category: ts.DiagnosticCategory.Error,
       code: 91001,
       source: "mancha-type-checker",
@@ -398,7 +478,7 @@ function findDirectNestedTypesElements(element: Element): Element[] {
 }
 
 // Get expressions excluding those in nested :types elements
-function getExpressionsExcludingNestedTypes(root: Element): ExpressionScope {
+function getExpressionsExcludingNestedTypes(root: Element, dom: JSDOM, html: string): ExpressionScope {
   const scope: ExpressionScope = { expressions: [], forLoops: [] };
   const processedForElements = new Set<Element>();
 
@@ -417,12 +497,14 @@ function getExpressionsExcludingNestedTypes(root: Element): ExpressionScope {
       const parts = forAttr.split(" in ");
       const itemName = parts[0].trim();
       const itemsExpression = parts[1].trim();
-
       const attributeName = element.hasAttribute(":for")
         ? ":for"
         : element.hasAttribute("data-for")
           ? "data-for"
           : ":for";
+      const attr = element.getAttributeNode(attributeName);
+      const attrValue = attr?.value ?? "";
+      const valueIndex = attrValue.lastIndexOf(itemsExpression);
 
       const itemsExpressionEntry: ExpressionEntry = {
         expression: itemsExpression,
@@ -432,6 +514,15 @@ function getExpressionsExcludingNestedTypes(root: Element): ExpressionScope {
           attributeName,
           attributeKind: "for-items",
         },
+        range: getAttributeValueRange(
+          element,
+          attributeName,
+          attrValue,
+          itemsExpression,
+          dom,
+          html,
+          valueIndex
+        ),
       };
 
       currentScope.expressions.push(itemsExpressionEntry);
@@ -455,6 +546,15 @@ function getExpressionsExcludingNestedTypes(root: Element): ExpressionScope {
               attributeName: attr.name,
               attributeKind: "default",
             },
+            range: getAttributeValueRange(
+              element,
+              attr.name,
+              attr.value,
+              attr.value,
+              dom,
+              html,
+              0
+            ),
           });
         }
       }
@@ -485,9 +585,12 @@ function getExpressionsExcludingNestedTypes(root: Element): ExpressionScope {
     if (text) {
       const matches = text.matchAll(/{{(.*?)}}/g);
       for (const match of matches) {
+        const trimmedExpression = match[1]?.trim() ?? "";
+        if (!trimmedExpression) continue;
         currentScope.expressions.push({
-          expression: match[1].trim(),
+          expression: trimmedExpression,
           source: { kind: "text", node: textNode },
+          range: getTextExpressionRange(textNode, match, trimmedExpression, dom),
         });
       }
     }
@@ -532,15 +635,19 @@ function describeExpressionSource(source: ExpressionSource): string {
   return "text interpolation";
 }
 
-function createJexprDiagnostic(entry: ExpressionEntry, error: unknown): ts.Diagnostic {
+function createJexprDiagnostic(
+  entry: ExpressionEntry,
+  error: unknown,
+  htmlSourceFile: ts.SourceFile
+): ts.Diagnostic {
   const expressionPreview = entry.expression.trim() || entry.expression;
   const errorMessage =
     error instanceof Error ? error.message : typeof error === "string" ? error : String(error);
   const message = `Unsupported expression for jexpr (${expressionPreview}) in ${describeExpressionSource(entry.source)}: ${errorMessage}`;
   return {
-    file: undefined,
-    start: undefined,
-    length: undefined,
+    file: entry.range ? htmlSourceFile : undefined,
+    start: entry.range?.start,
+    length: entry.range?.length,
     category: ts.DiagnosticCategory.Error,
     code: 91002,
     source: "mancha-type-checker",
@@ -548,7 +655,7 @@ function createJexprDiagnostic(entry: ExpressionEntry, error: unknown): ts.Diagn
   };
 }
 
-function validateExpressionsWithJexpr(scope: ExpressionScope): ts.Diagnostic[] {
+function validateExpressionsWithJexpr(scope: ExpressionScope, htmlSourceFile: ts.SourceFile): ts.Diagnostic[] {
   const diagnostics: ts.Diagnostic[] = [];
   const expressions = collectExpressions(scope);
 
@@ -558,7 +665,7 @@ function validateExpressionsWithJexpr(scope: ExpressionScope): ts.Diagnostic[] {
     try {
       parseWithJexpr(candidate);
     } catch (error) {
-      diagnostics.push(createJexprDiagnostic(entry, error));
+      diagnostics.push(createJexprDiagnostic(entry, error, htmlSourceFile));
     }
   }
 
@@ -566,7 +673,14 @@ function validateExpressionsWithJexpr(scope: ExpressionScope): ts.Diagnostic[] {
 }
 
 export async function typeCheck(html: string, options: TypeCheckOptions): Promise<ts.Diagnostic[]> {
-  const dom = new JSDOM(html);
+  const dom = new JSDOM(html, { includeNodeLocations: true });
+  const htmlSourceFile = ts.createSourceFile(
+    options.filePath ?? "template.html",
+    html,
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.Unknown
+  );
 
   const allTypeNodes = dom.window.document.querySelectorAll("[\\:types], [data-types]");
 
@@ -578,7 +692,15 @@ export async function typeCheck(html: string, options: TypeCheckOptions): Promis
 
   // Process each top-level :types element and its nested descendants
   for (const node of topLevelTypeNodes) {
-    const diagnostics = await processTypesElement(node, new Map(), options, processedElements);
+    const diagnostics = await processTypesElement(
+      node,
+      new Map(),
+      options,
+      processedElements,
+      dom,
+      html,
+      htmlSourceFile
+    );
     allDiagnostics.push(...diagnostics);
   }
 

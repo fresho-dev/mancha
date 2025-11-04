@@ -139,6 +139,18 @@ describe("typeCheck", function () {
         findDiagnostic(diagnostics, "Unsupported expression for jexpr (user?.name)"),
         "Should include a diagnostic referencing the unsupported expression"
       );
+
+      const diagnostic = findDiagnostic(diagnostics, "Unsupported expression for jexpr (user?.name)");
+      assert.ok(diagnostic, "Should find location-aware diagnostic");
+      assert.ok(diagnostic?.file, "Should include source file reference");
+      assert.ok(
+        typeof diagnostic?.start === "number",
+        "Should include start offset for jexpr diagnostics"
+      );
+      assert.ok(
+        typeof diagnostic?.length === "number" && diagnostic.length > 0,
+        "Should include diagnostic length"
+      );
     });
   });
 
@@ -172,6 +184,40 @@ describe("typeCheck", function () {
       assert.ok(
         findDiagnostic(diagnostics, 'Type for "user" must be a string'),
         "Should mention the offending key in diagnostics"
+      );
+
+      const diagnostic = findDiagnostic(diagnostics, 'Type for "user" must be a string');
+      assert.ok(diagnostic?.file, "Should include file reference for :types errors");
+      assert.ok(
+        typeof diagnostic?.start === "number",
+        "Should include start offset for :types diagnostics"
+      );
+      assert.ok(
+        typeof diagnostic?.length === "number" && diagnostic.length > 0,
+        "Should include diagnostic length for :types errors"
+      );
+    });
+
+    it("should include source ranges for attribute diagnostics", async function () {
+      const html = `
+        <div :types='{"items": "number[]"}'>
+          <span :show="items?.length > 0">{{ items.length }}</span>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      const diagnostic = findDiagnostic(
+        diagnostics,
+        "Unsupported expression for jexpr (items?.length > 0)"
+      );
+      assert.ok(diagnostic, "Should produce diagnostic for attribute optional chaining");
+      assert.ok(diagnostic?.file, "Attribute diagnostic should reference HTML source");
+      assert.ok(
+        typeof diagnostic?.start === "number",
+        "Attribute diagnostic should include start offset"
+      );
+      assert.ok(
+        typeof diagnostic?.length === "number" && diagnostic.length > 0,
+        "Attribute diagnostic should include range length"
       );
     });
   });
