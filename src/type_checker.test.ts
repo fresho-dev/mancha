@@ -3,6 +3,8 @@ import { assert, setupGlobalTestEnvironment } from "./test_utils.js";
 import * as ts from "typescript";
 import * as path from "path";
 import { fileURLToPath } from "url";
+import * as fs from "fs/promises";
+import * as os from "os";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1206,18 +1208,41 @@ describe("typeCheck", function () {
     });
 
     it("should handle imports from local packages with exports subpaths", async function () {
-      // Test that packages with package.json exports work (like cloudflare-functions/fresho/resources)
-      // This requires the dashboard to have cloudflare-functions installed
-      const dashboardTestPath = path.join(
-        process.cwd(),
-        "../dashboard/test_type_check.html"
+      const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "mancha-type-check-"));
+      const htmlPath = path.join(tempDir, "template.html");
+
+      const packageDir = path.join(tempDir, "node_modules", "local-exported-package");
+      await fs.mkdir(path.join(packageDir, "dist"), { recursive: true });
+
+      const packageJson = {
+        name: "local-exported-package",
+        version: "1.0.0",
+        type: "module",
+        exports: {
+          "./preview": {
+            types: "./dist/preview.d.ts",
+            default: "./dist/preview.js",
+          },
+        },
+      };
+      await fs.writeFile(
+        path.join(packageDir, "package.json"),
+        JSON.stringify(packageJson, null, 2),
+        "utf-8"
       );
+      await fs.writeFile(
+        path.join(packageDir, "dist", "preview.d.ts"),
+        `export interface PreviewType { title: string; }\n`,
+        "utf-8"
+      );
+      await fs.writeFile(path.join(packageDir, "dist", "preview.js"), `export {};\n`, "utf-8");
+
       const html = `
-        <div :types='{"resources": "@import:cloudflare-functions/fresho/resources:FreshoResourcesResponse"}'>
-          <span>{{ resources }}</span>
+        <div :types='{"preview": "@import:local-exported-package/preview:PreviewType"}'>
+          <span>{{ preview.title.toUpperCase() }}</span>
         </div>
       `;
-      const diagnostics = await typeCheck(html, { strict: false, filePath: dashboardTestPath });
+      const diagnostics = await typeCheck(html, { strict: false, filePath: htmlPath });
       assert.equal(diagnostics.length, 0, "Should handle package exports subpaths");
     });
   });
