@@ -262,6 +262,14 @@ const PROPS_CUSTOM = {
   "animate-spin": { animation: "spin 1s linear infinite" },
   "animate-ping": { animation: "ping 1s cubic-bezier(0, 0, 0.2, 1) infinite" },
   "animate-pulse": { animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" },
+  // Backgrounds.
+  "bg-auto": { "background-size": "auto" },
+  "bg-cover": { "background-size": "cover" },
+  "bg-contain": { "background-size": "contain" },
+  "bg-no-repeat": { "background-repeat": "no-repeat" },
+  "bg-fixed": { "background-attachment": "fixed" },
+  "bg-local": { "background-attachment": "local" },
+  "bg-scroll": { "background-attachment": "scroll" },
 };
 const PROPS_AS_IS = [
   `@keyframes spin {
