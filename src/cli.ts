@@ -77,7 +77,13 @@ const args = yargs(hideBin(process.argv))
       for (const input of inputs) {
         const isDirectory = (await fs.stat(input)).isDirectory();
         const pattern = isDirectory ? `${input}/**/*.{html,htm}` : input;
-        const files = await glob(pattern, { nodir: true });
+        const globOptions = isDirectory
+          ? {
+              nodir: true,
+              ignore: ["**/node_modules/**", "**/.git/**"],
+            }
+          : { nodir: true };
+        const files = await glob(pattern, globOptions);
         filesToCheck.push(...files);
       }
 

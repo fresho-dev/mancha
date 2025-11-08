@@ -69,5 +69,17 @@ describe("CLI", function () {
       const { stdout } = await execAsync(`node ${cliPath} check ${file1} ${dir1}`);
       assert.ok(stdout.includes("Checked 2 file(s)"));
     });
+
+    it("should skip node_modules directories when crawling", async () => {
+      const nested = path.join(testDir, "node_modules", "ignoredpkg");
+      await fs.mkdir(nested, { recursive: true });
+      await fs.writeFile(path.join(nested, "ignored.html"), "<p>ignore me</p>");
+
+      const { stdout } = await execAsync(`node ${cliPath} check ${testDir}`);
+      assert.ok(
+        stdout.includes("Checked 3 file(s)"),
+        "Should not count files under node_modules"
+      );
+    });
   });
 });
