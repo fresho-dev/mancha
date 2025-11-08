@@ -24,6 +24,10 @@ GulpClient.task("clean", function (done) {
 
 GulpClient.task("ts", execTask("tsec -m ES2022 -p ."));
 
+GulpClient.task("chmod", function (done) {
+  return fs.chmod("dist/cli.js", 0o755).then(done);
+});
+
 GulpClient.task("css", function () {
   return GulpClient.src("src/**/*.css").pipe(csso()).pipe(GulpClient.dest("dist"));
 });
@@ -36,5 +40,5 @@ GulpClient.task("fixtures", function () {
 });
 
 GulpClient.task("webpack", GulpClient.series("webpack:main", "webpack:esmodule"));
-GulpClient.task("build", GulpClient.series("ts", "css", "webpack", "fixtures"));
+GulpClient.task("build", GulpClient.series("ts", "chmod", "css", "webpack", "fixtures"));
 GulpClient.task("default", GulpClient.series("build"));
