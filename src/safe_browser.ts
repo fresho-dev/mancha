@@ -3,30 +3,7 @@ import { safeDomParser } from "safevalues/dom";
 import { dirname } from "./dome.js";
 import { ParserParams, RenderParams } from "./interfaces.js";
 import { IRenderer } from "./renderer.js";
-
-const TRUSTED_ATTRIBS = [
-  ":data",
-  ":for",
-  ":text",
-  ":html",
-  ":show",
-  ":class",
-  ":bind",
-  ":on:click",
-  ":on:click.prevent",
-  ":on:input",
-  ":on:input.prevent",
-  ":on:change",
-  ":on:change.prevent",
-  ":on:submit",
-  ":on:submit.prevent",
-  ":attr:src",
-  ":attr:href",
-  ":attr:title",
-  ":prop:checked",
-  ":prop:selected",
-  ":prop:disabled",
-];
+import { SAFE_DATA_ATTRIBS, TRUSTED_ATTRIBS } from "./trusted_attributes.js";
 
 export class Renderer extends IRenderer {
   readonly impl = "safe_browser";
@@ -62,14 +39,9 @@ export class Renderer extends IRenderer {
     );
 
     // The data-* equivalent of our trusted attributes are allowed.
-    const dataAttribs = TRUSTED_ATTRIBS.map((attr) => `data-${attr.slice(1).replace(":", "-")}`);
-
-    // Allow data-testid for testing purposes.
-    dataAttribs.push("data-testid");
-
     // Sanitize the content.
     const sanitizer = new HtmlSanitizerBuilder()
-      .allowDataAttributes(dataAttribs)
+      .allowDataAttributes(SAFE_DATA_ATTRIBS)
       .allowClassAttributes()
       .allowStyleAttributes()
       .build();

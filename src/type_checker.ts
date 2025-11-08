@@ -4,6 +4,7 @@ import * as path from "path";
 import { JSDOM } from "jsdom";
 import * as jexpr from "jexpr";
 import { getAttributeOrDataset } from "./dome.js";
+import { TRUSTED_DATA_ATTRIBS } from "./trusted_attributes.js";
 
 export interface TypeCheckOptions {
   strict: boolean;
@@ -496,6 +497,10 @@ async function processTypesElement(
 }
 
 // Find nested :types elements that are direct descendants (not grandchildren through other :types)
+const TRUSTED_DATA_ATTRIBUTE_SET = new Set(
+  TRUSTED_DATA_ATTRIBS.map((attr) => attr.toLowerCase())
+);
+
 function findDirectNestedTypesElements(element: Element): Element[] {
   const result: Element[] = [];
   const walker = element.ownerDocument.createTreeWalker(element, 1); // 1 = SHOW_ELEMENT
@@ -522,6 +527,24 @@ function findDirectNestedTypesElements(element: Element): Element[] {
     }
   }
   return result;
+}
+
+function isExpressionAttribute(attrName: string): boolean {
+  const normalized = attrName.toLowerCase();
+
+  if (normalized === ":types" || normalized === "data-types") {
+    return false;
+  }
+
+  if (normalized.startsWith(":")) {
+    return true;
+  }
+
+  if (!normalized.startsWith("data-")) {
+    return false;
+  }
+
+  return TRUSTED_DATA_ATTRIBUTE_SET.has(normalized);
 }
 
 // Get expressions excluding those in nested :types elements
@@ -580,11 +603,7 @@ function getExpressionsExcludingNestedTypes(root: Element, dom: JSDOM, html: str
     } else {
       // Process attributes
       for (const attr of Array.from(element.attributes)) {
-        if (
-          (attr.name.startsWith(":") || attr.name.startsWith("data-")) &&
-          attr.name !== ":types" &&
-          attr.name !== "data-types"
-        ) {
+        if (isExpressionAttribute(attr.name)) {
           currentScope.expressions.push({
             expression: attr.value,
             source: {
