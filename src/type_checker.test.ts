@@ -1042,6 +1042,16 @@ describe("typeCheck", function () {
       const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       assert.ok(diagnostics.length > 0, "Should detect error in data-for loop");
     });
+
+    it("should ignore unrelated data-* attributes", async function () {
+      const html = `
+        <div :types='{"title": "string"}'>
+          <h1 data-testid="main-title">{{ title.toUpperCase() }}</h1>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      assert.equal(diagnostics.length, 0, "data-testid should be treated as a static attribute");
+    });
   });
 
   describe("parent directory imports", () => {
