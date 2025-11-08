@@ -200,6 +200,19 @@ describe("typeCheck", function () {
     });
   });
 
+  describe("global expression validation", () => {
+    it("should validate expressions outside :types scopes", async function () {
+      const html = `
+        <div>
+          <span>{{ value?.prop }}</span>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      const jexprDiagnostic = findDiagnostic(diagnostics, "Unsupported expression for jexpr");
+      assert.ok(jexprDiagnostic, "Should flag invalid jexpr expression even without :types");
+    });
+  });
+
   describe("jexpr compatibility", () => {
     it("should inherit types from outer scope", async function () {
       const html = `

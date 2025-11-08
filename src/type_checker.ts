@@ -764,5 +764,16 @@ export async function typeCheck(html: string, options: TypeCheckOptions): Promis
     allDiagnostics.push(...diagnostics);
   }
 
+  const documentRoot =
+    dom.window.document.documentElement ??
+    dom.window.document.body ??
+    (dom.window.document.firstElementChild as Element | null);
+
+  if (documentRoot) {
+    const globalScope = getExpressionsExcludingNestedTypes(documentRoot, dom, html);
+    const globalJexprDiagnostics = validateExpressionsWithJexpr(globalScope, htmlSourceFile);
+    allDiagnostics.push(...globalJexprDiagnostics);
+  }
+
   return allDiagnostics;
 }
