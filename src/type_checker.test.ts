@@ -1305,6 +1305,56 @@ describe("typeCheck", function () {
     });
   });
 
+  describe("temp file cleanup", () => {
+    it("should clean up temp files even when type checking has errors", async function () {
+      const html = `<div :types='{"name": "string"}'><span>{{ name.nonExistentMethod() }}</span></div>`;
+
+      // Count temp files before
+      const tempFilesBefore = (await fs.readdir(__dirname)).filter((f) =>
+        f.startsWith("temp_type_check_")
+      );
+
+      // Run type check that will produce errors
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      assert.ok(diagnostics.length > 0, "Should have errors");
+
+      // Count temp files after - should be the same (no leftover temp files)
+      const tempFilesAfter = (await fs.readdir(__dirname)).filter((f) =>
+        f.startsWith("temp_type_check_")
+      );
+
+      assert.equal(
+        tempFilesAfter.length,
+        tempFilesBefore.length,
+        "Should not leave temp files behind after errors"
+      );
+    });
+
+    it("should clean up temp files when type checking succeeds", async function () {
+      const html = `<div :types='{"name": "string"}'><span>{{ name.toUpperCase() }}</span></div>`;
+
+      // Count temp files before
+      const tempFilesBefore = (await fs.readdir(__dirname)).filter((f) =>
+        f.startsWith("temp_type_check_")
+      );
+
+      // Run type check that will succeed
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      assert.equal(diagnostics.length, 0, "Should have no errors");
+
+      // Count temp files after - should be the same
+      const tempFilesAfter = (await fs.readdir(__dirname)).filter((f) =>
+        f.startsWith("temp_type_check_")
+      );
+
+      assert.equal(
+        tempFilesAfter.length,
+        tempFilesBefore.length,
+        "Should not leave temp files behind after success"
+      );
+    });
+  });
+
   describe("performance regression tests", () => {
     it("should complete type checking quickly even with imports", async function () {
       const html = `

@@ -25,33 +25,35 @@ async function getDiagnostics(
 
   await fs.writeFile(tempFilePath, content);
 
-  const compilerOptions: ts.CompilerOptions = {
-    noEmit: true,
-    strict: options.strict,
-    strictNullChecks: options.strict,
-    target: ts.ScriptTarget.ES2022,
-    module: ts.ModuleKind.ESNext,
-    moduleResolution: ts.ModuleResolutionKind.Bundler,
-    baseUrl: baseDir,
-    lib: ["ES2022", "DOM"],
-    skipLibCheck: true,
-    skipDefaultLibCheck: false,
-    allowImportingTsExtensions: true,
-    resolveJsonModule: true,
-    allowSyntheticDefaultImports: true,
-  };
+  try {
+    const compilerOptions: ts.CompilerOptions = {
+      noEmit: true,
+      strict: options.strict,
+      strictNullChecks: options.strict,
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ESNext,
+      moduleResolution: ts.ModuleResolutionKind.Bundler,
+      baseUrl: baseDir,
+      lib: ["lib.es2022.full.d.ts", "lib.dom.d.ts"],
+      skipLibCheck: true,
+      skipDefaultLibCheck: false,
+      allowImportingTsExtensions: true,
+      resolveJsonModule: true,
+      allowSyntheticDefaultImports: true,
+    };
 
-  const host = ts.createCompilerHost(compilerOptions);
-  const program = ts.createProgram([tempFilePath], compilerOptions, host);
+    const host = ts.createCompilerHost(compilerOptions);
+    const program = ts.createProgram([tempFilePath], compilerOptions, host);
 
-  const allDiagnostics = ts.getPreEmitDiagnostics(program);
+    const allDiagnostics = ts.getPreEmitDiagnostics(program);
 
-  await fs.unlink(tempFilePath);
-
-  // Filter out irrelevant diagnostics (keep semantic errors 2000-2999 and strict mode errors 18000-18999)
-  return allDiagnostics.filter(
-    (d) => (d.code >= 2000 && d.code < 3000) || (d.code >= 18000 && d.code < 19000)
-  );
+    // Filter out irrelevant diagnostics (keep semantic errors 2000-2999 and strict mode errors 18000-18999)
+    return allDiagnostics.filter(
+      (d) => (d.code >= 2000 && d.code < 3000) || (d.code >= 18000 && d.code < 19000)
+    );
+  } finally {
+    await fs.unlink(tempFilePath);
+  }
 }
 
 const AST_FACTORY = new jexpr.EvalAstFactory();
