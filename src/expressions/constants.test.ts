@@ -9,11 +9,11 @@ import {
 
 describe("Expression Constants", () => {
   it("should define KEYWORDS correctly", () => {
-    assert.deepEqual(KEYWORDS, ['this']);
+    assert.deepEqual(KEYWORDS, ['this', 'typeof']);
   });
 
   it("should define UNARY_OPERATORS correctly", () => {
-    assert.deepEqual(UNARY_OPERATORS, ['+', '-', '!']);
+    assert.deepEqual(UNARY_OPERATORS, ['+', '-', '!', 'typeof']);
   });
 
   it("should define BINARY_OPERATORS correctly", () => {

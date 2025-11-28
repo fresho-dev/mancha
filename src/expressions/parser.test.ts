@@ -146,7 +146,33 @@ describe("Parser", () => {
     );
   });
 
+  it("should parse typeof expressions", () => {
+    assert.deepEqual(
+      parseExpr("typeof x"),
+      factory.unary("typeof", factory.id("x"))
+    );
+    assert.deepEqual(
+      parseExpr("typeof x === 'string'"),
+      factory.binary(
+        factory.unary("typeof", factory.id("x")),
+        "===",
+        factory.literal("string")
+      )
+    );
+  });
+
   it("should throw on invalid syntax", () => {
     assert.throws(() => parseExpr("1 +"), "Expected expression after +");
+  });
+
+  it("should throw on unconsumed tokens", () => {
+    // Parser must consume all input or throw an error.
+    assert.throws(() => parseExpr("1 2"));
+    assert.throws(() => parseExpr("x y"));
+  });
+
+  it("should not parse arrow functions with unparenthesized single parameter", () => {
+    // Parser requires parentheses around arrow function parameters.
+    assert.throws(() => parseExpr("x => x + 1"));
   });
 });

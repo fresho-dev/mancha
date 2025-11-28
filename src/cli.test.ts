@@ -25,6 +25,8 @@ describe("CLI", function () {
     const testDir = path.join(__dirname, "temp_cli_tests");
 
     before(async () => {
+      // Clean up any leftover test directories from previous runs.
+      await fs.rm(testDir, { recursive: true, force: true });
       await fs.mkdir(testDir, { recursive: true });
       await fs.writeFile(path.join(testDir, "file1.html"), "<p>hello</p>");
       await fs.mkdir(path.join(testDir, "dir1"));
