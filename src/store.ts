@@ -296,4 +296,48 @@ export class SignalStore extends IDebouncer {
       }
     }
   }
+
+  /**
+   * Executes an async function and returns a reactive state object that tracks the result.
+   *
+   * @param fn - The async function to execute.
+   * @param options - Optional arguments to pass to the function.
+   * @returns A reactive state object with $pending, $result, and $error properties.
+   *
+   * @example
+   * // In :data attribute - executes on mount
+   * :data="{ users: $resolve(api.listUsers) }"
+   *
+   * // With options
+   * :data="{ user: $resolve(api.getUser, { path: { id: userId } }) }"
+   *
+   * // In :on:click - executes on click
+   * :on:click="result = $resolve(api.deleteUser, { path: { id } })"
+   */
+  $resolve<T>(
+    fn: (options?: any) => Promise<T>,
+    options?: any
+  ): { $pending: boolean; $result: T | null; $error: Error | null } {
+    // Create the state object.
+    const state = {
+      $pending: true,
+      $result: null as T | null,
+      $error: null as Error | null,
+    };
+
+    // Execute the function immediately, wrapping in Promise.resolve to handle sync throws.
+    Promise.resolve()
+      .then(() => fn(options))
+      .then((data) => {
+        state.$result = data;
+      })
+      .catch((err) => {
+        state.$error = err instanceof Error ? err : new Error(String(err));
+      })
+      .finally(() => {
+        state.$pending = false;
+      });
+
+    return state;
+  }
 }
