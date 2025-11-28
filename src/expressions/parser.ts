@@ -32,7 +32,12 @@ export class Parser<N extends Expression> {
 
   parse(): N | undefined {
     this._advance();
-    return this._parseExpression();
+    const result = this._parseExpression();
+    // Ensure all input was consumed.
+    if (this._token) {
+      throw new Error(`Unexpected token: ${this._token.value}`);
+    }
+    return result;
   }
 
   private _advance(kind?: Kind, value?: string) {
@@ -148,11 +153,20 @@ export class Parser<N extends Expression> {
   }
 
   private _parseUnary(): N | undefined {
+    // Handle keyword-based unary operators like 'typeof'.
+    if (this._matches(Kind.KEYWORD, 'typeof')) {
+      this._advance();
+      const expr = this._parsePrecedence(
+        this._parsePrimary(),
+        POSTFIX_PRECEDENCE,
+      );
+      return this._ast.unary('typeof', expr);
+    }
     if (this._matches(Kind.OPERATOR)) {
       const value = this._value;
       this._advance();
-      // handle unary + and - on numbers as part of the literal, not as a
-      // unary operator
+      // Handle unary + and - on numbers as part of the literal, not as a
+      // unary operator.
       if (value === '+' || value === '-') {
         if (this._matches(Kind.INTEGER)) {
           return this._parseInteger(value);

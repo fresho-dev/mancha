@@ -6,38 +6,41 @@
 import * as ast from './ast.js';
 import {AstFactory} from './ast_factory.js';
 
-const _BINARY_OPERATORS: Record<string, (a: any, b: any) => any> = {
-  '+': (a: any, b: any) => a + b,
-  '-': (a: any, b: any) => a - b,
-  '*': (a: any, b: any) => a * b,
-  '/': (a: any, b: any) => a / b,
-  '%': (a: any, b: any) => a % b,
-  '==': (a: any, b: any) => a == b,
-  '!=': (a: any, b: any) => a != b,
-  '===': (a: any, b: any) => a === b,
-  '!==': (a: any, b: any) => a !== b,
-  '>': (a: any, b: any) => a > b,
-  '>=': (a: any, b: any) => a >= b,
-  '<': (a: any, b: any) => a < b,
-  '<=': (a: any, b: any) => a <= b,
-  '||': (a: any, b: any) => a || b,
-  '&&': (a: any, b: any) => a && b,
-  '??': (a: any, b: any) => a ?? b,
-  '|': (a: any, f: (a: any) => any) => f(a),
+type BinaryOp = (a: unknown, b: unknown) => unknown;
+const _BINARY_OPERATORS: Record<string, BinaryOp> = {
+  '+': (a, b) => (a as number) + (b as number),
+  '-': (a, b) => (a as number) - (b as number),
+  '*': (a, b) => (a as number) * (b as number),
+  '/': (a, b) => (a as number) / (b as number),
+  '%': (a, b) => (a as number) % (b as number),
+  '==': (a, b) => a == b,
+  '!=': (a, b) => a != b,
+  '===': (a, b) => a === b,
+  '!==': (a, b) => a !== b,
+  '>': (a, b) => (a as number) > (b as number),
+  '>=': (a, b) => (a as number) >= (b as number),
+  '<': (a, b) => (a as number) < (b as number),
+  '<=': (a, b) => (a as number) <= (b as number),
+  '||': (a, b) => a || b,
+  '&&': (a, b) => a && b,
+  '??': (a, b) => a ?? b,
+  '|': (a, f) => (f as (x: unknown) => unknown)(a),
 };
 
-const _UNARY_OPERATORS: Record<string, (a: any) => any> = {
-  '+': (a: any) => a,
-  '-': (a: any) => -a,
-  '!': (a: any) => !a,
+type UnaryOp = (a: unknown) => unknown;
+const _UNARY_OPERATORS: Record<string, UnaryOp> = {
+  '+': (a) => a,
+  '-': (a) => -(a as number),
+  '!': (a) => !a,
+  'typeof': (a) => typeof a,
 };
 
 export interface Scope {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface Evaluatable {
-  evaluate(scope: Scope): any;
+  evaluate(scope: Scope): unknown;
   getIds(idents: string[]): string[];
 }
 
@@ -222,22 +225,22 @@ export class EvalAstFactory implements AstFactory<Expression> {
             throw new Error(`Invalid assignment target: ${this.left}`);
           }
           const value = this.right.evaluate(scope);
-          let receiver: object | undefined = undefined;
+          let receiver: Record<string, unknown> | undefined = undefined;
           let property!: string;
           if (this.left.type === 'Getter') {
-            receiver = this.left.receiver.evaluate(scope);
+            receiver = this.left.receiver.evaluate(scope) as Record<string, unknown> | undefined;
             property = this.left.name;
           } else if (this.left.type === 'Index') {
-            receiver = this.left.receiver.evaluate(scope);
-            property = this.left.argument.evaluate(scope);
+            receiver = this.left.receiver.evaluate(scope) as Record<string, unknown> | undefined;
+            property = String(this.left.argument.evaluate(scope));
           } else if (this.left.type === 'ID') {
             // TODO: the id could be a parameter
-            receiver = scope;
+            receiver = scope as Record<string, unknown>;
             property = this.left.value;
           }
           return receiver === undefined
             ? undefined
-            : ((receiver as any)[property] = value);
+            : (receiver[property] = value);
         }
         return f(this.left.evaluate(scope), this.right.evaluate(scope));
       },
@@ -256,7 +259,7 @@ export class EvalAstFactory implements AstFactory<Expression> {
       name: n,
       optional,
       evaluate(scope) {
-        const receiver = this.receiver.evaluate(scope);
+        const receiver = this.receiver.evaluate(scope) as Record<string, unknown> | null | undefined;
         if (this.optional && (receiver === null || receiver === undefined)) {
           return undefined;
         }
@@ -285,7 +288,7 @@ export class EvalAstFactory implements AstFactory<Expression> {
       arguments: args,
       optional,
       evaluate(scope) {
-        const receiver = this.receiver.evaluate(scope);
+        const receiver = this.receiver.evaluate(scope) as Record<string, unknown> | null | undefined;
         if (this.optional && (receiver === null || receiver === undefined)) {
           return undefined;
         }
@@ -295,18 +298,18 @@ export class EvalAstFactory implements AstFactory<Expression> {
         const _this = this.method ? receiver : scope?.['this'] ?? scope;
         const f = this.method ? receiver?.[this.method] : receiver;
         const args = this.arguments ?? [];
-        const argValues: any[] = [];
+        const argValues: unknown[] = [];
         for (const arg of args) {
           if (arg?.type === 'SpreadElement') {
-            const spreadVal = arg.evaluate(scope);
-            if (spreadVal && typeof spreadVal[Symbol.iterator] === 'function') {
+            const spreadVal = arg.evaluate(scope) as Iterable<unknown> | null | undefined;
+            if (spreadVal && typeof (spreadVal as Iterable<unknown>)[Symbol.iterator] === 'function') {
                 argValues.push(...spreadVal);
             }
           } else {
             argValues.push(arg?.evaluate(scope));
           }
         }
-        return f?.apply?.(_this, argValues);
+        return (f as ((...args: unknown[]) => unknown) | undefined)?.apply?.(_this, argValues);
       },
       getIds(idents) {
         this.receiver.getIds(idents);
@@ -327,11 +330,12 @@ export class EvalAstFactory implements AstFactory<Expression> {
       argument: a,
       optional,
       evaluate(scope) {
-        const receiver = this.receiver.evaluate(scope);
+        const receiver = this.receiver.evaluate(scope) as Record<string | number, unknown> | null | undefined;
         if (this.optional && (receiver === null || receiver === undefined)) {
           return undefined;
         }
-        return receiver?.[this.argument.evaluate(scope)];
+        const index = this.argument.evaluate(scope) as string | number;
+        return receiver?.[index];
       },
       getIds(idents) {
         this.receiver.getIds(idents);
@@ -374,7 +378,7 @@ export class EvalAstFactory implements AstFactory<Expression> {
             if (prop.type === 'SpreadProperty') {
               Object.assign(map, prop.evaluate(scope));
             } else {
-              (map as any)[prop.key] = prop.value.evaluate(scope);
+              (map as Record<string, unknown>)[prop.key] = prop.value.evaluate(scope);
             }
           }
         }
@@ -415,11 +419,11 @@ export class EvalAstFactory implements AstFactory<Expression> {
       items: l,
       evaluate(scope) {
         if (!this.items) return [];
-        const result: any[] = [];
+        const result: unknown[] = [];
         for (const item of this.items) {
           if (item?.type === 'SpreadElement') {
-            const spreadVal = item.evaluate(scope);
-            if (spreadVal && typeof spreadVal[Symbol.iterator] === 'function') {
+            const spreadVal = item.evaluate(scope) as Iterable<unknown> | null | undefined;
+            if (spreadVal && typeof (spreadVal as Iterable<unknown>)[Symbol.iterator] === 'function') {
                 result.push(...spreadVal);
             }
           } else {
@@ -443,7 +447,7 @@ export class EvalAstFactory implements AstFactory<Expression> {
       evaluate(scope) {
         const params = this.params;
         const body = this.body;
-        return function (...args: any[]) {
+        return function (...args: unknown[]) {
           // TODO: this isn't correct for assignments to variables in outer
           // scopes
           // const newScope = Object.create(scope ?? null);
