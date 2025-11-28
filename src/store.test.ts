@@ -321,5 +321,277 @@ describe("SignalStore", () => {
     // TODO: test eval of direct property.
   });
 
+  describe("$resolve", () => {
+    it("returns state object with initial pending state", async () => {
+      const store = new SignalStore();
+      const fn = () => new Promise<string>((resolve) => setTimeout(() => resolve("done"), 10));
+      const state = store.$resolve(fn);
+
+      assert.equal(state.$pending, true);
+      assert.equal(state.$result, null);
+      assert.equal(state.$error, null);
+    });
+
+    it("resolves with result on success", async () => {
+      const store = new SignalStore();
+      const fn = () => Promise.resolve("success");
+      const state = store.$resolve(fn);
+
+      // Wait for promise to resolve.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      assert.equal(state.$pending, false);
+      assert.equal(state.$result, "success");
+      assert.equal(state.$error, null);
+    });
+
+    it("resolves with error on failure", async () => {
+      const store = new SignalStore();
+      const fn = () => Promise.reject(new Error("failure"));
+      const state = store.$resolve(fn);
+
+      // Wait for promise to reject.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      assert.equal(state.$pending, false);
+      assert.equal(state.$result, null);
+      assert.ok(state.$error instanceof Error);
+      assert.equal(state.$error?.message, "failure");
+    });
+
+    it("converts non-Error rejections to Error objects", async () => {
+      const store = new SignalStore();
+      const fn = () => Promise.reject("string error");
+      const state = store.$resolve(fn);
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      assert.ok(state.$error instanceof Error);
+      assert.equal(state.$error?.message, "string error");
+    });
+
+    it("passes options to the function", async () => {
+      const store = new SignalStore();
+      let receivedOptions: any = null;
+      const fn = (options: any) => {
+        receivedOptions = options;
+        return Promise.resolve("done");
+      };
+
+      store.$resolve(fn, { path: { id: "123" }, query: { limit: 10 } });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      assert.deepEqual(receivedOptions, { path: { id: "123" }, query: { limit: 10 } });
+    });
+
+    it("works without options", async () => {
+      const store = new SignalStore();
+      let receivedOptions: any = "not-called";
+      const fn = (options?: any) => {
+        receivedOptions = options;
+        return Promise.resolve("done");
+      };
+
+      store.$resolve(fn);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      assert.equal(receivedOptions, undefined);
+    });
+
+    it("resolves with complex object result", async () => {
+      const store = new SignalStore();
+      const data = { users: [{ id: 1, name: "Alice" }, { id: 2, name: "Bob" }] };
+      const fn = () => Promise.resolve(data);
+      const state = store.$resolve(fn);
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      assert.deepEqual(state.$result, data);
+    });
+
+    it("multiple resolves are independent", async () => {
+      const store = new SignalStore();
+      const fn1 = () => Promise.resolve("first");
+      const fn2 = () => Promise.resolve("second");
+
+      const state1 = store.$resolve(fn1);
+      const state2 = store.$resolve(fn2);
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      assert.equal(state1.$result, "first");
+      assert.equal(state2.$result, "second");
+    });
+
+    it("handles slow async functions", async () => {
+      const store = new SignalStore();
+      const fn = () => new Promise<string>((resolve) => setTimeout(() => resolve("slow"), 50));
+      const state = store.$resolve(fn);
+
+      // Still pending after 10ms.
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      assert.equal(state.$pending, true);
+      assert.equal(state.$result, null);
+
+      // Resolved after 60ms.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      assert.equal(state.$pending, false);
+      assert.equal(state.$result, "slow");
+    });
+
+    it("state properties update correctly after resolution", async () => {
+      const store = new SignalStore();
+      const fn = () => new Promise<string>((resolve) => setTimeout(() => resolve("done"), 10));
+      const state = store.$resolve(fn);
+
+      // Initially pending.
+      assert.equal(state.$pending, true);
+      assert.equal(state.$result, null);
+
+      // Wait for promise to resolve.
+      await new Promise((resolve) => setTimeout(resolve, 30));
+
+      // State should be updated.
+      assert.equal(state.$pending, false);
+      assert.equal(state.$result, "done");
+    });
+
+    it("integrates with store assignment for reactivity", async () => {
+      const store = new SignalStore({ myState: null });
+      const fn = () => Promise.resolve("resolved");
+
+      let observerCalls = 0;
+      store.effect(function () {
+        this.myState;
+        observerCalls++;
+      });
+
+      // Initial call.
+      assert.ok(observerCalls >= 1);
+
+      // Assign $resolve result to store - this triggers reactivity.
+      const initialCalls = observerCalls;
+      await store.set("myState", store.$resolve(fn));
+
+      // Observer should have been called due to assignment.
+      assert.ok(observerCalls > initialCalls);
+    });
+
+    it("can be used via $ proxy", async () => {
+      const store = new SignalStore();
+      const fn = () => Promise.resolve("via-proxy");
+
+      // Access $resolve via the $ proxy.
+      const state = store.$.$resolve(fn);
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      assert.equal(state.$result, "via-proxy");
+    });
+
+    it("works with typed-routes-like client signature", async () => {
+      // Simulate typed-routes client method signature.
+      interface User {
+        id: string;
+        name: string;
+      }
+
+      const mockClient = {
+        getUser: (options: { path: { id: string } }): Promise<User> => {
+          return Promise.resolve({ id: options.path.id, name: "Test User" });
+        },
+        listUsers: (options?: { query?: { limit?: number } }): Promise<User[]> => {
+          const limit = options?.query?.limit ?? 10;
+          return Promise.resolve(
+            Array.from({ length: limit }, (_, i) => ({ id: String(i), name: `User ${i}` }))
+          );
+        },
+        deleteUser: (options: { path: { id: string } }): Promise<{ success: boolean }> => {
+          return Promise.resolve({ success: true });
+        },
+      };
+
+      const store = new SignalStore();
+
+      // Test getUser with path params.
+      const userState = store.$resolve(mockClient.getUser, { path: { id: "42" } });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      assert.deepEqual(userState.$result, { id: "42", name: "Test User" });
+
+      // Test listUsers with query params.
+      const listState = store.$resolve(mockClient.listUsers, { query: { limit: 3 } });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      assert.equal(listState.$result?.length, 3);
+
+      // Test listUsers without params.
+      const defaultListState = store.$resolve(mockClient.listUsers);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      assert.equal(defaultListState.$result?.length, 10);
+
+      // Test deleteUser.
+      const deleteState = store.$resolve(mockClient.deleteUser, { path: { id: "42" } });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      assert.deepEqual(deleteState.$result, { success: true });
+    });
+
+    it("handles function that throws synchronously", async () => {
+      const store = new SignalStore();
+      const fn = () => {
+        throw new Error("sync error");
+      };
+
+      // The function throws, but $resolve should catch it.
+      const state = store.$resolve(fn as any);
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      assert.equal(state.$pending, false);
+      assert.ok(state.$error instanceof Error);
+      assert.equal(state.$error?.message, "sync error");
+    });
+
+    it("clears error state from previous pending state", async () => {
+      const store = new SignalStore();
+      const fn = () => Promise.reject(new Error("failed"));
+      const state = store.$resolve(fn);
+
+      // Initial state.
+      assert.equal(state.$pending, true);
+      assert.equal(state.$error, null);
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      // After rejection.
+      assert.equal(state.$pending, false);
+      assert.ok(state.$error !== null);
+    });
+
+    it("returns correct types for result", async () => {
+      const store = new SignalStore();
+
+      // Number result.
+      const numState = store.$resolve(() => Promise.resolve(42));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      assert.equal(numState.$result, 42);
+
+      // Boolean result.
+      const boolState = store.$resolve(() => Promise.resolve(true));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      assert.equal(boolState.$result, true);
+
+      // Array result.
+      const arrState = store.$resolve(() => Promise.resolve([1, 2, 3]));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      assert.deepEqual(arrState.$result, [1, 2, 3]);
+
+      // Null result (valid).
+      const nullState = store.$resolve(() => Promise.resolve(null));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      assert.equal(nullState.$result, null);
+      assert.equal(nullState.$pending, false);
+      assert.equal(nullState.$error, null);
+    });
+  });
+
   // TODO: Test setting objects and arrays as store values.
 });

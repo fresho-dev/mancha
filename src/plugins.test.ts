@@ -883,5 +883,98 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
         }
       });
     });
+
+    describe("$resolve", () => {
+      it("is accessible in :data expressions", async function () {
+        // Mock API client.
+        const api = {
+          listUsers: () => Promise.resolve([{ name: "Alice" }, { name: "Bob" }]),
+        };
+
+        const renderer = new ctor({ api });
+        const html = `<div :data="{ users: $resolve(api.listUsers) }"></div>`;
+        const fragment = renderer.parseHTML(html);
+        await renderer.mount(fragment);
+
+        // Get the subrenderer's store.
+        const elem = fragment.firstChild as any;
+        const subrenderer = elem.renderer;
+
+        // Verify the state object was created.
+        const users = subrenderer.get("users");
+        assert.ok(users !== null, "users should be set");
+        assert.equal(typeof users, "object", "users should be an object");
+        assert.ok("$pending" in users, "users should have $pending");
+        assert.ok("$result" in users, "users should have $result");
+        assert.ok("$error" in users, "users should have $error");
+      });
+
+      it("passes options to the function", async function () {
+        let receivedOptions: any = null;
+        const api = {
+          getUser: (opts: any) => {
+            receivedOptions = opts;
+            return Promise.resolve({ name: "Test" });
+          },
+        };
+
+        const renderer = new ctor({ api, userId: "42" });
+        const html = `<div :data="{ user: $resolve(api.getUser, { path: { id: userId } }) }"></div>`;
+        const fragment = renderer.parseHTML(html);
+        await renderer.mount(fragment);
+
+        // Wait a tick for promise execution.
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        assert.deepEqual(receivedOptions, { path: { id: "42" } });
+      });
+
+      it("state object updates after promise resolves", async function () {
+        const api = {
+          getData: () => Promise.resolve({ value: 123 }),
+        };
+
+        const renderer = new ctor({ api });
+        const html = `<div :data="{ result: $resolve(api.getData) }"></div>`;
+        const fragment = renderer.parseHTML(html);
+        await renderer.mount(fragment);
+
+        const elem = fragment.firstChild as any;
+        const subrenderer = elem.renderer;
+
+        // Wait for promise to resolve.
+        await new Promise((resolve) => setTimeout(resolve, 30));
+
+        // State should be updated.
+        const result = subrenderer.get("result");
+        assert.equal(result.$pending, false);
+        assert.deepEqual(result.$result, { value: 123 });
+        assert.equal(result.$error, null);
+      });
+
+      it("state object updates after promise rejects", async function () {
+        const api = {
+          failingCall: () => Promise.reject(new Error("API Error")),
+        };
+
+        const renderer = new ctor({ api });
+        const html = `<div :data="{ result: $resolve(api.failingCall) }"></div>`;
+        const fragment = renderer.parseHTML(html);
+        await renderer.mount(fragment);
+
+        const elem = fragment.firstChild as any;
+        const subrenderer = elem.renderer;
+        const result = subrenderer.get("result");
+
+        // Wait for promise to reject.
+        await new Promise((resolve) => setTimeout(resolve, 30));
+
+        // State should be updated.
+        assert.equal(result.$pending, false);
+        assert.equal(result.$result, null);
+        assert.ok(result.$error instanceof Error);
+        assert.equal(result.$error?.message, "API Error");
+      });
+    });
   });
 }
