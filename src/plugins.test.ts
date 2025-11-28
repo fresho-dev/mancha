@@ -577,6 +577,24 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
         assert.equal(getAttribute(tplelem.childNodes[0] as Element, "style"), "display: none;");
         assert.equal(getTextContent(childelem), "foo");
       });
+
+      it("container using map with arrow function", async function () {
+        const renderer = new ctor();
+        const html = `<div :for="item in items.map((x) => x * 2)">{{ item }}</div>`;
+        const fragment = renderer.parseHTML(html);
+        const node = fragment.firstChild as HTMLElement;
+        const parent = node.parentNode;
+        assert.notEqual(parent, null);
+
+        renderer.set("items", [1, 2, 3]);
+        await renderer.mount(fragment);
+
+        const children = Array.from(parent?.childNodes || []).slice(1);
+        assert.equal(children.length, 3);
+        assert.equal(getTextContent(children[0] as Element), "2");
+        assert.equal(getTextContent(children[1] as Element), "4");
+        assert.equal(getTextContent(children[2] as Element), "6");
+      });
     });
 
     describe(":bind", () => {

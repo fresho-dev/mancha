@@ -177,13 +177,29 @@ element tag or attributes match a specific criteria. Here's the list of attribut
 ## Evaluation
 
 To avoid violation of Content Security Policy (CSP) that forbids the use of `eval()`, `Mancha`
-evaluates all expressions using [`jexpr`][jexpr]. This means that only simple expressions are
-allowed, and spaces must be used to separate different expression tokens. For example:
+evaluates all expressions using a safe expression parser. This means that only simple expressions are
+allowed, but it supports many modern JavaScript features, including optional chaining, the spread
+operator, and arrow functions. For example:
 
 ```html
 <!-- Valid expression: string concatenation -->
 <body :data="{ pos: 1 }">
   <p :text="'you are number ' + pos + ' in the queue'"></p>
+</body>
+
+<!-- Valid expression: optional chaining -->
+<body :data="{ user: null }">
+  <p :text="user?.name ?? 'Anonymous'"></p>
+</body>
+
+<!-- Valid expression: spread operator -->
+<body :data="{ list: [1, 2], extra: 3 }">
+  <div :for="item in [...list, extra]">{{ item }}</div>
+</body>
+
+<!-- Valid expression: arrow functions (e.g. in map) -->
+<body :data="{ items: [1, 2, 3] }">
+  <div :for="n in items.map(x => x * 2)">{{ n }}</div>
 </body>
 
 <!-- Valid expression: boolean logic -->
@@ -215,23 +231,12 @@ allowed, and spaces must be used to separate different expression tokens. For ex
   <button :on:click="pos = pos + 1">Click to get there faster</button>
 </body>
 
-<!-- Invalid expression: missing spaces -->
-<body :data="{ pos: 1 }">
-  <p :text="'you are number '+pos+' in the queue'"></p>
-</body>
-
 <!-- Invalid expression: multiple statements -->
 <button :on:click="console.log('yes'); answer = 'no'"></button>
 
-<!-- Invalid expression: function definition -->
-<body :data="{ foo: () => 'yes' }">
+<!-- Invalid expression: function definition (top-level) -->
+<body :data="{ foo: function() { return 'yes'; } }">
   <p :text="foo()"></p>
-</body>
-
-<!-- Invalid expression: complex assignment -->
-<body :data="{ pos: 1 }">
-  <p :text="'you are number ' + pos + ' in the queue'"></p>
-  <button :on:click="pos++">Click to get there faster</button>
 </body>
 ```
 
@@ -457,7 +462,5 @@ For a more complete example, see [examples/wrangler](./examples/wrangler).
 
 ## Dependencies
 
-The browser bundle contains a single external dependency, [`jexpr`][jexpr]. The unbundled version
+The browser bundle contains no external dependencies. The unbundled version
 can use `htmlparser2`, which is compatible with web workers, or `jsdom`.
-
-[jexpr]: https://github.com/justinfagnani/jexpr

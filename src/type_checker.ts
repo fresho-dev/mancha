@@ -2,7 +2,7 @@ import * as ts from "typescript";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { JSDOM } from "jsdom";
-import * as jexpr from "jexpr";
+import * as jexpr from "./expressions/index.js";
 import { getAttributeOrDataset } from "./dome.js";
 import { TRUSTED_DATA_ATTRIBS } from "./trusted_attributes.js";
 

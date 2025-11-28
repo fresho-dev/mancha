@@ -50,16 +50,16 @@ describe("SignalStore", () => {
       store.set("a.b", 1);
       assert.equal(store.get("a.b"), 1);
     });
-  });
 
-  it("sets proxified ancestor value", async () => {
-    const parent = new SignalStore({ a: 1 });
-    const child = new SignalStore({ $parent: parent });
-    child.$.a = 2;
-    const value1 = child.get("a");
-    const value2 = parent.get("a");
-    assert.equal(value1, 2);
-    assert.equal(value2, 2);
+    it("sets proxified ancestor value", async () => {
+      const parent = new SignalStore({ a: 1 });
+      const child = new SignalStore({ $parent: parent });
+      child.$.a = 2;
+      const value1 = child.get("a");
+      const value2 = parent.get("a");
+      assert.equal(value1, 2);
+      assert.equal(value2, 2);
+    });
   });
 
   describe("effect", () => {
@@ -172,153 +172,305 @@ describe("SignalStore", () => {
   });
 
   describe("eval", () => {
-    it("simple sum", async () => {
-      const fn = "a + b";
-      const store = new SignalStore({ a: 1, b: 2 });
-      const result = store.eval(fn);
-      assert.equal(result, 3);
-    });
+    describe("basics", () => {
+      it("simple sum", async () => {
+        const fn = "a + b";
+        const store = new SignalStore({ a: 1, b: 2 });
+        const result = store.eval(fn);
+        assert.equal(result, 3);
+      });
 
-    it("sum with nested properties", async () => {
-      const fn = "x.a + x.b";
-      const store = new SignalStore({ x: { a: 1, b: 2 } });
-      const result = store.eval(fn);
-      assert.equal(result, 3);
-    });
+      it("sum with nested properties", async () => {
+        const fn = "x.a + x.b";
+        const store = new SignalStore({ x: { a: 1, b: 2 } });
+        const result = store.eval(fn);
+        assert.equal(result, 3);
+      });
 
-    it("modifies variables", async () => {
-      const object = { a: 1 };
-      const fn = "a = a + 1";
-      const store = new SignalStore(object);
-      const result = store.eval(fn);
-      assert.equal(result, undefined);
-      assert.equal(store.get("a"), 2);
-    });
+      it("returns strings as-is", async () => {
+        const store = new SignalStore();
+        const result = store.eval("'foo'");
+        assert.equal(result, "foo");
+      });
 
-    [
-      { expression: "a && b", expected: false },
-      { expression: "!a && !b", expected: false },
-      { expression: "!a && b", expected: true },
-      { expression: "a && !b", expected: false },
-      { expression: "a || b", expected: true },
-      { expression: "!a || !b", expected: true },
-      { expression: "!a || b", expected: true },
-      { expression: "a || !b", expected: false },
-    ].forEach(({ expression, expected }) => {
-      it(`boolean expressions with multiple variables: ${expression}`, async () => {
-        const store = new SignalStore({ a: false, b: true });
-        const result = await store.eval(expression);
-        assert.equal(result, expected);
+      it("string concatenation", async () => {
+        const store = new SignalStore({ foo: "bar" });
+        const result = store.eval("'foo' + foo");
+        assert.equal(result, "foobar");
+      });
+
+      it("calling string methods", async () => {
+        const store = new SignalStore({ foo: "bar" });
+        const result = store.eval("('foo' + foo).toUpperCase()");
+        assert.equal(result, "FOOBAR");
+      });
+
+      it("use `globalThis` in function", async () => {
+        const store = new SignalStore();
+        (globalThis as any).foo = "bar";
+        const result = store.eval("foo");
+        assert.equal(result, "bar");
+        delete (globalThis as any).foo;
+      });
+
+      [
+        { expression: "a && b", expected: false },
+        { expression: "!a && !b", expected: false },
+        { expression: "!a && b", expected: true },
+        { expression: "a && !b", expected: false },
+        { expression: "a || b", expected: true },
+        { expression: "!a || !b", expected: true },
+        { expression: "!a || b", expected: true },
+        { expression: "a || !b", expected: false },
+      ].forEach(({ expression, expected }) => {
+        it(`boolean expressions with multiple variables: ${expression}`, async () => {
+          const store = new SignalStore({ a: false, b: true });
+          const result = await store.eval(expression);
+          assert.equal(result, expected);
+        });
       });
     });
 
-    it("modifies variables in nested objects", async () => {
-      const object = { x: { a: 0 } };
-      const fn = "x.a = x.a + 1";
-      const store = new SignalStore(object);
-      let notified = 0;
-      store.effect(function () {
-        this.x.a;
-        notified++;
+    describe("reactivity", () => {
+      it("runs effect after evaluation", async () => {
+        const store = new SignalStore({ a: 1, b: 2 });
+        const fn = "a + b";
+        let ops = 0;
+        store.effect(function () {
+          this.a;
+          this.b;
+          ops++;
+        });
+        const result = store.eval(fn);
+        assert.equal(result, 3);
+        assert.ok(ops >= 1);
       });
-      assert.equal(notified, 1);
-      const result = await store.eval(fn);
-      assert.equal(result, undefined);
-      assert.deepEqual(store.get("x"), { a: 1 });
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      assert.equal(notified, 2);
-    });
 
-    it("returns strings as-is", async () => {
-      const store = new SignalStore();
-      const result = store.eval("'foo'");
-      assert.equal(result, "foo");
-    });
+      it("runs effect after dependency changes", async () => {
+        const store = new SignalStore({ a: 1, b: 2 });
+        const fn = "a + b";
 
-    it("string concatenation", async () => {
-      const store = new SignalStore({ foo: "bar" });
-      const result = store.eval("'foo' + foo");
-      assert.equal(result, "foobar");
-    });
+        let ops = 0;
+        store.effect(function () {
+          this.a;
+          this.b;
+          ops++;
+        });
+        const result = store.eval(fn);
+        assert.equal(result, 3);
+        assert.ok(ops >= 1);
 
-    it("calling string methods", async () => {
-      const store = new SignalStore({ foo: "bar" });
-      const result = store.eval("('foo' + foo).toUpperCase()");
-      assert.equal(result, "FOOBAR");
-    });
-
-    it("use `globalThis` in function", async () => {
-      const store = new SignalStore();
-      (globalThis as any).foo = "bar";
-      const result = store.eval("foo");
-      assert.equal(result, "bar");
-      delete (globalThis as any).foo;
-    });
-
-    it("runs effect after evaluation", async () => {
-      const store = new SignalStore({ a: 1, b: 2 });
-      const fn = "a + b";
-      let ops = 0;
-      store.effect(function () {
-        this.a;
-        this.b;
-        ops++;
+        ops = 0;
+        await store.set("a", 0);
+        assert.equal(ops, 1);
       });
-      const result = store.eval(fn);
-      assert.equal(result, 3);
-      assert.ok(ops >= 1);
-    });
 
-    it("runs effect after dependency changes", async () => {
-      const store = new SignalStore({ a: 1, b: 2 });
-      const fn = "a + b";
+      it("runs eval inside of effect", async () => {
+        const store = new SignalStore({ a: 1, b: 2 });
+        const { $ } = store;
+        let result = null;
+        store.effect(function () {
+          result = this.eval("a + b");
+        });
+        assert.equal(result, 3);
 
-      let ops = 0;
-      store.effect(function () {
-        this.a;
-        this.b;
-        ops++;
+        await store.set("a", 0);
+        assert.equal(result, 2);
       });
-      const result = store.eval(fn);
-      assert.equal(result, 3);
-      assert.ok(ops >= 1);
 
-      ops = 0;
-      await store.set("a", 0);
-      assert.equal(ops, 1);
-    });
+      it("runs effect for short-circuit expressions", async () => {
+        const store = new SignalStore({ a: false, b: false });
+        let result = null;
+        store.effect(function () {
+          result = this.eval("a && b");
+        });
+        assert.equal(result, false);
 
-    it("runs eval inside of effect", async () => {
-      const store = new SignalStore({ a: 1, b: 2 });
-      const { $ } = store;
-      let result = null;
-      store.effect(function () {
-        result = this.eval("a + b");
+        await store.set("a", true);
+        assert.equal(result, false);
+
+        await store.set("b", true);
+        assert.equal(result, true);
       });
-      assert.equal(result, 3);
-
-      await store.set("a", 0);
-      assert.equal(result, 2);
     });
 
-    it("runs effect for short-circuit expressions", async () => {
-      const store = new SignalStore({ a: false, b: false });
-      let result = null;
-      store.effect(function () {
-        result = this.eval("a && b");
+    describe("optional chaining", () => {
+      it("optional property access", async () => {
+        const store = new SignalStore({ a: { b: 1 }, c: null });
+        assert.equal(store.eval("a?.b"), 1);
+        assert.equal(store.eval("c?.b"), undefined);
+        assert.equal(store.eval("d?.b"), undefined);
       });
-      assert.equal(result, false);
 
-      await store.set("a", true);
-      assert.equal(result, false);
+      it("optional method call", async () => {
+        const store = new SignalStore({ 
+          a: { fn: () => 1 },
+          b: null
+        });
+        assert.equal(store.eval("a.fn?.()"), 1);
+        assert.equal(store.eval("b?.fn()"), undefined);
+        assert.equal(store.eval("a?.fn()"), 1);
+        assert.equal(store.eval("a.missing?.()"), undefined);
+      });
 
-      await store.set("b", true);
-      assert.equal(result, true);
+      it("optional call", async () => {
+         const store = new SignalStore({ fn: () => 1 });
+         assert.equal(store.eval("fn?.()"), 1);
+         assert.equal(store.eval("missing?.()"), undefined);
+      });
+
+      it("optional index", async () => {
+        const store = new SignalStore({ a: [1, 2], b: null });
+        assert.equal(store.eval("a?.[0]"), 1);
+        assert.equal(store.eval("b?.[0]"), undefined);
+      });
     });
 
-    // TODO: test eval throws exception.
-    // TODO: test eval async function.
-    // TODO: test eval of direct property.
+    describe("arrow functions", () => {
+      it("simple arrow function", async () => {
+        const store = new SignalStore();
+        const result = store.eval("((x) => x + 1)(1)");
+        assert.equal(result, 2);
+      });
+
+      it("arrow function with multiple params", async () => {
+        const store = new SignalStore();
+        const result = store.eval("((x, y) => x + y)(1, 2)");
+        assert.equal(result, 3);
+      });
+
+      it("arrow function used in map", async () => {
+        const store = new SignalStore({ items: [1, 2, 3] });
+        const result = store.eval("items.map((x) => x * 2)");
+        assert.deepEqual(result, [2, 4, 6]);
+      });
+
+      it("arrow function with scope access", async () => {
+        const store = new SignalStore({ factor: 3 });
+        const result = store.eval("((x) => x * factor)(2)");
+        assert.equal(result, 6);
+      });
+    });
+
+    describe("spread operator", () => {
+      describe("Array Literals", () => {
+        it("should spread an array into another array", () => {
+          const store = new SignalStore({ arr: [1, 2, 3] });
+          const result = store.eval("[0, ...arr, 4]");
+          assert.deepEqual(result, [0, 1, 2, 3, 4]);
+        });
+
+        it("should spread multiple arrays", () => {
+          const store = new SignalStore({ arr1: [1, 2], arr2: [3, 4] });
+          const result = store.eval("[...arr1, ...arr2]");
+          assert.deepEqual(result, [1, 2, 3, 4]);
+        });
+
+        it("should handle empty array spread", () => {
+          const store = new SignalStore({ arr: [] });
+          const result = store.eval("[1, ...arr, 2]");
+          assert.deepEqual(result, [1, 2]);
+        });
+      });
+
+      describe("Object Literals", () => {
+        it("should spread an object into another object", () => {
+          const store = new SignalStore({ obj: { a: 1, b: 2 } });
+          const result = store.eval("{ ...obj, c: 3 }");
+          assert.deepEqual(result, { a: 1, b: 2, c: 3 });
+        });
+
+        it("should override properties", () => {
+          const store = new SignalStore({ obj: { a: 1, b: 2 } });
+          const result = store.eval("{ ...obj, b: 3 }");
+          assert.deepEqual(result, { a: 1, b: 3 });
+        });
+
+        it("should spread multiple objects", () => {
+          const store = new SignalStore({ obj1: { a: 1 }, obj2: { b: 2 } });
+          const result = store.eval("{ ...obj1, ...obj2 }");
+          assert.deepEqual(result, { a: 1, b: 2 });
+        });
+      });
+
+      describe("Function Arguments", () => {
+        it("should spread arguments to a function call", () => {
+          const store = new SignalStore({ 
+              args: [1, 2],
+              fn: (a: number, b: number) => a + b 
+          });
+          const result = store.eval("fn(...args)");
+          assert.equal(result, 3);
+        });
+
+        it("should mix spread and positional arguments", () => {
+            const store = new SignalStore({ 
+                args: [2, 3],
+                fn: (a: number, b: number, c: number, d: number) => a + b + c + d
+            });
+            const result = store.eval("fn(1, ...args, 4)");
+            assert.equal(result, 10);
+        });
+      });
+    });
+
+    describe("assignment", () => {
+      it("simple assignment", async () => {
+        const store = new SignalStore({ a: 1 });
+        store.eval("a = 2");
+        assert.equal(store.get("a"), 2);
+      });
+
+      it("assignment with spaces around =", async () => {
+        const store = new SignalStore({ a: 1 });
+        store.eval("a = 2");
+        assert.equal(store.get("a"), 2);
+      });
+
+      it("assignment in complex expression", async () => {
+         const store = new SignalStore({ a: 1, b: 2 });
+         store.eval("a = b + 1");
+         assert.equal(store.get("a"), 3);
+      });
+
+      it("assign to new variable (in store)", async () => {
+        const store = new SignalStore({});
+        store.eval("a = 1");
+        assert.equal(store.get("a"), 1);
+      });
+
+      it("local scope assignment", async () => {
+         const store = new SignalStore({ a: 1 });
+         const result = store.eval("a = x", { x: 2 });
+         assert.equal(store.get("a"), 2);
+      });
+
+      it("modifies variables", async () => {
+        const object = { a: 1 };
+        const fn = "a = a + 1";
+        const store = new SignalStore(object);
+        const result = store.eval(fn);
+        assert.equal(result, 2);
+        assert.equal(store.get("a"), 2);
+      });
+
+      it("modifies variables in nested objects", async () => {
+        const object = { x: { a: 0 } };
+        const fn = "x.a = x.a + 1";
+        const store = new SignalStore(object);
+        let notified = 0;
+        store.effect(function () {
+          this.x.a;
+          notified++;
+        });
+        assert.equal(notified, 1);
+        const result = await store.eval(fn);
+        assert.equal(result, 1);
+        assert.deepEqual(store.get("x"), { a: 1 });
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        assert.equal(notified, 2);
+      });
+    });
   });
 
   describe("$resolve", () => {
