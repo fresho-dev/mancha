@@ -176,14 +176,14 @@ describe("typeCheck", function () {
     });
 
     it("should report correct location for jexpr error", async function () {
-      const html = `<div :types='{"a": "number"}'><span>{{ a?.b }}</span></div>`;
+      const html = `<div :types='{"a": "number"}'><span>{{ a |> b }}</span></div>`;
       const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
       const diagnostic = findDiagnostic(diagnostics, "Unsupported expression for jexpr");
       assert.ok(diagnostic, "Should find the diagnostic");
       if (diagnostic && diagnostic.file) {
         assert.equal(diagnostic.file.fileName, testFilePath, "Should point to the HTML file");
         assert.equal(diagnostic.start, 39, "Start of expression should be correct");
-        assert.equal(diagnostic.length, 4, "Length of expression should be correct");
+        assert.equal(diagnostic.length, 6, "Length of expression should be correct");
       }
     });
 
@@ -204,7 +204,7 @@ describe("typeCheck", function () {
     it("should validate expressions outside :types scopes", async function () {
       const html = `
         <div>
-          <span>{{ value?.prop }}</span>
+          <span>{{ value |> prop }}</span>
         </div>
       `;
       const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
@@ -614,17 +614,14 @@ describe("typeCheck", function () {
       assert.ok(diagnostic, "Should mention null in error message");
     });
 
-    it("should report unsupported optional chaining on nullable types", async function () {
+    it("should support optional chaining on nullable types", async function () {
       const html = `
         <div :types='{"name": "string | null"}'>
           <span>{{ name?.toUpperCase() }}</span>
         </div>
       `;
       const diagnostics = await typeCheck(html, { strict: true });
-      assert.ok(diagnostics.length > 0, "Should flag unsupported optional chaining on nullable");
-      assert.ok(
-        findDiagnostic(diagnostics, "Unsupported expression for jexpr (name?.toUpperCase())")
-      );
+      assert.equal(diagnostics.length, 0);
     });
 
     it("should detect errors when accessing undefined property without checks", async function () {
@@ -641,17 +638,14 @@ describe("typeCheck", function () {
       assert.ok(diagnostic, "Should mention undefined in error message");
     });
 
-    it("should report unsupported optional chaining on undefined types", async function () {
+    it("should support optional chaining on undefined types", async function () {
       const html = `
         <div :types='{"value": "number | undefined"}'>
           <span>{{ value?.toFixed(2) }}</span>
         </div>
       `;
       const diagnostics = await typeCheck(html, { strict: true });
-      assert.ok(diagnostics.length > 0, "Should flag unsupported optional chaining on undefined");
-      assert.ok(
-        findDiagnostic(diagnostics, "Unsupported expression for jexpr (value?.toFixed(2))")
-      );
+      assert.equal(diagnostics.length, 0);
     });
 
     it("should detect errors on optional property without checks", async function () {
@@ -668,17 +662,14 @@ describe("typeCheck", function () {
       assert.ok(diagnostic, "Should mention undefined for optional property");
     });
 
-    it("should report unsupported optional chaining on optional properties", async function () {
+    it("should support optional chaining on optional properties", async function () {
       const html = `
         <div :types='{"user": "{ name: string, age?: number }"}'>
           <span>{{ user.age?.toFixed(0) }}</span>
         </div>
       `;
       const diagnostics = await typeCheck(html, { strict: true });
-      assert.ok(diagnostics.length > 0, "Should flag unsupported optional chaining");
-      assert.ok(
-        findDiagnostic(diagnostics, "Unsupported expression for jexpr (user.age?.toFixed(0))")
-      );
+      assert.equal(diagnostics.length, 0);
     });
 
     it("should detect errors on null | undefined without checks", async function () {
@@ -691,17 +682,14 @@ describe("typeCheck", function () {
       assert.ok(diagnostics.length > 0, "Should detect error on null | undefined");
     });
 
-    it("should report unsupported optional chaining on null | undefined", async function () {
+    it("should support optional chaining on null | undefined", async function () {
       const html = `
         <div :types='{"data": "string | null | undefined"}'>
           <span>{{ data?.length }}</span>
         </div>
       `;
       const diagnostics = await typeCheck(html, { strict: true });
-      assert.ok(diagnostics.length > 0, "Should flag unsupported optional chaining");
-      assert.ok(
-        findDiagnostic(diagnostics, "Unsupported expression for jexpr (data?.length)")
-      );
+      assert.equal(diagnostics.length, 0);
     });
 
     it("should detect errors in nested nullable property access", async function () {
@@ -714,17 +702,14 @@ describe("typeCheck", function () {
       assert.ok(diagnostics.length > 0, "Should detect error on nested nullable");
     });
 
-    it("should report unsupported nested optional chaining", async function () {
+    it("should support nested optional chaining", async function () {
       const html = `
         <div :types='{"user": "{ profile?: { name: string } }"}'>
           <span>{{ user.profile?.name }}</span>
         </div>
       `;
       const diagnostics = await typeCheck(html, { strict: true });
-      assert.ok(diagnostics.length > 0, "Should flag unsupported nested optional chaining");
-      assert.ok(
-        findDiagnostic(diagnostics, "Unsupported expression for jexpr (user.profile?.name)")
-      );
+      assert.equal(diagnostics.length, 0);
     });
 
     it("should handle strict mode with non-nullable types correctly", async function () {

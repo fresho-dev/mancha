@@ -1,4 +1,4 @@
-import * as jexpr from "jexpr";
+import * as jexpr from "./expressions/index.js";
 
 type SignalStoreProxy = SignalStore & { [key: string]: any };
 type Observer<T> = (this: SignalStoreProxy) => T;
@@ -206,6 +206,14 @@ export class SignalStore extends IDebouncer {
     const keys = Array.from(this._store.entries()).map(([key]) => key);
     const keyval = Object.fromEntries(keys.map((key) => [key, null]));
     return new Proxy(keyval as SignalStoreProxy, {
+      has: (_, prop) => {
+        if (typeof prop === "string") {
+          if (getAncestorKeyStore(this, prop)) return true;
+          // Check if property exists on the SignalStore instance (e.g. methods like $resolve)
+          if (Reflect.has(this, prop)) return true;
+        }
+        return Reflect.has(keyval, prop);
+      },
       get: (_, prop, receiver) => {
         if (typeof prop === "string" && getAncestorKeyStore(this, prop)) {
           return this.get(prop, observer);
@@ -241,26 +249,31 @@ export class SignalStore extends IDebouncer {
       throw new Error("Complex expressions are not supported.");
     }
 
-    // If the expression includes assignment, save the left-hand side for later.
-    let assignResult: string | null = null;
-    if (expr.includes(" = ")) {
-      const [lhs, rhs] = expr.split(" = ");
-      assignResult = lhs.trim();
-      expr = rhs.trim();
-    }
-
-    // Otherwise, just return the simple expression function.
     return (thisArg: SignalStoreProxy, args: { [key: string]: unknown }) => {
       const ast = jexpr.parse(expr, AST_FACTORY);
-      const ctx = ast
-        ?.getIds([])
-        ?.map((id) => [id, args[id] ?? thisArg[id] ?? (globalThis as any)[id]]);
-      const res = ast?.evaluate(Object.fromEntries(ctx || []));
-      if (assignResult) {
-        setNestedProperty(thisArg, assignResult, res);
-      } else {
-        return res;
-      }
+      
+      const scope = new Proxy(args, {
+        has(target, prop) {
+          return prop in target || prop in thisArg || prop in globalThis;
+        },
+        get(target, prop) {
+          if (typeof prop !== "string") return undefined;
+          if (prop in target) return target[prop];
+          if (prop in thisArg) return thisArg[prop];
+          return (globalThis as any)[prop];
+        },
+        set(target, prop, value) {
+          if (typeof prop !== "string") return false;
+          if (prop in target) {
+            target[prop] = value;
+            return true;
+          }
+          thisArg[prop] = value;
+          return true;
+        }
+      });
+
+      return ast?.evaluate(scope);
     };
   }
 
