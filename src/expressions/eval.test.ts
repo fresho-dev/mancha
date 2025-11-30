@@ -124,4 +124,48 @@ describe("Evaluator", () => {
     );
     assert.equal(evalNode(node, scope), 10);
   });
+
+  describe("'in' operator", () => {
+    it("should return true when property exists in object", () => {
+      const node = factory.binary(factory.literal("name"), "in", factory.id("obj"));
+      assert.equal(evalNode(node, { obj: { name: "test" } }), true);
+    });
+
+    it("should return false when property does not exist in object", () => {
+      const node = factory.binary(factory.literal("missing"), "in", factory.id("obj"));
+      assert.equal(evalNode(node, { obj: { name: "test" } }), false);
+    });
+
+    it("should work with inherited properties", () => {
+      const parent = { inherited: true };
+      const child = Object.create(parent);
+      child.own = true;
+      const node = factory.binary(factory.literal("inherited"), "in", factory.id("obj"));
+      assert.equal(evalNode(node, { obj: child }), true);
+    });
+
+    it("should work with array indices", () => {
+      const nodeTrue = factory.binary(factory.literal(0), "in", factory.id("arr"));
+      const nodeFalse = factory.binary(factory.literal(10), "in", factory.id("arr"));
+      assert.equal(evalNode(nodeTrue, { arr: [1, 2, 3] }), true);
+      assert.equal(evalNode(nodeFalse, { arr: [1, 2, 3] }), false);
+    });
+
+    it("should work with string indices", () => {
+      const node = factory.binary(factory.literal("0"), "in", factory.id("arr"));
+      assert.equal(evalNode(node, { arr: ["a", "b"] }), true);
+    });
+
+    it("should work with computed property names", () => {
+      const node = factory.binary(factory.id("key"), "in", factory.id("obj"));
+      assert.equal(evalNode(node, { key: "name", obj: { name: "test" } }), true);
+      assert.equal(evalNode(node, { key: "missing", obj: { name: "test" } }), false);
+    });
+
+    it("should return false for null and undefined objects", () => {
+      const node = factory.binary(factory.literal("key"), "in", factory.id("obj"));
+      assert.throws(() => evalNode(node, { obj: null }));
+      assert.throws(() => evalNode(node, { obj: undefined }));
+    });
+  });
 });
