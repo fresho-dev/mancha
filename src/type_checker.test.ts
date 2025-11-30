@@ -198,6 +198,84 @@ describe("typeCheck", function () {
         assert.equal(diagnostic.length, 19, "Length of expression should be correct");
       }
     });
+
+    it("should report location within HTML bounds for unmapped errors", async function () {
+      // This test reproduces a bug where errors that can't be mapped back to HTML
+      // report positions from generated TypeScript (e.g., column 4356 on a 43-line file)
+      const html = `<div :types='{"items": "object[]"}'>
+  <ul>
+    <li :for="item in items">{{ item.someMethod() }}</li>
+  </ul>
+</div>`;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      assert.ok(diagnostics.length > 0, "Should have diagnostics");
+
+      for (const diagnostic of diagnostics) {
+        if (diagnostic.start !== undefined) {
+          // The start position should never exceed the HTML length
+          assert.ok(
+            diagnostic.start < html.length,
+            `Error position ${diagnostic.start} exceeds HTML length ${html.length}`
+          );
+        }
+      }
+    });
+
+    it("should report location within HTML bounds for nested for-loop type errors", async function () {
+      // This reproduces a bug where errors in nested for-loops report positions
+      // from generated TypeScript that exceed the HTML source length.
+      // The pattern: parent has :types with imported type containing array property,
+      // child iterates over that property, and the loop variable gets type "unknown"
+      const html = `<div :types='{"data": "{ items: object[] }"}'>
+  <div :for="item in data.items">
+    {{ item.someMethod() }}
+  </div>
+</div>`;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+
+      for (const diagnostic of diagnostics) {
+        if (diagnostic.start !== undefined) {
+          // The start position should never exceed the HTML length
+          assert.ok(
+            diagnostic.start < html.length,
+            `Error position ${diagnostic.start} exceeds HTML length ${html.length}. ` +
+              `Message: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`
+          );
+        }
+      }
+    });
+
+    it("should filter out diagnostics from imported type definition files", async function () {
+      // This test ensures that errors from imported .ts files (like type definitions)
+      // are filtered out and don't appear with out-of-bounds positions.
+      // The bug was: when importing types from external files that have their own
+      // type errors, those errors would leak through with positions from those files,
+      // not the HTML template, causing positions to exceed the HTML length.
+      const html = `
+        <div :types='{
+          "user": "@import:./test_types/user.ts:User",
+          "items": "@import:./test_types/user.ts:User[]"
+        }'>
+          <span>{{ user.name }}</span>
+          <div :for="item in items">
+            <span>{{ item.name }}</span>
+          </div>
+        </div>
+      `;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+
+      // All diagnostics should have positions within HTML bounds
+      for (const diagnostic of diagnostics) {
+        if (diagnostic.start !== undefined) {
+          assert.ok(
+            diagnostic.start < html.length,
+            `Diagnostic position ${diagnostic.start} exceeds HTML length ${html.length}. ` +
+              `This may indicate a diagnostic from an imported file wasn't filtered out. ` +
+              `Message: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`
+          );
+        }
+      }
+    });
   });
 
   describe("global expression validation", () => {

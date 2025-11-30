@@ -9,12 +9,18 @@ import { TRUSTED_DATA_ATTRIBS } from "./trusted_attributes.js";
 export interface TypeCheckOptions {
   strict: boolean;
   filePath?: string; // Optional path to the HTML file being checked (for correct module resolution)
+  debug?: boolean; // When true, outputs generated TypeScript source and diagnostic mapping info
+}
+
+interface GetDiagnosticsResult {
+  diagnostics: ts.Diagnostic[];
+  tempFilePath: string;
 }
 
 async function getDiagnostics(
   content: string,
   options: TypeCheckOptions
-): Promise<ts.Diagnostic[]> {
+): Promise<GetDiagnosticsResult> {
   // Create temp file in the same directory as the HTML file (or cwd if no filePath)
   // This allows TypeScript's module resolution to find node_modules properly
   const baseDir = options.filePath ? path.dirname(path.resolve(options.filePath)) : process.cwd();
@@ -47,10 +53,16 @@ async function getDiagnostics(
 
     const allDiagnostics = ts.getPreEmitDiagnostics(program);
 
-    // Filter out irrelevant diagnostics (keep semantic errors 2000-2999 and strict mode errors 18000-18999)
-    return allDiagnostics.filter(
-      (d) => (d.code >= 2000 && d.code < 3000) || (d.code >= 18000 && d.code < 19000)
+    // Filter diagnostics:
+    // 1. Only keep semantic errors (2000-2999) and strict mode errors (18000-18999)
+    // 2. Only keep diagnostics from our temp file (ignore errors from imported type definitions)
+    const diagnostics = allDiagnostics.filter(
+      (d) =>
+        ((d.code >= 2000 && d.code < 3000) || (d.code >= 18000 && d.code < 19000)) &&
+        d.file?.fileName === tempFilePath
     );
+
+    return { diagnostics, tempFilePath };
   } finally {
     await fs.unlink(tempFilePath);
   }
@@ -413,7 +425,29 @@ async function processTypesElement(
 
     // Type check expressions in this scope
     const { source, expressionMap } = buildTypeScriptSource(mergedTypes, scope, baseDir);
-    const rawDiagnostics = await getDiagnostics(source, options);
+
+    if (options.debug) {
+      console.log("\n=== Generated TypeScript Source ===");
+      console.log(source);
+      console.log("\n=== Expression Map (TS offset -> HTML range) ===");
+      for (const [offset, entry] of expressionMap.entries()) {
+        console.log(`  TS offset ${offset}: "${entry.expression}" -> HTML range ${JSON.stringify(entry.range)}`);
+      }
+      console.log(`\n=== HTML Length: ${html.length} ===\n`);
+    }
+
+    const { diagnostics: rawDiagnostics, tempFilePath } = await getDiagnostics(source, options);
+
+    if (options.debug && rawDiagnostics.length > 0) {
+      console.log("=== Raw TypeScript Diagnostics ===");
+      console.log(`  Generated source length: ${source.length}`);
+      console.log(`  Temp file: ${tempFilePath}`);
+      for (const diag of rawDiagnostics) {
+        const msg = ts.flattenDiagnosticMessageText(diag.messageText, "\n");
+        console.log(`  start=${diag.start}, length=${diag.length}, code=${diag.code}`);
+        console.log(`    message: ${msg}`);
+      }
+    }
 
     // Remap diagnostics to original source locations
     for (const diag of rawDiagnostics) {
@@ -432,12 +466,20 @@ async function processTypesElement(
       }
 
       if (bestMatch && bestMatch.entry.range) {
-        const { range } = bestMatch.entry; // HTML range of the full expression
-        const tsOffsetInGeneratedCode = diag.start - bestMatch.offset; // Offset of the error within the generated `(expression);`
-        
-        // Adjust the HTML start and length based on the offset within the generated code
+        const { range } = bestMatch.entry;
+        const tsOffsetInGeneratedCode = diag.start - bestMatch.offset;
         const newStart = range.start + tsOffsetInGeneratedCode;
-        const newLength = diag.length; // The length from TS diagnostic is usually correct for the error part
+        const newLength = diag.length;
+
+        if (options.debug) {
+          const msg = ts.flattenDiagnosticMessageText(diag.messageText, "\n");
+          console.log(`=== Remapping diagnostic ===`);
+          console.log(`  TS start=${diag.start}, matched offset=${bestMatch.offset}`);
+          console.log(`  Expression: "${bestMatch.entry.expression}"`);
+          console.log(`  HTML range: ${JSON.stringify(range)}`);
+          console.log(`  newStart=${newStart}, newLength=${newLength}, in bounds: ${newStart < html.length}`);
+          console.log(`  Message: ${msg}`);
+        }
 
         allDiagnostics.push({
           ...diag,
@@ -446,6 +488,12 @@ async function processTypesElement(
           length: newLength,
         });
       } else {
+        if (options.debug) {
+          const msg = ts.flattenDiagnosticMessageText(diag.messageText, "\n");
+          console.log(`=== Unmapped diagnostic ===`);
+          console.log(`  TS start=${diag.start}, length=${diag.length}`);
+          console.log(`  Message: ${msg}`);
+        }
         allDiagnostics.push(diag);
       }
     }
