@@ -279,6 +279,42 @@ describe("My Component", () => {
 });
 ```
 
+## TypeScript Support
+
+The `Renderer` and `SignalStore` classes support generic type parameters for type-safe state access:
+
+```typescript
+import { Renderer } from "mancha";
+
+interface AppState {
+  user: { name: string; email: string } | null;
+  count: number;
+  items: string[];
+}
+
+const renderer = new Renderer<AppState>({
+  user: null,
+  count: 0,
+  items: ["a", "b"],
+});
+
+// Type-safe access via the $ proxy
+const count: number = renderer.$.count;
+const items: string[] = renderer.$.items;
+
+// Type-safe assignment
+renderer.$.count = 42;
+renderer.$.user = { name: "Alice", email: "alice@example.com" };
+```
+
+The `$` proxy provides typed access to store values. Without a type parameter, the store accepts any properties:
+
+```typescript
+// Untyped store (default behavior)
+const renderer = new Renderer({ foo: "bar" });
+renderer.$.foo; // works, but no type inference
+```
+
 ## Type Checking (Experimental)
 
 **⚠️ This feature is experimental and may change in future versions.**

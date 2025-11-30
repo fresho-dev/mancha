@@ -1,8 +1,9 @@
-import { ParserParams, RenderParams } from "./interfaces.js";
+import type { ParserParams, RenderParams } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
 import { RendererPlugins } from "./plugins.js";
 import { dirname, nodeToString, setProperty, traverse } from "./dome.js";
 import { SignalStore } from "./store.js";
+import type { StoreState } from "./store.js";
 import { setupQueryParamBindings } from "./query.js";
 
 export type EvalListener = (result: any, dependencies: string[]) => any;
@@ -10,8 +11,10 @@ export type EvalListener = (result: any, dependencies: string[]) => any;
 /**
  * Represents an abstract class for rendering and manipulating HTML content.
  * Extends the `ReactiveProxyStore` class.
+ *
+ * @template T - The type of the store state. Defaults to `StoreState`.
  */
-export abstract class IRenderer extends SignalStore {
+export abstract class IRenderer<T extends StoreState = StoreState> extends SignalStore<T> {
   abstract readonly impl: string;
   protected debugging: boolean = false;
   protected readonly dirpath: string = "";

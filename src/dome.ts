@@ -1,7 +1,7 @@
 import { safeAttrPrefix } from "safevalues";
 import { safeElement } from "safevalues/dom";
 
-type ElementWithAttribs = Element & {
+export type ElementWithAttribs = Element & {
   dataset?: DOMStringMap;
   attribs?: { [key: string]: string };
 };
@@ -40,10 +40,12 @@ export function* traverse(
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function hasProperty(obj: any, prop: string): boolean {
   return typeof obj?.[prop] !== "undefined";
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function hasFunction(obj: any, func: string): boolean {
   return typeof obj?.[func] === "function";
 }
