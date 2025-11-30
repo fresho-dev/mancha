@@ -5,8 +5,8 @@
 
 import {KEYWORDS, POSTFIX_PRECEDENCE, PRECEDENCE, WORD_OPERATORS} from './constants.js';
 
-const _TWO_CHAR_OPS = ['==', '!=', '<=', '>=', '||', '&&', '??', '?.'];
-const _THREE_CHAR_OPS = ['===', '!=='];
+const _TWO_CHAR_OPS = new Set(['==', '!=', '<=', '>=', '||', '&&', '??', '?.']);
+const _THREE_CHAR_OPS = new Set(['===', '!==']);
 
 export interface Token {
   kind: Kind;
@@ -55,7 +55,7 @@ const _isIdentOrKeywordStart = (ch: number) =>
 const _isIdentifier = (ch: number) =>
   _isIdentOrKeywordStart(ch) || _isNumber(ch);
 
-const _isKeyword = (str: string) => KEYWORDS.indexOf(str) !== -1;
+const _isKeyword = (str: string) => KEYWORDS.has(str);
 
 const _isQuote = (ch: number) => ch === 34 /* " */ || ch === 39; /* ' */
 
@@ -185,7 +185,7 @@ export class Tokenizer {
     const value = this._getValue();
     const kind = _isKeyword(value)
       ? Kind.KEYWORD
-      : WORD_OPERATORS.includes(value)
+      : WORD_OPERATORS.has(value)
         ? Kind.OPERATOR
         : Kind.IDENTIFIER;
     return token(kind, value, PRECEDENCE[value] ?? 0);
@@ -240,7 +240,7 @@ export class Tokenizer {
     this._advance();
     // Check for 3-char operator
     let op = this._getValue(2);
-    if (_THREE_CHAR_OPS.indexOf(op) !== -1) {
+    if (_THREE_CHAR_OPS.has(op)) {
       this._advance();
       this._advance();
     } else {
@@ -250,7 +250,7 @@ export class Tokenizer {
         this._advance();
         return token(Kind.ARROW, op);
       }
-      if (_TWO_CHAR_OPS.indexOf(op) !== -1) {
+      if (_TWO_CHAR_OPS.has(op)) {
         this._advance();
       } else {
         // 1-char operator

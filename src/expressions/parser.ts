@@ -133,7 +133,7 @@ export class Parser<N extends Expression> {
   }
 
   private _parseBinary(left: N, op: Token) {
-    if (BINARY_OPERATORS.indexOf(op.value) === -1) {
+    if (!BINARY_OPERATORS.has(op.value)) {
       throw new Error(`unknown operator: ${op.value}`);
     }
     this._advance();
@@ -174,7 +174,7 @@ export class Parser<N extends Expression> {
           return this._parseDecimal(value);
         }
       }
-      if (UNARY_OPERATORS.indexOf(value!) === -1)
+      if (!UNARY_OPERATORS.has(value!))
         throw new Error(`unexpected token: ${value}`);
       const expr = this._parsePrecedence(
         this._parsePrimary(),
@@ -201,7 +201,7 @@ export class Parser<N extends Expression> {
           this._advance();
           // TODO(justin): return keyword node
           return this._ast.id(keyword);
-        } else if (KEYWORDS.indexOf(keyword) !== -1) {
+        } else if (KEYWORDS.has(keyword)) {
           throw new Error(`unexpected keyword: ${keyword}`);
         }
         throw new Error(`unrecognized keyword: ${keyword}`);

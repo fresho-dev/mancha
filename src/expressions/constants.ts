@@ -3,12 +3,12 @@
  * Portions Copyright (c) 2013, the Dart project authors.
  */
 
-export const KEYWORDS = ['this', 'typeof'];
+export const KEYWORDS = new Set(['this', 'typeof']);
 
 // Word-based operators (alphabetic tokens that are operators, not keywords)
-export const WORD_OPERATORS = ['in'];
-export const UNARY_OPERATORS = ['+', '-', '!', 'typeof'];
-export const BINARY_OPERATORS = [
+export const WORD_OPERATORS = new Set(['in']);
+export const UNARY_OPERATORS = new Set(['+', '-', '!', 'typeof']);
+export const BINARY_OPERATORS = new Set([
   '=',
   '+',
   '-',
@@ -30,7 +30,7 @@ export const BINARY_OPERATORS = [
   '!==',
   '|',
   'in',
-];
+]);
 
 export const PRECEDENCE: Record<string, number> = {
   '!': 0,
