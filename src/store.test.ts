@@ -28,7 +28,8 @@ describe("SignalStore", () => {
 
     it("gets proxified ancestor value", async () => {
       const parent = new SignalStore({ a: 1 });
-      const child = new SignalStore({ $parent: parent });
+      // Child inherits `a` from parent via $parent chain. Type includes inherited property.
+      const child = new SignalStore<{ a: number }>({ $parent: parent } as unknown as { a: number });
       const value1 = child.$.a;
       const value2 = parent.$.a;
       assert.equal(value1, 1);
@@ -53,7 +54,8 @@ describe("SignalStore", () => {
 
     it("sets proxified ancestor value", async () => {
       const parent = new SignalStore({ a: 1 });
-      const child = new SignalStore({ $parent: parent });
+      // Child inherits `a` from parent via $parent chain. Type includes inherited property.
+      const child = new SignalStore<{ a: number }>({ $parent: parent } as unknown as { a: number });
       child.$.a = 2;
       const value1 = child.get("a");
       const value2 = parent.get("a");
@@ -649,8 +651,8 @@ describe("SignalStore", () => {
       }
 
       const mockClient = {
-        getUser: (options: { path: { id: string } }): Promise<User> => {
-          return Promise.resolve({ id: options.path.id, name: "Test User" });
+        getUser: (options?: { path: { id: string } }): Promise<User> => {
+          return Promise.resolve({ id: options?.path.id ?? "", name: "Test User" });
         },
         listUsers: (options?: { query?: { limit?: number } }): Promise<User[]> => {
           const limit = options?.query?.limit ?? 10;
@@ -658,7 +660,7 @@ describe("SignalStore", () => {
             Array.from({ length: limit }, (_, i) => ({ id: String(i), name: `User ${i}` }))
           );
         },
-        deleteUser: (options: { path: { id: string } }): Promise<{ success: boolean }> => {
+        deleteUser: (options?: { path: { id: string } }): Promise<{ success: boolean }> => {
           return Promise.resolve({ success: true });
         },
       };
@@ -746,4 +748,85 @@ describe("SignalStore", () => {
   });
 
   // TODO: Test setting objects and arrays as store values.
+
+  describe("typed store", () => {
+    it("provides typed access via $ proxy", () => {
+      // Create a store with a specific type.
+      interface MyState {
+        count: number;
+        name: string;
+        items: string[];
+      }
+
+      const store = new SignalStore<MyState>({ count: 0, name: "test", items: ["a", "b"] });
+
+      // Access values via $ proxy - these should be typed.
+      const count: number = store.$.count;
+      const name: string = store.$.name;
+      const items: string[] = store.$.items;
+
+      assert.equal(count, 0);
+      assert.equal(name, "test");
+      assert.deepEqual(items, ["a", "b"]);
+    });
+
+    it("allows assignment via typed $ proxy", async () => {
+      interface MyState {
+        value: number;
+      }
+
+      const store = new SignalStore<MyState>({ value: 1 });
+      assert.equal(store.$.value, 1);
+
+      store.$.value = 42;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      assert.equal(store.$.value, 42);
+    });
+
+    it("works with nested objects", () => {
+      interface MyState {
+        user: {
+          id: number;
+          profile: {
+            name: string;
+          };
+        };
+      }
+
+      const store = new SignalStore<MyState>({
+        user: { id: 1, profile: { name: "Alice" } },
+      });
+
+      const userId: number = store.$.user.id;
+      const userName: string = store.$.user.profile.name;
+
+      assert.equal(userId, 1);
+      assert.equal(userName, "Alice");
+    });
+
+    it("allows untyped store with default parameter", () => {
+      // Default store behavior (no type parameter).
+      const store = new SignalStore({ foo: "bar", count: 42 });
+
+      // Should still work as before.
+      assert.equal(store.$.foo, "bar");
+      assert.equal(store.$.count, 42);
+    });
+
+    it("effect callback can access typed values", () => {
+      interface MyState {
+        x: number;
+        y: number;
+      }
+
+      const store = new SignalStore<MyState>({ x: 1, y: 2 });
+      let sum = 0;
+
+      store.effect(function () {
+        sum = this.x + this.y;
+      });
+
+      assert.equal(sum, 3);
+    });
+  });
 });

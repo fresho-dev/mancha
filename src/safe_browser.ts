@@ -1,11 +1,12 @@
 import { HtmlSanitizerBuilder } from "safevalues";
 import { safeDomParser } from "safevalues/dom";
 import { dirname } from "./dome.js";
-import { ParserParams, RenderParams } from "./interfaces.js";
+import type { ParserParams, RenderParams } from "./interfaces.js";
 import { IRenderer } from "./renderer.js";
+import type { StoreState } from "./store.js";
 import { SAFE_DATA_ATTRIBS, TRUSTED_ATTRIBS } from "./trusted_attributes.js";
 
-export class Renderer extends IRenderer {
+export class Renderer<T extends StoreState = StoreState> extends IRenderer<T> {
   readonly impl = "safe_browser";
   protected readonly dirpath: string = dirname(globalThis.location?.href ?? "http://localhost/");
   parseHTML(

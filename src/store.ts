@@ -1,7 +1,35 @@
 import * as jexpr from "./expressions/index.js";
 
-type SignalStoreProxy = SignalStore & { [key: string]: any };
+/**
+ * Internal store properties that are always present. These are managed by the framework
+ * and should not be set directly by users.
+ */
+export interface InternalStoreState {
+  /** Reference to the parent store in a hierarchy. */
+  $parent?: SignalStore;
+  /** Reference to the root renderer instance. */
+  $rootRenderer?: SignalStore;
+  /** Reference to the root DOM node. */
+  $rootNode?: Node;
+}
+
+/**
+ * Base type for user-defined store state. Uses `any` intentionally to allow flexible
+ * user-defined state types without requiring explicit index signatures.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type StoreState = Record<string, any>;
+
+/** Type for expression evaluation function. */
+type EvalFunction = (thisArg: SignalStoreProxy, args: Record<string, unknown>) => unknown;
+
+/**
+ * Internal proxy type used within the store implementation. Uses `any` for dynamic property access.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SignalStoreProxy = SignalStore & InternalStoreState & { [key: string]: any };
 type Observer<T> = (this: SignalStoreProxy) => T;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type KeyValueHandler = (this: SignalStoreProxy, key: string, value: any) => void;
 
 abstract class IDebouncer {
@@ -32,8 +60,16 @@ export const REACTIVE_DEBOUNCE_MILLIS = 10;
 /** Shared AST factory. */
 const AST_FACTORY = new jexpr.EvalAstFactory();
 
-function isProxified<T extends object>(object: T) {
-  return object instanceof SignalStore || (object as any)["__is_proxy__"];
+/** Symbol used to identify proxified objects. */
+const PROXY_MARKER = "__is_proxy__";
+
+/** Type guard to check if an object has the proxy marker. */
+interface ProxyMarked {
+  [PROXY_MARKER]: boolean;
+}
+
+function isProxified<T extends object>(object: T): boolean {
+  return object instanceof SignalStore || (object as unknown as ProxyMarked)[PROXY_MARKER] === true;
 }
 
 export function getAncestorValue(store: SignalStore | null, key: string): unknown | null {
@@ -67,60 +103,63 @@ export function setAncestorValue(store: SignalStore, key: string, value: unknown
   }
 }
 
-export function setNestedProperty(obj: any, path: string, value: any): void {
+export function setNestedProperty(obj: Record<string, unknown>, path: string, value: unknown): void {
   const keys = path.split(".");
+  let current: Record<string, unknown> = obj;
   for (let i = 0; i < keys.length - 1; i++) {
-    if (!(keys[i] in obj)) obj[keys[i]] = {};
-    obj = obj[keys[i]];
+    if (!(keys[i] in current)) current[keys[i]] = {};
+    current = current[keys[i]] as Record<string, unknown>;
   }
-  obj[keys[keys.length - 1]] = value;
+  current[keys[keys.length - 1]] = value;
 }
 
-export class SignalStore extends IDebouncer {
+export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
   protected readonly evalkeys: string[] = ["$elem", "$event"];
-  protected readonly expressionCache: Map<string, Function> = new Map();
+  protected readonly expressionCache: Map<string, EvalFunction> = new Map();
   protected readonly observers = new Map<string, Set<Observer<unknown>>>();
   protected readonly keyHandlers = new Map<RegExp, Set<KeyValueHandler>>();
   protected _observer: Observer<unknown> | null = null;
   readonly _store = new Map<string, unknown>();
   _lock: Promise<void> = Promise.resolve();
 
-  constructor(data?: { [key: string]: any }) {
+  constructor(data?: T) {
     super();
-    for (let [key, value] of Object.entries(data || {})) {
+    for (const [key, value] of Object.entries(data || {})) {
       // Use our set method to ensure that callbacks and wrappers are appropriately set, but ignore
       // the return value since we know that no observers will be triggered.
       this.set(key, value);
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   private wrapFunction(fn: Function): Function {
-    return (...args: any[]) => fn.call(this.$, ...args);
+    return (...args: unknown[]) => fn.call(this.$, ...args);
   }
 
-  private wrapObject(obj: any, callback: () => void): any {
+  private wrapObject<U extends object>(obj: U, callback: () => void): U {
     // If this object is already a proxy or not a plain object (or array), return it as-is.
     if (obj == null || isProxified(obj) || (obj.constructor !== Object && !Array.isArray(obj))) {
       return obj;
     }
     return new Proxy(obj, {
-      deleteProperty: (target: any, property: string) => {
-        if (property in target) {
-          delete target[property];
+      deleteProperty: (target: U, property: string | symbol): boolean => {
+        if (typeof property === "string" && property in target) {
+          delete (target as Record<string, unknown>)[property];
           callback();
           return true;
-        } else {
-          return false;
         }
+        return false;
       },
-      set: (target: any, prop: string, value: any, receiver: any) => {
-        if (typeof value === "object" && obj != null) value = this.wrapObject(value, callback);
+      set: (target: U, prop: string | symbol, value: unknown, receiver: unknown): boolean => {
+        if (typeof value === "object" && value !== null) {
+          value = this.wrapObject(value as object, callback);
+        }
         const ret = Reflect.set(target, prop, value, receiver);
         callback();
         return ret;
       },
-      get: (target: any, prop: string, receiver: any) => {
-        if (prop === "__is_proxy__") return true;
+      get: (target: U, prop: string | symbol, receiver: unknown): unknown => {
+        if (prop === PROXY_MARKER) return true;
         return Reflect.get(target, prop, receiver);
       },
     });
@@ -234,8 +273,8 @@ export class SignalStore extends IDebouncer {
     });
   }
 
-  get $(): SignalStoreProxy {
-    return this.proxify();
+  get $(): SignalStore<T> & InternalStoreState & T {
+    return this.proxify() as SignalStore<T> & InternalStoreState & T;
   }
 
   /**
@@ -243,7 +282,7 @@ export class SignalStore extends IDebouncer {
    * @param expr The expression to be evaluated.
    * @returns The evaluation function.
    */
-  private makeEvalFunction(expr: string): Function {
+  private makeEvalFunction(expr: string): EvalFunction {
     // Throw an error if the expression is not a simple one-liner.
     if (expr.includes(";")) {
       throw new Error("Complex expressions are not supported.");
@@ -282,7 +321,7 @@ export class SignalStore extends IDebouncer {
    * @param expr - The expression to retrieve or create a cached function for.
    * @returns The cached expression function.
    */
-  private cachedExpressionFunction(expr: string): Function {
+  private cachedExpressionFunction(expr: string): EvalFunction {
     expr = expr.trim();
 
     if (!this.expressionCache.has(expr)) {
@@ -291,7 +330,7 @@ export class SignalStore extends IDebouncer {
     return this.expressionCache.get(expr)!!;
   }
 
-  eval(expr: string, args: { [key: string]: any } = {}): unknown {
+  eval(expr: string, args: Record<string, unknown> = {}): unknown {
     // Determine whether we have already been proxified to avoid doing it again.
     const thisArg = this._observer ? (this as SignalStoreProxy) : this.$;
     if (this._store.has(expr)) {
@@ -327,9 +366,9 @@ export class SignalStore extends IDebouncer {
    * // In :on:click - executes on click
    * :on:click="result = $resolve(api.deleteUser, { path: { id } })"
    */
-  $resolve<T>(
-    fn: (options?: any) => Promise<T>,
-    options?: any
+  $resolve<T, O = unknown>(
+    fn: (options?: O) => Promise<T>,
+    options?: O
   ): { $pending: boolean; $result: T | null; $error: Error | null } {
     // Create the state object.
     const state = {
