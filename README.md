@@ -47,7 +47,7 @@ None of them have all the key features that make `mancha` unique:
 | Feature               | mancha | Svelte | React.js | Vue.js | petite-vue | Alpine.js |
 | --------------------- | ------ | ------ | -------- | ------ | ---------- | --------- |
 | Simple to learn       | ✔️     | ❌     | ❌       | ❌     | ✔️         | ✔️        |
-| < 15kb compressed     | ✔️     | ❌     | ❌       | ❌     | ✔️         | ❌        |
+| < 16kb compressed     | ✔️     | ✔️     | ❌       | ❌     | ✔️         | ❌        |
 | Custom web components | ✔️     | ✔️     | ✔️       | ✔️     | ❌         | ❌        |
 | Client-side rendering | ✔️     | ❌     | ❌       | ✔️     | ✔️         | ✔️        |
 | Server-side rendering | ✔️     | ✔️     | ✔️       | ✔️     | ❌         | ❌        |
@@ -199,7 +199,7 @@ operator, and arrow functions. For example:
 
 <!-- Valid expression: arrow functions (e.g. in map) -->
 <body :data="{ items: [1, 2, 3] }">
-  <div :for="n in items.map(x => x * 2)">{{ n }}</div>
+  <div :for="n in items.map((x) => x * 2)">{{ n }}</div>
 </body>
 
 <!-- Valid expression: boolean logic -->
