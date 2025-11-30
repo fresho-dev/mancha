@@ -25,6 +25,7 @@ const _BINARY_OPERATORS: Record<string, BinaryOp> = {
   '&&': (a, b) => a && b,
   '??': (a, b) => a ?? b,
   '|': (a, f) => (f as (x: unknown) => unknown)(a),
+  'in': (a, b) => (a as PropertyKey) in (b as object),
 };
 
 type UnaryOp = (a: unknown) => unknown;

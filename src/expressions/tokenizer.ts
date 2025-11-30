@@ -3,7 +3,7 @@
  * Portions Copyright (c) 2013, the Dart project authors.
  */
 
-import {KEYWORDS, POSTFIX_PRECEDENCE, PRECEDENCE} from './constants.js';
+import {KEYWORDS, POSTFIX_PRECEDENCE, PRECEDENCE, WORD_OPERATORS} from './constants.js';
 
 const _TWO_CHAR_OPS = ['==', '!=', '<=', '>=', '||', '&&', '??', '?.'];
 const _THREE_CHAR_OPS = ['===', '!=='];
@@ -183,8 +183,12 @@ export class Tokenizer {
       this._advance();
     } while (_isIdentifier(this._next!));
     const value = this._getValue();
-    const kind = _isKeyword(value) ? Kind.KEYWORD : Kind.IDENTIFIER;
-    return token(kind, value);
+    const kind = _isKeyword(value)
+      ? Kind.KEYWORD
+      : WORD_OPERATORS.includes(value)
+        ? Kind.OPERATOR
+        : Kind.IDENTIFIER;
+    return token(kind, value, PRECEDENCE[value] ?? 0);
   }
 
   private _tokenizeNumber() {

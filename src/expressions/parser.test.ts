@@ -175,4 +175,83 @@ describe("Parser", () => {
     // Parser requires parentheses around arrow function parameters.
     assert.throws(() => parseExpr("x => x + 1"));
   });
+
+  describe("'in' operator", () => {
+    it("should parse simple 'in' expression", () => {
+      assert.deepEqual(
+        parseExpr("'name' in obj"),
+        factory.binary(factory.literal("name"), "in", factory.id("obj"))
+      );
+    });
+
+    it("should parse 'in' with identifier on left side", () => {
+      assert.deepEqual(
+        parseExpr("key in obj"),
+        factory.binary(factory.id("key"), "in", factory.id("obj"))
+      );
+    });
+
+    it("should parse 'in' with number on left side", () => {
+      assert.deepEqual(
+        parseExpr("0 in arr"),
+        factory.binary(factory.literal(0), "in", factory.id("arr"))
+      );
+    });
+
+    it("should parse 'in' with correct precedence vs comparison operators", () => {
+      // 'in' has the same precedence as relational operators (< > <= >=)
+      assert.deepEqual(
+        parseExpr("'a' in obj === true"),
+        factory.binary(
+          factory.binary(factory.literal("a"), "in", factory.id("obj")),
+          "===",
+          factory.literal(true)
+        )
+      );
+    });
+
+    it("should parse 'in' with correct precedence vs logical operators", () => {
+      assert.deepEqual(
+        parseExpr("'a' in obj && 'b' in obj"),
+        factory.binary(
+          factory.binary(factory.literal("a"), "in", factory.id("obj")),
+          "&&",
+          factory.binary(factory.literal("b"), "in", factory.id("obj"))
+        )
+      );
+    });
+
+    it("should parse 'in' in ternary expression", () => {
+      assert.deepEqual(
+        parseExpr("'a' in obj ? 1 : 0"),
+        factory.ternary(
+          factory.binary(factory.literal("a"), "in", factory.id("obj")),
+          factory.literal(1),
+          factory.literal(0)
+        )
+      );
+    });
+
+    it("should parse 'in' with property access on right side", () => {
+      assert.deepEqual(
+        parseExpr("'key' in obj.nested"),
+        factory.binary(
+          factory.literal("key"),
+          "in",
+          factory.getter(factory.id("obj"), "nested", false)
+        )
+      );
+    });
+
+    it("should parse 'in' with parenthesized expressions", () => {
+      assert.deepEqual(
+        parseExpr("('key') in (obj)"),
+        factory.binary(
+          factory.paren(factory.literal("key")),
+          "in",
+          factory.paren(factory.id("obj"))
+        )
+      );
+    });
+  });
 });

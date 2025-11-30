@@ -1,6 +1,7 @@
 import { assert } from "../test_utils.js";
 import {
   KEYWORDS,
+  WORD_OPERATORS,
   UNARY_OPERATORS,
   BINARY_OPERATORS,
   PRECEDENCE,
@@ -10,6 +11,10 @@ import {
 describe("Expression Constants", () => {
   it("should define KEYWORDS correctly", () => {
     assert.deepEqual(KEYWORDS, ['this', 'typeof']);
+  });
+
+  it("should define WORD_OPERATORS correctly", () => {
+    assert.deepEqual(WORD_OPERATORS, ['in']);
   });
 
   it("should define UNARY_OPERATORS correctly", () => {
@@ -38,6 +43,7 @@ describe("Expression Constants", () => {
       '===',
       '!==',
       '|',
+      'in',
     ]);
   });
 
@@ -69,6 +75,7 @@ describe("Expression Constants", () => {
       '>': 10,
       '<=': 10,
       '<': 10,
+      'in': 10,
 
       // additive
       '+': 11,

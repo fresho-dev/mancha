@@ -4,6 +4,9 @@
  */
 
 export const KEYWORDS = ['this', 'typeof'];
+
+// Word-based operators (alphabetic tokens that are operators, not keywords)
+export const WORD_OPERATORS = ['in'];
 export const UNARY_OPERATORS = ['+', '-', '!', 'typeof'];
 export const BINARY_OPERATORS = [
   '=',
@@ -26,6 +29,7 @@ export const BINARY_OPERATORS = [
   '===',
   '!==',
   '|',
+  'in',
 ];
 
 export const PRECEDENCE: Record<string, number> = {
@@ -55,6 +59,7 @@ export const PRECEDENCE: Record<string, number> = {
   '>': 10,
   '<=': 10,
   '<': 10,
+  'in': 10,
 
   // additive
   '+': 11,
