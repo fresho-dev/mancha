@@ -10,19 +10,19 @@ import {
 
 describe("Expression Constants", () => {
   it("should define KEYWORDS correctly", () => {
-    assert.deepEqual(KEYWORDS, ['this', 'typeof']);
+    assert.deepEqual(KEYWORDS, new Set(['this', 'typeof']));
   });
 
   it("should define WORD_OPERATORS correctly", () => {
-    assert.deepEqual(WORD_OPERATORS, ['in']);
+    assert.deepEqual(WORD_OPERATORS, new Set(['in']));
   });
 
   it("should define UNARY_OPERATORS correctly", () => {
-    assert.deepEqual(UNARY_OPERATORS, ['+', '-', '!', 'typeof']);
+    assert.deepEqual(UNARY_OPERATORS, new Set(['+', '-', '!', 'typeof']));
   });
 
   it("should define BINARY_OPERATORS correctly", () => {
-    assert.deepEqual(BINARY_OPERATORS, [
+    assert.deepEqual(BINARY_OPERATORS, new Set([
       '=',
       '+',
       '-',
@@ -44,7 +44,7 @@ describe("Expression Constants", () => {
       '!==',
       '|',
       'in',
-    ]);
+    ]));
   });
 
   it("should define PRECEDENCE correctly", () => {
