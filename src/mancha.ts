@@ -1,5 +1,4 @@
-import { safeStyleEl } from "safevalues/dom";
-import { Renderer, basicCssRules, utilsCssRules } from "./browser.js";
+import { Renderer, injectCss, CssName } from "./browser.js";
 
 const Mancha = new Renderer();
 (globalThis as any)["Mancha"] = Mancha;
@@ -20,22 +19,8 @@ if (globalThis.document?.currentScript?.hasAttribute("init")) {
 
 // If the css attribute is present, inject the specified CSS rules.
 if (globalThis.document?.currentScript?.hasAttribute("css")) {
-  const styleNames = currentScript?.getAttribute("css")?.split("+") as string[];
-  for (const styleName of styleNames) {
-    const style = document.createElement("style");
-    switch (styleName) {
-      case "basic":
-        safeStyleEl.setTextContent(style, basicCssRules());
-        break;
-      case "utils":
-        style.textContent = utilsCssRules();
-        break;
-      default:
-        console.error(`Unknown style name: "${styleName}"`);
-        break;
-    }
-    globalThis.document.head.appendChild(style);
-  }
+  const styleNames = currentScript?.getAttribute("css")?.split("+") as CssName[];
+  injectCss(styleNames);
 }
 
 export default Mancha;

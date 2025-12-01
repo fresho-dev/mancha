@@ -1,9 +1,12 @@
+import { safeStyleEl } from "safevalues/dom";
 import { IRenderer } from "./renderer.js";
 import type { StoreState } from "./store.js";
 import { dirname } from "./dome.js";
 import type { ParserParams, RenderParams } from "./interfaces.js";
 export { default as basicCssRules } from "./css_gen_basic.js";
 export { default as utilsCssRules } from "./css_gen_utils.js";
+import basicCssRules from "./css_gen_basic.js";
+import utilsCssRules from "./css_gen_utils.js";
 
 export class Renderer<T extends StoreState = StoreState> extends IRenderer<T> {
   readonly impl = "browser";
@@ -39,3 +42,101 @@ export class Renderer<T extends StoreState = StoreState> extends IRenderer<T> {
 }
 
 export const Mancha = new Renderer();
+
+/** Options for CSS injection. */
+export type CssName = "basic" | "utils";
+
+/**
+ * Injects CSS rules into the document head.
+ * @param names - Array of CSS names to inject ("basic", "utils").
+ */
+export function injectCss(names: CssName[]): void {
+  for (const styleName of names) {
+    const style = document.createElement("style");
+    switch (styleName) {
+      case "basic":
+        safeStyleEl.setTextContent(style, basicCssRules());
+        break;
+      case "utils":
+        style.textContent = utilsCssRules();
+        break;
+      default:
+        console.error(`Unknown style name: "${styleName}"`);
+        continue;
+    }
+    globalThis.document.head.appendChild(style);
+  }
+}
+
+/**
+ * Injects the basic CSS rules into the document head.
+ */
+export function injectBasicCss(): void {
+  injectCss(["basic"]);
+}
+
+/**
+ * Injects the utils CSS rules into the document head.
+ */
+export function injectUtilsCss(): void {
+  injectCss(["utils"]);
+}
+
+/** Options for initializing Mancha. */
+export interface InitManchaOptions {
+  /** CSS styles to inject before mounting. */
+  css?: CssName[];
+  /** Target selector(s) to mount the renderer to. */
+  target?: string | string[];
+  /** Enable debug mode. */
+  debug?: boolean;
+  /** Cache policy for fetch requests. */
+  cache?: RequestCache;
+  /** Initial state to set before mounting. */
+  state?: Record<string, unknown>;
+}
+
+/**
+ * Initializes Mancha with the provided options.
+ * This is a convenience function for bundled environments.
+ *
+ * @param options - Initialization options.
+ * @returns A promise that resolves to the Renderer instance.
+ */
+export async function initMancha<T extends StoreState = StoreState>(
+  options: InitManchaOptions = {}
+): Promise<Renderer<T>> {
+  const renderer = new Renderer<T>();
+
+  // Inject CSS if specified.
+  if (options.css && options.css.length > 0) {
+    injectCss(options.css);
+  }
+
+  // Enable debug mode if specified.
+  if (options.debug) {
+    renderer.debug(true);
+  }
+
+  // Set initial state before mounting to ensure reactivity works.
+  if (options.state) {
+    for (const [key, value] of Object.entries(options.state)) {
+      await renderer.set(key, value);
+    }
+  }
+
+  // Mount to targets if specified.
+  if (options.target) {
+    const targets = Array.isArray(options.target) ? options.target : [options.target];
+    for (const target of targets) {
+      const element = globalThis.document.querySelector(target);
+      if (element) {
+        await renderer.mount(element as unknown as DocumentFragment, { cache: options.cache });
+      } else {
+        console.error(`Target element not found: "${target}"`);
+      }
+    }
+  }
+
+  return renderer;
+}
