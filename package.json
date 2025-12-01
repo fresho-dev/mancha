@@ -24,7 +24,7 @@
     "clean": "rm -rf dist/",
     "build": "gulp build",
     "pretest": "npm run build",
-    "test:node": "mocha \"dist/**/*.test.js\"",
+    "test:node": "mocha \"dist/**/*.test.js\" --ignore \"dist/browser.test.js\"",
     "test:browser": "web-test-runner dist/*browser.test.js --node-resolve --compatibility all --playwright --browsers chromium --no-sandbox",
     "test": "npm run test:node && npm run test:browser",
     "check_size": "brotli -c dist/mancha.js | wc -c",
