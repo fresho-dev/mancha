@@ -76,6 +76,7 @@ export function getAttributeOrDataset(
 ): string | null {
   return (
     getAttribute(elem, attributePrefix + name) ||
+    getAttribute(elem, `data-${name}`) ||
     (elem.dataset?.[attributeNameToCamelCase(name)] ?? null)
   );
 }
@@ -87,6 +88,7 @@ export function hasAttributeOrDataset(
 ): boolean {
   return (
     hasAttribute(elem, attributePrefix + name) ||
+    hasAttribute(elem, `data-${name}`) ||
     hasProperty(elem.dataset, attributeNameToCamelCase(name))
   );
 }

@@ -3,6 +3,9 @@ import { IRenderer } from "./renderer.js";
 import type { StoreState } from "./store.js";
 import { dirname } from "./dome.js";
 import type { ParserParams, RenderParams } from "./interfaces.js";
+
+export { IRenderer } from "./renderer.js";
+export type { ParserParams, RenderParams, RendererPlugin } from "./interfaces.js";
 export { default as basicCssRules } from "./css_gen_basic.js";
 export { default as utilsCssRules } from "./css_gen_utils.js";
 import basicCssRules from "./css_gen_basic.js";

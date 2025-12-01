@@ -4,6 +4,9 @@ import { render as renderDOM } from "dom-serializer";
 import { IRenderer } from "./renderer.js";
 import { ParserParams } from "./interfaces.js";
 
+export { IRenderer } from "./renderer.js";
+export type { ParserParams, RenderParams, RendererPlugin } from "./interfaces.js";
+
 export class Renderer extends IRenderer {
   readonly impl = "htmlparser2";
   parseHTML(

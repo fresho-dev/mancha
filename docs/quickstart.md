@@ -182,6 +182,132 @@ Then in `index.html`:
   <include src="components/footer.tpl.html"/>
 ```
 
+## Element Initialization with `:render`
+
+The `:render` attribute links any HTML element to a JavaScript ES module for initialization. This is useful when you need to initialize third-party libraries (like charts, maps, or video players) on specific elements.
+
+### Basic Usage
+
+```html
+<canvas :render="./chart-init.js"></canvas>
+```
+
+The module's default export is called with the element and renderer as arguments:
+
+```js
+// chart-init.js
+export default function (elem, renderer) {
+  // Initialize a chart library on the canvas element
+  const chart = new Chart(elem, {
+    type: "bar",
+    data: { labels: ["A", "B", "C"], datasets: [{ data: [1, 2, 3] }] },
+  });
+
+  // Optionally store a reference for later access
+  elem._chart = chart;
+}
+```
+
+### Using with Custom Components
+
+The `:render` attribute works naturally inside custom component templates. This is the recommended pattern for creating reusable components that need JavaScript initialization:
+
+```
+src/
+├─ components/
+│  ├─ chart-widget.tpl.html
+│  ├─ chart-widget.js
+│  ├─ registry.tpl.html
+├─ index.html
+```
+
+```html
+<!-- components/chart-widget.tpl.html -->
+<template is="chart-widget">
+  <div class="chart-container">
+    <canvas :render="./chart-widget.js"></canvas>
+    <slot></slot>
+  </div>
+</template>
+```
+
+```js
+// components/chart-widget.js
+export default function (elem, renderer) {
+  // Access data passed via :data attribute on the component
+  const { labels, values } = renderer.$;
+
+  new Chart(elem, {
+    type: "bar",
+    data: {
+      labels: labels || ["A", "B", "C"],
+      datasets: [{ data: values || [1, 2, 3] }],
+    },
+  });
+}
+```
+
+```html
+<!-- components/registry.tpl.html -->
+<include src="./chart-widget.tpl.html" />
+```
+
+```html
+<!-- index.html -->
+<body>
+  <include src="components/registry.tpl.html" />
+
+  <!-- Use the component with custom data -->
+  <chart-widget :data="{ labels: ['Jan', 'Feb', 'Mar'], values: [10, 20, 15] }">
+    <p>Monthly Sales</p>
+  </chart-widget>
+
+  <!-- Use it again with different data -->
+  <chart-widget :data="{ labels: ['Q1', 'Q2', 'Q3', 'Q4'], values: [100, 150, 120, 180] }">
+    <p>Quarterly Revenue</p>
+  </chart-widget>
+</body>
+```
+
+Relative paths like `./chart-widget.js` are automatically resolved based on where the template is defined (`/components/`), not where the component is used.
+
+### Works on Any Element
+
+The `:render` attribute works on any HTML element, not just inside custom components:
+
+```html
+<video :render="./video-player.js" src="movie.mp4"></video>
+<div :render="./carousel.js" class="slides"></div>
+<form :render="./form-validation.js"></form>
+```
+
+### Accessing Renderer State
+
+The init function receives the renderer instance, giving you access to reactive state:
+
+```js
+// counter-canvas.js
+export default function (elem, renderer) {
+  const ctx = elem.getContext("2d");
+
+  // Access current state
+  const count = renderer.$.count;
+
+  // Draw based on state
+  ctx.fillText(`Count: ${count}`, 10, 50);
+
+  // Watch for changes using the renderer's effect system
+  renderer.effect(function () {
+    ctx.clearRect(0, 0, elem.width, elem.height);
+    ctx.fillText(`Count: ${this.$.count}`, 10, 50);
+  });
+}
+```
+
+### Server-Side Rendering Compatibility
+
+During server-side rendering (SSR), the `:render` attribute's path is resolved but the JavaScript module is not executed. The module is only executed when the HTML is hydrated in the browser, making this feature fully compatible with SSR workflows.
+
 ## URL Query Parameter Binding
 
 `mancha` makes it easy to synchronize your application's state with the URL query parameters. This is particularly useful for maintaining state across page reloads or for creating shareable links.

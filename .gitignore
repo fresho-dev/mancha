@@ -74,3 +74,6 @@ public/
 
 # Binary assets are served via Github Pages
 dist/
+
+# Temporary documents
+_*.md

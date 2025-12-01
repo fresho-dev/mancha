@@ -23,4 +23,4 @@ export type RendererPlugin = (
   this: IRenderer,
   node: ChildNode,
   params?: RenderParams
-) => Promise<void>;
+) => void | Promise<void>;

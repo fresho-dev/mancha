@@ -994,5 +994,253 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
         assert.equal(result.$error?.message, "API Error");
       });
     });
+
+    describe(":render", () => {
+      describe("path resolution (rebaseRelativePaths)", () => {
+        it("resolves relative path with dirpath", async function () {
+          const renderer = new ctor();
+          const html = `<div :render="./init.js"></div>`;
+          const fragment = renderer.parseHTML(html);
+
+          await renderer.preprocessNode(fragment, { dirpath: "/components" });
+
+          const elem = fragment.firstChild as Element;
+          // Check for either :render or data-render (safe_browser converts).
+          const resolved =
+            getAttribute(elem, ":render") || getAttribute(elem, "data-render");
+          assert.equal(resolved, "/components/./init.js");
+        });
+
+        it("resolves relative path without leading ./", async function () {
+          const renderer = new ctor();
+          const html = `<div :render="init.js"></div>`;
+          const fragment = renderer.parseHTML(html);
+
+          await renderer.preprocessNode(fragment, { dirpath: "/components" });
+
+          const elem = fragment.firstChild as Element;
+          const resolved =
+            getAttribute(elem, ":render") || getAttribute(elem, "data-render");
+          assert.equal(resolved, "/components/init.js");
+        });
+
+        it("preserves absolute path starting with /", async function () {
+          const renderer = new ctor();
+          const html = `<div :render="/lib/init.js"></div>`;
+          const fragment = renderer.parseHTML(html);
+
+          await renderer.preprocessNode(fragment, { dirpath: "/components" });
+
+          const elem = fragment.firstChild as Element;
+          const resolved =
+            getAttribute(elem, ":render") || getAttribute(elem, "data-render");
+          assert.equal(resolved, "/lib/init.js");
+        });
+
+        it("preserves absolute URL with protocol", async function () {
+          const renderer = new ctor();
+          const html = `<div :render="https://cdn.example.com/init.js"></div>`;
+          const fragment = renderer.parseHTML(html);
+
+          await renderer.preprocessNode(fragment, { dirpath: "/components" });
+
+          const elem = fragment.firstChild as Element;
+          const resolved =
+            getAttribute(elem, ":render") || getAttribute(elem, "data-render");
+          assert.equal(resolved, "https://cdn.example.com/init.js");
+        });
+
+        it("handles missing dirpath param by using renderer default", async function () {
+          const renderer = new ctor();
+          const html = `<div :render="./init.js"></div>`;
+          const fragment = renderer.parseHTML(html);
+
+          // Don't pass dirpath - renderer will use its default.
+          await renderer.preprocessNode(fragment, {});
+
+          const elem = fragment.firstChild as Element;
+          const resolved =
+            getAttribute(elem, ":render") || getAttribute(elem, "data-render");
+          // Renderer's default dirpath is used. For server it may be empty,
+          // for browser it's based on location.href.
+          assert.ok(resolved?.endsWith("./init.js"), `Expected path ending with ./init.js, got: ${resolved}`);
+        });
+
+        it("works with data-render attribute", async function () {
+          const renderer = new ctor();
+          const html = `<div data-render="./init.js"></div>`;
+          const fragment = renderer.parseHTML(html);
+
+          await renderer.preprocessNode(fragment, { dirpath: "/components" });
+
+          const elem = fragment.firstChild as Element;
+          assert.equal(getAttribute(elem, "data-render"), "/components/./init.js");
+        });
+
+        it("resolves path inside custom component template", async function () {
+          const renderer = new ctor();
+          const html = `
+            <template is="my-widget">
+              <div :render="./widget.js" class="widget"></div>
+            </template>
+            <my-widget></my-widget>
+          `;
+          const fragment = renderer.parseHTML(html);
+
+          await renderer.preprocessNode(fragment, { dirpath: "/components" });
+
+          // Find the resolved element by class (template is removed, my-widget is replaced).
+          let resolvedElem: Element | null = null;
+          for (const node of traverse(fragment)) {
+            if ((node as Element).className === "widget" || getAttribute(node as Element, "class") === "widget") {
+              resolvedElem = node as Element;
+              break;
+            }
+          }
+          assert.ok(resolvedElem, "Should find element with class='widget'");
+          const resolved =
+            getAttribute(resolvedElem!!, ":render") || getAttribute(resolvedElem!!, "data-render");
+          assert.equal(resolved, "/components/./widget.js");
+        });
+
+        it("rebases paths before template is cloned (race condition test)", async function () {
+          const renderer = new ctor();
+          // Template with an img that has a relative src path.
+          const html = `
+            <template is="img-widget">
+              <div class="container"><img src="./image.png" class="test-img"></div>
+            </template>
+            <img-widget></img-widget>
+          `;
+          const fragment = renderer.parseHTML(html);
+
+          await renderer.preprocessNode(fragment, { dirpath: "/assets" });
+
+          // Find the cloned img element.
+          let imgElem: Element | null = null;
+          for (const node of traverse(fragment)) {
+            if (getAttribute(node as Element, "class") === "test-img") {
+              imgElem = node as Element;
+              break;
+            }
+          }
+          assert.ok(imgElem, "Should find img element with class='test-img'");
+          // The path should be rebased to /assets/./image.png.
+          const src = getAttribute(imgElem!!, "src");
+          assert.equal(src, "/assets/./image.png", "img src should be rebased before cloning");
+        });
+      });
+
+      describe("execution (rendering)", () => {
+        it("removes :render attribute after execution attempt", async function () {
+          const renderer = new ctor();
+          const html = `<div :render="/nonexistent.js"></div>`;
+          const fragment = renderer.parseHTML(html);
+
+          await renderer.preprocessNode(fragment, { dirpath: "/" });
+          await renderer.renderNode(fragment, {});
+
+          const elem = fragment.firstChild as Element;
+          const resolved =
+            getAttribute(elem, ":render") || getAttribute(elem, "data-render");
+          assert.equal(resolved, null);
+        });
+
+        it("removes data-render attribute after execution attempt", async function () {
+          const renderer = new ctor();
+          const html = `<div data-render="/nonexistent.js"></div>`;
+          const fragment = renderer.parseHTML(html);
+
+          await renderer.preprocessNode(fragment, { dirpath: "/" });
+          await renderer.renderNode(fragment, {});
+
+          const elem = fragment.firstChild as Element;
+          assert.equal(getAttribute(elem, "data-render"), null);
+        });
+
+        it("removes :render from all elements in :for loop", async function () {
+          const renderer = new ctor({ items: ["a", "b", "c"] });
+          const html = `<div :for="item in items" :render="/nonexistent.js">{{ item }}</div>`;
+          const fragment = renderer.parseHTML(html);
+
+          await renderer.mount(fragment);
+
+          // :for keeps the original element hidden and adds clones.
+          // All divs (original + clones) should have :render removed.
+          let count = 0;
+          for (const node of traverse(fragment)) {
+            const elem = node as Element;
+            if (elem.tagName?.toLowerCase() === "div") {
+              count++;
+              const resolved =
+                getAttribute(elem, ":render") || getAttribute(elem, "data-render");
+              assert.equal(resolved, null, "Each element should have :render removed");
+            }
+          }
+          // Original + 3 clones = 4 divs.
+          assert.equal(count, 4, "Should have 4 divs (original + 3 clones)");
+        });
+
+        it("removes :render from nested elements", async function () {
+          const renderer = new ctor();
+          const html = `
+            <div :render="/outer.js">
+              <span :render="/inner.js"></span>
+            </div>
+          `;
+          const fragment = renderer.parseHTML(html);
+
+          await renderer.preprocessNode(fragment, { dirpath: "/" });
+          await renderer.renderNode(fragment, {});
+
+          // Both outer and inner should have :render removed.
+          for (const node of traverse(fragment)) {
+            const elem = node as Element;
+            const resolved =
+              getAttribute(elem, ":render") || getAttribute(elem, "data-render");
+            assert.equal(resolved, null, `Element ${elem.tagName} should have :render removed`);
+          }
+        });
+
+        it("removes :render even when element is hidden with :show=false", async function () {
+          const renderer = new ctor({ visible: false });
+          const html = `<div :show="visible" :render="/nonexistent.js"></div>`;
+          const fragment = renderer.parseHTML(html);
+
+          await renderer.mount(fragment);
+
+          const elem = fragment.firstChild as Element;
+          const resolved =
+            getAttribute(elem, ":render") || getAttribute(elem, "data-render");
+          assert.equal(resolved, null, ":render should be removed even if hidden");
+        });
+
+        it("processes :render on multiple sibling elements", async function () {
+          const renderer = new ctor();
+          const html = `
+            <div :render="/a.js" class="a"></div>
+            <div :render="/b.js" class="b"></div>
+            <div :render="/c.js" class="c"></div>
+          `;
+          const fragment = renderer.parseHTML(html);
+
+          await renderer.preprocessNode(fragment, { dirpath: "/" });
+          await renderer.renderNode(fragment, {});
+
+          // All three should have :render removed.
+          let count = 0;
+          for (const node of traverse(fragment)) {
+            const elem = node as Element;
+            if (elem.tagName?.toLowerCase() === "div") {
+              count++;
+              const resolved =
+                getAttribute(elem, ":render") || getAttribute(elem, "data-render");
+              assert.equal(resolved, null, "Each sibling should have :render removed");
+            }
+          }
+          assert.equal(count, 3, "Should have 3 div elements");
+        });
+      });
+    });
   });
 }

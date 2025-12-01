@@ -157,6 +157,17 @@ element tag or attributes match a specific criteria. Here's the list of attribut
   ```html
   <video :prop:src="buildSrc()"></video>
   ```
+- `:render` links an element to a JavaScript ES module for initialization
+  ```html
+  <canvas :render="./chart-init.js"></canvas>
+  ```
+  The module's default export is called with the element and renderer:
+  ```js
+  // chart-init.js
+  export default function (elem, renderer) {
+    new Chart(elem, { type: "bar" });
+  }
+  ```
 - `{{ value }}` replaces `value` in text nodes
   ```html
   <button :data="{label: 'Click Me'}">{{ label }}</button>
