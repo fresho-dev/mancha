@@ -6,6 +6,7 @@ export const TRUSTED_ATTRIBS = [
   ":show",
   ":class",
   ":bind",
+  ":render",
   ":on:click",
   ":on:click.prevent",
   ":on:input",

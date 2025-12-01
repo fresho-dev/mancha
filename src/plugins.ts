@@ -90,7 +90,7 @@ export namespace RendererPlugins {
     }
   };
 
-  export const rebaseRelativePaths: RendererPlugin = async function (node, params) {
+  export const rebaseRelativePaths: RendererPlugin = function (node, params) {
     const elem = node as Element;
     const tagName = elem.tagName?.toLowerCase();
 
@@ -100,15 +100,23 @@ export namespace RendererPlugins {
     // We have to retrieve the attribute, because the node property is always an absolute path.
     const src = getAttribute(elem, "src");
     const href = getAttribute(elem, "href");
+    const render = getAttributeOrDataset(elem, "render", ":");
 
     // Early exit: if there is no element attribute to rebase, we can skip this step.
-    const pathref = src || href;
+    const pathref = src || href || render;
     if (!pathref || !isRelativePath(pathref)) return;
 
     const relpath = `${params.dirpath}/${pathref}`;
     this.log("Rebasing relative path as:", relpath);
 
-    if (hasProperty(elem, "attribs")) {
+    if (render) {
+      // Handle :render / data-render attribute.
+      if (getAttribute(elem, ":render")) {
+        setAttribute(elem, ":render", relpath);
+      } else {
+        setAttribute(elem, "data-render", relpath);
+      }
+    } else if (hasProperty(elem, "attribs")) {
       safeSetAttribute(elem, src ? "src" : "href", relpath);
     } else if (tagName === "img") {
       (elem as HTMLImageElement).src = relpath;
@@ -131,7 +139,7 @@ export namespace RendererPlugins {
     }
   };
 
-  export const registerCustomElements: RendererPlugin = async function (node, params) {
+  export const registerCustomElements: RendererPlugin = function (node, params) {
     const elem = node as Element;
     const tagName = elem.tagName?.toLowerCase();
 
@@ -140,6 +148,18 @@ export namespace RendererPlugins {
       if (tagName === "div" && getAttribute(elem, "role") !== "template") return;
       if (!this._customElements.has(customTagName)) {
         this.log(`Registering custom element: ${customTagName}\n`, nodeToString(elem, 128));
+
+        // Preprocess template content so paths are rebased BEFORE registration.
+        // This must happen synchronously to avoid a race condition where resolveCustomElements
+        // clones the template before paths are rebased.
+        const content = (elem as HTMLTemplateElement).content || elem;
+        const contentNodes = Array.from(traverse(content));
+        // Skip the first node (the content/template root itself).
+        for (let i = 1; i < contentNodes.length; i++) {
+          RendererPlugins.rebaseRelativePaths.call(this, contentNodes[i], params);
+        }
+
+        // Now register the template with rebased paths.
         this._customElements.set(customTagName, elem);
 
         // Remove the original node from the DOM.
@@ -148,7 +168,7 @@ export namespace RendererPlugins {
     }
   };
 
-  export const resolveCustomElements: RendererPlugin = async function (node, params) {
+  export const resolveCustomElements: RendererPlugin = function (node, params) {
     const elem = node as Element;
     const tagName = elem.tagName?.toLowerCase();
 
@@ -177,7 +197,7 @@ export namespace RendererPlugins {
     }
   };
 
-  export const resolveTextNodeExpressions: RendererPlugin = async function (node, params) {
+  export const resolveTextNodeExpressions: RendererPlugin = function (node, params) {
     const content = node.nodeValue || "";
     if (node.nodeType !== 3 || !content?.trim()) return;
     this.log(`Processing node content value:\n`, ellipsize(content, 128));
@@ -233,7 +253,7 @@ export namespace RendererPlugins {
     }
   };
 
-  export const resolveClassAttribute: RendererPlugin = async function (node, params) {
+  export const resolveClassAttribute: RendererPlugin = function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as HTMLElement;
     const classAttr = getAttributeOrDataset(elem, "class", ":");
@@ -258,7 +278,7 @@ export namespace RendererPlugins {
     }
   };
 
-  export const resolveTextAttributes: RendererPlugin = async function (node, params) {
+  export const resolveTextAttributes: RendererPlugin = function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as Element;
     const textAttr = getAttributeOrDataset(elem, "text", ":");
@@ -299,7 +319,7 @@ export namespace RendererPlugins {
     }
   };
 
-  export const resolveEventAttributes: RendererPlugin = async function (node, params) {
+  export const resolveEventAttributes: RendererPlugin = function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as Element;
     for (const attr of Array.from(elem.attributes || [])) {
@@ -424,7 +444,7 @@ export namespace RendererPlugins {
     }
   };
 
-  export const resolveBindAttribute: RendererPlugin = async function (node, params) {
+  export const resolveBindAttribute: RendererPlugin = function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as HTMLInputElement;
     const bindExpr = getAttributeOrDataset(elem, "bind", ":");
@@ -469,7 +489,7 @@ export namespace RendererPlugins {
     }
   };
 
-  export const resolveShowAttribute: RendererPlugin = async function (node, params) {
+  export const resolveShowAttribute: RendererPlugin = function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as HTMLElement;
     const showExpr = getAttributeOrDataset(elem, "show", ":");
@@ -504,7 +524,7 @@ export namespace RendererPlugins {
     }
   };
 
-  export const resolveCustomAttribute: RendererPlugin = async function (node, params) {
+  export const resolveCustomAttribute: RendererPlugin = function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as Element;
     for (const attr of Array.from(elem.attributes || [])) {
@@ -525,7 +545,7 @@ export namespace RendererPlugins {
     }
   };
 
-  export const resolveCustomProperty: RendererPlugin = async function (node, params) {
+  export const resolveCustomProperty: RendererPlugin = function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as Element;
     for (const attr of Array.from(elem.attributes || [])) {
@@ -547,7 +567,7 @@ export namespace RendererPlugins {
     }
   };
 
-  export const stripTypes: RendererPlugin = async function (node, params) {
+  export const stripTypes: RendererPlugin = function (node, params) {
     const elem = node as Element;
 
     // Remove :types and data-types attributes
@@ -557,5 +577,32 @@ export namespace RendererPlugins {
     if (getAttribute(elem, "data-types")) {
       removeAttribute(elem, "data-types");
     }
+  };
+
+  /**
+   * Rendering plugin: imports module from :render/data-render and calls the default export.
+   * Path resolution is handled by rebaseRelativePaths during preprocessing.
+   */
+  export const executeRenderInit: RendererPlugin = async function (node, params) {
+    if (this._skipNodes.has(node)) return;
+    const elem = node as Element;
+    const src = getAttributeOrDataset(elem, "render", ":");
+    if (!src) return;
+
+    this.log(`Executing render init from ${src}`);
+
+    try {
+      const module = await import(/* webpackIgnore: true */ src);
+      if (typeof module.default === "function") {
+        await module.default(elem, this);
+      } else if (module.default !== undefined) {
+        console.warn(`Module ${src} default export is not a function`);
+      }
+    } catch (err) {
+      console.error(`Failed to execute render init from ${src}:`, err);
+    }
+
+    // Clean up the attribute after execution.
+    removeAttributeOrDataset(elem, "render", ":");
   };
 }

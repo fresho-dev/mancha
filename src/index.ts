@@ -3,6 +3,9 @@ import { JSDOM } from "jsdom";
 import { ParserParams, RenderParams } from "./interfaces.js";
 import { IRenderer } from "./renderer.js";
 
+export { IRenderer } from "./renderer.js";
+export type { ParserParams, RenderParams, RendererPlugin } from "./interfaces.js";
+
 export class Renderer extends IRenderer {
   readonly impl = "jsdom";
   parseHTML(
