@@ -6,6 +6,20 @@
   "type": "module",
   "types": "dist/index.d.ts",
   "unpkg": "dist/mancha.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "default": "./dist/browser.js"
+    },
+    "./dist/*.js": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
   "scripts": {
     "clean": "rm -rf dist/",
     "build": "gulp build",
