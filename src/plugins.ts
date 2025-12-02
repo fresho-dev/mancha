@@ -576,29 +576,43 @@ export namespace RendererPlugins {
   };
 
   /**
-   * Rendering plugin: imports module from :render/data-render and calls the default export.
+   * Rendering plugin: creates a subrenderer, mounts it, then imports module from
+   * :render/data-render and calls the default export.
    * Path resolution is handled by rebaseRelativePaths during preprocessing.
    */
-  export const executeRenderInit: RendererPlugin = async function (node, params) {
+  export const resolveRenderAttribute: RendererPlugin = async function (node, params) {
     if (this._skipNodes.has(node)) return;
     const elem = node as Element;
     const src = getAttributeOrDataset(elem, "render", ":");
     if (!src) return;
 
-    this.log(`Executing render init from ${src}`);
+    this.log(`:render attribute found: ${src}`);
 
+    // Remove attribute before mounting to prevent re-processing.
+    removeAttributeOrDataset(elem, "render", ":");
+
+    // Create a subrenderer to process this node and its descendants.
+    const subrenderer = this.subrenderer();
+    (elem as any).renderer = subrenderer;
+
+    // Skip this node and descendants in parent renderer.
+    for (const child of traverse(node, this._skipNodes)) {
+      this._skipNodes.add(child);
+    }
+
+    // Mount subrenderer - this processes all descendants.
+    await subrenderer.mount(node, params);
+
+    // Subrenderer is done, descendants are ready - execute init.
     try {
       const module = await import(/* webpackIgnore: true */ src);
       if (typeof module.default === "function") {
-        await module.default(elem, this);
+        await module.default(elem, subrenderer);
       } else if (module.default !== undefined) {
         console.warn(`Module ${src} default export is not a function`);
       }
     } catch (err) {
       console.error(`Failed to execute render init from ${src}:`, err);
     }
-
-    // Clean up the attribute after execution.
-    removeAttributeOrDataset(elem, "render", ":");
   };
 }
