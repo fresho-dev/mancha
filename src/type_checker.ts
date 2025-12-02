@@ -765,6 +765,9 @@ function createJexprDiagnostic(
   };
 }
 
+// Attributes whose values are file paths, not expressions.
+const PATH_ATTRIBUTES = [":render", "data-render"];
+
 function validateExpressionsWithJexpr(scope: ExpressionScope, htmlSourceFile: ts.SourceFile): ts.Diagnostic[] {
   const diagnostics: ts.Diagnostic[] = [];
   const expressions = collectExpressions(scope);
@@ -772,6 +775,12 @@ function validateExpressionsWithJexpr(scope: ExpressionScope, htmlSourceFile: ts
   for (const entry of expressions) {
     const candidate = entry.expression.trim();
     if (!candidate) continue;
+
+    // Skip :render attributes since they contain file paths, not expressions.
+    if (entry.source.kind === "attribute" && PATH_ATTRIBUTES.includes(entry.source.attributeName)) {
+      continue;
+    }
+
     try {
       parseWithJexpr(candidate);
     } catch (error) {
