@@ -1406,7 +1406,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
           // Skip for non-browser environments that can't do dynamic imports.
           if (["htmlparser2"].includes(new ctor().impl)) this.skip();
 
-          // Without :data, the element uses the parent renderer directly.
+          // :render creates a subrenderer, which inherits from parent.
           const renderer = new ctor();
           renderer.set("chartType", "line");
           const html = `<div :render="./fixtures/render-init-capture.js" class="standalone"></div>`;
@@ -1424,9 +1424,10 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
           assert.ok(elem, "Should find element with class='standalone'");
           assert.ok(elem._initState, "Init function should have stored state");
 
-          // The init function should have access to parent renderer's variables.
-          assert.equal(elem._initState.hasChartType, true, "chartType should be accessible");
-          assert.equal(elem._initState.chartType, "line", "chartType should be 'line'");
+          // The init function receives a subrenderer. has() checks local store only,
+          // so it returns false. But get()/$.xxx accesses parent chain.
+          assert.equal(elem._initState.hasChartType, false, "has() checks local store only");
+          assert.equal(elem._initState.chartType, "line", "chartType accessible via parent chain");
         });
 
         it(":for with :render and :data executes init for each iteration with its scope", async function () {

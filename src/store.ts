@@ -233,6 +233,10 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
     return Array.from(this._store.keys());
   }
 
+  /**
+   * Checks if a key exists in THIS store only (not ancestors).
+   * Use `get(key) !== null` to check if a key exists anywhere in the chain.
+   */
   has(key: string): boolean {
     return this._store.has(key);
   }

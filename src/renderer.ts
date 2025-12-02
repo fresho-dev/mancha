@@ -190,8 +190,10 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
     // Do these steps one at a time to avoid any potential race conditions.
     for (const node of traverse(root, this._skipNodes)) {
       this.log("Rendering node:\n", nodeToString(node, 128));
-      // Resolve the :for attribute in the node.
+      // Resolve :for first - creates copies before other plugins modify the template.
       await RendererPlugins.resolveForAttribute.call(this, node, params);
+      // Resolve :render - creates subrenderer, mounts, then runs init after descendants.
+      await RendererPlugins.resolveRenderAttribute.call(this, node, params);
       // Resolve the :data attribute in the node.
       await RendererPlugins.resolveDataAttribute.call(this, node, params);
       // Resolve the :text attribute in the node.
@@ -214,8 +216,6 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
       await RendererPlugins.resolveCustomProperty.call(this, node, params);
       // Strip :types and data-types attributes from rendered output.
       await RendererPlugins.stripTypes.call(this, node, params);
-      // Execute :render init after all other plugins, so the element is fully rendered.
-      await RendererPlugins.executeRenderInit.call(this, node, params);
     }
 
     // Return the input node, which should now be fully rendered.
