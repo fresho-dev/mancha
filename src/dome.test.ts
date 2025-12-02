@@ -10,6 +10,7 @@ import {
   hasAttributeOrDataset,
   insertBefore,
   replaceChildren,
+  setAttributeOrDataset,
   traverse,
 } from "./dome.js";
 import { assert } from "./test_utils.js";
@@ -157,6 +158,54 @@ describe("Dome", () => {
       const fragment = JSDOM.fragment('<div></div>');
       const node = fragment.childNodes[0] as Element;
       assert.equal(hasAttributeOrDataset(node, "nonexistent", ":"), false);
+    });
+  });
+
+  describe("setAttributeOrDataset", () => {
+    it("updates prefixed attribute when it exists", () => {
+      const fragment = JSDOM.fragment('<div :render="old.js"></div>');
+      const node = fragment.childNodes[0] as Element;
+      setAttributeOrDataset(node, "render", "new.js", ":");
+      assert.equal(getAttribute(node, ":render"), "new.js");
+      assert.equal(getAttribute(node, "data-render"), null);
+    });
+
+    it("updates data- attribute when it exists", () => {
+      const fragment = JSDOM.fragment('<div data-render="old.js"></div>');
+      const node = fragment.childNodes[0] as Element;
+      setAttributeOrDataset(node, "render", "new.js", ":");
+      assert.equal(getAttribute(node, "data-render"), "new.js");
+      assert.equal(getAttribute(node, ":render"), null);
+    });
+
+    it("prefers prefixed attribute when both exist", () => {
+      const fragment = JSDOM.fragment('<div :render="prefix.js" data-render="data.js"></div>');
+      const node = fragment.childNodes[0] as Element;
+      setAttributeOrDataset(node, "render", "updated.js", ":");
+      assert.equal(getAttribute(node, ":render"), "updated.js");
+      assert.equal(getAttribute(node, "data-render"), "data.js");
+    });
+
+    it("defaults to prefixed attribute when neither exists", () => {
+      const fragment = JSDOM.fragment("<div></div>");
+      const node = fragment.childNodes[0] as Element;
+      setAttributeOrDataset(node, "render", "new.js", ":");
+      assert.equal(getAttribute(node, ":render"), "new.js");
+      assert.equal(getAttribute(node, "data-render"), null);
+    });
+
+    testHtmlParsers("updates attribute for each parser", async (htmlParser) => {
+      const fragment = htmlParser('<div :render="old.js"></div>');
+      const node = fragment.childNodes[0] as Element;
+      setAttributeOrDataset(node, "render", "new.js", ":");
+      assert.equal(getAttributeOrDataset(node, "render", ":"), "new.js");
+    });
+
+    testHtmlParsers("updates data- attribute for each parser", async (htmlParser) => {
+      const fragment = htmlParser('<div data-render="old.js"></div>');
+      const node = fragment.childNodes[0] as Element;
+      setAttributeOrDataset(node, "render", "new.js", ":");
+      assert.equal(getAttributeOrDataset(node, "render", ":"), "new.js");
     });
   });
 

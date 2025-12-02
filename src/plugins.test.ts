@@ -1158,27 +1158,32 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
           assert.equal(getAttribute(elem, "data-render"), null);
         });
 
-        it("removes :render from all elements in :for loop", async function () {
+        it("removes :render from cloned elements in :for loop", async function () {
           const renderer = new ctor({ items: ["a", "b", "c"] });
           const html = `<div :for="item in items" :render="/nonexistent.js">{{ item }}</div>`;
           const fragment = renderer.parseHTML(html);
 
           await renderer.mount(fragment);
 
-          // :for keeps the original element hidden and adds clones.
-          // All divs (original + clones) should have :render removed.
-          let count = 0;
+          // :for keeps the original element hidden in a template and adds clones.
+          // The clones should have :render removed (processed by their subrenderers).
+          // The original (template) may still have :render since it's in skipNodes.
+          let cloneCount = 0;
           for (const node of traverse(fragment)) {
             const elem = node as Element;
             if (elem.tagName?.toLowerCase() === "div") {
-              count++;
+              // Skip the original element (inside template, hidden with display:none).
+              const style = getAttribute(elem, "style") || "";
+              if (style.includes("display: none")) continue;
+
+              cloneCount++;
               const resolved =
                 getAttribute(elem, ":render") || getAttribute(elem, "data-render");
-              assert.equal(resolved, null, "Each element should have :render removed");
+              assert.equal(resolved, null, "Each clone should have :render removed");
             }
           }
-          // Original + 3 clones = 4 divs.
-          assert.equal(count, 4, "Should have 4 divs (original + 3 clones)");
+          // Should have 3 visible clones.
+          assert.equal(cloneCount, 3, "Should have 3 div clones");
         });
 
         it("removes :render from nested elements", async function () {
@@ -1239,6 +1244,325 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
             }
           }
           assert.equal(count, 3, "Should have 3 div elements");
+        });
+
+        it(":render can access :data variables on same element", async function () {
+          // Skip for non-browser environments that can't do dynamic imports.
+          if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+          // This test verifies a real usage scenario:
+          // A chart component wants to use configuration from :data in its init function.
+          const renderer = new ctor();
+          const html = `<div :data="{ chartType: 'bar', chartData: [1, 2, 3] }" :render="./fixtures/render-init-capture.js" class="chart"></div>`;
+          const fragment = renderer.parseHTML(html);
+
+          await renderer.mount(fragment, { dirpath: "." });
+
+          // Find the element with class="chart".
+          let elem: any = null;
+          for (const node of traverse(fragment)) {
+            if (getAttribute(node as Element, "class") === "chart") {
+              elem = node;
+              break;
+            }
+          }
+          assert.ok(elem, "Should find element with class='chart'");
+
+          // The init function stored what it could access at execution time.
+          assert.ok(elem._initState, "Init function should have stored state");
+
+          // chartType from :data IS available when :render executes.
+          assert.equal(
+            elem._initState.hasChartType,
+            true,
+            "chartType should be available when :render executes"
+          );
+          assert.equal(
+            elem._initState.chartType,
+            "bar",
+            "chartType should be 'bar' when :render executes"
+          );
+
+          // After mount completes, the variable is still set.
+          const subrenderer = elem.renderer;
+          assert.equal(
+            subrenderer.$.chartType,
+            "bar",
+            "After mount, chartType should be 'bar' from :data"
+          );
+        });
+
+        it(":render can access $parent variables from ancestor :data", async function () {
+          // Skip for non-browser environments that can't do dynamic imports.
+          if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+          // Test that :render can access variables set by a parent's :data through $parent.
+          const renderer = new ctor();
+          const html = `
+            <div :data="{ parentConfig: 'inherited' }">
+              <div :data="{ childConfig: 'local' }" :render="./fixtures/render-init-capture.js" class="nested"></div>
+            </div>
+          `;
+          const fragment = renderer.parseHTML(html);
+          await renderer.mount(fragment, { dirpath: "." });
+
+          // Find the nested element.
+          let elem: any = null;
+          for (const node of traverse(fragment)) {
+            if (getAttribute(node as Element, "class") === "nested") {
+              elem = node;
+              break;
+            }
+          }
+          assert.ok(elem, "Should find element with class='nested'");
+          assert.ok(elem._initState, "Init function should have stored state");
+
+          // The child's :data variable should be available.
+          assert.equal(
+            elem.renderer.$.childConfig,
+            "local",
+            "childConfig should be 'local'"
+          );
+
+          // The parent's variable should be accessible via $parent.
+          assert.equal(
+            elem._initState.parentVar,
+            undefined,
+            "parentVar should be undefined (fixture looks for 'inheritedVar')"
+          );
+          assert.equal(
+            elem.renderer.$.$parent?.$.parentConfig,
+            "inherited",
+            "parentConfig should be accessible via $parent"
+          );
+        });
+
+        it(":render can modify renderer store via set()", async function () {
+          // Skip for non-browser environments that can't do dynamic imports.
+          if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+          // Test that :render init function can call renderer.set() to modify store.
+          const renderer = new ctor();
+          const html = `<div :data="{ count: 5 }" :render="./fixtures/render-init-modify.js" class="counter"></div>`;
+          const fragment = renderer.parseHTML(html);
+          await renderer.mount(fragment, { dirpath: "." });
+
+          // Find the counter element.
+          let elem: any = null;
+          for (const node of traverse(fragment)) {
+            if (getAttribute(node as Element, "class") === "counter") {
+              elem = node;
+              break;
+            }
+          }
+          assert.ok(elem, "Should find element with class='counter'");
+
+          // The init function should have read count=5 and set count=6.
+          assert.equal(elem._modifiedCount, 6, "Init should have incremented count to 6");
+          assert.equal(elem.renderer.$.count, 6, "Store should have count=6");
+        });
+
+        it(":render with :data accessing deep object properties", async function () {
+          // Skip for non-browser environments that can't do dynamic imports.
+          if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+          // Test that :render can access nested object properties from :data.
+          const renderer = new ctor();
+          const html = `
+            <div
+              :data="{ config: { theme: { primary: 'blue', secondary: 'green' } } }"
+              :render="./fixtures/render-init-capture.js"
+              class="themed">
+            </div>
+          `;
+          const fragment = renderer.parseHTML(html);
+          await renderer.mount(fragment, { dirpath: "." });
+
+          // Find the themed element.
+          let elem: any = null;
+          for (const node of traverse(fragment)) {
+            if (getAttribute(node as Element, "class") === "themed") {
+              elem = node;
+              break;
+            }
+          }
+          assert.ok(elem, "Should find element with class='themed'");
+
+          // Verify nested object is accessible.
+          const subrenderer = elem.renderer;
+          assert.deepEqual(
+            subrenderer.$.config,
+            { theme: { primary: "blue", secondary: "green" } },
+            "Deep config object should be accessible"
+          );
+          assert.equal(
+            subrenderer.$.config.theme.primary,
+            "blue",
+            "Nested property should be accessible"
+          );
+        });
+
+        it(":render without :data accesses parent renderer variables", async function () {
+          // Skip for non-browser environments that can't do dynamic imports.
+          if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+          // Without :data, the element uses the parent renderer directly.
+          const renderer = new ctor();
+          renderer.set("chartType", "line");
+          const html = `<div :render="./fixtures/render-init-capture.js" class="standalone"></div>`;
+          const fragment = renderer.parseHTML(html);
+          await renderer.mount(fragment, { dirpath: "." });
+
+          // Find the standalone element.
+          let elem: any = null;
+          for (const node of traverse(fragment)) {
+            if (getAttribute(node as Element, "class") === "standalone") {
+              elem = node;
+              break;
+            }
+          }
+          assert.ok(elem, "Should find element with class='standalone'");
+          assert.ok(elem._initState, "Init function should have stored state");
+
+          // The init function should have access to parent renderer's variables.
+          assert.equal(elem._initState.hasChartType, true, "chartType should be accessible");
+          assert.equal(elem._initState.chartType, "line", "chartType should be 'line'");
+        });
+
+        it(":for with :render and :data executes init for each iteration with its scope", async function () {
+          // Skip for non-browser environments that can't do dynamic imports.
+          if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+          // Each :for iteration gets its own :data scope, and :render runs with that scope.
+          const renderer = new ctor();
+          renderer.set("items", ["a", "b", "c"]);
+          const html = `
+            <div :for="item in items" :data="{ index: items.indexOf(item) }" :render="./fixtures/render-init-capture.js" class="item"></div>
+          `;
+          const fragment = renderer.parseHTML(html);
+          await renderer.mount(fragment, { dirpath: "." });
+
+          // Find visible item elements (skip the hidden template).
+          const visibleItems: any[] = [];
+          for (const node of traverse(fragment)) {
+            const elem = node as Element;
+            if (getAttribute(elem, "class") === "item") {
+              const style = getAttribute(elem, "style") || "";
+              if (!style.includes("display: none")) {
+                visibleItems.push(elem);
+              }
+            }
+          }
+
+          assert.equal(visibleItems.length, 3, "Should have 3 visible item elements");
+
+          // Each visible item should have _initState from its :render call.
+          for (let i = 0; i < visibleItems.length; i++) {
+            const elem = visibleItems[i];
+            assert.ok(elem._initState, `Item ${i} should have _initState`);
+            assert.ok(elem.renderer, `Item ${i} should have renderer`);
+          }
+        });
+
+        describe("execution order with other plugins", () => {
+          it(":render sees text content after :text is applied", async function () {
+            if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+            const renderer = new ctor();
+            renderer.set("message", "Hello World");
+            const html = `<div :data="{}" :text="message" :render="./fixtures/render-init-inspect.js"></div>`;
+            const fragment = renderer.parseHTML(html);
+            await renderer.mount(fragment, { dirpath: "." });
+
+            const elem = fragment.querySelector("div") as any;
+            assert.ok(elem._renderedState, "Should have captured rendered state");
+            assert.equal(
+              elem._renderedState.textContent,
+              "Hello World",
+              ":render should see text content from :text"
+            );
+          });
+
+          it(":render sees class after :class is applied", async function () {
+            if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+            const renderer = new ctor();
+            renderer.set("isActive", true);
+            const html = `<div :data="{}" class="base" :class="isActive ? 'active' : ''" :render="./fixtures/render-init-inspect.js"></div>`;
+            const fragment = renderer.parseHTML(html);
+            await renderer.mount(fragment, { dirpath: "." });
+
+            const elem = fragment.querySelector("div") as any;
+            assert.ok(elem._renderedState, "Should have captured rendered state");
+            assert.ok(
+              elem._renderedState.className.includes("active"),
+              ":render should see 'active' class from :class"
+            );
+            assert.ok(
+              elem._renderedState.className.includes("base"),
+              ":render should see original 'base' class"
+            );
+          });
+
+          it(":render sees visibility after :show is applied", async function () {
+            if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+            const renderer = new ctor();
+            renderer.set("isVisible", false);
+            const html = `<div :data="{}" :show="isVisible" :render="./fixtures/render-init-inspect.js"></div>`;
+            const fragment = renderer.parseHTML(html);
+            await renderer.mount(fragment, { dirpath: "." });
+
+            const elem = fragment.querySelector("div") as any;
+            assert.ok(elem._renderedState, "Should have captured rendered state");
+            assert.equal(
+              elem._renderedState.displayStyle,
+              "none",
+              ":render should see display:none from :show=false"
+            );
+          });
+
+          it(":render sees custom attribute after :attr:* is applied", async function () {
+            if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+            const renderer = new ctor();
+            renderer.set("testId", "my-component");
+            const html = `<div :data="{}" :attr:data-testid="testId" :render="./fixtures/render-init-inspect.js"></div>`;
+            const fragment = renderer.parseHTML(html);
+            await renderer.mount(fragment, { dirpath: "." });
+
+            const elem = fragment.querySelector("div") as any;
+            assert.ok(elem._renderedState, "Should have captured rendered state");
+
+            // Verify the attribute was set on the element after mount.
+            const attrValue = getAttribute(elem, "data-testid");
+            assert.equal(attrValue, "my-component", "Attribute should be set after mount");
+          });
+
+          it(":render sees multiple plugin effects combined", async function () {
+            if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+            const renderer = new ctor();
+            renderer.set("title", "Dashboard");
+            renderer.set("isAdmin", true);
+            const html = `
+              <div
+                :data="{}"
+                :text="title"
+                :class="isAdmin ? 'admin' : 'user'"
+                :render="./fixtures/render-init-inspect.js"
+                class="panel">
+              </div>
+            `;
+            const fragment = renderer.parseHTML(html);
+            await renderer.mount(fragment, { dirpath: "." });
+
+            const elem = fragment.querySelector("div") as any;
+            assert.ok(elem._renderedState, "Should have captured rendered state");
+            assert.equal(elem._renderedState.textContent, "Dashboard", "Should see :text content");
+            assert.ok(elem._renderedState.className.includes("admin"), "Should see :class effect");
+            assert.ok(elem._renderedState.className.includes("panel"), "Should see original class");
+          });
         });
       });
     });

@@ -17,6 +17,7 @@ import {
   replaceWith,
   safeSetAttribute,
   setAttribute,
+  setAttributeOrDataset,
   setProperty,
   traverse,
   hasProperty,
@@ -110,12 +111,7 @@ export namespace RendererPlugins {
     this.log("Rebasing relative path as:", relpath);
 
     if (render) {
-      // Handle :render / data-render attribute.
-      if (getAttribute(elem, ":render")) {
-        setAttribute(elem, ":render", relpath);
-      } else {
-        setAttribute(elem, "data-render", relpath);
-      }
+      setAttributeOrDataset(elem, "render", relpath, ":");
     } else if (hasProperty(elem, "attribs")) {
       safeSetAttribute(elem, src ? "src" : "href", relpath);
     } else if (tagName === "img") {

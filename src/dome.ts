@@ -126,6 +126,23 @@ export function removeAttribute(elem: ElementWithAttribs, name: string): void {
   else elem.removeAttribute?.(name);
 }
 
+export function setAttributeOrDataset(
+  elem: ElementWithAttribs,
+  name: string,
+  value: string,
+  prefix: string = ""
+): void {
+  // Update whichever form of the attribute exists, preferring prefix form.
+  if (hasAttribute(elem, `${prefix}${name}`)) {
+    setAttribute(elem, `${prefix}${name}`, value);
+  } else if (hasAttribute(elem, `data-${name}`)) {
+    setAttribute(elem, `data-${name}`, value);
+  } else {
+    // Default to prefix form if neither exists.
+    setAttribute(elem, `${prefix}${name}`, value);
+  }
+}
+
 export function removeAttributeOrDataset(
   elem: ElementWithAttribs,
   name: string,

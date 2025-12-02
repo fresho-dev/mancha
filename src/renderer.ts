@@ -190,8 +190,6 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
     // Do these steps one at a time to avoid any potential race conditions.
     for (const node of traverse(root, this._skipNodes)) {
       this.log("Rendering node:\n", nodeToString(node, 128));
-      // Execute render init from data-render-src modules.
-      await RendererPlugins.executeRenderInit.call(this, node, params);
       // Resolve the :for attribute in the node.
       await RendererPlugins.resolveForAttribute.call(this, node, params);
       // Resolve the :data attribute in the node.
@@ -216,6 +214,8 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
       await RendererPlugins.resolveCustomProperty.call(this, node, params);
       // Strip :types and data-types attributes from rendered output.
       await RendererPlugins.stripTypes.call(this, node, params);
+      // Execute :render init after all other plugins, so the element is fully rendered.
+      await RendererPlugins.executeRenderInit.call(this, node, params);
     }
 
     // Return the input node, which should now be fully rendered.
