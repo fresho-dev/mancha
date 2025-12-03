@@ -829,4 +829,181 @@ describe("SignalStore", () => {
       assert.equal(sum, 3);
     });
   });
+
+  describe("undefined variable auto-initialization", () => {
+    it("initializes undefined variables to undefined during effect", async () => {
+      const store = new SignalStore({ existing: 1 });
+      let accessed: unknown = "not-accessed";
+
+      store.effect(function () {
+        accessed = this.nonExistent;
+      });
+
+      // The variable should be initialized to undefined, not null.
+      assert.equal(accessed, undefined);
+      assert.ok(store.has("nonExistent"));
+      assert.equal(store.get("nonExistent"), undefined);
+    });
+
+    it("attaches observer to auto-initialized variables", async () => {
+      const store = new SignalStore({});
+      let value: unknown = "initial";
+      let callCount = 0;
+
+      store.effect(function () {
+        value = this.laterDefined;
+        callCount++;
+      });
+
+      // Initial call during effect setup.
+      assert.equal(callCount, 1);
+      assert.equal(value, undefined);
+
+      // Setting the variable should trigger the observer.
+      await store.set("laterDefined", "hello");
+      assert.equal(callCount, 2);
+      assert.equal(value, "hello");
+    });
+
+    it("does not auto-initialize variables when not observing", () => {
+      const store = new SignalStore<{ nonExistent?: unknown }>({});
+
+      // Access via $ proxy without effect should not auto-initialize.
+      const value = store.$.nonExistent;
+
+      // Without an observer, accessing should return undefined but not add to store.
+      assert.equal(value, undefined);
+      assert.ok(!store.has("nonExistent"));
+    });
+
+    it("works with render callback pattern", async () => {
+      const store = new SignalStore({ items: [1, 2, 3] });
+      const results: unknown[] = [];
+      let renderCount = 0;
+
+      // Simulate a :render callback that uses a variable not defined in :data.
+      store.effect(function () {
+        renderCount++;
+        // This variable is expected to be set by :render callback.
+        results.push(this.renderOutput);
+      });
+
+      assert.equal(renderCount, 1);
+      assert.deepEqual(results, [undefined]);
+
+      // Simulate the :render callback setting the variable.
+      await store.set("renderOutput", "rendered content");
+      assert.equal(renderCount, 2);
+      assert.deepEqual(results, [undefined, "rendered content"]);
+    });
+
+    it("allows setting undefined explicitly", async () => {
+      const store = new SignalStore({});
+      await store.set("explicit", undefined);
+
+      assert.ok(store.has("explicit"));
+      assert.equal(store.get("explicit"), undefined);
+    });
+
+    it("triggers observer when changing from undefined to a value", async () => {
+      const store = new SignalStore({});
+      let observerCalls = 0;
+
+      store.effect(function () {
+        this.dynamicVar;
+        observerCalls++;
+      });
+
+      // Initial call.
+      assert.equal(observerCalls, 1);
+
+      // Change from undefined to a value.
+      await store.set("dynamicVar", "value1");
+      assert.equal(observerCalls, 2);
+      assert.equal(store.get("dynamicVar"), "value1");
+
+      // Change again.
+      await store.set("dynamicVar", "value2");
+      assert.equal(observerCalls, 3);
+      assert.equal(store.get("dynamicVar"), "value2");
+    });
+
+    it("works with eval expressions referencing undefined variables", async () => {
+      const store = new SignalStore({});
+      let result: unknown = "initial";
+
+      store.effect(function () {
+        result = this.eval("futureVar");
+      });
+
+      // Initially undefined.
+      assert.equal(result, undefined);
+
+      // Set the variable and verify reactivity.
+      await store.set("futureVar", 42);
+      assert.equal(result, 42);
+    });
+
+    it("auto-initializes multiple undefined variables in same effect", async () => {
+      const store = new SignalStore({});
+      let a: unknown, b: unknown, c: unknown;
+      let callCount = 0;
+
+      store.effect(function () {
+        a = this.varA;
+        b = this.varB;
+        c = this.varC;
+        callCount++;
+      });
+
+      assert.equal(callCount, 1);
+      assert.equal(a, undefined);
+      assert.equal(b, undefined);
+      assert.equal(c, undefined);
+      assert.ok(store.has("varA"));
+      assert.ok(store.has("varB"));
+      assert.ok(store.has("varC"));
+
+      // Setting any of them should trigger the effect.
+      await store.set("varB", "B");
+      assert.equal(callCount, 2);
+      assert.equal(b, "B");
+    });
+
+    it("does not interfere with existing store methods", () => {
+      const store = new SignalStore({});
+
+      // Accessing store methods during effect should not auto-initialize them.
+      let evalResult: unknown;
+      store.effect(function () {
+        evalResult = this.eval("1 + 1");
+        this.get("someKey");
+        this.has("anotherKey");
+      });
+
+      // Methods should work normally.
+      assert.equal(evalResult, 2);
+
+      // Method names should not be added to store.
+      assert.ok(!store.has("eval"));
+      assert.ok(!store.has("get"));
+      assert.ok(!store.has("has"));
+    });
+
+    it("differentiates undefined from null", async () => {
+      const store = new SignalStore({ nullVar: null });
+      let value: unknown = "initial";
+
+      store.effect(function () {
+        value = this.undefinedVar;
+      });
+
+      // Auto-initialized variables should be undefined, not null.
+      assert.equal(value, undefined);
+      assert.notEqual(value, null);
+
+      // Null variables should remain null.
+      assert.equal(store.get("nullVar"), null);
+    });
+  });
 });

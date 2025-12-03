@@ -507,16 +507,16 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
         const parent = node.parentNode;
         assert.ok(parent);
 
-        // Create renderer with no array => fails.
+        // Create renderer with no array => auto-initialized variables are undefined.
         await renderer.mount(fragment);
-        assert.equal(renderer.get("item"), null);
-        assert.equal(renderer.get("items"), null);
+        assert.equal(renderer.get("item"), undefined);
+        assert.equal(renderer.get("items"), undefined);
 
         // Add a placeholder for the array, but it's not array type.
         await renderer.set("items", null);
         await renderer.mount(fragment);
 
-        assert.equal(renderer.get("item"), null);
+        assert.equal(renderer.get("item"), undefined);
         assert.equal(getAttribute(node, ":for"), null);
         assert.notEqual(node.parentNode, parent);
 
@@ -1613,6 +1613,243 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
             assert.equal(elem._renderedState.textContent, "Dashboard", "Should see :text content");
             assert.ok(elem._renderedState.className.includes("admin"), "Should see :class effect");
             assert.ok(elem._renderedState.className.includes("panel"), "Should see original class");
+          });
+        });
+
+        describe("undefined variable auto-initialization", () => {
+          it(":render sets undefined variable referenced in {{ expression }}", async function () {
+            if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+            const renderer = new ctor();
+            // The template references dynamicMessage which is NOT defined.
+            // The :render callback will set it.
+            const html = `
+              <div :render="./fixtures/render-set-undefined-var.js">
+                <span class="message">{{ dynamicMessage }}</span>
+              </div>
+            `;
+            const fragment = renderer.parseHTML(html);
+            await renderer.mount(fragment, { dirpath: "." });
+
+            const elem = fragment.querySelector("div") as any;
+            assert.ok(elem._renderExecuted, ":render callback should have executed");
+
+            // The span should now contain the message set by :render.
+            const span = fragment.querySelector(".message") as Element;
+            assert.ok(span, "Should find span with class='message'");
+            const content = getTextContent(span);
+            assert.equal(content, "Hello from render callback!", "{{ dynamicMessage }} should reflect value set by :render");
+          });
+
+          it(":render sets undefined number variable", async function () {
+            if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+            const renderer = new ctor();
+            const html = `
+              <div :render="./fixtures/render-set-undefined-var.js">
+                <span class="number">{{ dynamicNumber }}</span>
+              </div>
+            `;
+            const fragment = renderer.parseHTML(html);
+            await renderer.mount(fragment, { dirpath: "." });
+
+            const span = fragment.querySelector(".number") as Element;
+            assert.equal(getTextContent(span), "42", "{{ dynamicNumber }} should be 42");
+          });
+
+          it(":render sets undefined array variable used in :for", async function () {
+            if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+            const renderer = new ctor();
+            // dynamicArray is NOT defined initially.
+            // :render sets it to ["a", "b", "c"].
+            const html = `
+              <div :render="./fixtures/render-set-undefined-var.js">
+                <span :for="item in dynamicArray" class="array-item">{{ item }}</span>
+              </div>
+            `;
+            const fragment = renderer.parseHTML(html);
+            await renderer.mount(fragment, { dirpath: "." });
+
+            // Find visible items (skip the hidden template).
+            const items: Element[] = [];
+            for (const node of traverse(fragment)) {
+              const elem = node as Element;
+              if (getAttribute(elem, "class") === "array-item") {
+                const style = getAttribute(elem, "style") || "";
+                if (!style.includes("display: none")) {
+                  items.push(elem);
+                }
+              }
+            }
+
+            assert.equal(items.length, 3, "Should have 3 items from dynamicArray");
+            assert.equal(getTextContent(items[0]), "a");
+            assert.equal(getTextContent(items[1]), "b");
+            assert.equal(getTextContent(items[2]), "c");
+          });
+
+          it(":render sets undefined object variable with nested access", async function () {
+            if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+            const renderer = new ctor();
+            const html = `
+              <div :render="./fixtures/render-set-undefined-var.js">
+                <span class="key">{{ dynamicObject.key }}</span>
+                <span class="nested">{{ dynamicObject.nested.prop }}</span>
+              </div>
+            `;
+            const fragment = renderer.parseHTML(html);
+            await renderer.mount(fragment, { dirpath: "." });
+
+            const keySpan = fragment.querySelector(".key") as Element;
+            const nestedSpan = fragment.querySelector(".nested") as Element;
+            assert.equal(getTextContent(keySpan), "value", "dynamicObject.key should be 'value'");
+            assert.equal(getTextContent(nestedSpan), "deep", "dynamicObject.nested.prop should be 'deep'");
+          });
+
+          it("undefined variable in {{ expression }} is reactive to later set()", async function () {
+            if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+            const renderer = new ctor();
+            // noPreDefinition is NOT defined initially.
+            const html = `<div><span class="reactive">{{ noPreDefinition }}</span></div>`;
+            const fragment = renderer.parseHTML(html);
+            await renderer.mount(fragment);
+
+            // Initially it should be undefined (rendered as empty or "undefined").
+            const span = fragment.querySelector(".reactive") as Element;
+            const initialContent = getTextContent(span);
+            assert.ok(
+              initialContent === "undefined" || initialContent === "",
+              `Initial content should be empty or 'undefined', got: '${initialContent}'`
+            );
+
+            // Now set the variable after mount.
+            await renderer.set("noPreDefinition", "Now I exist!");
+
+            // The span should reactively update.
+            const updatedContent = getTextContent(span);
+            assert.equal(updatedContent, "Now I exist!", "Content should update reactively");
+          });
+
+          it("undefined variable in :for is reactive to later set()", async function () {
+            if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+            const renderer = new ctor();
+            // lateArray is NOT defined initially.
+            const html = `<span :for="item in lateArray" class="late-item">{{ item }}</span>`;
+            const fragment = renderer.parseHTML(html);
+            await renderer.mount(fragment);
+
+            // Initially there should be no visible items (array is undefined).
+            let items = Array.from(traverse(fragment)).filter((node) => {
+              const elem = node as Element;
+              if (getAttribute(elem, "class") !== "late-item") return false;
+              const style = getAttribute(elem, "style") || "";
+              return !style.includes("display: none");
+            });
+            assert.equal(items.length, 0, "Should have no items initially");
+
+            // Now set the array.
+            await renderer.set("lateArray", ["x", "y"]);
+
+            // Should now have 2 items.
+            items = Array.from(traverse(fragment)).filter((node) => {
+              const elem = node as Element;
+              if (getAttribute(elem, "class") !== "late-item") return false;
+              const style = getAttribute(elem, "style") || "";
+              return !style.includes("display: none");
+            });
+            assert.equal(items.length, 2, "Should have 2 items after setting lateArray");
+            assert.equal(getTextContent(items[0] as Element), "x");
+            assert.equal(getTextContent(items[1] as Element), "y");
+          });
+
+          it("undefined variable in :text is reactive to later set()", async function () {
+            if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+            const renderer = new ctor();
+            const html = `<div :text="laterMessage" class="text-test"></div>`;
+            const fragment = renderer.parseHTML(html);
+            await renderer.mount(fragment);
+
+            const elem = fragment.querySelector(".text-test") as Element;
+            const initialContent = getTextContent(elem);
+            assert.ok(
+              initialContent === "undefined" || initialContent === "",
+              `Initial :text content should be empty or 'undefined', got: '${initialContent}'`
+            );
+
+            await renderer.set("laterMessage", "Text appeared!");
+            assert.equal(getTextContent(elem), "Text appeared!", ":text should update reactively");
+          });
+
+          it("undefined variable in :show is reactive to later set()", async function () {
+            if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+            const renderer = new ctor();
+            const html = `<div :show="isVisible" class="show-test">Content</div>`;
+            const fragment = renderer.parseHTML(html);
+            await renderer.mount(fragment);
+
+            const elem = fragment.querySelector(".show-test") as Element;
+            // Initially undefined, which is falsy, so should be hidden.
+            const initialDisplay = getAttribute(elem, "style") || "";
+            assert.ok(
+              initialDisplay.includes("display: none") || initialDisplay.includes("display:none"),
+              "Should be hidden initially when :show is undefined"
+            );
+
+            await renderer.set("isVisible", true);
+            const updatedDisplay = getAttribute(elem, "style") || "";
+            assert.ok(
+              !updatedDisplay.includes("display: none") && !updatedDisplay.includes("display:none"),
+              "Should be visible after setting isVisible to true"
+            );
+          });
+
+          it("undefined variable in :class is reactive to later set()", async function () {
+            if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+            const renderer = new ctor();
+            const html = `<div :class="dynamicClass" class="base class-test"></div>`;
+            const fragment = renderer.parseHTML(html);
+            await renderer.mount(fragment);
+
+            const elem = fragment.querySelector(".class-test") as Element;
+            const initialClass = getAttribute(elem, "class") || "";
+            assert.ok(initialClass.includes("base"), "Should have base class");
+            assert.ok(!initialClass.includes("added"), "Should not have 'added' class initially");
+
+            await renderer.set("dynamicClass", "added");
+            const updatedClass = getAttribute(elem, "class") || "";
+            assert.ok(updatedClass.includes("base"), "Should still have base class");
+            assert.ok(updatedClass.includes("added"), "Should now have 'added' class");
+          });
+
+          it("multiple undefined variables in same template are all reactive", async function () {
+            if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+            const renderer = new ctor();
+            const html = `
+              <div>
+                <span class="a">{{ varA }}</span>
+                <span class="b">{{ varB }}</span>
+                <span class="c">{{ varC }}</span>
+              </div>
+            `;
+            const fragment = renderer.parseHTML(html);
+            await renderer.mount(fragment);
+
+            // Set all three variables.
+            await renderer.set("varA", "Alpha");
+            await renderer.set("varB", "Beta");
+            await renderer.set("varC", "Gamma");
+
+            assert.equal(getTextContent(fragment.querySelector(".a") as Element), "Alpha");
+            assert.equal(getTextContent(fragment.querySelector(".b") as Element), "Beta");
+            assert.equal(getTextContent(fragment.querySelector(".c") as Element), "Gamma");
           });
         });
       });

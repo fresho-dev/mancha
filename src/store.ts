@@ -74,14 +74,14 @@ function isProxified<T extends object>(object: T): boolean {
   return object instanceof SignalStore || (object as unknown as ProxyMarked)[PROXY_MARKER] === true;
 }
 
-export function getAncestorValue(store: SignalStore | null, key: string): unknown | null {
+export function getAncestorValue(store: SignalStore | null, key: string): unknown {
   const map = store?._store;
   if (map?.has(key)) {
     return map.get(key);
   } else if (map?.has("$parent")) {
     return getAncestorValue(map.get("$parent") as SignalStore, key);
   } else {
-    return null;
+    return undefined;
   }
 }
 
@@ -195,13 +195,14 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
     );
   }
 
-  get<T>(key: string, observer?: Observer<T>): unknown | null {
+  get<T>(key: string, observer?: Observer<T>): unknown {
     if (observer) this.watch(key, observer);
     return getAncestorValue(this, key);
   }
 
   async set(key: string, value: unknown): Promise<void> {
-    if (value === this._store.get(key)) return;
+    // Early return if the key exists in this store and has the same value.
+    if (this._store.has(key) && value === this._store.get(key)) return;
     const callback = () => this.notify(key);
     if (value && typeof value === "function") {
       value = this.wrapFunction(value);
@@ -260,9 +261,20 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
         return Reflect.has(keyval, prop);
       },
       get: (_, prop, receiver) => {
-        if (typeof prop === "string" && getAncestorKeyStore(this, prop)) {
-          return this.get(prop, observer);
-        } else if (prop === "$") {
+        if (typeof prop === "string") {
+          if (getAncestorKeyStore(this, prop)) {
+            return this.get(prop, observer);
+          }
+          // If the property is not found, but we are observing, we assume it's a
+          // state variable that hasn't been initialized yet. We initialize it to
+          // undefined so that we can watch it.
+          if (observer && prop !== PROXY_MARKER && !Reflect.has(this, prop)) {
+            this.set(prop, undefined);
+            return this.get(prop, observer);
+          }
+        }
+
+        if (prop === "$") {
           return this.proxify(observer);
         } else {
           return Reflect.get(this, prop, receiver);
@@ -305,7 +317,8 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
           if (typeof prop !== "string") return undefined;
           if (prop in target) return target[prop];
           if (prop in thisArg) return thisArg[prop];
-          return (globalThis as any)[prop];
+          if (prop in globalThis) return (globalThis as any)[prop];
+          return thisArg[prop];
         },
         set(target, prop, value) {
           if (typeof prop !== "string") return false;
