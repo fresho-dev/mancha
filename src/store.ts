@@ -4,14 +4,16 @@ import * as jexpr from "./expressions/index.js";
  * Internal store properties that are always present. These are managed by the framework
  * and should not be set directly by users.
  */
-export interface InternalStoreState {
+export type InternalStoreState = {
   /** Reference to the parent store in a hierarchy. */
   $parent?: SignalStore;
   /** Reference to the root renderer instance. */
   $rootRenderer?: SignalStore;
   /** Reference to the root DOM node. */
   $rootNode?: Node;
-}
+} & {
+  [key: `$$${string}`]: string | null;
+};
 
 /**
  * Base type for user-defined store state. Uses `any` intentionally to allow flexible
@@ -336,7 +338,7 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 
   eval(expr: string, args: Record<string, unknown> = {}): unknown {
     // Determine whether we have already been proxified to avoid doing it again.
-    const thisArg = this._observer ? (this as SignalStoreProxy) : this.$;
+    const thisArg = this._observer ? (this as unknown as SignalStoreProxy) : this.$;
     if (this._store.has(expr)) {
       // Shortcut: if the expression is just an item from the value store, use that directly.
       return thisArg[expr];
