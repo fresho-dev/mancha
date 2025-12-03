@@ -320,6 +320,31 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
         assert.equal(subrenderer.$.bar, 2);
         assert.equal(subrenderer.$.baz, 3);
       });
+
+      it("reuses existing renderer instance", async function () {
+        const renderer = new ctor();
+        const html = `<div :data="{ foo: 'bar' }"></div>`;
+        const fragment = renderer.parseHTML(html);
+        const node = fragment.firstChild as Element;
+
+        await renderer.mount(fragment);
+        const initialRenderer = (node as any).renderer;
+        assert.ok(initialRenderer, "Renderer should be attached after first mount");
+        assert.equal(initialRenderer.$.foo, "bar", "Initial data should be set");
+
+        // Modify a value in the subrenderer to confirm it's the same instance later
+        initialRenderer.set("foo", "new_bar");
+
+        // Simulate re-processing the :data attribute by re-mounting
+        // In a real scenario, this could be triggered by a parent :for loop re-rendering
+        // or a manual call to renderNode on an already mounted element.
+        await renderer.mount(fragment);
+        const currentRenderer = (node as any).renderer;
+
+        assert.ok(currentRenderer, "Renderer should still be attached after re-mount");
+        assert.equal(initialRenderer, currentRenderer, "Should reuse the same renderer instance");
+        assert.equal(currentRenderer.$.foo, "new_bar", "Modified data should persist in reused renderer");
+      });
     });
 
     describe(":class", () => {
