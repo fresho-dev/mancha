@@ -119,6 +119,62 @@ describe("Parser", () => {
     );
   });
 
+  it("should parse object literals with trailing commas", () => {
+    assert.deepEqual(
+      parseExpr("{a: 1,}"),
+      factory.map([factory.property("a", factory.literal(1))])
+    );
+    assert.deepEqual(
+      parseExpr("{a: 1, b: 2,}"),
+      factory.map([
+        factory.property("a", factory.literal(1)),
+        factory.property("b", factory.literal(2)),
+      ])
+    );
+  });
+
+  it("should parse object literals with trailing commas and whitespace", () => {
+    assert.deepEqual(
+      parseExpr("{a: 1,   }"),
+      factory.map([factory.property("a", factory.literal(1))])
+    );
+    assert.deepEqual(
+      parseExpr("{ a: 1 , }"),
+      factory.map([factory.property("a", factory.literal(1))])
+    );
+  });
+
+  it("should parse multiline object literals", () => {
+    assert.deepEqual(
+      parseExpr(`{
+        a: 1,
+        b: 2
+      }`),
+      factory.map([
+        factory.property("a", factory.literal(1)),
+        factory.property("b", factory.literal(2)),
+      ])
+    );
+  });
+
+  it("should parse array literals with trailing commas", () => {
+    assert.deepEqual(parseExpr("[1,]"), factory.list([factory.literal(1)]));
+    assert.deepEqual(
+      parseExpr("[1, 2,]"),
+      factory.list([factory.literal(1), factory.literal(2)])
+    );
+  });
+
+  it("should parse multiline array literals", () => {
+    assert.deepEqual(
+      parseExpr(`[
+        1,
+        2
+      ]`),
+      factory.list([factory.literal(1), factory.literal(2)])
+    );
+  });
+
   it("should parse spread operator in array", () => {
     assert.deepEqual(
       parseExpr("[...arr]"),
