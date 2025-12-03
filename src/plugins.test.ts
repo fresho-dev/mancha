@@ -345,6 +345,31 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
         assert.equal(initialRenderer, currentRenderer, "Should reuse the same renderer instance");
         assert.equal(currentRenderer.$.foo, "new_bar", "Modified data should persist in reused renderer");
       });
+
+      it("does not process children twice when :for and :render are combined", async function () {
+        if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+        const renderer = new ctor();
+        // Use a counter in the parent scope to track executions.
+        renderer.set("execCount", 0);
+        
+        // Structure:
+        // :for loop creates 1 item.
+        // Item has :render (triggers recursive mount/processing).
+        // Item has a child with :data that increments the counter.
+        const html = `
+          <div :for="i in [1]" :render="./fixtures/render-init-capture.js">
+            <span :data="{ _ignore: execCount = execCount + 1 }"></span>
+          </div>
+        `;
+        const fragment = renderer.parseHTML(html);
+        
+        await renderer.mount(fragment, { dirpath: "." });
+        
+        // If children are processed correctly (once), count should be 1.
+        // If processed twice (once by inner mount, once by outer loop), count will be 2.
+        assert.equal(renderer.get("execCount"), 1, "Children should be processed exactly once");
+      });
     });
 
     describe(":class", () => {
