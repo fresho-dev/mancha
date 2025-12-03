@@ -1418,6 +1418,35 @@ describe("typeCheck", function () {
     });
   });
 
+  describe(":render attribute handling", () => {
+    it("should not type-check :render attribute values as expressions", async function () {
+      // Issue #4: :render contains a module path, not a TypeScript expression
+      const html = `<div :types='{ "foo": "string" }' :render="./main.js"><p>{{ foo }}</p></div>`;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      // Should not report "Cannot find name 'main'" since ./main.js is a path, not an expression
+      assert.equal(diagnostics.length, 0, "Should not type-check :render attribute value");
+    });
+
+    it("should not type-check data-render attribute values as expressions", async function () {
+      const html = `<div :types='{ "bar": "number" }' data-render="./component.ts"><p>{{ bar.toFixed(2) }}</p></div>`;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      assert.equal(diagnostics.length, 0, "Should not type-check data-render attribute value");
+    });
+
+    it("should still type-check other attributes on elements with :render", async function () {
+      const html = `<div :types='{ "visible": "boolean" }' :render="./main.js" :show="visible"><p>Hello</p></div>`;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      assert.equal(diagnostics.length, 0, "Should type-check other attributes correctly");
+    });
+
+    it("should detect type errors in other attributes when :render is present", async function () {
+      const html = `<div :types='{ "visible": "boolean" }' :render="./main.js" :show="visible.toUpperCase()"><p>Hello</p></div>`;
+      const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+      assert.ok(diagnostics.length > 0, "Should detect type error in :show attribute");
+      assert.ok(findDiagnostic(diagnostics, "Property 'toUpperCase' does not exist on type 'boolean'"));
+    });
+  });
+
   describe("performance regression tests", () => {
     it("should complete type checking quickly even with imports", async function () {
       const html = `
