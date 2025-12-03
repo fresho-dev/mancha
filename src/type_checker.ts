@@ -582,6 +582,10 @@ function findDirectNestedTypesElements(element: Element): Element[] {
 function isExpressionAttribute(attrName: string): boolean {
   const normalized = attrName.toLowerCase();
 
+  // Skip path-based attributes since they contain file paths, not expressions.
+  if (PATH_ATTRIBUTES.includes(normalized)) {
+    return false;
+  }
   if (normalized === ":types" || normalized === "data-types") {
     return false;
   }
