@@ -22,6 +22,7 @@ import {
   traverse,
   hasProperty,
 } from "./dome.js";
+import type { IRenderer } from "./renderer.js";
 import { ParserParams, RenderParams, RendererPlugin } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
 
@@ -224,11 +225,18 @@ export namespace RendererPlugins {
       // Remove the attribute from the node.
       removeAttributeOrDataset(elem, "data", ":");
 
-      // Create a subrenderer and process the tag, unless it's the root node.
-      const subrenderer = params?.rootNode === node ? this : this.subrenderer();
+      let subrenderer: IRenderer;
 
-      // Attach the subrenderer to the node as a property.
-      (node as any).renderer = subrenderer;
+      // Check if the element already has a renderer attached.
+      if (hasProperty(node, "renderer")) {
+        subrenderer = (node as any).renderer as IRenderer;
+        this.log("Reusing existing subrenderer for node:", nodeToString(node, 64));
+      } else {
+        subrenderer = this.subrenderer();
+        // Attach the subrenderer to the node as a property, using setProperty.
+        setProperty(node as Element, "renderer", subrenderer);
+        this.log("Created and attached new subrenderer for node:", nodeToString(node, 64));
+      }
 
       // Evaluate the expression.
       const result = subrenderer.eval(dataAttr, { $elem: node }) as Object;
@@ -593,7 +601,7 @@ export namespace RendererPlugins {
 
     // Create a subrenderer to process this node and its descendants.
     const subrenderer = this.subrenderer();
-    (elem as any).renderer = subrenderer;
+    setProperty(elem, "renderer", subrenderer);
 
     // Skip this node and descendants in parent renderer.
     for (const child of traverse(node, this._skipNodes)) {
