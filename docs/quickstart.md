@@ -308,6 +308,44 @@ export default function (elem, renderer) {
 
 During server-side rendering (SSR), the `:render` attribute's path is resolved but the JavaScript module is not executed. The module is only executed when the HTML is hydrated in the browser, making this feature fully compatible with SSR workflows.
 
+### Setting Undefined Variables in `:render`
+
+A powerful pattern is using `:render` to set variables that are already referenced in your template
+but not pre-defined. When a template references an undefined variable, `mancha` automatically
+initializes it to `undefined` and attaches an observer. Since the `:render` callback receives the
+element's renderer, setting variables through it will trigger reactive updates in the template:
+
+```html
+<div :render="./data-loader.js">
+  <h1>{{ pageTitle }}</h1>
+  <ul :for="item in dataItems">
+    <li>{{ item.name }}: {{ item.value }}</li>
+  </ul>
+  <p :show="loading">Loading...</p>
+</div>
+```
+
+```js
+// data-loader.js
+export default async function (elem, renderer) {
+  // Set loading state.
+  await renderer.set("loading", true);
+
+  // Fetch data from an API.
+  const response = await fetch("/api/data");
+  const data = await response.json();
+
+  // Set the variables - the template will reactively update.
+  await renderer.set("pageTitle", data.title);
+  await renderer.set("dataItems", data.items);
+  await renderer.set("loading", false);
+}
+```
+
+Note that `renderer.set()` is async and returns a Promise. You only need to `await` if subsequent
+code depends on those variables being set. You can also set multiple variables concurrently with
+`Promise.all([renderer.set("a", 1), renderer.set("b", 2)])`.
+
 ## URL Query Parameter Binding
 
 `mancha` makes it easy to synchronize your application's state with the URL query parameters. This is particularly useful for maintaining state across page reloads or for creating shareable links.

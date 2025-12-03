@@ -71,7 +71,7 @@ describe("Query Parameter Bindings", () => {
     const renderer = new Renderer();
     await setupQueryParamBindings(renderer);
 
-    assert.equal(renderer.get("$$page"), null);
+    assert.equal(renderer.get("$$page"), undefined);
 
     // Simulate URL change and dispatch event
     window.history.replaceState(null, "", "/?page=2");

@@ -261,7 +261,7 @@ illustrated with an example:
   <!-- Hello, stranger -->
   <h1>Hello, {{ name }}</h1>
 
-  <!-- undefined -->
+  <!-- Initially "undefined", but reactive to later changes -->
   <span>{{ message }}</span>
 
   <!-- How are you, danger? The secret message is "secret" and the key is "1234" -->
@@ -274,8 +274,10 @@ illustrated with an example:
 By default, the target root element is the `body` tag. So, any variables defined in the body's
 `:data` attribute are available to the main renderer.
 
-In the example above, the variable `message` is only available to the `<p>` tag and all elements
-under that tag, if any. Since the variables are not accessible via the global object, you'll need
+In the example above, the `<span>` references `message` which is not defined in the body's `:data`.
+This auto-initializes `message` to `undefined` and attaches an observer, so setting `$.message`
+later will update the `<span>` content. The `<p>` tag has its own local `message` variable which
+shadows any parent value. Since the variables are not accessible via the global object, you'll need
 to retrieve the renderer from the element's properties:
 
 ```js
@@ -286,8 +288,9 @@ await $.mount(document.body);
 // This modifies the `name` variable in all the renderer contexts.
 $.name = "world";
 
-// This has no effect in the output, because the content of the `<p>` tag is
-// bound to its local variable and `message` was undefined at rendering time.
+// This updates the `<span>` content to "bandit" because `message` was
+// auto-initialized when the template referenced it. However, the `<p>` tag
+// still shows "secret" because it has its own local `message` variable.
 $.message = "bandit";
 
 // We extract the subrenderer from the element's properties. Only elements
@@ -300,7 +303,7 @@ subrenderer.$.message = "banana";
 
 When accessing variables, `mancha` searches the current renderer first, then the parent, the
 parent's parent, and so forth until the root renderer is reached. If the requested variable is not
-found in the current renderer or any of the ancestor renderers, then `null` is returned:
+found in the current renderer or any of the ancestor renderers, then `undefined` is returned:
 
 ```html
 <body :data="{ name: 'stranger' }">
@@ -308,6 +311,52 @@ found in the current renderer or any of the ancestor renderers, then `null` is r
   <p :data="{}">Hello, {{ name }}!</p>
 </body>
 ```
+
+### Reactive Undefined Variables
+
+When a variable is referenced in a template expression but not yet defined, `mancha` automatically
+initializes it to `undefined` and attaches an observer. This means you can set the variable later
+using the same renderer (or a subrenderer) and the template will reactively update:
+
+```html
+<body>
+  <!-- Initially shows "undefined", but updates reactively when `message` is set -->
+  <p>{{ message }}</p>
+</body>
+<script type="module">
+  const { $ } = Mancha;
+  await $.mount(document.body);
+
+  // The template initially renders with `message` as undefined.
+  // Setting it now will trigger a reactive update.
+  $.message = "Hello, World!";
+</script>
+```
+
+This behavior is particularly useful with the `:render` attribute, where a JavaScript module can
+set variables that are already referenced in the template:
+
+```html
+<div :render="./init.js">
+  <!-- These variables are set by the :render callback -->
+  <span>{{ title }}</span>
+  <ul :for="item in items">
+    <li>{{ item }}</li>
+  </ul>
+</div>
+```
+
+```js
+// init.js
+export default async function (elem, renderer) {
+  await renderer.set("title", "My List");
+  await renderer.set("items", ["a", "b", "c"]);
+}
+```
+
+The auto-initialization only happens when variables are accessed during an effect (such as template
+rendering). Accessing a variable outside of an effect context will return `undefined` without
+creating an observer.
 
 When setting a variable, there are 3 possible cases:
 
