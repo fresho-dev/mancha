@@ -94,6 +94,31 @@ describe("Parser", () => {
     );
   });
 
+  it("should parse object literals with shorthand properties", () => {
+    assert.deepEqual(
+      parseExpr("{obj}"),
+      factory.map([factory.property("obj", factory.id("obj"))])
+    );
+    assert.deepEqual(
+      parseExpr("{a, b}"),
+      factory.map([
+        factory.property("a", factory.id("a")),
+        factory.property("b", factory.id("b")),
+      ])
+    );
+  });
+
+  it("should parse object literals with mixed shorthand and full properties", () => {
+    assert.deepEqual(
+      parseExpr("{a: 1, b, c: 2}"),
+      factory.map([
+        factory.property("a", factory.literal(1)),
+        factory.property("b", factory.id("b")),
+        factory.property("c", factory.literal(2)),
+      ])
+    );
+  });
+
   it("should parse spread operator in array", () => {
     assert.deepEqual(
       parseExpr("[...arr]"),
