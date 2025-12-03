@@ -265,10 +265,14 @@ export class Parser<N extends Expression> {
         if (this._matches(Kind.STRING) || this._matches(Kind.IDENTIFIER)) {
           this._advance();
         }
-        this._advance(Kind.COLON);
-        const value = this._parseExpression();
-        if (value) {
-          properties.push(this._ast.property(key, value));
+        if (this._matches(Kind.COLON)) {
+          this._advance(Kind.COLON);
+          const value = this._parseExpression();
+          if (value) {
+            properties.push(this._ast.property(key, value));
+          }
+        } else { // Shorthand property
+          properties.push(this._ast.property(key, this._ast.id(key)));
         }
       }
     } while (this._matches(Kind.COMMA));
