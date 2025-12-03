@@ -245,11 +245,13 @@ export namespace RendererPlugins {
       // NOTE: Using the store object directly to avoid modifying ancestor values.
       await Promise.all(Object.entries(result).map(([k, v]) => subrenderer._store.set(k, v)));
 
+      // Optimization: if we are reusing the current renderer, we don't need to re-mount
+      // or skip children. The current traversal will handle them.
+      if (subrenderer === this) return;
+
       // Skip all the children of the current node, if it's a subrenderer.
-      if (subrenderer !== this) {
-        for (const child of traverse(node, this._skipNodes)) {
-          this._skipNodes.add(child);
-        }
+      for (const child of traverse(node, this._skipNodes)) {
+        this._skipNodes.add(child);
       }
 
       // Mount the current node with the subrenderer.
@@ -599,17 +601,26 @@ export namespace RendererPlugins {
     // Remove attribute before mounting to prevent re-processing.
     removeAttributeOrDataset(elem, "render", ":");
 
-    // Create a subrenderer to process this node and its descendants.
-    const subrenderer = this.subrenderer();
-    setProperty(elem, "renderer", subrenderer);
+    let subrenderer: IRenderer;
 
-    // Skip this node and descendants in parent renderer.
-    for (const child of traverse(node, this._skipNodes)) {
-      this._skipNodes.add(child);
+    // Check if the element already has a renderer attached.
+    if (hasProperty(node, "renderer")) {
+      subrenderer = (node as any).renderer as IRenderer;
+      this.log("Reusing existing subrenderer for :render:", nodeToString(node, 64));
+    } else {
+      // Create a subrenderer to process this node and its descendants.
+      subrenderer = this.subrenderer();
+      setProperty(elem, "renderer", subrenderer);
     }
 
     // Mount subrenderer - this processes all descendants.
     await subrenderer.mount(node, params);
+
+    // Skip this node and descendants in parent renderer.
+    // We do this AFTER mount to allow recursive mounting (subrenderer === this) to process children first.
+    for (const child of traverse(node, this._skipNodes)) {
+      this._skipNodes.add(child);
+    }
 
     // Subrenderer is done, descendants are ready - execute init.
     try {
