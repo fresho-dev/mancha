@@ -160,6 +160,22 @@ function parseTypesAttribute(raw: string, baseDir: string | undefined): Map<stri
   return result;
 }
 
+// Extract $$-prefixed identifiers from expressions (query parameters).
+function extractQueryParamIdentifiers(scope: ExpressionScope): Set<string> {
+  const identifiers = new Set<string>();
+  const expressions = collectExpressions(scope);
+
+  // Match $$identifier pattern (valid JS identifier after $$).
+  const pattern = /\$\$([a-zA-Z_][a-zA-Z0-9_]*)/g;
+  for (const entry of expressions) {
+    let match;
+    while ((match = pattern.exec(entry.expression)) !== null) {
+      identifiers.add(`$$${match[1]}`);
+    }
+  }
+  return identifiers;
+}
+
 function buildTypeScriptSource(
   types: Map<string, string>,
   scope: ExpressionScope,
@@ -419,6 +435,14 @@ async function processTypesElement(
 
     // Get expressions for this element (excluding nested :types descendants)
     const scope = getExpressionsExcludingNestedTypes(element, dom, html);
+
+    // Extract query params and add to merged types if not present
+    const queryParams = extractQueryParamIdentifiers(scope);
+    for (const param of queryParams) {
+      if (!mergedTypes.has(param)) {
+        mergedTypes.set(param, "string | null");
+      }
+    }
 
     const jexprDiagnostics = validateExpressionsWithJexpr(scope, htmlSourceFile);
     allDiagnostics.push(...jexprDiagnostics);
