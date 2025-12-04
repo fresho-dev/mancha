@@ -1,4 +1,4 @@
-import * as jexpr from "./expressions/index.js";
+import * as expressions from "./expressions/index.js";
 
 /**
  * Internal store properties that are always present. These are managed by the framework
@@ -60,7 +60,7 @@ abstract class IDebouncer {
 export const REACTIVE_DEBOUNCE_MILLIS = 10;
 
 /** Shared AST factory. */
-const AST_FACTORY = new jexpr.EvalAstFactory();
+const AST_FACTORY = new expressions.EvalAstFactory();
 
 /** Symbol used to identify proxified objects. */
 const PROXY_MARKER = "__is_proxy__";
@@ -307,7 +307,7 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
     }
 
     return (thisArg: SignalStoreProxy, args: { [key: string]: unknown }) => {
-      const ast = jexpr.parse(expr, AST_FACTORY);
+      const ast = expressions.parse(expr, AST_FACTORY);
       
       const scope = new Proxy(args, {
         has(target, prop) {

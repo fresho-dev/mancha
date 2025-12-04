@@ -175,10 +175,10 @@ describe("typeCheck", function () {
       }
     });
 
-    it("should report correct location for jexpr error", async function () {
+    it("should report correct location for expression error", async function () {
       const html = `<div :types='{"a": "number"}'><span>{{ a |> b }}</span></div>`;
       const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
-      const diagnostic = findDiagnostic(diagnostics, "Unsupported expression for jexpr");
+      const diagnostic = findDiagnostic(diagnostics, "Unsupported expression");
       assert.ok(diagnostic, "Should find the diagnostic");
       if (diagnostic && diagnostic.file) {
         assert.equal(diagnostic.file.fileName, testFilePath, "Should point to the HTML file");
@@ -286,12 +286,12 @@ describe("typeCheck", function () {
         </div>
       `;
       const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
-      const jexprDiagnostic = findDiagnostic(diagnostics, "Unsupported expression for jexpr");
-      assert.ok(jexprDiagnostic, "Should flag invalid jexpr expression even without :types");
+      const diagnostic = findDiagnostic(diagnostics, "Unsupported expression");
+      assert.ok(diagnostic, "Should flag invalid expression even without :types");
     });
   });
 
-  describe("jexpr compatibility", () => {
+  describe("expression compatibility", () => {
     it("should inherit types from outer scope", async function () {
       const html = `
         <div :types='{"name": "string", "age": "number"}'>

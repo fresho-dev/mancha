@@ -2,7 +2,7 @@ import * as ts from "typescript";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { JSDOM } from "jsdom";
-import * as jexpr from "./expressions/index.js";
+import * as expressions from "./expressions/index.js";
 import { getAttributeOrDataset } from "./dome.js";
 import { TRUSTED_DATA_ATTRIBS } from "./trusted_attributes.js";
 
@@ -68,17 +68,17 @@ async function getDiagnostics(
   }
 }
 
-const AST_FACTORY = new jexpr.EvalAstFactory();
+const AST_FACTORY = new expressions.EvalAstFactory();
 
 interface SourceRange {
   start: number;
   length: number;
 }
 
-function parseWithJexpr(expression: string) {
-  const ast = jexpr.parse(expression, AST_FACTORY);
+function parseExpression(expression: string) {
+  const ast = expressions.parse(expression, AST_FACTORY);
   if (!ast) {
-    throw new Error(`Failed to parse expression "${expression}" with jexpr`);
+    throw new Error(`Failed to parse expression "${expression}"`);
   }
   return ast;
 }
@@ -149,7 +149,7 @@ function descriptorToTypeScript(descriptor: unknown, baseDir: string | undefined
 }
 
 function parseTypesAttribute(raw: string, baseDir: string | undefined): Map<string, string> {
-  const ast = parseWithJexpr(raw);
+  const ast = parseExpression(raw);
   const value = ast.evaluate({});
   const typeObject = ensurePlainObject(value, ":types expression");
 
@@ -444,8 +444,8 @@ async function processTypesElement(
       }
     }
 
-    const jexprDiagnostics = validateExpressionsWithJexpr(scope, htmlSourceFile);
-    allDiagnostics.push(...jexprDiagnostics);
+    const expressionDiagnostics = validateExpressions(scope, htmlSourceFile);
+    allDiagnostics.push(...expressionDiagnostics);
 
     // Type check expressions in this scope
     const { source, expressionMap } = buildTypeScriptSource(mergedTypes, scope, baseDir);
@@ -773,7 +773,7 @@ function describeExpressionSource(source: ExpressionSource): string {
   return "text interpolation";
 }
 
-function createJexprDiagnostic(
+function createExpressionDiagnostic(
   entry: ExpressionEntry,
   error: unknown,
   htmlSourceFile: ts.SourceFile
@@ -781,7 +781,7 @@ function createJexprDiagnostic(
   const expressionPreview = entry.expression.trim() || entry.expression;
   const errorMessage =
     error instanceof Error ? error.message : typeof error === "string" ? error : String(error);
-  const message = `Unsupported expression for jexpr (${expressionPreview}) in ${describeExpressionSource(entry.source)}: ${errorMessage}`;
+  const message = `Unsupported expression (${expressionPreview}) in ${describeExpressionSource(entry.source)}: ${errorMessage}`;
   return {
     file: entry.range ? htmlSourceFile : undefined,
     start: entry.range?.start,
@@ -796,7 +796,7 @@ function createJexprDiagnostic(
 // Attributes whose values are file paths, not expressions.
 const PATH_ATTRIBUTES = [":render", "data-render"];
 
-function validateExpressionsWithJexpr(scope: ExpressionScope, htmlSourceFile: ts.SourceFile): ts.Diagnostic[] {
+function validateExpressions(scope: ExpressionScope, htmlSourceFile: ts.SourceFile): ts.Diagnostic[] {
   const diagnostics: ts.Diagnostic[] = [];
   const expressions = collectExpressions(scope);
 
@@ -810,9 +810,9 @@ function validateExpressionsWithJexpr(scope: ExpressionScope, htmlSourceFile: ts
     }
 
     try {
-      parseWithJexpr(candidate);
+      parseExpression(candidate);
     } catch (error) {
-      diagnostics.push(createJexprDiagnostic(entry, error, htmlSourceFile));
+      diagnostics.push(createExpressionDiagnostic(entry, error, htmlSourceFile));
     }
   }
 
@@ -858,8 +858,8 @@ export async function typeCheck(html: string, options: TypeCheckOptions): Promis
 
   if (documentRoot) {
     const globalScope = getExpressionsExcludingNestedTypes(documentRoot, dom, html);
-    const globalJexprDiagnostics = validateExpressionsWithJexpr(globalScope, htmlSourceFile);
-    allDiagnostics.push(...globalJexprDiagnostics);
+    const globalExpressionDiagnostics = validateExpressions(globalScope, htmlSourceFile);
+    allDiagnostics.push(...globalExpressionDiagnostics);
   }
 
   return allDiagnostics;
