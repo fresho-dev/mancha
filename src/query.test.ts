@@ -2,7 +2,7 @@ import { assert, setupGlobalTestEnvironment } from "./test_utils.js";
 import { Renderer } from "./browser.js";
 import { setupQueryParamBindings } from "./query.js";
 
-const START_HREF = 'http://localhost/';
+const START_HREF = '/';
 
 describe("Query Parameter Bindings", () => {
   // Set up the global test environment before running tests.
