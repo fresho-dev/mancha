@@ -1,11 +1,14 @@
-import { JSDOM } from "jsdom";
 import { Renderer } from "./worker.js";
 import { traverse } from "./dome.js";
-import { assert } from "./test_utils.js";
+import { assert, setupGlobalTestEnvironment, createFragment } from "./test_utils.js";
 import { testSuite as pluginsTestSuite } from "./plugins.test.js";
 import { testSuite as ssrTestSuite } from "./ssr.test.js";
 
 describe("Worker Renderer Implementation", () => {
+  before(async () => {
+    await setupGlobalTestEnvironment();
+  });
+
   // Plugins test suite.
   pluginsTestSuite(Renderer);
 
@@ -57,7 +60,7 @@ describe("Worker Renderer Implementation", () => {
   describe("{{ expressions }}", () => {
     it("set, update and get context string value", async () => {
       const renderer = new Renderer({ name: null });
-      const fragment = JSDOM.fragment("<span>Hello {{ name }}</span>");
+      const fragment = createFragment("<span>Hello {{ name }}</span>");
       const textNode = Array.from(traverse(fragment)).filter((node) => node.nodeType === 3)[0];
 
       // Set the initial value and render node.
@@ -72,7 +75,7 @@ describe("Worker Renderer Implementation", () => {
 
     it("sets object, gets object property", async () => {
       const renderer = new Renderer();
-      const fragment = JSDOM.fragment("<span>Hello {{ user.name }}</span>");
+      const fragment = createFragment("<span>Hello {{ user.name }}</span>");
       const textNode = Array.from(traverse(fragment)).filter((node) => node.nodeType === 3)[0];
 
       // Set the initial value and render node.
@@ -89,7 +92,7 @@ describe("Worker Renderer Implementation", () => {
   describe("mount", () => {
     it("set, update and get context string value", async () => {
       const renderer = new Renderer();
-      const fragment = JSDOM.fragment("<span>Hello {{ name }}</span>");
+      const fragment = createFragment("<span>Hello {{ name }}</span>");
       const textNode = Array.from(traverse(fragment)).filter((node) => node.nodeType === 3)[0];
 
       // Set the initial value and render node.

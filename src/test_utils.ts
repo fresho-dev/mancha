@@ -13,13 +13,16 @@ export function getTextContent(elem: Element): string | null {
   else return DomUtils.textContent(elem as any);
 }
 
+export const isNode = typeof process !== "undefined" && process.versions != null && process.versions.node != null;
+
 export async function setupGlobalTestEnvironment() {
   // Set up global test environment for DOM manipulation.
 
   // Fall back to JSDOM for DOM manipulation during testing.
   if (!globalThis.window) {
     // Import JSDOM dynamically, because it's not available in browser context.
-    const { JSDOM } = await import("jsdom");
+    const jsdomName = "jsdom";
+    const { JSDOM } = await import(jsdomName);
     const dom = new JSDOM(``, { url: "http://localhost/" });
 
     // Types.
@@ -33,6 +36,18 @@ export async function setupGlobalTestEnvironment() {
     globalThis.XMLSerializer = globalThis.XMLSerializer || dom.window.XMLSerializer;
     globalThis.PopStateEvent = globalThis.PopStateEvent || dom.window.PopStateEvent;
   }
+}
+
+export function createFragment(html: string): DocumentFragment {
+  // Use DOMParser to avoid tsec innerHTML violation and unify Node/Browser behavior.
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  const fragment = document.createDocumentFragment();
+  // Move nodes to fragment
+  while (doc.body.firstChild) {
+    fragment.appendChild(doc.body.firstChild);
+  }
+  return fragment;
 }
 
 // Map the assert methods using Chai.
