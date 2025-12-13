@@ -755,40 +755,42 @@ function opacity(): string[] {
   ]);
 }
 
+let cachedRules: string | null = null;
+
 export default function rules(): string {
-  return (
-    [
-      // As-is.
-      ...PROPS_AS_IS,
-      // Custom.
-      ...custom(),
-      // Colors.
-      ...colors(),
-      // Opacity.
-      ...opacity(),
-      // Z-Index.
-      ...zIndex(),
-      // Transitions.
-      ...transitions(),
-      // Position.
-      ...posneg(PROPS_POSITION),
-      // Sizing.
-      ...posneg(PROPS_SIZING),
-      ...autoxy(PROPS_SIZING),
-      // Spacing.
-      ...tblr(PROPS_SPACING),
-      ...posneg(PROPS_SPACING),
-      ...autoxy(PROPS_SPACING),
-      ...between(),
-      // Minmax.
-      ...posneg(PROPS_SIZING_MINMAX),
-      // Border.
-      ...border(),
-      // Text sizes.
-      ...textSizes(),
-    ]
-      // Sort lexicographical to ensure media queries appear after their base rules.
-      .sort(ruleSorter)
-      .join("\n")
-  );
+  if (cachedRules !== null) return cachedRules;
+  cachedRules = [
+    // As-is.
+    ...PROPS_AS_IS,
+    // Custom.
+    ...custom(),
+    // Colors.
+    ...colors(),
+    // Opacity.
+    ...opacity(),
+    // Z-Index.
+    ...zIndex(),
+    // Transitions.
+    ...transitions(),
+    // Position.
+    ...posneg(PROPS_POSITION),
+    // Sizing.
+    ...posneg(PROPS_SIZING),
+    ...autoxy(PROPS_SIZING),
+    // Spacing.
+    ...tblr(PROPS_SPACING),
+    ...posneg(PROPS_SPACING),
+    ...autoxy(PROPS_SPACING),
+    ...between(),
+    // Minmax.
+    ...posneg(PROPS_SIZING_MINMAX),
+    // Border.
+    ...border(),
+    // Text sizes.
+    ...textSizes(),
+  ]
+    // Sort lexicographical to ensure media queries appear after their base rules.
+    .sort(ruleSorter)
+    .join("\n");
+  return cachedRules;
 }
