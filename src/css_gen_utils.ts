@@ -1,4 +1,5 @@
 const MEDIA_BREAKPOINTS = { sm: 640, md: 768, lg: 1024, xl: 1280 };
+const MEDIA_ENTRIES = Object.entries(MEDIA_BREAKPOINTS);
 const REM_UNIT = 0.25;
 // Generate 1-15
 const UNITS_SM = [...Array(15)].map((_, i) => i + 1);
@@ -583,7 +584,7 @@ function wrapPseudoStates(klass: string): string[] {
 }
 
 function wrapMediaQueries(klass: string, rule: string): string[] {
-  return Object.entries(MEDIA_BREAKPOINTS).map(
+  return MEDIA_ENTRIES.map(
     ([bp, width]) => `@media (min-width: ${width}px) { .${bp}\\:${klass} { ${rule} } }`
   );
 }
@@ -597,14 +598,11 @@ function wrapAll(pairs: string[][]): string[] {
 }
 
 function ruleSorter(a: string, b: string): number {
-  // If one rule is a media query, it goes after the base rules.
-  if (a.includes("@media") && !b.includes("@media")) {
-    return 1;
-  } else if (!a.includes("@media") && b.includes("@media")) {
-    return -1;
-  }
-
-  // Otherwise, fall back to a lexicographical sort.
+  // Media queries start with '@', regular rules start with '.'
+  const aMedia = a[0] === "@";
+  const bMedia = b[0] === "@";
+  if (aMedia && !bMedia) return 1;
+  if (!aMedia && bMedia) return -1;
   return a.localeCompare(b);
 }
 
