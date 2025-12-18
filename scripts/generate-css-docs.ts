@@ -105,28 +105,38 @@ function generateMarkdown() {
 			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
 		}
 	}
+	// Document dynamic border widths
+	md += "| `border-{0-15}` | Border width in pixels (e.g., `border-0`, `border-1`, ..., `border-15`) |\n";
+	md += "| `border-x-{0-15}` | Horizontal border width in pixels |\n";
+	md += "| `border-y-{0-15}` | Vertical border width in pixels |\n";
+	md += "| `border-{t,b,l,r}-{0-15}` | Individual side border width in pixels |\n";
 	md += "\n";
 
 	md += "### Shadows & Effects\n\n";
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
-	const effectProps = ["shadow", "opacity-", "mix-blend-"];
+	const effectProps = ["shadow", "mix-blend-"];
 	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
 		if (effectProps.some((p) => klass.startsWith(p))) {
 			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
 		}
 	}
+	// Document opacity
+	md += "| `opacity-0` | Fully transparent |\n";
+	md += `| \`opacity-{${PERCENTS.join(",")}}\` | Opacity values from 0-100 |\n`;
 	md += "\n";
 
 	md += "### Transitions & Animations\n\n";
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
-	const animProps = ["transition", "duration-", "animate-"];
+	const animProps = ["transition", "animate-"];
 	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
 		if (animProps.some((p) => klass.startsWith(p))) {
 			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
 		}
 	}
+	// Document durations
+	md += `| \`duration-{${DURATIONS.join(",")}}\` | Transition duration in milliseconds |\n`;
 	md += "\n";
 
 	md += "### Interactivity\n\n";
@@ -186,6 +196,18 @@ function generateMarkdown() {
 			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
 		}
 	}
+	// Document gap utilities
+	md += "| `gap-0` | No gap |\n";
+	md += "| `gap-{1-512}` | Gap in rem units (0.25rem increments) |\n";
+	md += "| `gap-{1-512}px` | Gap in pixels |\n";
+	md += "| `gap-x-{1-512}` | Horizontal gap in rem units |\n";
+	md += "| `gap-y-{1-512}` | Vertical gap in rem units |\n";
+	md += "| `gap-x-{1-512}px` | Horizontal gap in pixels |\n";
+	md += "| `gap-y-{1-512}px` | Vertical gap in pixels |\n";
+	md += "| `space-x-{0-512}` | Horizontal spacing between children (rem) |\n";
+	md += "| `space-y-{0-512}` | Vertical spacing between children (rem) |\n";
+	md += "| `space-x-{0-512}px` | Horizontal spacing between children (px) |\n";
+	md += "| `space-y-{0-512}px` | Vertical spacing between children (px) |\n";
 	md += "\n";
 
 	md += "### Position & Inset\n\n";
@@ -197,15 +219,99 @@ function generateMarkdown() {
 		"fixed",
 		"sticky",
 		"inset-",
-		"top-",
-		"bottom-",
-		"left-",
-		"right-",
-		"z-",
 		"object-",
 	];
 	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
 		if (posProps.some((p) => klass.startsWith(p))) {
+			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+		}
+	}
+	// Document position values
+	md += "| `top-{0-512}`, `bottom-{0-512}`, `left-{0-512}`, `right-{0-512}` | Position in rem units (0.25rem increments) |\n";
+	md += "| `top-{0-512}px`, `bottom-{0-512}px`, `left-{0-512}px`, `right-{0-512}px` | Position in pixels |\n";
+	md += "| `top-{1-100}%`, `bottom-{1-100}%`, `left-{1-100}%`, `right-{1-100}%` | Position in percentages |\n";
+	md += "| `top-auto`, `bottom-auto`, `left-auto`, `right-auto` | Auto positioning |\n";
+	// Document z-index
+	md += `| \`z-{${PERCENTS.join(",")}}\` | Z-index values |\n`;
+	md += "\n";
+
+	md += "### Display & Visibility\n\n";
+	md += "| Utility | Description |\n";
+	md += "| --- | --- |\n";
+	const displayProps = ["block", "inline", "hidden", "contents", "visible", "invisible", "collapse"];
+	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+		if (displayProps.some((p) => klass === p)) {
+			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+		}
+	}
+	md += "\n";
+
+	md += "### Overflow & Scrolling\n\n";
+	md += "| Utility | Description |\n";
+	md += "| --- | --- |\n";
+	const overflowProps = ["overflow-", "overscroll-"];
+	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+		if (overflowProps.some((p) => klass.startsWith(p))) {
+			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+		}
+	}
+	md += "\n";
+
+	md += "### Backgrounds\n\n";
+	md += "| Utility | Description |\n";
+	md += "| --- | --- |\n";
+	const bgProps = ["bg-auto", "bg-cover", "bg-contain", "bg-no-repeat", "bg-fixed", "bg-local", "bg-scroll"];
+	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+		if (bgProps.some((p) => klass === p)) {
+			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+		}
+	}
+	md += "\n";
+
+	md += "### Lists\n\n";
+	md += "| Utility | Description |\n";
+	md += "| --- | --- |\n";
+	const listProps = ["list-"];
+	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+		if (listProps.some((p) => klass.startsWith(p))) {
+			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+		}
+	}
+	md += "\n";
+
+	md += "### Vertical Alignment\n\n";
+	md += "| Utility | Description |\n";
+	md += "| --- | --- |\n";
+	const alignProps = ["align-"];
+	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+		if (alignProps.some((p) => klass.startsWith(p))) {
+			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+		}
+	}
+	md += "\n";
+
+	md += "### Viewport Sizing\n\n";
+	md += "| Utility | Description |\n";
+	md += "| --- | --- |\n";
+	const viewportProps = [
+		"min-h-screen", "max-h-screen", "min-w-screen",
+		"h-dvh", "h-svh", "h-lvh",
+		"w-dvw", "w-svw", "w-lvw",
+		"min-h-dvh", "min-h-svh", "min-h-lvh"
+	];
+	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+		if (viewportProps.some((p) => klass === p)) {
+			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+		}
+	}
+	md += "\n";
+
+	md += "### Accessibility\n\n";
+	md += "| Utility | Description |\n";
+	md += "| --- | --- |\n";
+	const a11yProps = ["sr-only", "not-sr-only"];
+	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+		if (a11yProps.some((p) => klass === p)) {
 			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
 		}
 	}
@@ -222,6 +328,13 @@ function generateMarkdown() {
 		...effectProps,
 		...animProps,
 		...interProps,
+		...displayProps,
+		...overflowProps,
+		...bgProps,
+		...listProps,
+		...alignProps,
+		...a11yProps,
+		...viewportProps,
 		"w-",
 		"h-",
 		"min-w-",
@@ -233,25 +346,23 @@ function generateMarkdown() {
 		"opacity-",
 		"cursor-",
 		"size-",
-		"block",
-		"inline",
-		"hidden",
-		"contents",
-		"visible",
-		"invisible",
-		"collapse",
-		"overflow-",
-		"overscroll-",
-		"list-",
-		"align-",
-		"sr-only",
-		"not-sr-only",
+		"top-",
+		"bottom-",
+		"left-",
+		"right-",
+		"z-",
+		"duration-",
+		"gap-",
+		"space-",
 	];
 	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
-		if (!allHandledPrefixes.some((p) => klass.startsWith(p))) {
+		if (!allHandledPrefixes.some((p) => klass.startsWith(p) || klass === p)) {
 			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
 		}
 	}
+	// Document text sizes
+	md += "| `text-{0-99}px` | Font size in pixels (e.g., `text-12px`, `text-16px`) |\n";
+	md += "| `text-{0-24.75}rem` | Font size in rem units (0.25rem increments) |\n";
 	md += "\n";
 
 	md += "--- \n\n*Generated automatically from `src/css_gen_utils.ts`*\n";
