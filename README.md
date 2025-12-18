@@ -11,25 +11,25 @@ Here's a small sample of the things that you can do with `mancha`:
 
 <!-- Scoped variables using the `:data` attribute. -->
 <main class="p-4" :data="{count: 0, name: 'Stranger'}">
-  <!-- Custom HTML tag element registration. -->
-  <template is="counter">
-    <div>
-      <slot></slot>
-      <button :on:click="count = count + 1">Counter: {{ count }}</button>
-    </div>
-  </template>
+	<!-- Custom HTML tag element registration. -->
+	<template is="counter">
+		<div>
+			<slot></slot>
+			<button :on:click="count = count + 1">Counter: {{ count }}</button>
+		</div>
+	</template>
 
-  <!-- Custom HTML tag element usage. -->
-  <counter class="my-2">Click me:</counter>
+	<!-- Custom HTML tag element usage. -->
+	<counter class="my-2">Click me:</counter>
 
-  <!-- Reactive data binding. -->
-  <p>Enter your name: <input type="text" :bind="name" /></p>
-  <p>Hello, <span class="underline">{{ name }}</span>!</p>
+	<!-- Reactive data binding. -->
+	<p>Enter your name: <input type="text" :bind="name" /></p>
+	<p>Hello, <span class="underline">{{ name }}</span>!</p>
 
-  <!-- Include HTML partials. -->
-  <footer class="text-xs">
-    <include src="html/partial/footer.tpl.html"></include>
-  </footer>
+	<!-- Include HTML partials. -->
+	<footer class="text-xs">
+		<include src="html/partial/footer.tpl.html"></include>
+	</footer>
 </main>
 ```
 
@@ -79,12 +79,12 @@ preprocessing consist of:
 
   <!-- ./index.html -->
   <div>
-    <include src="button.tpl.html"></include>
+  	<include src="button.tpl.html"></include>
   </div>
 
   <!-- Result after rendering `index.html`. -->
   <div>
-    <button>Click Me</button>
+  	<button>Click Me</button>
   </div>
   ```
 
@@ -93,15 +93,15 @@ preprocessing consist of:
   ```html
   <!-- Use <template is="my-component-name"> to register a component. -->
   <template is="my-red-button">
-    <button style="background-color: red;">
-      <slot></slot>
-    </button>
+  	<button style="background-color: red;">
+  		<slot></slot>
+  	</button>
   </template>
 
   <!-- Any node traversed after registration can use the component. -->
   <my-red-button :on:click="console.log('clicked')">
-    <!-- The contents within will replace the `<slot></slot>` tag. -->
-    Click Me
+  	<!-- The contents within will replace the `<slot></slot>` tag. -->
+  	Click Me
   </my-red-button>
   ```
 
@@ -138,7 +138,7 @@ element tag or attributes match a specific criteria. Here's the list of attribut
 - `:bind` binds (two-way) a variable to the `value` or `checked` property of the element
   ```html
   <div :data="{ name: 'Stranger' }">
-    <input type="text" :bind="name" />
+  	<input type="text" :bind="name" />
   </div>
   ```
 - `:on:{event}` adds an event listener for `event` to the node
@@ -165,7 +165,7 @@ element tag or attributes match a specific criteria. Here's the list of attribut
   ```js
   // chart-init.js
   export default function (elem, renderer) {
-    new Chart(elem, { type: "bar" });
+  	new Chart(elem, { type: "bar" });
   }
   ```
 - `{{ value }}` replaces `value` in text nodes
@@ -175,7 +175,7 @@ element tag or attributes match a specific criteria. Here's the list of attribut
 - `:types` **(experimental)** declares TypeScript types for static type checking
   ```html
   <div :types='{"user": "@import:./types/user.ts:User"}'>
-    <span>{{ user.name.toUpperCase() }}</span>
+  	<span>{{ user.name.toUpperCase() }}</span>
   </div>
   ```
   The value of `:types` is parsed with `jexpr` during static analysis. It must evaluate to a plain
@@ -195,51 +195,51 @@ operator, and arrow functions. For example:
 ```html
 <!-- Valid expression: string concatenation -->
 <body :data="{ pos: 1 }">
-  <p :text="'you are number ' + pos + ' in the queue'"></p>
+	<p :text="'you are number ' + pos + ' in the queue'"></p>
 </body>
 
 <!-- Valid expression: optional chaining -->
 <body :data="{ user: null }">
-  <p :text="user?.name ?? 'Anonymous'"></p>
+	<p :text="user?.name ?? 'Anonymous'"></p>
 </body>
 
 <!-- Valid expression: spread operator -->
 <body :data="{ list: [1, 2], extra: 3 }">
-  <div :for="item in [...list, extra]">{{ item }}</div>
+	<div :for="item in [...list, extra]">{{ item }}</div>
 </body>
 
 <!-- Valid expression: arrow functions (e.g. in map) -->
 <body :data="{ items: [1, 2, 3] }">
-  <div :for="n in items.map((x) => x * 2)">{{ n }}</div>
+	<div :for="n in items.map((x) => x * 2)">{{ n }}</div>
 </body>
 
 <!-- Valid expression: boolean logic -->
 <body :data="{ pos: 1, finished: false }">
-  <p :show="pos >= 1 && !finished">you are number {{ pos }} in the queue</p>
+	<p :show="pos >= 1 && !finished">you are number {{ pos }} in the queue</p>
 </body>
 
 <!-- Valid expression: ternary operators -->
 <body :data="{ pos: 1 }">
-  <p :text="pos % 2 == 0 ? 'even' : 'odd'"></p>
+	<p :text="pos % 2 == 0 ? 'even' : 'odd'"></p>
 </body>
 
 <!-- Valid expression: function calling -->
 <body :data="{ pos : 1 }">
-  <p :text="buildQueueMessage()"></p>
-  <script>
-    const { $ } = Mancha;
-    $.buildQueueMessage = function () {
-      return "you are number " + this.pos + " in the queue";
-    };
-    // Alternatively, anonymous functions without `this`:
-    // $.buildQueueMessage = () => 'you are number ' + $.pos + ' in the queue';
-  </script>
+	<p :text="buildQueueMessage()"></p>
+	<script>
+		const { $ } = Mancha;
+		$.buildQueueMessage = function () {
+			return "you are number " + this.pos + " in the queue";
+		};
+		// Alternatively, anonymous functions without `this`:
+		// $.buildQueueMessage = () => 'you are number ' + $.pos + ' in the queue';
+	</script>
 </body>
 
 <!-- Valid expression: simple assignment -->
 <body :data="{ pos: 1 }">
-  <p :text="'you are number ' + pos + ' in the queue'"></p>
-  <button :on:click="pos = pos + 1">Click to get there faster</button>
+	<p :text="'you are number ' + pos + ' in the queue'"></p>
+	<button :on:click="pos = pos + 1">Click to get there faster</button>
 </body>
 
 <!-- Invalid expression: multiple statements -->
@@ -247,7 +247,7 @@ operator, and arrow functions. For example:
 
 <!-- Invalid expression: function definition (top-level) -->
 <body :data="{ foo: function() { return 'yes'; } }">
-  <p :text="foo()"></p>
+	<p :text="foo()"></p>
 </body>
 ```
 
@@ -258,16 +258,16 @@ illustrated with an example:
 
 ```html
 <body :data="{ name: 'stranger', key: '1234' }">
-  <!-- Hello, stranger -->
-  <h1>Hello, {{ name }}</h1>
+	<!-- Hello, stranger -->
+	<h1>Hello, {{ name }}</h1>
 
-  <!-- Initially "undefined", but reactive to later changes -->
-  <span>{{ message }}</span>
+	<!-- Initially "undefined", but reactive to later changes -->
+	<span>{{ message }}</span>
 
-  <!-- How are you, danger? The secret message is "secret" and the key is "1234" -->
-  <p :data="{ name: 'danger', message: 'secret' }">
-    How are you, {{ name }}? The secret message is "{{ message }}" and the key is "{{ key }}"
-  </p>
+	<!-- How are you, danger? The secret message is "secret" and the key is "1234" -->
+	<p :data="{ name: 'danger', message: 'secret' }">
+		How are you, {{ name }}? The secret message is "{{ message }}" and the key is "{{ key }}"
+	</p>
 </body>
 ```
 
@@ -307,8 +307,8 @@ found in the current renderer or any of the ancestor renderers, then `undefined`
 
 ```html
 <body :data="{ name: 'stranger' }">
-  <!-- Hello, stranger! -->
-  <p :data="{}">Hello, {{ name }}!</p>
+	<!-- Hello, stranger! -->
+	<p :data="{}">Hello, {{ name }}!</p>
 </body>
 ```
 
@@ -320,16 +320,16 @@ using the same renderer (or a subrenderer) and the template will reactively upda
 
 ```html
 <body>
-  <!-- Initially shows "undefined", but updates reactively when `message` is set -->
-  <p>{{ message }}</p>
+	<!-- Initially shows "undefined", but updates reactively when `message` is set -->
+	<p>{{ message }}</p>
 </body>
 <script type="module">
-  const { $ } = Mancha;
-  await $.mount(document.body);
+	const { $ } = Mancha;
+	await $.mount(document.body);
 
-  // The template initially renders with `message` as undefined.
-  // Setting it now will trigger a reactive update.
-  $.message = "Hello, World!";
+	// The template initially renders with `message` as undefined.
+	// Setting it now will trigger a reactive update.
+	$.message = "Hello, World!";
 </script>
 ```
 
@@ -338,19 +338,19 @@ set variables that are already referenced in the template:
 
 ```html
 <div :render="./init.js">
-  <!-- These variables are set by the :render callback -->
-  <span>{{ title }}</span>
-  <ul :for="item in items">
-    <li>{{ item }}</li>
-  </ul>
+	<!-- These variables are set by the :render callback -->
+	<span>{{ title }}</span>
+	<ul :for="item in items">
+		<li>{{ item }}</li>
+	</ul>
 </div>
 ```
 
 ```js
 // init.js
 export default async function (elem, renderer) {
-  await renderer.set("title", "My List");
-  await renderer.set("items", ["a", "b", "c"]);
+	await renderer.set("title", "My List");
+	await renderer.set("items", ["a", "b", "c"]);
 }
 ```
 
@@ -393,12 +393,12 @@ This allows you to react to URL changes declaratively within your components:
 
 ```html
 <body :data="{ $$search: '' }">
-  <input type="text" :bind="$$search" placeholder="Search..." />
-  <div :show="$$search">Searching for: {{ $$search }}</div>
+	<input type="text" :bind="$$search" placeholder="Search..." />
+	<div :show="$$search">Searching for: {{ $$search }}</div>
 </body>
 <script type="module">
-  import { Mancha } from "//unpkg.com/mancha";
-  await Mancha.mount(document.body);
+	import { Mancha } from "//unpkg.com/mancha";
+	await Mancha.mount(document.body);
 </script>
 ```
 
@@ -423,7 +423,7 @@ To use `mancha` on the client (browser), use the `mancha` bundled file available
 
 ```html
 <body :data="{ name: 'John' }">
-  <span>Hello, {{ name }}!</span>
+	<span>Hello, {{ name }}!</span>
 </body>
 
 <script src="//unpkg.com/mancha" target="body" css="basic+utils" init></script>
@@ -475,16 +475,16 @@ import vars from "./vars.json";
 const app = express();
 
 app.get("/", async (req, res) => {
-  const name = req.query.name || "Stranger";
-  // Instantiate a new renderer.
-  const renderer = new Renderer({ name, ...vars });
-  // Preprocess input HTML from a local file path.
-  const fragment = await renderer.preprocessLocal("src/index.html");
-  // Render and serialize output HTML.
-  const html = renderer.serializeHTML(await renderer.renderNode(fragment));
-  // Send it to the client.
-  res.set("Content-Type", "text/html");
-  res.send(html);
+	const name = req.query.name || "Stranger";
+	// Instantiate a new renderer.
+	const renderer = new Renderer({ name, ...vars });
+	// Preprocess input HTML from a local file path.
+	const fragment = await renderer.preprocessLocal("src/index.html");
+	// Render and serialize output HTML.
+	const html = renderer.serializeHTML(await renderer.renderNode(fragment));
+	// Send it to the client.
+	res.set("Content-Type", "text/html");
+	res.send(html);
 });
 
 app.listen(process.env.PORT || 8080);
@@ -503,14 +503,14 @@ import htmlIndex from "./index.html";
 import vars from "./vars.json";
 
 self.addEventListener("fetch", async (event) => {
-  // Instantiate a new renderer.
-  const renderer = new Renderer({ ...vars });
-  // Preprocess input HTML from a string.
-  const fragment = await renderer.preprocessString(htmlIndex);
-  // Render and serialize output HTML.
-  const html = renderer.serializeHTML(await renderer.renderNode(fragment));
-  // Send it to the client.
-  event.respondWith(new Response(content, { headers: { "Content-Type": "text/html" } }));
+	// Instantiate a new renderer.
+	const renderer = new Renderer({ ...vars });
+	// Preprocess input HTML from a string.
+	const fragment = await renderer.preprocessString(htmlIndex);
+	// Render and serialize output HTML.
+	const html = renderer.serializeHTML(await renderer.renderNode(fragment));
+	// Send it to the client.
+	event.respondWith(new Response(content, { headers: { "Content-Type": "text/html" } }));
 });
 ```
 

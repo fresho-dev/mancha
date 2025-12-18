@@ -5,12 +5,12 @@ on:
     branches:
       - main
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: read
   pages: write
-  id-token: write  # Required for GitHub Pages and npm OIDC trusted publishing
+  id-token: write # Required for GitHub Pages and npm OIDC trusted publishing
 
 concurrency:
   group: "pages"
@@ -27,8 +27,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: npm ci
@@ -79,7 +79,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: read
-      id-token: write  # Required for npm OIDC trusted publishing
+      id-token: write # Required for npm OIDC trusted publishing
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -87,8 +87,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: npm ci

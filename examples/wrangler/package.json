@@ -1,17 +1,17 @@
 {
-  "name": "mancha-serverless-example",
-  "type": "module",
-  "version": "0.0.1",
-  "description": "example mancha.js serverless rendering",
-  "main": "index.js",
-  "repository": "https://github.com/fresho-dev/mancha",
-  "author": "Fresho Dev",
-  "license": "MIT",
-  "scripts": {
-    "start": "npx -y wrangler dev ./index.js --port 8080"
-  },
-  "dependencies": {
-    "itty-router": "^4.0.23",
-    "mancha": "../../"
-  }
+	"name": "mancha-serverless-example",
+	"type": "module",
+	"version": "0.0.1",
+	"description": "example mancha.js serverless rendering",
+	"main": "index.js",
+	"repository": "https://github.com/fresho-dev/mancha",
+	"author": "Fresho Dev",
+	"license": "MIT",
+	"scripts": {
+		"start": "npx -y wrangler dev ./index.js --port 8080"
+	},
+	"dependencies": {
+		"itty-router": "^4.0.23",
+		"mancha": "../../"
+	}
 }

@@ -1,1 +1,1 @@
-../../dist/browser.d.ts
+export * from "../../src/browser.js";

@@ -10,78 +10,75 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 describe("CLI", function () {
-  this.timeout(10000); // CLI tests can take a few seconds
+	this.timeout(10000); // CLI tests can take a few seconds
 
-  before(() => setupGlobalTestEnvironment());
+	before(() => setupGlobalTestEnvironment());
 
-  const cliPath = path.join(__dirname, "cli.js");
+	const cliPath = path.join(__dirname, "cli.js");
 
-  it("should not hang when running --help", async function () {
-    const { stdout } = await execAsync(`node ${cliPath} --help`);
-    assert.ok(stdout.includes("Commands"), "Should display help text");
-  });
+	it("should not hang when running --help", async function () {
+		const { stdout } = await execAsync(`node ${cliPath} --help`);
+		assert.ok(stdout.includes("Commands"), "Should display help text");
+	});
 
-  describe("check command", () => {
-    const testDir = path.join(__dirname, "temp_cli_tests");
+	describe("check command", () => {
+		const testDir = path.join(__dirname, "temp_cli_tests");
 
-    before(async () => {
-      // Clean up any leftover test directories from previous runs.
-      await fs.rm(testDir, { recursive: true, force: true });
-      await fs.mkdir(testDir, { recursive: true });
-      await fs.writeFile(path.join(testDir, "file1.html"), "<p>hello</p>");
-      await fs.mkdir(path.join(testDir, "dir1"));
-      await fs.writeFile(path.join(testDir, "dir1", "file2.html"), "<p>world</p>");
-      await fs.mkdir(path.join(testDir, "dir2"));
-      await fs.writeFile(path.join(testDir, "dir2", "file3.html"), "<p>!</p>");
-    });
+		before(async () => {
+			// Clean up any leftover test directories from previous runs.
+			await fs.rm(testDir, { recursive: true, force: true });
+			await fs.mkdir(testDir, { recursive: true });
+			await fs.writeFile(path.join(testDir, "file1.html"), "<p>hello</p>");
+			await fs.mkdir(path.join(testDir, "dir1"));
+			await fs.writeFile(path.join(testDir, "dir1", "file2.html"), "<p>world</p>");
+			await fs.mkdir(path.join(testDir, "dir2"));
+			await fs.writeFile(path.join(testDir, "dir2", "file3.html"), "<p>!</p>");
+		});
 
-    after(async () => {
-      await fs.rm(testDir, { recursive: true, force: true });
-    });
+		after(async () => {
+			await fs.rm(testDir, { recursive: true, force: true });
+		});
 
-    it("should check a single file", async () => {
-      const filePath = path.join(testDir, "file1.html");
-      const { stdout } = await execAsync(`node ${cliPath} check ${filePath}`);
-      assert.ok(stdout.includes("Checked 1 file(s)"));
-    });
+		it("should check a single file", async () => {
+			const filePath = path.join(testDir, "file1.html");
+			const { stdout } = await execAsync(`node ${cliPath} check ${filePath}`);
+			assert.ok(stdout.includes("Checked 1 file(s)"));
+		});
 
-    it("should check a single directory", async () => {
-      const dirPath = path.join(testDir, "dir1");
-      const { stdout } = await execAsync(`node ${cliPath} check ${dirPath}`);
-      assert.ok(stdout.includes("Checked 1 file(s)"));
-    });
+		it("should check a single directory", async () => {
+			const dirPath = path.join(testDir, "dir1");
+			const { stdout } = await execAsync(`node ${cliPath} check ${dirPath}`);
+			assert.ok(stdout.includes("Checked 1 file(s)"));
+		});
 
-    it("should check a list of files", async () => {
-      const file1 = path.join(testDir, "file1.html");
-      const file2 = path.join(testDir, "dir1", "file2.html");
-      const { stdout } = await execAsync(`node ${cliPath} check ${file1} ${file2}`);
-      assert.ok(stdout.includes("Checked 2 file(s)"));
-    });
+		it("should check a list of files", async () => {
+			const file1 = path.join(testDir, "file1.html");
+			const file2 = path.join(testDir, "dir1", "file2.html");
+			const { stdout } = await execAsync(`node ${cliPath} check ${file1} ${file2}`);
+			assert.ok(stdout.includes("Checked 2 file(s)"));
+		});
 
-    it("should check a list of directories", async () => {
-      const dir1 = path.join(testDir, "dir1");
-      const dir2 = path.join(testDir, "dir2");
-      const { stdout } = await execAsync(`node ${cliPath} check ${dir1} ${dir2}`);
-      assert.ok(stdout.includes("Checked 2 file(s)"));
-    });
+		it("should check a list of directories", async () => {
+			const dir1 = path.join(testDir, "dir1");
+			const dir2 = path.join(testDir, "dir2");
+			const { stdout } = await execAsync(`node ${cliPath} check ${dir1} ${dir2}`);
+			assert.ok(stdout.includes("Checked 2 file(s)"));
+		});
 
-    it("should check a mix of files and directories", async () => {
-      const file1 = path.join(testDir, "file1.html");
-      const dir1 = path.join(testDir, "dir1");
-      const { stdout } = await execAsync(`node ${cliPath} check ${file1} ${dir1}`);
-      assert.ok(stdout.includes("Checked 2 file(s)"));
-    });
+		it("should check a mix of files and directories", async () => {
+			const file1 = path.join(testDir, "file1.html");
+			const dir1 = path.join(testDir, "dir1");
+			const { stdout } = await execAsync(`node ${cliPath} check ${file1} ${dir1}`);
+			assert.ok(stdout.includes("Checked 2 file(s)"));
+		});
 
-    it("should skip node_modules directories when crawling", async () => {
-      const nested = path.join(testDir, "node_modules", "ignoredpkg");
-      await fs.mkdir(nested, { recursive: true });
-      await fs.writeFile(path.join(nested, "ignored.html"), "<p>ignore me</p>");
+		it("should skip node_modules directories when crawling", async () => {
+			const nested = path.join(testDir, "node_modules", "ignoredpkg");
+			await fs.mkdir(nested, { recursive: true });
+			await fs.writeFile(path.join(nested, "ignored.html"), "<p>ignore me</p>");
 
-      const { stdout } = await execAsync(`node ${cliPath} check ${testDir}`);
-      assert.ok(
-        stdout.includes("Checked 3 file(s)"),
-        "Should not count files under node_modules"
-      );
-    });
-  });
+			const { stdout } = await execAsync(`node ${cliPath} check ${testDir}`);
+			assert.ok(stdout.includes("Checked 3 file(s)"), "Should not count files under node_modules");
+		});
+	});
 });

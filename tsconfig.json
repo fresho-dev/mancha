@@ -1,21 +1,44 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ES2022",
-    "outDir": "dist",
-    "rootDir": "src",
-    "strict": true,
-    "sourceMap": true,
-    "declaration": true,
-    "noImplicitAny": true,
-    "skipLibCheck": true,
-    "stripInternal": true,
-    "moduleResolution": "node",
-    "plugins": [
-      {
-        "name": "tsec",
-        "exemptionConfig": "./tsec_exemptions.json"
-      }
-    ]
-  }
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"outDir": "dist",
+		"rootDir": "src",
+		"strict": true,
+		"sourceMap": true,
+		"declaration": true,
+		"noImplicitAny": true,
+		"skipLibCheck": true,
+		"stripInternal": true,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"baseUrl": ".",
+		"paths": {
+			"mancha": [
+				"./src/index.ts"
+			],
+			"mancha/*": [
+				"./src/*.ts"
+			]
+		},
+		"plugins": [
+			{
+				"name": "tsec",
+				"exemptionConfig": "./tsec_exemptions.json"
+			}
+		]
+	},
+	"include": [
+		"src/**/*",
+		"global.d.ts"
+	],
+	"exclude": [
+		"scripts",
+		"examples",
+		"gulpfile.ts",
+		"webpack.config.ts",
+		"webpack.config.esmodule.ts",
+		"dist"
+	]
 }
