@@ -4,114 +4,114 @@
  */
 
 export type Expression =
-  | Literal
-  | Empty
-  | ID
-  | Unary
-  | Binary
-  | Getter
-  | Invoke
-  | Paren
-  | Index
-  | Ternary
-  | Map
-  | List
-  | ArrowFunction
-  | SpreadProperty
-  | SpreadElement
-  | Property;
+	| Literal
+	| Empty
+	| ID
+	| Unary
+	| Binary
+	| Getter
+	| Invoke
+	| Paren
+	| Index
+	| Ternary
+	| Map
+	| List
+	| ArrowFunction
+	| SpreadProperty
+	| SpreadElement
+	| Property;
 
 export type LiteralValue = string | number | boolean | null | undefined;
 
 export interface Literal {
-  type: 'Literal';
-  value: LiteralValue;
+	type: "Literal";
+	value: LiteralValue;
 }
 
 export interface Empty {
-  type: 'Empty';
+	type: "Empty";
 }
 
 export interface ID {
-  type: 'ID';
-  value: string;
+	type: "ID";
+	value: string;
 }
 
 export interface Unary {
-  type: 'Unary';
-  operator: string;
-  child: Expression;
+	type: "Unary";
+	operator: string;
+	child: Expression;
 }
 
 export interface Binary {
-  type: 'Binary';
-  operator: string;
-  left: Expression;
-  right: Expression;
+	type: "Binary";
+	operator: string;
+	left: Expression;
+	right: Expression;
 }
 
 export interface Getter {
-  type: 'Getter';
-  receiver: Expression;
-  name: string;
-  optional?: boolean;
+	type: "Getter";
+	receiver: Expression;
+	name: string;
+	optional?: boolean;
 }
 
 export interface Invoke {
-  type: 'Invoke';
-  receiver: Expression;
-  method?: string;
-  arguments?: Array<Expression>;
-  optional?: boolean;
+	type: "Invoke";
+	receiver: Expression;
+	method?: string;
+	arguments?: Array<Expression>;
+	optional?: boolean;
 }
 
 export interface Paren {
-  type: 'Paren';
-  child: Expression;
+	type: "Paren";
+	child: Expression;
 }
 
 export interface Index {
-  type: 'Index';
-  receiver: Expression;
-  argument?: Expression;
-  optional?: boolean;
+	type: "Index";
+	receiver: Expression;
+	argument?: Expression;
+	optional?: boolean;
 }
 
 export interface Ternary {
-  type: 'Ternary';
-  condition: Expression;
-  trueExpr: Expression;
-  falseExpr: Expression;
+	type: "Ternary";
+	condition: Expression;
+	trueExpr: Expression;
+	falseExpr: Expression;
 }
 
 export interface Map {
-  type: 'Map';
-  properties?: Array<Property | SpreadProperty>;
+	type: "Map";
+	properties?: Array<Property | SpreadProperty>;
 }
 
 export interface Property {
-  type: 'Property';
-  key: string;
-  value: Expression;
+	type: "Property";
+	key: string;
+	value: Expression;
 }
 
 export interface List {
-  type: 'List';
-  items?: Array<Expression>;
+	type: "List";
+	items?: Array<Expression>;
 }
 
 export interface ArrowFunction {
-  type: 'ArrowFunction';
-  params: Array<string>;
-  body: Expression;
+	type: "ArrowFunction";
+	params: Array<string>;
+	body: Expression;
 }
 
 export interface SpreadProperty {
-  type: 'SpreadProperty';
-  expression: Expression;
+	type: "SpreadProperty";
+	expression: Expression;
 }
 
 export interface SpreadElement {
-  type: 'SpreadElement';
-  expression: Expression;
+	type: "SpreadElement";
+	expression: Expression;
 }

@@ -1,6 +1,6 @@
 {
-  "name": "mancha-client-side-rendering-example",
-  "scripts": {
-    "start": "npx http-server . --port 0"
-  }
+	"name": "mancha-client-side-rendering-example",
+	"scripts": {
+		"start": "npx http-server . --port 0"
+	}
 }

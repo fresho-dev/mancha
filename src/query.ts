@@ -4,7 +4,7 @@ const KEY_PREFIX = "$$";
 const FALLBACK_URL = "http://localhost/";
 
 function getWindowURL(): URL {
-  return new URL(globalThis.window?.location?.href || FALLBACK_URL);
+	return new URL(globalThis.window?.location?.href || FALLBACK_URL);
 }
 
 /**
@@ -13,7 +13,7 @@ function getWindowURL(): URL {
  * @returns The URL parameter name (e.g., "page")
  */
 function _storeKeyToParamName(storeKey: string): string {
-  return storeKey.substring(KEY_PREFIX.length);
+	return storeKey.substring(KEY_PREFIX.length);
 }
 
 /**
@@ -22,7 +22,7 @@ function _storeKeyToParamName(storeKey: string): string {
  * @returns The store key (e.g., "$$page")
  */
 function paramNameToStoreKey(paramName: string): string {
-  return `${KEY_PREFIX}${paramName}`;
+	return `${KEY_PREFIX}${paramName}`;
 }
 
 /**
@@ -31,7 +31,7 @@ function paramNameToStoreKey(paramName: string): string {
  * @returns Array of store keys
  */
 function getQueryStoreKeys(renderer: IRenderer): string[] {
-  return renderer.keys().filter((k) => k.startsWith(KEY_PREFIX));
+	return renderer.keys().filter((k) => k.startsWith(KEY_PREFIX));
 }
 
 /**
@@ -40,12 +40,12 @@ function getQueryStoreKeys(renderer: IRenderer): string[] {
  * @param url The URL to read parameters from
  */
 async function updateStoreFromUrl(renderer: IRenderer, url: URL): Promise<void> {
-  for (const [paramName, value] of url.searchParams.entries()) {
-    const storeKey = paramNameToStoreKey(paramName);
-    if (renderer.get(storeKey) !== value) {
-      await renderer.set(storeKey, value);
-    }
-  }
+	for (const [paramName, value] of url.searchParams.entries()) {
+		const storeKey = paramNameToStoreKey(paramName);
+		if (renderer.get(storeKey) !== value) {
+			await renderer.set(storeKey, value);
+		}
+	}
 }
 
 /**
@@ -56,23 +56,23 @@ async function updateStoreFromUrl(renderer: IRenderer, url: URL): Promise<void> 
  * @returns Whether the URL was changed
  */
 function updateUrlFromStoreValue(url: URL, storeKey: string, value: any): boolean {
-  const paramName = _storeKeyToParamName(storeKey);
-  let changed = false;
+	const paramName = _storeKeyToParamName(storeKey);
+	let changed = false;
 
-  if (!value) {
-    if (url.searchParams.has(paramName)) {
-      url.searchParams.delete(paramName);
-      changed = true;
-    }
-  } else {
-    const newVal = String(value);
-    if (url.searchParams.get(paramName) !== newVal) {
-      url.searchParams.set(paramName, newVal);
-      changed = true;
-    }
-  }
+	if (!value) {
+		if (url.searchParams.has(paramName)) {
+			url.searchParams.delete(paramName);
+			changed = true;
+		}
+	} else {
+		const newVal = String(value);
+		if (url.searchParams.get(paramName) !== newVal) {
+			url.searchParams.set(paramName, newVal);
+			changed = true;
+		}
+	}
 
-  return changed;
+	return changed;
 }
 
 /**
@@ -82,15 +82,15 @@ function updateUrlFromStoreValue(url: URL, storeKey: string, value: any): boolea
  * @param renderer The renderer instance
  */
 function updateUrlFromStore(url: URL, renderer: IRenderer): void {
-  let changed = false;
-  for (const key of getQueryStoreKeys(renderer)) {
-    if (updateUrlFromStoreValue(url, key, renderer.get(key))) {
-      changed = true;
-    }
-  }
-  if (changed) {
-    globalThis.window?.history?.replaceState({}, "", url.toString());
-  }
+	let changed = false;
+	for (const key of getQueryStoreKeys(renderer)) {
+		if (updateUrlFromStoreValue(url, key, renderer.get(key))) {
+			changed = true;
+		}
+	}
+	if (changed) {
+		globalThis.window?.history?.replaceState({}, "", url.toString());
+	}
 }
 
 /**
@@ -100,27 +100,27 @@ function updateUrlFromStore(url: URL, renderer: IRenderer): void {
  * @returns A function to be used as an event listener.
  */
 function createStoreUpdater(renderer: IRenderer): () => void {
-  return async () => {
-    const url = getWindowURL();
-    const presentKeysInUrl = new Set<string>();
+	return async () => {
+		const url = getWindowURL();
+		const presentKeysInUrl = new Set<string>();
 
-    // Add/update params in store from URL
-    for (const [key, value] of url.searchParams.entries()) {
-      const storeKey = paramNameToStoreKey(key);
-      presentKeysInUrl.add(storeKey);
-      if (renderer.get(storeKey) !== value) {
-        renderer.set(storeKey, value);
-      }
-    }
+		// Add/update params in store from URL
+		for (const [key, value] of url.searchParams.entries()) {
+			const storeKey = paramNameToStoreKey(key);
+			presentKeysInUrl.add(storeKey);
+			if (renderer.get(storeKey) !== value) {
+				renderer.set(storeKey, value);
+			}
+		}
 
-    // Remove params from store that are no longer in URL
-    const allQueryKeys = getQueryStoreKeys(renderer);
-    for (const key of allQueryKeys) {
-      if (!presentKeysInUrl.has(key)) {
-        renderer.del(key);
-      }
-    }
-  };
+		// Remove params from store that are no longer in URL
+		const allQueryKeys = getQueryStoreKeys(renderer);
+		for (const key of allQueryKeys) {
+			if (!presentKeysInUrl.has(key)) {
+				renderer.del(key);
+			}
+		}
+	};
 }
 
 /**
@@ -134,24 +134,24 @@ function createStoreUpdater(renderer: IRenderer): () => void {
  * @param renderer The renderer instance.
  */
 export async function setupQueryParamBindings(renderer: IRenderer): Promise<void> {
-  const url = getWindowURL();
+	const url = getWindowURL();
 
-  // First, update store with URL parameters (URL takes precedence over existing store values)
-  await updateStoreFromUrl(renderer, url);
+	// First, update store with URL parameters (URL takes precedence over existing store values)
+	await updateStoreFromUrl(renderer, url);
 
-  // Then, update URL with any store defaults that aren't already in the URL
-  updateUrlFromStore(url, renderer);
+	// Then, update URL with any store defaults that aren't already in the URL
+	updateUrlFromStore(url, renderer);
 
-  // Set up the URL updater to listen for changes in the store.
-  renderer.addKeyHandler(new RegExp(`^\\$\\$`), (key, value) => {
-    const url = getWindowURL();
-    const changed = updateUrlFromStoreValue(url, key, value);
+	// Set up the URL updater to listen for changes in the store.
+	renderer.addKeyHandler(new RegExp(`^\\$\\$`), (key, value) => {
+		const url = getWindowURL();
+		const changed = updateUrlFromStoreValue(url, key, value);
 
-    if (changed) {
-      globalThis.window?.history?.replaceState({}, "", url.toString());
-    }
-  });
+		if (changed) {
+			globalThis.window?.history?.replaceState({}, "", url.toString());
+		}
+	});
 
-  // Set up the popstate listener to update the store when the URL changes.
-  globalThis.window?.addEventListener("popstate", createStoreUpdater(renderer));
+	// Set up the popstate listener to update the store when the URL changes.
+	globalThis.window?.addEventListener("popstate", createStoreUpdater(renderer));
 }

@@ -1,1 +1,0 @@
-../../dist/mancha.js

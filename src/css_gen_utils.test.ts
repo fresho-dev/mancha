@@ -2,52 +2,52 @@ import rules from "./css_gen_utils.js";
 import { assert } from "./test_utils.js";
 
 describe("CSS Generation Utils", () => {
-  describe("rules", () => {
-    it("generates CSS rules", () => {
-      const css = rules();
-      assert.ok(css.length > 0, "CSS should not be empty");
-      assert.ok(css.includes(".flex {"), "Should include flex utility");
-      assert.ok(css.includes(".hidden {"), "Should include hidden utility");
-      assert.ok(css.includes(".text-center {"), "Should include text-center utility");
-    });
+	describe("rules", () => {
+		it("generates CSS rules", () => {
+			const css = rules();
+			assert.ok(css.length > 0, "CSS should not be empty");
+			assert.ok(css.includes(".flex {"), "Should include flex utility");
+			assert.ok(css.includes(".hidden {"), "Should include hidden utility");
+			assert.ok(css.includes(".text-center {"), "Should include text-center utility");
+		});
 
-    it("includes color utilities", () => {
-      const css = rules();
-      assert.ok(css.includes(".text-red-500 {"), "Should include text-red-500");
-      assert.ok(css.includes(".bg-blue-500 {"), "Should include bg-blue-500");
-      assert.ok(css.includes(".border-green-500 {"), "Should include border-green-500");
-    });
+		it("includes color utilities", () => {
+			const css = rules();
+			assert.ok(css.includes(".text-red-500 {"), "Should include text-red-500");
+			assert.ok(css.includes(".bg-blue-500 {"), "Should include bg-blue-500");
+			assert.ok(css.includes(".border-green-500 {"), "Should include border-green-500");
+		});
 
-    it("includes responsive variants", () => {
-      const css = rules();
-      assert.ok(css.includes("@media (min-width: 640px)"), "Should include sm breakpoint");
-      assert.ok(css.includes("@media (min-width: 768px)"), "Should include md breakpoint");
-      assert.ok(css.includes("@media (min-width: 1024px)"), "Should include lg breakpoint");
-    });
+		it("includes responsive variants", () => {
+			const css = rules();
+			assert.ok(css.includes("@media (min-width: 640px)"), "Should include sm breakpoint");
+			assert.ok(css.includes("@media (min-width: 768px)"), "Should include md breakpoint");
+			assert.ok(css.includes("@media (min-width: 1024px)"), "Should include lg breakpoint");
+		});
 
-    it("includes pseudo-state variants", () => {
-      const css = rules();
-      assert.ok(css.includes(".hover\\:"), "Should include hover variants");
-      assert.ok(css.includes(".focus\\:"), "Should include focus variants");
-    });
+		it("includes pseudo-state variants", () => {
+			const css = rules();
+			assert.ok(css.includes(".hover\\:"), "Should include hover variants");
+			assert.ok(css.includes(".focus\\:"), "Should include focus variants");
+		});
 
-    it("memoizes results for performance", () => {
-      // First call (may be cached from previous tests, but that's fine)
-      const start1 = performance.now();
-      const css1 = rules();
-      const time1 = performance.now() - start1;
+		it("memoizes results for performance", () => {
+			// First call (may be cached from previous tests, but that's fine)
+			const start1 = performance.now();
+			const css1 = rules();
+			const time1 = performance.now() - start1;
 
-      // Second call (should be instant due to memoization)
-      const start2 = performance.now();
-      const css2 = rules();
-      const time2 = performance.now() - start2;
+			// Second call (should be instant due to memoization)
+			const start2 = performance.now();
+			const css2 = rules();
+			const time2 = performance.now() - start2;
 
-      // Results should be identical (same reference due to memoization)
-      assert.equal(css1, css2, "Memoized result should be identical");
+			// Results should be identical (same reference due to memoization)
+			assert.equal(css1, css2, "Memoized result should be identical");
 
-      // Second call should be significantly faster (at least 10x)
-      // We use a generous threshold since first call might also be cached
-      assert.ok(time2 < 10, `Second call should be fast (was ${time2.toFixed(2)}ms)`);
-    });
-  });
+			// Second call should be significantly faster (at least 10x)
+			// We use a generous threshold since first call might also be cached
+			assert.ok(time2 < 10, `Second call should be fast (was ${time2.toFixed(2)}ms)`);
+		});
+	});
 });
