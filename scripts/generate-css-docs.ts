@@ -115,7 +115,7 @@ function generateMarkdown() {
 	md += "### Shadows & Effects\n\n";
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
-	const effectProps = ["shadow", "mix-blend-"];
+	const effectProps = ["shadow", "ring", "mix-blend-"];
 	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
 		if (effectProps.some((p) => klass.startsWith(p))) {
 			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
@@ -124,6 +124,39 @@ function generateMarkdown() {
 	// Document opacity
 	md += "| `opacity-0` | Fully transparent |\n";
 	md += `| \`opacity-{${PERCENTS.join(",")}}\` | Opacity values from 0-100 |\n`;
+	md += "\n";
+
+	md += "### Outline\n\n";
+	md += "| Utility | Description |\n";
+	md += "| --- | --- |\n";
+	const outlineProps = ["outline"];
+	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+		if (outlineProps.some((p) => klass.startsWith(p))) {
+			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+		}
+	}
+	md += "\n";
+
+	md += "### Aspect Ratio\n\n";
+	md += "| Utility | Description |\n";
+	md += "| --- | --- |\n";
+	const aspectProps = ["aspect-"];
+	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+		if (aspectProps.some((p) => klass.startsWith(p))) {
+			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+		}
+	}
+	md += "\n";
+
+	md += "### Backdrop Filters\n\n";
+	md += "| Utility | Description |\n";
+	md += "| --- | --- |\n";
+	const backdropProps = ["backdrop-"];
+	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+		if (backdropProps.some((p) => klass.startsWith(p))) {
+			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+		}
+	}
 	md += "\n";
 
 	md += "### Transitions & Animations\n\n";
@@ -208,6 +241,15 @@ function generateMarkdown() {
 	md += "| `space-y-{0-512}` | Vertical spacing between children (rem) |\n";
 	md += "| `space-x-{0-512}px` | Horizontal spacing between children (px) |\n";
 	md += "| `space-y-{0-512}px` | Vertical spacing between children (px) |\n";
+	// Document divide utilities
+	md += "| `divide-x` | Add 1px vertical border between horizontal children |\n";
+	md += "| `divide-y` | Add 1px horizontal border between vertical children |\n";
+	md += "| `divide-x-{0,2,4,8}` | Vertical border width between horizontal children |\n";
+	md += "| `divide-y-{0,2,4,8}` | Horizontal border width between vertical children |\n";
+	md += "| `divide-solid` | Solid border style for dividers |\n";
+	md += "| `divide-dashed` | Dashed border style for dividers |\n";
+	md += "| `divide-dotted` | Dotted border style for dividers |\n";
+	md += "| `divide-none` | Remove divider borders |\n";
 	md += "\n";
 
 	md += "### Position & Inset\n\n";
@@ -335,6 +377,9 @@ function generateMarkdown() {
 		...alignProps,
 		...a11yProps,
 		...viewportProps,
+		...outlineProps,
+		...aspectProps,
+		...backdropProps,
 		"w-",
 		"h-",
 		"min-w-",
@@ -354,6 +399,7 @@ function generateMarkdown() {
 		"duration-",
 		"gap-",
 		"space-",
+		"divide-",
 	];
 	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
 		if (!allHandledPrefixes.some((p) => klass.startsWith(p) || klass === p)) {
