@@ -125,17 +125,66 @@ Supported prefixes: `text-`, `bg-`, `border-`, `fill-`.
 
 | Utility | Description |
 | --- | --- |
-| `shadow` | `{"box-shadow":"0 0 1px 0 rgba(0, 0, 0, 0.05)"}` |
-| `shadow-sm` | `{"box-shadow":"0 1px 2px 0 rgba(0, 0, 0, 0.05)"}` |
-| `shadow-md` | `{"box-shadow":"0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)"}` |
-| `shadow-lg` | `{"box-shadow":"0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)"}` |
-| `shadow-xl` | `{"box-shadow":"0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"}` |
-| `shadow-2xl` | `{"box-shadow":"0 25px 50px -12px rgba(0, 0, 0, 0.25)"}` |
-| `shadow-inner` | `{"box-shadow":"inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)"}` |
-| `shadow-outline` | `{"box-shadow":"0 0 0 3px rgba(66, 153, 225, 0.5)"}` |
-| `shadow-none` | `{"box-shadow":"none"}` |
+| `shadow-2xs` | `{"box-shadow":"0 1px rgb(0 0 0 / 0.05)"}` |
+| `shadow-xs` | `{"box-shadow":"0 1px 2px 0 rgb(0 0 0 / 0.05)"}` |
+| `shadow` | `{"box-shadow":"0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)"}` |
+| `shadow-sm` | `{"box-shadow":"0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)"}` |
+| `shadow-md` | `{"box-shadow":"0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"}` |
+| `shadow-lg` | `{"box-shadow":"0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)"}` |
+| `shadow-xl` | `{"box-shadow":"0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)"}` |
+| `shadow-2xl` | `{"box-shadow":"0 25px 50px -12px rgb(0 0 0 / 0.25)"}` |
+| `shadow-inner` | `{"box-shadow":"inset 0 2px 4px 0 rgb(0 0 0 / 0.05)"}` |
+| `shadow-none` | `{"box-shadow":"0 0 #0000"}` |
+| `ring` | `{"box-shadow":"0 0 0 3px rgb(59 130 246 / 0.5)"}` |
+| `ring-0` | `{"box-shadow":"0 0 0 0px rgb(59 130 246 / 0.5)"}` |
+| `ring-1` | `{"box-shadow":"0 0 0 1px rgb(59 130 246 / 0.5)"}` |
+| `ring-2` | `{"box-shadow":"0 0 0 2px rgb(59 130 246 / 0.5)"}` |
+| `ring-4` | `{"box-shadow":"0 0 0 4px rgb(59 130 246 / 0.5)"}` |
+| `ring-8` | `{"box-shadow":"0 0 0 8px rgb(59 130 246 / 0.5)"}` |
+| `ring-inset` | `{"--tw-ring-inset":"inset"}` |
 | `opacity-0` | Fully transparent |
 | `opacity-{1,2,5,10,20,25,30,40,50,60,70,75,80,90,95,98,99,100}` | Opacity values from 0-100 |
+
+### Outline
+
+| Utility | Description |
+| --- | --- |
+| `outline` | `{"outline-style":"solid"}` |
+| `outline-none` | `{"outline":"2px solid transparent","outline-offset":"2px"}` |
+| `outline-dashed` | `{"outline-style":"dashed"}` |
+| `outline-dotted` | `{"outline-style":"dotted"}` |
+| `outline-double` | `{"outline-style":"double"}` |
+| `outline-0` | `{"outline-width":"0px"}` |
+| `outline-1` | `{"outline-width":"1px"}` |
+| `outline-2` | `{"outline-width":"2px"}` |
+| `outline-4` | `{"outline-width":"4px"}` |
+| `outline-8` | `{"outline-width":"8px"}` |
+| `outline-offset-0` | `{"outline-offset":"0px"}` |
+| `outline-offset-1` | `{"outline-offset":"1px"}` |
+| `outline-offset-2` | `{"outline-offset":"2px"}` |
+| `outline-offset-4` | `{"outline-offset":"4px"}` |
+| `outline-offset-8` | `{"outline-offset":"8px"}` |
+
+### Aspect Ratio
+
+| Utility | Description |
+| --- | --- |
+| `aspect-auto` | `{"aspect-ratio":"auto"}` |
+| `aspect-square` | `{"aspect-ratio":"1 / 1"}` |
+| `aspect-video` | `{"aspect-ratio":"16 / 9"}` |
+
+### Backdrop Filters
+
+| Utility | Description |
+| --- | --- |
+| `backdrop-blur-none` | `{"backdrop-filter":"blur(0)"}` |
+| `backdrop-blur-sm` | `{"backdrop-filter":"blur(4px)"}` |
+| `backdrop-blur` | `{"backdrop-filter":"blur(8px)"}` |
+| `backdrop-blur-md` | `{"backdrop-filter":"blur(12px)"}` |
+| `backdrop-blur-lg` | `{"backdrop-filter":"blur(16px)"}` |
+| `backdrop-blur-xl` | `{"backdrop-filter":"blur(24px)"}` |
+| `backdrop-blur-2xl` | `{"backdrop-filter":"blur(40px)"}` |
+| `backdrop-blur-3xl` | `{"backdrop-filter":"blur(64px)"}` |
 
 ### Transitions & Animations
 
@@ -291,6 +340,14 @@ Supported prefixes: `text-`, `bg-`, `border-`, `fill-`.
 | `space-y-{0-512}` | Vertical spacing between children (rem) |
 | `space-x-{0-512}px` | Horizontal spacing between children (px) |
 | `space-y-{0-512}px` | Vertical spacing between children (px) |
+| `divide-x` | Add 1px vertical border between horizontal children |
+| `divide-y` | Add 1px horizontal border between vertical children |
+| `divide-x-{0,2,4,8}` | Vertical border width between horizontal children |
+| `divide-y-{0,2,4,8}` | Horizontal border width between vertical children |
+| `divide-solid` | Solid border style for dividers |
+| `divide-dashed` | Dashed border style for dividers |
+| `divide-dotted` | Dotted border style for dividers |
+| `divide-none` | Remove divider borders |
 
 ### Position & Inset
 
