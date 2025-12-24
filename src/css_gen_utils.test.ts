@@ -32,6 +32,13 @@ describe("CSS Generation Utils", () => {
 			assert.ok(css.includes(".min-h-lg { min-height: 1024px }"), "Should include min-h-lg utility");
 		});
 
+		it("includes grid utilities", () => {
+			const css = rules();
+			assert.ok(css.includes(".grid { display: grid }"), "Should include grid utility");
+			assert.ok(css.includes(".grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) }"), "Should include grid-cols-3");
+			assert.ok(css.includes(".col-span-2 { grid-column: span 2 / span 2 }"), "Should include col-span-2");
+		});
+
 		it("includes pseudo-state variants", () => {
 			const css = rules();
 			assert.ok(css.includes(".hover\\:"), "Should include hover variants");
