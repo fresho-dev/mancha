@@ -664,6 +664,7 @@ function posneg(props: { [key: string]: string }): string[] {
 			...UNITS_ALL.map((v) => [`-${klass}-${v}px`, `${prop}: -${v}px`]),
 			...PERCENTS.map((v) => [`${klass}-${v}\\%`, `${prop}: ${v}%`]),
 			...PERCENTS.map((v) => [`-${klass}-${v}\\%`, `${prop}: -${v}%`]),
+			...MEDIA_ENTRIES.map(([bp, width]) => [`${klass}-${bp}`, `${prop}: ${width}px`]),
 		]),
 	);
 }

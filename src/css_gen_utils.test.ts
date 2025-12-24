@@ -25,6 +25,13 @@ describe("CSS Generation Utils", () => {
 			assert.ok(css.includes("@media (min-width: 1024px)"), "Should include lg breakpoint");
 		});
 
+		it("includes size utilities matching media breakpoints", () => {
+			const css = rules();
+			assert.ok(css.includes(".w-sm { width: 640px }"), "Should include w-sm utility");
+			assert.ok(css.includes(".max-w-md { max-width: 768px }"), "Should include max-w-md utility");
+			assert.ok(css.includes(".min-h-lg { min-height: 1024px }"), "Should include min-h-lg utility");
+		});
+
 		it("includes pseudo-state variants", () => {
 			const css = rules();
 			assert.ok(css.includes(".hover\\:"), "Should include hover variants");

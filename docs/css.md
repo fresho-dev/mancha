@@ -61,9 +61,11 @@ Spacing utilities use a 0.25rem (4px) unit by default.
 | Prefix | Property | Values |
 | --- | --- | --- |
 | `w-` | `width` | `0`, `full` (100%), `screen` (100vw/vh), `auto`, `px`, `0.25rem` - `128rem` |
+| `w-sm/md/lg/xl` | `width` | Match media breakpoints (e.g. `w-sm`, `max-w-lg`) |
 | `w-dvw/dvh/svw/svh/lvw/lvh` | `width` | Viewport-relative units |
 | `w-fit/min/max` | `width` | `fit-content`, `min-content`, `max-content` |
 | `h-` | `height` | `0`, `full` (100%), `screen` (100vw/vh), `auto`, `px`, `0.25rem` - `128rem` |
+| `h-sm/md/lg/xl` | `height` | Match media breakpoints (e.g. `w-sm`, `max-w-lg`) |
 | `h-dvw/dvh/svw/svh/lvw/lvh` | `height` | Viewport-relative units |
 | `h-fit/min/max` | `height` | `fit-content`, `min-content`, `max-content` |
 | `min-w-` | `min-width` | Same as sizing |

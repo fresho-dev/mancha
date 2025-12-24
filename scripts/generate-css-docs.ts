@@ -76,6 +76,7 @@ function generateMarkdown() {
 	md += "| --- | --- | --- |\n";
 	for (const [prop, prefix] of Object.entries(PROPS_SIZING)) {
 		md += `| \`${prefix}-\` | \`${prop}\` | \`0\`, \`full\` (100%), \`screen\` (100vw/vh), \`auto\`, \`px\`, \`0.25rem\` - \`128rem\` |\n`;
+		md += `| \`${prefix}-sm/md/lg/xl\` | \`${prop}\` | Match media breakpoints (e.g. \`w-sm\`, \`max-w-lg\`) |\n`;
 		md += `| \`${prefix}-dvw/dvh/svw/svh/lvw/lvh\` | \`${prop}\` | Viewport-relative units |\n`;
 		md += `| \`${prefix}-fit/min/max\` | \`${prop}\` | \`fit-content\`, \`min-content\`, \`max-content\` |\n`;
 	}
