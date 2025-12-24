@@ -47,7 +47,7 @@ None of them have all the key features that make `mancha` unique:
 | Feature               | mancha | Svelte | React.js | Vue.js | petite-vue | Alpine.js |
 | --------------------- | ------ | ------ | -------- | ------ | ---------- | --------- |
 | Simple to learn       | ✔️     | ❌     | ❌       | ❌     | ✔️         | ✔️        |
-| < 16kb compressed     | ✔️     | ✔️     | ❌       | ❌     | ✔️         | ❌        |
+| < 17kb compressed     | ✔️     | ✔️     | ❌       | ❌     | ✔️         | ❌        |
 | Custom web components | ✔️     | ✔️     | ✔️       | ✔️     | ❌         | ❌        |
 | Client-side rendering | ✔️     | ❌     | ❌       | ✔️     | ✔️         | ✔️        |
 | Server-side rendering | ✔️     | ✔️     | ✔️       | ✔️     | ❌         | ❌        |

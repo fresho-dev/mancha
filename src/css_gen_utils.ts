@@ -159,6 +159,7 @@ export const PROPS_CUSTOM = {
 	"list-decimal": { "list-style-type": "decimal" },
 	// Flex.
 	flex: { display: "flex" },
+	grid: { display: "grid" },
 	"flex-1": { flex: "1 1 0%" },
 	"flex-inline": { display: "inline-flex" },
 	"flex-row": { "flex-direction": "row" },
@@ -808,6 +809,38 @@ function textSizes(): string[] {
 	]);
 }
 
+function gridPatterns(): string[] {
+	return wrapAll([
+		// Grid template columns
+		// grid-cols-1 to grid-cols-12
+		...Array.from({ length: 12 }, (_, i) => i + 1).map((n) => [
+			`grid-cols-${n}`,
+			`grid-template-columns: repeat(${n}, minmax(0, 1fr))`,
+		]),
+		[`grid-cols-none`, `grid-template-columns: none`],
+
+		// Grid column span
+		// col-span-1 to col-span-12
+		...Array.from({ length: 12 }, (_, i) => i + 1).map((n) => [
+			`col-span-${n}`,
+			`grid-column: span ${n} / span ${n}`,
+		]),
+		[`col-span-full`, `grid-column: 1 / -1`],
+
+		// Grid column start/end
+		...Array.from({ length: 13 }, (_, i) => i + 1).map((n) => [
+			`col-start-${n}`,
+			`grid-column-start: ${n}`,
+		]),
+		[`col-start-auto`, `grid-column-start: auto`],
+		...Array.from({ length: 13 }, (_, i) => i + 1).map((n) => [
+			`col-end-${n}`,
+			`grid-column-end: ${n}`,
+		]),
+		[`col-end-auto`, `grid-column-end: auto`],
+	]);
+}
+
 function custom(): string[] {
 	return Object.entries(PROPS_CUSTOM).flatMap(([klass, props]) => {
 		const rules = Object.entries(props)
@@ -879,6 +912,8 @@ export default function rules(): string {
 		...border(),
 		// Text sizes.
 		...textSizes(),
+		// Grid.
+		...gridPatterns(),
 	]
 		// Sort lexicographical to ensure media queries appear after their base rules.
 		.sort(ruleSorter)

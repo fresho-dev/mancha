@@ -253,6 +253,27 @@ function generateMarkdown() {
 	md += "| `divide-none` | Remove divider borders |\n";
 	md += "\n";
 
+	md += "### Grid Layout\n\n";
+	md += "| Utility | Description |\n";
+	md += "| --- | --- |\n";
+
+	// Static grid properties from PROPS_CUSTOM if any (like 'grid')
+	const gridProps = ["grid"];
+	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+		if (gridProps.some((p) => klass === p)) {
+			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+		}
+	}
+
+	md += "| `grid-cols-{1-12}` | `grid-template-columns: repeat(n, minmax(0, 1fr))` |\n";
+	md += "| `grid-cols-none` | `grid-template-columns: none` |\n";
+	md += "| `col-span-{1-12}` | `grid-column: span n / span n` |\n";
+	md += "| `col-span-full` | `grid-column: 1 / -1` |\n";
+	md += "| `col-start-{1-13}` | `grid-column-start: n` |\n";
+	md += "| `col-end-{1-13}` | `grid-column-end: n` |\n";
+	md += "| `col-start/end-auto` | `grid-column-start/end: auto` |\n";
+	md += "\n";
+
 	md += "### Position & Inset\n\n";
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
@@ -401,6 +422,8 @@ function generateMarkdown() {
 		"gap-",
 		"space-",
 		"divide-",
+		"grid-",
+		"col-",
 	];
 	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
 		if (!allHandledPrefixes.some((p) => klass.startsWith(p) || klass === p)) {

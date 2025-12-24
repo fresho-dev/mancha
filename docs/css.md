@@ -351,6 +351,19 @@ Supported prefixes: `text-`, `bg-`, `border-`, `fill-`.
 | `divide-dotted` | Dotted border style for dividers |
 | `divide-none` | Remove divider borders |
 
+### Grid Layout
+
+| Utility | Description |
+| --- | --- |
+| `grid` | `{"display":"grid"}` |
+| `grid-cols-{1-12}` | `grid-template-columns: repeat(n, minmax(0, 1fr))` |
+| `grid-cols-none` | `grid-template-columns: none` |
+| `col-span-{1-12}` | `grid-column: span n / span n` |
+| `col-span-full` | `grid-column: 1 / -1` |
+| `col-start-{1-13}` | `grid-column-start: n` |
+| `col-end-{1-13}` | `grid-column-end: n` |
+| `col-start/end-auto` | `grid-column-start/end: auto` |
+
 ### Position & Inset
 
 | Utility | Description |
@@ -468,6 +481,7 @@ Supported prefixes: `text-`, `bg-`, `border-`, `fill-`.
 | Utility | Description |
 | --- | --- |
 | `no-underline` | `{"text-decoration":"none"}` |
+| `grid` | `{"display":"grid"}` |
 | `box-border` | `{"box-sizing":"border-box"}` |
 | `box-content` | `{"box-sizing":"content-box"}` |
 | `text-{0-99}px` | Font size in pixels (e.g., `text-12px`, `text-16px`) |
