@@ -16,7 +16,7 @@ export const UNITS_ALL = [
 	...Object.values(MEDIA_BREAKPOINTS),
 ];
 export const PERCENTS = [1, 2, 5, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 95, 98, 99, 100];
-export const DURATIONS = [75, 100, 150, 200, 300, 500, 700, 1000];
+export const DURATIONS = [25, 50, 75, 100, 150, 200, 300, 500, 700, 1000];
 const PSEUDO_STATES = ["hover", "focus", "disabled", "active"];
 export const PROPS_SPACING = {
 	margin: "m",
@@ -298,7 +298,11 @@ export const PROPS_CUSTOM = {
 	"backdrop-blur-3xl": { "backdrop-filter": "blur(64px)" },
 	// Transitions.
 	"transition-none": { transition: "none" },
-	transition: { transition: `all 150ms ease-in-out` },
+	transition: {
+		"transition-property": "all",
+		"transition-timing-function": "ease-in-out",
+		"transition-duration": "var(--transition-duration, 150ms)",
+	},
 	// Animations.
 	"animate-none": { animation: "none" },
 	"animate-spin": { animation: "spin 1s linear infinite" },
@@ -758,7 +762,12 @@ function zIndex(): string[] {
 }
 
 function transitions(): string[] {
-	return wrapAll(DURATIONS.map((v) => [`duration-${v}`, `transition-duration: ${v}ms`]));
+	return wrapAll(
+		DURATIONS.map((v) => [
+			`duration-${v}`,
+			`--transition-duration: ${v}ms; transition-duration: ${v}ms`,
+		]),
+	);
 }
 
 function between(): string[] {
