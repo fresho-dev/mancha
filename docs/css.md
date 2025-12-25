@@ -193,12 +193,12 @@ Supported prefixes: `text-`, `bg-`, `border-`, `fill-`.
 | Utility | Description |
 | --- | --- |
 | `transition-none` | `{"transition":"none"}` |
-| `transition` | `{"transition":"all 150ms ease-in-out"}` |
+| `transition` | `{"transition-property":"all","transition-timing-function":"ease-in-out","transition-duration":"var(--transition-duration, 150ms)"}` |
 | `animate-none` | `{"animation":"none"}` |
 | `animate-spin` | `{"animation":"spin 1s linear infinite"}` |
 | `animate-ping` | `{"animation":"ping 1s cubic-bezier(0, 0, 0.2, 1) infinite"}` |
 | `animate-pulse` | `{"animation":"pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite"}` |
-| `duration-{75,100,150,200,300,500,700,1000}` | Transition duration in milliseconds |
+| `duration-{25,50,75,100,150,200,300,500,700,1000}` | Transition duration in milliseconds |
 
 ### Interactivity
 
