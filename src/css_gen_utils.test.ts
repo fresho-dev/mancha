@@ -45,6 +45,13 @@ describe("CSS Generation Utils", () => {
 			assert.ok(css.includes(".focus\\:"), "Should include focus variants");
 		});
 
+		it("supports ring-inset", () => {
+			const css = rules();
+			assert.ok(css.includes(".ring {"), "Should include ring utility");
+			assert.ok(css.includes("var(--ring-inset, )"), "Ring should use --ring-inset variable");
+			assert.ok(css.includes(".ring-inset { --ring-inset: inset }"), "ring-inset should define variable");
+		});
+
 		it("memoizes results for performance", () => {
 			// First call (may be cached from previous tests, but that's fine)
 			const start1 = performance.now();

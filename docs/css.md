@@ -137,13 +137,13 @@ Supported prefixes: `text-`, `bg-`, `border-`, `fill-`.
 | `shadow-2xl` | `{"box-shadow":"0 25px 50px -12px rgb(0 0 0 / 0.25)"}` |
 | `shadow-inner` | `{"box-shadow":"inset 0 2px 4px 0 rgb(0 0 0 / 0.05)"}` |
 | `shadow-none` | `{"box-shadow":"0 0 #0000"}` |
-| `ring` | `{"box-shadow":"0 0 0 3px rgb(59 130 246 / 0.5)"}` |
-| `ring-0` | `{"box-shadow":"0 0 0 0px rgb(59 130 246 / 0.5)"}` |
-| `ring-1` | `{"box-shadow":"0 0 0 1px rgb(59 130 246 / 0.5)"}` |
-| `ring-2` | `{"box-shadow":"0 0 0 2px rgb(59 130 246 / 0.5)"}` |
-| `ring-4` | `{"box-shadow":"0 0 0 4px rgb(59 130 246 / 0.5)"}` |
-| `ring-8` | `{"box-shadow":"0 0 0 8px rgb(59 130 246 / 0.5)"}` |
-| `ring-inset` | `{"--tw-ring-inset":"inset"}` |
+| `ring` | `{"box-shadow":"var(--ring-inset, ) 0 0 0 3px rgb(59 130 246 / 0.5)"}` |
+| `ring-0` | `{"box-shadow":"var(--ring-inset, ) 0 0 0 0px rgb(59 130 246 / 0.5)"}` |
+| `ring-1` | `{"box-shadow":"var(--ring-inset, ) 0 0 0 1px rgb(59 130 246 / 0.5)"}` |
+| `ring-2` | `{"box-shadow":"var(--ring-inset, ) 0 0 0 2px rgb(59 130 246 / 0.5)"}` |
+| `ring-4` | `{"box-shadow":"var(--ring-inset, ) 0 0 0 4px rgb(59 130 246 / 0.5)"}` |
+| `ring-8` | `{"box-shadow":"var(--ring-inset, ) 0 0 0 8px rgb(59 130 246 / 0.5)"}` |
+| `ring-inset` | `{"--ring-inset":"inset"}` |
 | `opacity-0` | Fully transparent |
 | `opacity-{1,2,5,10,20,25,30,40,50,60,70,75,80,90,95,98,99,100}` | Opacity values from 0-100 |
 
