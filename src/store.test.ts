@@ -480,6 +480,22 @@ describe("SignalStore", () => {
 				await new Promise((resolve) => setTimeout(resolve, 10));
 				assert.equal(notified, 2);
 			});
+
+			it("allows semicolons in string literals", async () => {
+				const store = new SignalStore({ a: "initial" });
+				store.eval("a = 'foo;bar'");
+				assert.equal(store.get("a"), "foo;bar");
+			});
+
+			it("fails on multiple statements (semicolon separator)", async () => {
+				const store = new SignalStore({ a: 1, b: 2 });
+				// This should fail to parse and return null (and log an error)
+				// The tokenizer throws "Expected end of input" or similar because ';' is not a token
+				const result = store.eval("a = 10; b = 20");
+				assert.equal(result, null);
+				assert.equal(store.get("a"), 1); // Should not have changed
+				assert.equal(store.get("b"), 2); // Should not have changed
+			});
 		});
 	});
 

@@ -305,10 +305,7 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 	 * @returns The evaluation function.
 	 */
 	private makeEvalFunction(expr: string): EvalFunction {
-		// Throw an error if the expression is not a simple one-liner.
-		if (expr.includes(";")) {
-			throw new Error("Complex expressions are not supported.");
-		}
+
 
 		return (thisArg: SignalStoreProxy, args: { [key: string]: unknown }) => {
 			const ast = expressions.parse(expr, AST_FACTORY);
