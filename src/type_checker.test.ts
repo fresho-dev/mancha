@@ -239,7 +239,7 @@ describe("typeCheck", function () {
 					assert.ok(
 						diagnostic.start < html.length,
 						`Error position ${diagnostic.start} exceeds HTML length ${html.length}. ` +
-							`Message: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`,
+						`Message: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`,
 					);
 				}
 			}
@@ -270,8 +270,8 @@ describe("typeCheck", function () {
 					assert.ok(
 						diagnostic.start < html.length,
 						`Diagnostic position ${diagnostic.start} exceeds HTML length ${html.length}. ` +
-							`This may indicate a diagnostic from an imported file wasn't filtered out. ` +
-							`Message: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`,
+						`This may indicate a diagnostic from an imported file wasn't filtered out. ` +
+						`Message: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`,
 					);
 				}
 			}
@@ -1485,6 +1485,57 @@ describe("typeCheck", function () {
 
 			assert.ok(duration < 5000, `Type checking took ${duration}ms, should be < 5000ms`);
 			assert.equal(diagnostics.length, 0);
+		});
+	});
+
+	describe("property binding syntax", () => {
+		it("should flag :src usage as error by default", async function () {
+			const html = `<div :types='{"url": "string"}'><img :src="url" /></div>`;
+			const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+			assert.equal(diagnostics.length, 1, "Should have 1 diagnostic");
+			assert.ok(
+				/Property 'src' must be bound using ':prop:src' instead of ':src'/.test(
+					ts.flattenDiagnosticMessageText(diagnostics[0].messageText, "\n"),
+				),
+			);
+		});
+
+		it("should allow :src usage if ignored", async function () {
+			const html = `<div :types='{"url": "string"}'><img :src="url" /></div>`;
+			const diagnostics = await typeCheck(html, {
+				strict: false,
+				filePath: testFilePath,
+				propertySyntaxLevel: "ignore",
+			});
+			assert.equal(diagnostics.length, 0, "Should be ignored");
+		});
+
+		it("should flag :value as warning if configured", async function () {
+			const html = `<div :types='{"val": "string"}'><input :value="val" /></div>`;
+			const diagnostics = await typeCheck(html, {
+				strict: false,
+				filePath: testFilePath,
+				propertySyntaxLevel: "warning",
+			});
+			assert.equal(diagnostics.length, 1, "Should have 1 diagnostic");
+			assert.equal(diagnostics[0].category, ts.DiagnosticCategory.Warning);
+			assert.ok(
+				/Property 'value' must be bound using ':prop:value' instead of ':value'/.test(
+					ts.flattenDiagnosticMessageText(diagnostics[0].messageText, "\n"),
+				),
+			);
+		});
+
+		it("should not flag :prop:src", async function () {
+			const html = `<div :types='{"url": "string"}'><img :prop:src="url" /></div>`;
+			const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+			assert.equal(diagnostics.length, 0, "Should not flag valid usage");
+		});
+
+		it("should not flag other attributes", async function () {
+			const html = `<div :types='{"cls": "string"}'><div :class="cls"></div></div>`;
+			const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+			assert.equal(diagnostics.length, 0, "Should not flag other attributes");
 		});
 	});
 });
