@@ -26,6 +26,9 @@ export class Renderer extends IRenderer {
 	createElement(tag: string, owner?: Document | null): Element {
 		return (owner || new JSDOM().window.document).createElement(tag);
 	}
+	createComment(content: string, owner?: Document | null): Node {
+		return (owner || new JSDOM().window.document).createComment(content);
+	}
 	textContent(node: Node, content: string): void {
 		node.textContent = content;
 	}

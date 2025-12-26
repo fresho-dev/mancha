@@ -39,6 +39,9 @@ export class Renderer<T extends StoreState = StoreState> extends IRenderer<T> {
 	createElement(tag: string, owner?: Document | null): Element {
 		return (owner || document).createElement(tag);
 	}
+	createComment(content: string, owner?: Document | null): Node {
+		return (owner || document).createComment(content);
+	}
 	textContent(node: Node, content: string): void {
 		node.textContent = content;
 	}

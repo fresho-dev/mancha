@@ -1,5 +1,5 @@
 import * as htmlparser2 from "htmlparser2";
-import { Element, Text } from "domhandler";
+import { Element, Text, Comment } from "domhandler";
 import { render as renderDOM } from "dom-serializer";
 import { IRenderer } from "./renderer.js";
 import { ParserParams } from "./interfaces.js";
@@ -20,6 +20,9 @@ export class Renderer extends IRenderer {
 	}
 	createElement(tag: string, owner?: Document | null): globalThis.Element {
 		return new Element(tag, {}) as unknown as globalThis.Element;
+	}
+	createComment(content: string, owner?: Document | null): Node {
+		return new Comment(content) as unknown as Node;
 	}
 	textContent(node: Node, content: string): void {
 		(node as any).children = [new Text(content)];
