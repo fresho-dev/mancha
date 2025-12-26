@@ -383,7 +383,11 @@ export namespace RendererPlugins {
 			const template = this.createElement("template", node.ownerDocument);
 			insertBefore(parent, template as Node, node);
 			removeChild(parent, node);
-			appendChild(template as Node, node);
+			if ("content" in template) {
+				appendChild((template as HTMLTemplateElement).content, node);
+			} else {
+				appendChild(template as Node, node);
+			}
 			this.log(":for template:\n", nodeToString(template, 128));
 
 			// Tokenize the input by splitting it based on the format "{key} in {expression}".
@@ -403,7 +407,10 @@ export namespace RendererPlugins {
 
 				// Remove all the previously added children, if any.
 				children.splice(0, children.length).forEach((child) => {
-					removeChild(parent, child);
+					// Only remove if child is still part of this parent (may have been moved by :if).
+					if (child.parentNode === parent) {
+						removeChild(parent, child);
+					}
 					this._skipNodes.delete(child);
 				});
 
@@ -506,7 +513,7 @@ export namespace RendererPlugins {
 			removeAttributeOrDataset(elem, "if", ":");
 
 			// Create a placeholder to replace the element when hidden.
-			const placeholder = node.ownerDocument!.createComment(" :if placeholder ");
+			const placeholder = this.createComment(" :if placeholder ", node.ownerDocument);
 
 			// Compute the function's result and track dependencies.
 			this.effect(function () {
@@ -514,7 +521,7 @@ export namespace RendererPlugins {
 				if (result) {
 					// Toggle ON: element should be visible.
 					if (!elem.parentNode && placeholder.parentNode) {
-						replaceWith(placeholder, elem);
+						replaceWith(placeholder as ChildNode, elem);
 					}
 				} else {
 					// Toggle OFF: element should be hidden.

@@ -69,11 +69,10 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			const fragment = renderer.parseHTML(html);
 			await renderer.mount(fragment);
 			const elems = Array.from(fragment.querySelectorAll("div"));
-			assert.equal(elems.length, 4); // Includes template element.
-			assert.equal(elems[0].textContent, "{{ item }}");
-			assert.equal(elems[1].textContent, "1");
-			assert.equal(elems[2].textContent, "2");
-			assert.equal(elems[3].textContent, "3");
+			assert.equal(elems.length, 3);
+			assert.equal(elems[0].textContent, "1");
+			assert.equal(elems[1].textContent, "2");
+			assert.equal(elems[2].textContent, "3");
 		});
 
 		it("sets the $rootNode property", async function () {

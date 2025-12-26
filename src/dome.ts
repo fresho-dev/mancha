@@ -184,6 +184,7 @@ export function replaceWith(original: ChildNode, ...replacement: Node[]): void {
 		const elem = original;
 		const parent = elem.parentNode!;
 		const index = Array.from(parent.childNodes).indexOf(elem);
+		(elem as any).parentNode = null;
 		replacement.forEach((elem) => ((elem as any).parentNode = parent));
 		(parent as any).childNodes = ([] as ChildNode[])
 			.concat(Array.from(parent.childNodes).slice(0, index))

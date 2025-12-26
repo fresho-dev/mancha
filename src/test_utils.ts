@@ -8,9 +8,13 @@ export function innerHTML(elem: Element): string {
 	else return DomUtils.getInnerHTML(elem as any);
 }
 
-export function getTextContent(elem: Element): string | null {
-	if (hasProperty(elem, "textContent")) return elem.textContent;
-	else return DomUtils.textContent(elem as any);
+// Custom recursive textContent that skips <template> tags for domhandler nodes.
+export function getTextContent(node: Element | any): string | null {
+	if (hasProperty(node, "textContent")) return node.textContent;
+	if (node.type === "text") return node.data;
+	if (node.type === "tag" && node.name === "template") return "";
+	if (node.children) return node.children.map(getTextContent).join("");
+	return "";
 }
 
 export const isNode =

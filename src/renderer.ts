@@ -23,6 +23,7 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 	abstract parseHTML(content: string, params?: ParserParams): Document | DocumentFragment;
 	abstract serializeHTML(root: DocumentFragment | Node): string;
 	abstract createElement(tag: string, owner?: Document | null): Element;
+	abstract createComment(content: string, owner?: Document | null): Node;
 	abstract textContent(node: Node, tag: string): void;
 
 	/**
