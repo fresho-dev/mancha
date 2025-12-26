@@ -133,6 +133,23 @@ the `<script>` tag that imports `Mancha`, and explicitly call the `mount()` func
 </script>
 ```
 
+## Conditional Rendering
+
+Mancha provides two ways to control element visibility:
+
+1. `:show` - toggles `display: none`. The element remains in the DOM.
+2. `:if` - conditionally renders the element. If the condition is false, the element is removed from the DOM and replaced with a placeholder.
+
+```html
+<!-- Element remains in DOM, just hidden -->
+<div :show="isVisible">I am toggled with CSS</div>
+
+<!-- Element is removed from DOM when hidden -->
+<div :if="isVisible">I am conditionally rendered</div>
+```
+
+**Note**: The `:if` attribute does not currently support an `:else` branch.
+
 ## Reusable Components
 
 `mancha` supports custom components, which can be defined using the template tag:

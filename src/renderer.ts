@@ -200,6 +200,8 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 			await RendererPlugins.resolveTextAttributes.call(this, node, params);
 			// Resolve the :html attribute in the node.
 			await RendererPlugins.resolveHtmlAttribute.call(this, node, params);
+			// Resolve the :if attribute in the node.
+			await RendererPlugins.resolveIfAttribute.call(this, node, params);
 			// Resolve the :show attribute in the node.
 			await RendererPlugins.resolveShowAttribute.call(this, node, params);
 			// Resolve the :class attribute in the node.

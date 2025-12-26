@@ -4,6 +4,7 @@ export const TRUSTED_ATTRIBS = [
 	":text",
 	":html",
 	":show",
+	":if",
 	":class",
 	":bind",
 	":render",

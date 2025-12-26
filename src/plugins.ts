@@ -495,6 +495,37 @@ export namespace RendererPlugins {
 		}
 	};
 
+	export const resolveIfAttribute: RendererPlugin = function (node, params) {
+		if (this._skipNodes.has(node)) return;
+		const elem = node as HTMLElement;
+		const ifExpr = getAttributeOrDataset(elem, "if", ":");
+		if (ifExpr) {
+			this.log(":if attribute found in:\n", nodeToString(node, 128));
+
+			// Remove the processed attributes from node.
+			removeAttributeOrDataset(elem, "if", ":");
+
+			// Create a placeholder to replace the element when hidden.
+			const placeholder = node.ownerDocument!.createComment(" :if placeholder ");
+
+			// Compute the function's result and track dependencies.
+			this.effect(function () {
+				const result = this.eval(ifExpr, { $elem: node });
+				if (result) {
+					// Toggle ON: element should be visible.
+					if (!elem.parentNode && placeholder.parentNode) {
+						replaceWith(placeholder, elem);
+					}
+				} else {
+					// Toggle OFF: element should be hidden.
+					if (elem.parentNode) {
+						replaceWith(elem, placeholder);
+					}
+				}
+			});
+		}
+	};
+
 	export const resolveShowAttribute: RendererPlugin = function (node, params) {
 		if (this._skipNodes.has(node)) return;
 		const elem = node as HTMLElement;

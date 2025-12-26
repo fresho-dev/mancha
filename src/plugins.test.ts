@@ -791,6 +791,79 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			});
 		});
 
+		describe(":if", () => {
+			it("removes element when condition is false", async function () {
+				const renderer = new ctor();
+				const html = '<div :if="false">Content</div>';
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+				assert.equal(fragment.textContent, "");
+				assert.equal(fragment.childNodes[0].nodeType, 8);
+			});
+
+			it("shows element when condition is true", async function () {
+				const renderer = new ctor();
+				const html = '<div :if="true">Content</div>';
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+				assert.equal(fragment.textContent, "Content");
+				assert.equal((fragment.firstElementChild as Element)?.tagName, "DIV");
+			});
+
+			it("toggles element visibility reactively", async function () {
+				const renderer = new ctor({ show: true });
+				const html = '<div :if="show">Content</div>';
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+				assert.equal(fragment.textContent, "Content");
+
+				await renderer.set("show", false);
+				assert.equal(fragment.textContent, "");
+
+				await renderer.set("show", true);
+				assert.equal(fragment.textContent, "Content");
+			});
+
+			it("preserves order of multiple elements", async function () {
+				const renderer = new ctor({ cond1: true, cond2: true });
+				const html = 'Start<div :if="cond1">1</div><div :if="cond2">2</div>End';
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+				assert.equal(fragment.textContent, "Start12End");
+
+				await renderer.set("cond1", false);
+				assert.equal(fragment.textContent, "Start2End");
+
+				await renderer.set("cond2", false);
+				assert.equal(fragment.textContent, "StartEnd");
+
+				await renderer.set("cond2", true);
+				assert.equal(fragment.textContent, "Start2End");
+
+				await renderer.set("cond1", true);
+				assert.equal(fragment.textContent, "Start12End");
+			});
+
+			it("works combined with :for loop", async function () {
+				const renderer = new ctor({ items: [1, 2, 3] });
+				const html = '<span :for="i in items" :if="i % 2 !== 0">{{ i }}</span>';
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+				assert.equal(fragment.textContent, "13");
+			});
+
+			it("reacts to changes within :for loop items", async function () {
+				const renderer = new ctor({ items: [{ val: 1, show: true }, { val: 2, show: false }] });
+				const html = '<span :for="i in items" :if="i.show">{{ i.val }}</span>';
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+				assert.equal(fragment.textContent, "1");
+
+				await renderer.set("items", [{ val: 1, show: true }, { val: 2, show: true }]);
+				assert.equal(fragment.textContent, "12");
+			});
+		});
+
 		describe(":text", () => {
 			it("render simple text string", async function () {
 				const renderer = new ctor({ foo: "bar" });
