@@ -9,6 +9,7 @@ import { TRUSTED_DATA_ATTRIBS } from "./trusted_attributes.js";
 export interface TypeCheckOptions {
 	strict: boolean;
 	filePath?: string; // Optional path to the HTML file being checked (for correct module resolution)
+	propertySyntaxLevel?: "error" | "warning" | "ignore"; // Default: "error"
 	debug?: boolean; // When true, outputs generated TypeScript source and diagnostic mapping info
 }
 
@@ -453,7 +454,7 @@ async function processTypesElement(
 			}
 		}
 
-		const expressionDiagnostics = validateExpressions(scope, htmlSourceFile);
+		const expressionDiagnostics = validateExpressions(scope, htmlSourceFile, options);
 		allDiagnostics.push(...expressionDiagnostics);
 
 		// Type check expressions in this scope
@@ -809,13 +810,27 @@ function createExpressionDiagnostic(
 
 // Attributes whose values are file paths, not expressions.
 const PATH_ATTRIBUTES = [":render", "data-render"];
+const RESTRICTED_PROPERTY_NAMES = new Set([
+	"src",
+	"href",
+	"value",
+	"checked",
+	"selected",
+	"disabled",
+	"readonly",
+	"open",
+	"multiple",
+	"required",
+]);
 
 function validateExpressions(
 	scope: ExpressionScope,
 	htmlSourceFile: ts.SourceFile,
+	options: TypeCheckOptions,
 ): ts.Diagnostic[] {
 	const diagnostics: ts.Diagnostic[] = [];
 	const expressions = collectExpressions(scope);
+	const syntaxLevel = options.propertySyntaxLevel ?? "error";
 
 	for (const entry of expressions) {
 		const candidate = entry.expression.trim();
@@ -824,6 +839,27 @@ function validateExpressions(
 		// Skip :render attributes since they contain file paths, not expressions.
 		if (entry.source.kind === "attribute" && PATH_ATTRIBUTES.includes(entry.source.attributeName)) {
 			continue;
+		}
+
+		if (
+			entry.source.kind === "attribute" &&
+			syntaxLevel !== "ignore" &&
+			entry.source.attributeName.startsWith(":")
+		) {
+			const propName = entry.source.attributeName.slice(1);
+			if (RESTRICTED_PROPERTY_NAMES.has(propName)) {
+				const category =
+					syntaxLevel === "warning" ? ts.DiagnosticCategory.Warning : ts.DiagnosticCategory.Error;
+				diagnostics.push({
+					file: entry.range ? htmlSourceFile : undefined,
+					start: entry.range?.start,
+					length: entry.range?.length,
+					category,
+					code: 91003, // New code
+					source: "mancha-type-checker",
+					messageText: `Property '${propName}' must be bound using ':prop:${propName}' instead of ':${propName}'`,
+				});
+			}
 		}
 
 		try {
@@ -875,7 +911,7 @@ export async function typeCheck(html: string, options: TypeCheckOptions): Promis
 
 	if (documentRoot) {
 		const globalScope = getExpressionsExcludingNestedTypes(documentRoot, dom, html);
-		const globalExpressionDiagnostics = validateExpressions(globalScope, htmlSourceFile);
+		const globalExpressionDiagnostics = validateExpressions(globalScope, htmlSourceFile, options);
 		allDiagnostics.push(...globalExpressionDiagnostics);
 	}
 

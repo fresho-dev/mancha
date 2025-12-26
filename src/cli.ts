@@ -65,11 +65,19 @@ const args = yargs(hideBin(process.argv))
 					describe: "Recursively check directories",
 					type: "boolean",
 					default: true,
+				})
+				.option("property-syntax", {
+					describe: "Enforce property binding syntax (:src vs :prop:src)",
+					choices: ["error", "warning", "ignore"],
+					default: "error",
 				});
 		},
 		async (argv) => {
 			const inputs = argv.input as string[];
-			const options = { strict: argv.strict };
+			const options = {
+				strict: argv.strict,
+				propertySyntaxLevel: argv.propertySyntax as "error" | "warning" | "ignore",
+			};
 
 			// Collect all files to check
 			const filesToCheck: string[] = [];
@@ -79,9 +87,9 @@ const args = yargs(hideBin(process.argv))
 				const pattern = isDirectory ? `${input}/**/*.{html,htm}` : input;
 				const globOptions = isDirectory
 					? {
-							nodir: true,
-							ignore: ["**/node_modules/**", "**/.git/**"],
-						}
+						nodir: true,
+						ignore: ["**/node_modules/**", "**/.git/**"],
+					}
 					: { nodir: true };
 				const files = await glob(pattern, globOptions);
 				filesToCheck.push(...files);
