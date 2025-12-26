@@ -810,7 +810,6 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				const html = '<div :if="false">Content</div>';
 				const fragment = renderer.parseHTML(html);
 				await renderer.mount(fragment);
-				await renderer.mount(fragment);
 				assert.equal(getTextContent(fragment as unknown as Element), "");
 				assert.equal(fragment.childNodes[0].nodeType, 8);
 			});
@@ -830,7 +829,6 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				const html = '<div :if="show">Content</div>';
 				const fragment = renderer.parseHTML(html);
 				await renderer.mount(fragment);
-				await renderer.mount(fragment);
 				assert.equal(getTextContent(fragment as unknown as Element), "Content");
 
 				await renderer.set("show", false);
@@ -844,7 +842,6 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				const renderer = new ctor({ cond1: true, cond2: true });
 				const html = 'Start<div :if="cond1">1</div><div :if="cond2">2</div>End';
 				const fragment = renderer.parseHTML(html);
-				await renderer.mount(fragment);
 				await renderer.mount(fragment);
 				assert.equal(getTextContent(fragment as unknown as Element), "Start12End");
 
