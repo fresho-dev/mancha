@@ -131,6 +131,10 @@ element tag or attributes match a specific criteria. Here's the list of attribut
   ```html
   <div :data="{foo: false}" :show="foo"></div>
   ```
+- `:if` conditionally renders the element (removes it from the DOM when false). **Note**: `:else` is not currently supported.
+  ```html
+  <div :data="{visible: true}" :if="visible">Content</div>
+  ```
 - `:class` appends rendered text to existing class attribute
   ```html
   <span :class="error ? 'red' : 'blue'" class="text-xl">...</span>
