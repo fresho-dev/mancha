@@ -20,6 +20,8 @@ export const TRUSTED_ATTRIBS = [
 	":attr:href",
 	":attr:title",
 	":attr:data-testid",
+	":prop:src",
+	":prop:href",
 	":prop:checked",
 	":prop:selected",
 	":prop:disabled",
