@@ -1,4 +1,10 @@
-<div :data="{ ball: true }">
-	<span>Show the ball: </span><input type="checkbox" :bind="ball" />
-	<span :show="ball">🏀</span>
+<div :data="{ ball: true, star: true }" class="flex flex-col gap-2">
+	<div class="flex flex-row gap-1">
+		<span>Show the ball (:show): </span><input type="checkbox" :bind="ball" />
+		<span :show="ball">🏀</span>
+	</div>
+	<div class="flex flex-row gap-1">
+		<span>Show the star (:if): </span><input type="checkbox" :bind="star" />
+		<span :if="star">⭐</span>
+	</div>
 </div>
