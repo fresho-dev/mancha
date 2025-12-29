@@ -374,6 +374,30 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				// If processed twice (once by inner mount, once by outer loop), count will be 2.
 				assert.equal(renderer.get("execCount"), 1, "Children should be processed exactly once");
 			});
+
+			it("updates URL parameters when :data sets $$ variables", async function () {
+				const renderer = new ctor();
+				await import("./query.js").then((m) => m.setupQueryParamBindings(renderer));
+
+				// Ensure URL is clean
+				window.history.replaceState(null, "", "/");
+
+				const html = `<div :data="{ '$$foo': 'bar' }"></div>`;
+				const fragment = renderer.parseHTML(html);
+				const node = fragment.firstChild as Element;
+
+				await renderer.mount(fragment);
+
+				// Should update URL
+				assert.ok(
+					window.location.search.includes("foo=bar"),
+					`URL should contain foo=bar, got ${window.location.search}`,
+				);
+
+				// Should be in renderer
+				const subrenderer = (node as any).renderer;
+				assert.equal(subrenderer.get("$$foo"), "bar");
+			});
 		});
 
 		describe(":class", () => {
