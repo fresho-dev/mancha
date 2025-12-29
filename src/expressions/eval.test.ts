@@ -1,6 +1,5 @@
 import { assert } from "../test_utils.js";
 import { EvalAstFactory, Expression } from "./eval.js";
-import * as AST from "./ast.js";
 
 describe("Evaluator", () => {
 	const factory = new EvalAstFactory();
@@ -186,6 +185,56 @@ describe("Evaluator", () => {
 			const node = factory.binary(factory.literal("key"), "in", factory.id("obj"));
 			assert.throws(() => evalNode(node, { obj: null }));
 			assert.throws(() => evalNode(node, { obj: undefined }));
+		});
+	});
+
+
+	describe("Nullish Coalescing (??)", () => {
+		it("should return the left-hand side if it is not null or undefined", () => {
+			assert.equal(evalNode(factory.binary(factory.literal(1), "??", factory.literal(2))), 1);
+			assert.equal(evalNode(factory.binary(factory.literal("a"), "??", factory.literal("b"))), "a");
+			assert.equal(
+				evalNode(factory.binary(factory.literal(true), "??", factory.literal(false))),
+				true,
+			);
+			assert.equal(
+				evalNode(factory.binary(factory.literal(false), "??", factory.literal(true))),
+				false,
+			);
+			assert.equal(evalNode(factory.binary(factory.literal(0), "??", factory.literal(1))), 0);
+			assert.equal(
+				evalNode(factory.binary(factory.literal(""), "??", factory.literal("default"))),
+				"",
+			);
+		});
+
+		it("should return the right-hand side if the left-hand side is null", () => {
+			assert.equal(evalNode(factory.binary(factory.literal(null), "??", factory.literal(1))), 1);
+			assert.equal(
+				evalNode(
+					factory.binary(factory.id("variable"), "??", factory.literal("default")),
+					{ variable: null },
+				),
+				"default",
+			);
+		});
+
+		it("should return the right-hand side if the left-hand side is undefined", () => {
+			assert.equal(
+				evalNode(factory.binary(factory.literal(undefined), "??", factory.literal(1))),
+				1,
+			);
+			assert.equal(
+				evalNode(
+					factory.binary(factory.id("variable"), "??", factory.literal("default")),
+					{ variable: undefined },
+				),
+				"default",
+			);
+			assert.equal(
+				evalNode(factory.binary(factory.id("missing"), "??", factory.literal("default")), {}),
+				"default",
+			);
 		});
 	});
 });
