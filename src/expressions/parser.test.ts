@@ -30,6 +30,10 @@ describe("Parser", () => {
 			factory.binary(factory.literal(1), "+", factory.literal(2)),
 		);
 		assert.deepEqual(parseExpr("x * y"), factory.binary(factory.id("x"), "*", factory.id("y")));
+		assert.deepEqual(
+			parseExpr("a ?? b"),
+			factory.binary(factory.id("a"), "??", factory.id("b")),
+		);
 	});
 
 	it("should respect precedence", () => {
