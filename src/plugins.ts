@@ -242,8 +242,19 @@ export namespace RendererPlugins {
 			const result = subrenderer.eval(dataAttr, { $elem: node }) as Object;
 
 			// Await any promises in the result object.
-			// NOTE: Using the store object directly to avoid modifying ancestor values.
-			await Promise.all(Object.entries(result).map(([k, v]) => subrenderer._store.set(k, v)));
+			await Promise.all(
+				Object.entries(result).map(([k, v]) => {
+					// Special handling for query parameters: they must be set via the public set() method
+					// to trigger the key handlers that update the URL. We set them on the root renderer
+					// to ensure the handler is found and to respect the global nature of URL state.
+					if (k.startsWith("$$")) {
+						const root = subrenderer._store.get("$rootRenderer") as IRenderer;
+						return (root || subrenderer).set(k, v);
+					}
+					// Use the store's set method to update the value and avoid modifying ancestor values.
+					return subrenderer._store.set(k, v);
+				}),
+			);
 
 			// Optimization: if we are reusing the current renderer, we don't need to re-mount
 			// or skip children. The current traversal will handle them.
