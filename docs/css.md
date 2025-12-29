@@ -101,6 +101,11 @@ Supported prefixes: `text-`, `bg-`, `border-`, `fill-`.
 | `gray` | `50`, `100`, `200`, `300`, `400`, `500`, `600`, `700`, `800`, `900` |
 | `blue-gray` | `50`, `100`, `200`, `300`, `400`, `500`, `600`, `700`, `800`, `900` |
 
+You can also control the opacity of any color utility by appending `/{opacity}`:
+- `bg-black/50`
+- `text-red-500/20`
+- `border-blue-600/100`
+
 ### Borders & Corners
 
 | Utility | Description |

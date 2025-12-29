@@ -29,14 +29,23 @@ describe("CSS Generation Utils", () => {
 			const css = rules();
 			assert.ok(css.includes(".w-sm { width: 640px }"), "Should include w-sm utility");
 			assert.ok(css.includes(".max-w-md { max-width: 768px }"), "Should include max-w-md utility");
-			assert.ok(css.includes(".min-h-lg { min-height: 1024px }"), "Should include min-h-lg utility");
+			assert.ok(
+				css.includes(".min-h-lg { min-height: 1024px }"),
+				"Should include min-h-lg utility",
+			);
 		});
 
 		it("includes grid utilities", () => {
 			const css = rules();
 			assert.ok(css.includes(".grid { display: grid }"), "Should include grid utility");
-			assert.ok(css.includes(".grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) }"), "Should include grid-cols-3");
-			assert.ok(css.includes(".col-span-2 { grid-column: span 2 / span 2 }"), "Should include col-span-2");
+			assert.ok(
+				css.includes(".grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) }"),
+				"Should include grid-cols-3",
+			);
+			assert.ok(
+				css.includes(".col-span-2 { grid-column: span 2 / span 2 }"),
+				"Should include col-span-2",
+			);
 		});
 
 		it("includes pseudo-state variants", () => {
@@ -49,7 +58,24 @@ describe("CSS Generation Utils", () => {
 			const css = rules();
 			assert.ok(css.includes(".ring {"), "Should include ring utility");
 			assert.ok(css.includes("var(--ring-inset, )"), "Ring should use --ring-inset variable");
-			assert.ok(css.includes(".ring-inset { --ring-inset: inset }"), "ring-inset should define variable");
+			assert.ok(
+				css.includes(".ring-inset { --ring-inset: inset }"),
+				"ring-inset should define variable",
+			);
+		});
+
+		it("includes color opacity variants", () => {
+			const css = rules();
+			assert.ok(css.includes(".bg-black\\/50"), "Should include bg-black/50 utility");
+			assert.ok(css.includes(".text-red-500\\/20"), "Should include text-red-500/20 utility");
+			assert.ok(
+				css.includes(".border-blue-500\\/100"),
+				"Should include border-blue-500/100 utility",
+			);
+
+			// Verify content of generated rule
+			const match = css.match(/\.bg-black\\\/50 \{ background-color: rgb\(0 0 0 \/ 0.5\) \}/);
+			assert.ok(match, "bg-black/50 should have correct rgb color with alpha");
 		});
 
 		it("memoizes results for performance", () => {

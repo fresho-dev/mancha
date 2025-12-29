@@ -96,6 +96,11 @@ function generateMarkdown() {
 		md += `| \`${color}\` | \`50\`, \`100\`, \`200\`, \`300\`, \`400\`, \`500\`, \`600\`, \`700\`, \`800\`, \`900\` |\n`;
 	}
 	md += "\n";
+	md += "You can also control the opacity of any color utility by appending `/{opacity}`:\n";
+	md += "- `bg-black/50`\n";
+	md += "- `text-red-500/20`\n";
+	md += "- `border-blue-600/100`\n";
+	md += "\n";
 
 	md += "### Borders & Corners\n\n";
 	md += "| Utility | Description |\n";
@@ -107,7 +112,8 @@ function generateMarkdown() {
 		}
 	}
 	// Document dynamic border widths
-	md += "| `border-{0-15}` | Border width in pixels (e.g., `border-0`, `border-1`, ..., `border-15`) |\n";
+	md +=
+		"| `border-{0-15}` | Border width in pixels (e.g., `border-0`, `border-1`, ..., `border-15`) |\n";
 	md += "| `border-x-{0-15}` | Horizontal border width in pixels |\n";
 	md += "| `border-y-{0-15}` | Vertical border width in pixels |\n";
 	md += "| `border-{t,b,l,r}-{0-15}` | Individual side border width in pixels |\n";
@@ -277,23 +283,19 @@ function generateMarkdown() {
 	md += "### Position & Inset\n\n";
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
-	const posProps = [
-		"relative",
-		"absolute",
-		"fixed",
-		"sticky",
-		"inset-",
-		"object-",
-	];
+	const posProps = ["relative", "absolute", "fixed", "sticky", "inset-", "object-"];
 	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
 		if (posProps.some((p) => klass.startsWith(p))) {
 			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
 		}
 	}
 	// Document position values
-	md += "| `top-{0-512}`, `bottom-{0-512}`, `left-{0-512}`, `right-{0-512}` | Position in rem units (0.25rem increments) |\n";
-	md += "| `top-{0-512}px`, `bottom-{0-512}px`, `left-{0-512}px`, `right-{0-512}px` | Position in pixels |\n";
-	md += "| `top-{1-100}%`, `bottom-{1-100}%`, `left-{1-100}%`, `right-{1-100}%` | Position in percentages |\n";
+	md +=
+		"| `top-{0-512}`, `bottom-{0-512}`, `left-{0-512}`, `right-{0-512}` | Position in rem units (0.25rem increments) |\n";
+	md +=
+		"| `top-{0-512}px`, `bottom-{0-512}px`, `left-{0-512}px`, `right-{0-512}px` | Position in pixels |\n";
+	md +=
+		"| `top-{1-100}%`, `bottom-{1-100}%`, `left-{1-100}%`, `right-{1-100}%` | Position in percentages |\n";
 	md += "| `top-auto`, `bottom-auto`, `left-auto`, `right-auto` | Auto positioning |\n";
 	// Document z-index
 	md += `| \`z-{${PERCENTS.join(",")}}\` | Z-index values |\n`;
@@ -302,7 +304,15 @@ function generateMarkdown() {
 	md += "### Display & Visibility\n\n";
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
-	const displayProps = ["block", "inline", "hidden", "contents", "visible", "invisible", "collapse"];
+	const displayProps = [
+		"block",
+		"inline",
+		"hidden",
+		"contents",
+		"visible",
+		"invisible",
+		"collapse",
+	];
 	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
 		if (displayProps.some((p) => klass === p)) {
 			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
@@ -324,7 +334,15 @@ function generateMarkdown() {
 	md += "### Backgrounds\n\n";
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
-	const bgProps = ["bg-auto", "bg-cover", "bg-contain", "bg-no-repeat", "bg-fixed", "bg-local", "bg-scroll"];
+	const bgProps = [
+		"bg-auto",
+		"bg-cover",
+		"bg-contain",
+		"bg-no-repeat",
+		"bg-fixed",
+		"bg-local",
+		"bg-scroll",
+	];
 	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
 		if (bgProps.some((p) => klass === p)) {
 			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
@@ -358,10 +376,18 @@ function generateMarkdown() {
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
 	const viewportProps = [
-		"min-h-screen", "max-h-screen", "min-w-screen",
-		"h-dvh", "h-svh", "h-lvh",
-		"w-dvw", "w-svw", "w-lvw",
-		"min-h-dvh", "min-h-svh", "min-h-lvh"
+		"min-h-screen",
+		"max-h-screen",
+		"min-w-screen",
+		"h-dvh",
+		"h-svh",
+		"h-lvh",
+		"w-dvw",
+		"w-svw",
+		"w-lvw",
+		"min-h-dvh",
+		"min-h-svh",
+		"min-h-lvh",
 	];
 	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
 		if (viewportProps.some((p) => klass === p)) {
