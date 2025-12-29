@@ -863,13 +863,43 @@ function custom(): string[] {
 	});
 }
 
+function hexToRgb(hex: string): string {
+	let r = 0,
+		g = 0,
+		b = 0;
+	if (hex.length === 4) {
+		r = parseInt(hex[1] + hex[1], 16);
+		g = parseInt(hex[2] + hex[2], 16);
+		b = parseInt(hex[3] + hex[3], 16);
+	} else if (hex.length === 7) {
+		r = parseInt(hex.slice(1, 3), 16);
+		g = parseInt(hex.slice(3, 5), 16);
+		b = parseInt(hex.slice(5, 7), 16);
+	}
+	return `${r} ${g} ${b}`;
+}
+
 function colors(): string[] {
-	const colorVariants = (color: string, value: string) => [
-		[`text-${color}`, `color: ${value}`],
-		[`fill-${color}`, `fill: ${value}`],
-		[`bg-${color}`, `background-color: ${value}`],
-		[`border-${color}`, `border-color: ${value}`],
-	];
+	const colorVariants = (color: string, value: string) => {
+		const variants = [
+			[`text-${color}`, `color: ${value}`],
+			[`fill-${color}`, `fill: ${value}`],
+			[`bg-${color}`, `background-color: ${value}`],
+			[`border-${color}`, `border-color: ${value}`],
+		];
+		if (value.startsWith("#")) {
+			const rgb = hexToRgb(value);
+			for (const opacity of PERCENTS) {
+				const alpha = opacity / 100;
+				variants.push(
+					[`text-${color}\\/${opacity}`, `color: rgb(${rgb} / ${alpha})`],
+					[`bg-${color}\\/${opacity}`, `background-color: rgb(${rgb} / ${alpha})`],
+					[`border-${color}\\/${opacity}`, `border-color: rgb(${rgb} / ${alpha})`],
+				);
+			}
+		}
+		return variants;
+	};
 	return wrapAll([
 		...colorVariants("white", "#fff"),
 		...colorVariants("black", "#000"),
