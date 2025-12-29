@@ -371,10 +371,12 @@ code depends on those variables being set. You can also set multiple variables c
 
 This feature works automatically for any variable prefixed with `$$`. When a `$$` variable is changed in your application, the URL is updated. Conversely, when the page loads, `mancha` reads the query parameters from the URL and populates the corresponding `$$` variables in your application's state.
 
-Here's how you can use it:
+### Using Defaults Safely
+
+When initializing `$$` variables in `:data`, it is important to check if the variable is already defined (e.g. from the URL) to avoid checking overwriting the user's deep link with a hardcoded default. Use the nullish coalescing operator (`??`) to provide a default only when the parameter is missing.
 
 ```html
-<body :data="{ $$search: '' }">
+<body :data="{ $$search: $$search ?? '' }">
 	<form class="flex flex-col max-w-md p-4 bg-white rounded-lg">
 		<label class="w-full mb-4">
 			<span class="block text-sm font-medium text-gray-700">Search</span>
@@ -392,7 +394,10 @@ Here's how you can use it:
 </body>
 ```
 
-In this example, the input field is bound to `$$search`. As you type, the URL will be updated with a `search` query parameter (e.g., `?search=your-text`). If you reload the page with the query parameter in the URL, the input field will be automatically populated with the value from the URL.
+In this example:
+1. **On Load**: If the URL is `?search=hello`, `$$search` will be `"hello"` initially. The `:data` expression `$$search ?? ''` evaluates to `"hello"`, preserving the URL value.
+2. **On Load (No Params)**: If the URL is empty, `$$search` is `undefined`. The expression evaluates to `''`, setting the default.
+3. **Reactivity**: As you type in the input, `$$search` updates, and the browser URL automatically changes to match (e.g., `?search=your-text`).
 
 ## Testing
 
