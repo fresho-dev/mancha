@@ -4,9 +4,9 @@ import GulpClient from "gulp";
 import csso from "gulp-csso";
 
 const execTask = (command: string) => {
-	return async (done: (err?: unknown) => void) => {
+	return async (done: (err?: Error | null) => void) => {
 		const { err, stderr, stdout } = await new Promise<{
-			err: unknown;
+			err: Error | null;
 			stderr: string;
 			stdout: string;
 		}>((resolve) => exec(command, (err, stdout, stderr) => resolve({ err, stderr, stdout })));
@@ -32,13 +32,16 @@ GulpClient.task("css", () =>
 	GulpClient.src("src/**/*.css").pipe(csso()).pipe(GulpClient.dest("dist")),
 );
 
-GulpClient.task("webpack:main", execTask("webpack --config webpack.config.ts"));
-GulpClient.task("webpack:esmodule", execTask("webpack --config webpack.config.esmodule.ts"));
+GulpClient.task("tsdown", execTask("npx tsdown"));
+
+GulpClient.task("rename:iife", (done) =>
+	fs.rename("dist/mancha.iife.js", "dist/mancha.js").then(() => done()),
+);
 
 GulpClient.task("fixtures", () =>
 	GulpClient.src("src/fixtures/**/*").pipe(GulpClient.dest("dist/fixtures")),
 );
 
-GulpClient.task("webpack", GulpClient.series("webpack:main", "webpack:esmodule"));
-GulpClient.task("build", GulpClient.series("ts", "chmod", "css", "webpack", "fixtures"));
+GulpClient.task("bundle", GulpClient.series("tsdown", "rename:iife"));
+GulpClient.task("build", GulpClient.series("ts", "chmod", "css", "bundle", "fixtures"));
 GulpClient.task("default", GulpClient.series("build"));
