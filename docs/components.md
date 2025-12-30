@@ -1,0 +1,199 @@
+# Components & Preprocessing
+
+As part of the rendering lifecycle, `mancha` first preprocesses the HTML. This includes resolving includes and registering custom components.
+
+## Includes
+
+You can mix and match content by processing `<include>` tags:
+
+```html
+<!-- ./button.tpl.html -->
+<button>Click Me</button>
+
+<!-- ./index.html -->
+<div>
+	<include src="button.tpl.html"></include>
+</div>
+
+<!-- Result after rendering `index.html`. -->
+<div>
+	<button>Click Me</button>
+</div>
+```
+
+## Custom Components
+
+`mancha` supports custom components, which can be defined using the template tag.
+
+```html
+<!-- Use <template is="my-component-name"> to register a component. -->
+<template is="my-red-button">
+	<button style="background-color: red;">
+		<slot></slot>
+	</button>
+</template>
+
+<!-- Any node traversed after registration can use the component. -->
+<my-red-button :on:click="console.log('clicked')">
+	<!-- The contents within will replace the `<slot></slot>` tag. -->
+	Click Me
+</my-red-button>
+```
+
+### Component Registries
+
+The components can live in their own, separate files. A common pattern is to separate each component into their own file, and import them all in a single "roll-up" file.
+
+```
+src/
+├─ components/
+|  ├─ footer.tpl.html
+|  ├─ my-red-button.tpl.html
+|  ├─ my-custom-component.tpl.html
+├─ index.html
+```
+
+Instead of importing the components individually, you can create a single file `registry.tpl.html` which imports all the custom components:
+
+```html
+<!-- src/components/registry.tpl.html -->
+<include src="./my-red-button.tpl.html" />
+<include src="./my-custom-component.tpl.html" />
+```
+
+Then in `index.html`:
+
+```html
+<!-- src/index.html -->
+<head>
+	<!-- ... -->
+</head>
+<body>
+	<!-- Include the custom component definition before using any of the components -->
+	<include src="components/registry.tpl.html" />
+
+	<!-- Now you can use any of the custom components -->
+	<my-red-button>Click Me!</my-red-button>
+
+	<!-- Any other components can also use the custom components, and don't need to re-import them -->
+	<include src="components/footer.tpl.html" />
+</body>
+```
+
+## Initialization with `:render`
+
+The `:render` attribute links any HTML element to a JavaScript ES module for initialization. This is useful when you need to initialize third-party libraries (like charts, maps, or video players) on specific elements.
+
+```html
+<canvas :render="./chart-init.js"></canvas>
+```
+
+The module's default export is called with the element and renderer:
+
+```js
+// chart-init.js
+export default function (elem, renderer) {
+	new Chart(elem, { type: "bar" });
+}
+```
+
+### Using with Custom Components
+
+The `:render` attribute works naturally inside custom component templates. This is the recommended pattern for creating reusable components that need JavaScript initialization:
+
+```
+src/
+├─ components/
+│  ├─ chart-widget.tpl.html
+│  ├─ chart-widget.js
+│  ├─ registry.tpl.html
+├─ index.html
+```
+
+```html
+<!-- components/chart-widget.tpl.html -->
+<template is="chart-widget">
+	<div class="chart-container">
+		<canvas :render="./chart-widget.js"></canvas>
+		<slot></slot>
+	</div>
+</template>
+```
+
+```js
+// components/chart-widget.js
+export default function (elem, renderer) {
+	// Access data passed via :data attribute on the component
+	const { labels, values } = renderer.$;
+
+	new Chart(elem, {
+		type: "bar",
+		data: {
+			labels: labels || ["A", "B", "C"],
+			datasets: [{ data: values || [1, 2, 3] }],
+		},
+	});
+}
+```
+
+Relative paths like `./chart-widget.js` are automatically resolved based on where the template is defined (`/components/`), not where the component is used.
+
+### Accessing Renderer State
+
+The init function receives the renderer instance, giving you access to reactive state:
+
+```js
+// counter-canvas.js
+export default function (elem, renderer) {
+	const ctx = elem.getContext("2d");
+
+	// Access current state
+	const count = renderer.$.count;
+
+	// Draw based on state
+	ctx.fillText(`Count: ${count}`, 10, 50);
+
+	// Watch for changes using the renderer's effect system
+	renderer.effect(function () {
+		ctx.clearRect(0, 0, elem.width, elem.height);
+		ctx.fillText(`Count: ${this.$.count}`, 10, 50);
+	});
+}
+```
+
+### Server-Side Rendering Compatibility
+
+ during server-side rendering (SSR), the `:render` attribute's path is resolved but the JavaScript module is not executed. The module is only executed when the HTML is hydrated in the browser, making this feature fully compatible with SSR workflows.
+
+### Setting Undefined Variables
+
+A powerful pattern is using `:render` to set variables that are already referenced in your template but not pre-defined.
+
+```html
+<div :render="./data-loader.js">
+	<h1>{{ pageTitle }}</h1>
+	<ul :for="item in dataItems">
+		<li>{{ item.name }}: {{ item.value }}</li>
+	</ul>
+	<p :show="loading">Loading...</p>
+</div>
+```
+
+```js
+// data-loader.js
+export default async function (elem, renderer) {
+	// Set loading state.
+	await renderer.set("loading", true);
+
+	// Fetch data from an API.
+	const response = await fetch("/api/data");
+	const data = await response.json();
+
+	// Set the variables - the template will reactively update.
+	await renderer.set("pageTitle", data.title);
+	await renderer.set("dataItems", data.items);
+	await renderer.set("loading", false);
+}
+```
+
+You can set multiple variables concurrently with `Promise.all([renderer.set("a", 1), renderer.set("b", 2)])`.
