@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 import * as fs from "node:fs/promises";
 import { glob } from "glob";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import * as ts from "typescript";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const packageRoot = path.resolve(__dirname, "..");
 import { Mancha } from "./index.js";
 import { typeCheck } from "./type_checker.js";
 
@@ -131,6 +137,35 @@ const _args = yargs(hideBin(process.argv))
 				process.exit(1);
 			} else {
 				console.log(`✓ Checked ${filesToCheck.length} file(s), no type errors found.`);
+			}
+		},
+	)
+	.command(
+		"docs",
+		"Print all documentation for AI model consumption",
+		() => { },
+		async () => {
+			const files = [
+				"README.md",
+				"docs/quickstart.md",
+				"docs/syntax.md",
+				"docs/reactivity.md",
+				"docs/components.md",
+				"docs/ssr.md",
+				"docs/typescript.md",
+				"docs/testing.md",
+				"docs/css.md",
+			];
+
+			for (const file of files) {
+				const filePath = path.join(packageRoot, file);
+				try {
+					const content = await fs.readFile(filePath, "utf-8");
+					console.log(`\n<!-- File: ${file} -->\n`);
+					console.log(content);
+				} catch (error) {
+					console.error(`Error reading ${file}:`, error);
+				}
 			}
 		},
 	)
