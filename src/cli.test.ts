@@ -81,4 +81,13 @@ describe("CLI", function () {
 			assert.ok(stdout.includes("Checked 3 file(s)"), "Should not count files under node_modules");
 		});
 	});
+
+	describe("docs command", () => {
+		it("should output documentation", async () => {
+			const { stdout } = await execAsync(`node ${cliPath} docs`);
+			assert.ok(stdout.includes("# mancha"), "Should include README title");
+			assert.ok(stdout.includes("# Quick Start"), "Should include Quick Start");
+			assert.ok(stdout.includes("# Syntax"), "Should include Syntax docs");
+		});
+	});
 });

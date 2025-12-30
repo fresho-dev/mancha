@@ -59,6 +59,14 @@ Here's a small sample of the things that you can do with `mancha`:
 - **[TypeScript](./docs/typescript.md)**: Type safety and checking.
 - **[Testing](./docs/testing.md)**: Testing your UI.
 
+## AI Agents
+
+If you are an AI agent building with `mancha`, you can dump all the documentation in a single concatenated output by running:
+
+```bash
+npx mancha docs
+```
+
 ## Dependencies
 
 The browser bundle contains no external dependencies. The unbundled version can use `htmlparser2`, which is compatible with web workers, or `jsdom`.
