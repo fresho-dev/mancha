@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 // @ts-expect-error
 import * as StaticServer from "static-server";
-import { IRenderer } from "./renderer.js";
+import type { IRenderer } from "./renderer.js";
 import { assert } from "./test_utils.js";
 
 // Use a fixed, random port for each test run.
@@ -17,10 +17,10 @@ const __dirname = path.dirname(__filename);
  * Helper function used to test a transformation of string elements.
  */
 function testRenderString(
-	ctor: new (...args: any[]) => IRenderer,
+	ctor: new (...args: unknown[]) => IRenderer,
 	fname: string,
 	expected: string,
-	vars: any = {},
+	vars: Record<string, unknown> = {},
 ) {
 	return new Promise<void>((resolve, reject) => {
 		(async () => {
@@ -45,10 +45,10 @@ function testRenderString(
  * Helper function used to test a transformation of local file paths.
  */
 function testRenderLocal(
-	ctor: new (...args: any[]) => IRenderer,
+	ctor: new (...args: unknown[]) => IRenderer,
 	fname: string,
 	expected: string,
-	vars: any = {},
+	vars: Record<string, unknown> = {},
 ) {
 	return new Promise<void>((resolve, reject) => {
 		(async () => {
@@ -73,10 +73,10 @@ function testRenderLocal(
  * Helper function used to test a transformation of local file paths.
  */
 function testRenderRemote(
-	ctor: new (...args: any[]) => IRenderer,
+	ctor: new (...args: unknown[]) => IRenderer,
 	fname: string,
 	expected: string,
-	vars: any = {},
+	vars: Record<string, unknown> = {},
 ) {
 	return new Promise<void>((resolve, reject) => {
 		(async () => {
@@ -99,10 +99,10 @@ function testRenderRemote(
 }
 
 function testAllMethods(
-	ctor: new (...args: any[]) => IRenderer,
+	ctor: new (...args: unknown[]) => IRenderer,
 	fname: string,
 	expected = "Hello World",
-	vars: any = {},
+	vars: Record<string, unknown> = {},
 	requiresFs = false,
 ): void {
 	it("simple string render", async function () {
@@ -120,6 +120,7 @@ function testAllMethods(
 	});
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: constructor signature compatibility
 export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 	const server = new StaticServer.default({
 		port: PORT,

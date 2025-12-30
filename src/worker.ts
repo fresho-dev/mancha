@@ -1,7 +1,7 @@
 import { render as renderDOM } from "dom-serializer";
-import { Comment, Element, Text } from "domhandler";
+import { type AnyNode, Comment, Element, Text } from "domhandler";
 import * as htmlparser2 from "htmlparser2";
-import { ParserParams } from "./interfaces.js";
+import type { ParserParams } from "./interfaces.js";
 import { IRenderer } from "./renderer.js";
 
 export type { ParserParams, RendererPlugin, RenderParams } from "./interfaces.js";
@@ -16,7 +16,7 @@ export class Renderer extends IRenderer {
 		return htmlparser2.parseDocument(content) as unknown as Document;
 	}
 	serializeHTML(root: Node | DocumentFragment | Document): string {
-		return renderDOM(root as any);
+		return renderDOM(root as unknown as AnyNode);
 	}
 	createElement(tag: string, _owner?: Document | null): globalThis.Element {
 		return new Element(tag, {}) as unknown as globalThis.Element;
@@ -25,7 +25,7 @@ export class Renderer extends IRenderer {
 		return new Comment(content) as unknown as Node;
 	}
 	textContent(node: Node, content: string): void {
-		(node as any).children = [new Text(content)];
+		(node as unknown as Element).children = [new Text(content)];
 	}
 }
 

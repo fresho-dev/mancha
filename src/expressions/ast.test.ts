@@ -1,5 +1,5 @@
 import { assert } from "../test_utils.js";
-import * as AST from "./ast.js";
+import type * as AST from "./ast.js";
 
 describe("AST Node Interfaces", () => {
 	it("should define Literal node correctly", () => {
@@ -58,7 +58,7 @@ describe("AST Node Interfaces", () => {
 		assert.equal(node.type, "Invoke");
 		assert.equal((node.receiver as AST.ID).value, "fn");
 		assert.equal(node.method, "callMe");
-		assert.equal((node.arguments![0] as AST.Literal).value, 1);
+		assert.equal((node.arguments?.[0] as AST.Literal).value, 1);
 		assert.equal(node.optional, true);
 	});
 
@@ -96,8 +96,8 @@ describe("AST Node Interfaces", () => {
 		};
 		assert.equal(node.type, "Map");
 		assert.equal(node.properties?.length, 2);
-		assert.equal(node.properties![0].type, "Property");
-		assert.equal(node.properties![1].type, "SpreadProperty");
+		assert.equal(node.properties?.[0].type, "Property");
+		assert.equal(node.properties?.[1].type, "SpreadProperty");
 	});
 
 	it("should define List node correctly", () => {
@@ -110,8 +110,8 @@ describe("AST Node Interfaces", () => {
 		};
 		assert.equal(node.type, "List");
 		assert.equal(node.items?.length, 2);
-		assert.equal(node.items![0]?.type, "Literal");
-		assert.equal(node.items![1]?.type, "SpreadElement");
+		assert.equal(node.items?.[0]?.type, "Literal");
+		assert.equal(node.items?.[1]?.type, "SpreadElement");
 	});
 
 	it("should define ArrowFunction node correctly", () => {

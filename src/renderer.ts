@@ -6,7 +6,7 @@ import { setupQueryParamBindings } from "./query.js";
 import type { StoreState } from "./store.js";
 import { SignalStore } from "./store.js";
 
-export type EvalListener = (result: any, dependencies: string[]) => any;
+export type EvalListener = (result: unknown, dependencies: string[]) => unknown;
 
 /**
  * Represents an abstract class for rendering and manipulating HTML content.
@@ -118,7 +118,9 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 	 * @returns A new instance of the renderer with the same state as the original.
 	 */
 	subrenderer(): IRenderer {
-		const instance = new (this.constructor as any)().debug(this.debugging) as IRenderer;
+		const instance = new (this.constructor as new () => IRenderer)().debug(
+			this.debugging,
+		) as IRenderer;
 
 		// NOTE: Using the store object directly to avoid modifying ancestor values.
 
@@ -129,7 +131,8 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 		instance._store.set("$rootRenderer", this.get("$rootRenderer") ?? this);
 
 		// Custom elements are shared across all instances.
-		(instance as any)._customElements = this._customElements;
+		(instance as unknown as { _customElements: Map<string, Node> })._customElements =
+			this._customElements;
 
 		return instance as IRenderer;
 	}
@@ -138,7 +141,7 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 	 * Logs the provided arguments if debugging is enabled.
 	 * @param args - The arguments to be logged.
 	 */
-	log(...args: any[]): void {
+	log(...args: unknown[]): void {
 		if (this.debugging) console.debug(...args);
 	}
 

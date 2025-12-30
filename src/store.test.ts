@@ -209,10 +209,10 @@ describe("SignalStore", () => {
 
 			it("use `globalThis` in function", async () => {
 				const store = new SignalStore();
-				(globalThis as any).foo = "bar";
+				(globalThis as unknown as Record<string, unknown>).foo = "bar";
 				const result = store.eval("foo");
 				assert.equal(result, "bar");
-				delete (globalThis as any).foo;
+				delete (globalThis as unknown as Record<string, unknown>).foo;
 			});
 
 			[
@@ -550,8 +550,8 @@ describe("SignalStore", () => {
 
 		it("passes options to the function", async () => {
 			const store = new SignalStore();
-			let receivedOptions: any = null;
-			const fn = (options: any) => {
+			let receivedOptions: unknown = null;
+			const fn = (options: unknown) => {
 				receivedOptions = options;
 				return Promise.resolve("done");
 			};
@@ -564,8 +564,8 @@ describe("SignalStore", () => {
 
 		it("works without options", async () => {
 			const store = new SignalStore();
-			let receivedOptions: any = "not-called";
-			const fn = (options?: any) => {
+			let receivedOptions: unknown = "not-called";
+			const fn = (options?: unknown) => {
 				receivedOptions = options;
 				return Promise.resolve("done");
 			};
@@ -724,6 +724,7 @@ describe("SignalStore", () => {
 			};
 
 			// The function throws, but $resolve should catch it.
+			// biome-ignore lint/suspicious/noExplicitAny: testing throw behavior
 			const state = store.$resolve(fn as any);
 
 			await new Promise((resolve) => setTimeout(resolve, 20));

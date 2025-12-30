@@ -6,6 +6,12 @@ export type ElementWithAttribs = Element & {
 	attribs?: { [key: string]: string };
 };
 
+// @ts-expect-error: domhandler types are slightly incompatible with Node
+interface MutableNode extends Node {
+	parentNode: Node | null;
+	childNodes: ChildNode[];
+}
+
 const SAFE_ATTRS = [safeAttrPrefix`:`, safeAttrPrefix`style`, safeAttrPrefix`class`];
 
 /**
@@ -35,19 +41,19 @@ export function* traverse(
 		if (node.childNodes) {
 			Array.from(node.childNodes)
 				.filter((node) => !skip.has(node))
-				.forEach((node) => frontier.push(node));
+				.forEach((node) => {
+					frontier.push(node);
+				});
 		}
 	}
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function hasProperty(obj: any, prop: string): boolean {
-	return typeof obj?.[prop] !== "undefined";
+export function hasProperty(obj: unknown, prop: string): boolean {
+	return typeof (obj as Record<string, unknown>)?.[prop] !== "undefined";
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function hasFunction(obj: any, func: string): boolean {
-	return typeof obj?.[func] === "function";
+export function hasFunction(obj: unknown, func: string): boolean {
+	return typeof (obj as Record<string, unknown>)?.[func] === "function";
 }
 
 /**
@@ -60,12 +66,12 @@ export function attributeNameToCamelCase(name: string): string {
 }
 
 export function getAttribute(elem: ElementWithAttribs, name: string): string | null {
-	if (hasProperty(elem, "attribs")) return elem.attribs?.[name] ?? null;
+	if (elem.attribs) return elem.attribs[name] ?? null;
 	else return elem.getAttribute?.(name) ?? null;
 }
 
 export function hasAttribute(elem: ElementWithAttribs, name: string): boolean {
-	if (hasProperty(elem, "attribs")) return name in (elem.attribs || {});
+	if (elem.attribs) return name in elem.attribs;
 	else return elem.hasAttribute?.(name) ?? false;
 }
 
@@ -94,35 +100,40 @@ export function hasAttributeOrDataset(
 }
 
 export function setAttribute(elem: ElementWithAttribs, name: string, value: string): void {
-	if (hasProperty(elem, "attribs")) elem.attribs![name] = value;
-	else (elem as any).setAttribute?.(name, value);
+	if (elem.attribs) elem.attribs[name] = value;
+	// tsec-disable-next-line
+	else
+		(elem as unknown as { setAttribute?: (name: string, value: string) => void }).setAttribute?.(
+			name,
+			value,
+		);
 }
 
 export function safeSetAttribute(elem: ElementWithAttribs, name: string, value: string): void {
-	if (hasProperty(elem, "attribs")) elem.attribs![name] = value;
+	if (elem.attribs) elem.attribs[name] = value;
 	else safeElement.setPrefixedAttribute(SAFE_ATTRS, elem, name, value);
 }
 
-export function setProperty(elem: ElementWithAttribs, name: string, value: any): void {
+export function setProperty(elem: ElementWithAttribs, name: string, value: unknown): void {
 	switch (name) {
 		// Directly set some safe, known properties.
 		case "disabled":
-			(elem as HTMLOptionElement).disabled = value;
+			(elem as HTMLOptionElement).disabled = value as boolean;
 			return;
 		case "selected":
-			(elem as HTMLOptionElement).selected = value;
+			(elem as HTMLOptionElement).selected = value as boolean;
 			return;
 		case "checked":
-			(elem as HTMLInputElement).checked = value;
+			(elem as HTMLInputElement).checked = value as boolean;
 			return;
 		// Fall back to setting the property directly (unsafe).
 		default:
-			(elem as any)[name] = value;
+			(elem as unknown as Record<string, unknown>)[name] = value;
 	}
 }
 
 export function removeAttribute(elem: ElementWithAttribs, name: string): void {
-	if (hasProperty(elem, "attribs")) delete elem.attribs![name];
+	if (elem.attribs) delete elem.attribs[name];
 	else elem.removeAttribute?.(name);
 }
 
@@ -157,11 +168,13 @@ export function cloneAttribute(
 	elemDest: ElementWithAttribs,
 	name: string,
 ): void {
-	if (hasProperty(elemFrom, "attribs") && hasProperty(elemDest, "attribs")) {
-		elemDest.attribs![name] = elemFrom.attribs![name];
+	if (elemFrom.attribs && elemDest.attribs) {
+		elemDest.attribs[name] = elemFrom.attribs[name];
 	} else if (name.startsWith("data-")) {
 		const datasetKey = attributeNameToCamelCase(name.slice(5));
-		elemDest.dataset![datasetKey] = elemFrom.dataset?.[datasetKey];
+		if (elemDest.dataset && elemFrom.dataset) {
+			elemDest.dataset[datasetKey] = elemFrom.dataset[datasetKey];
+		}
 	} else {
 		const attr = (elemFrom as Element)?.getAttribute?.(name);
 		safeSetAttribute(elemDest as Element, name, attr || "");
@@ -183,13 +196,14 @@ export function replaceWith(original: ChildNode, ...replacement: Node[]): void {
 		return;
 	} else {
 		const elem = original;
-		const parent = elem.parentNode!;
+		const parent = elem.parentNode;
+		if (!parent) return; // Should not happen if replacing
 		const index = Array.from(parent.childNodes).indexOf(elem);
-		(elem as any).parentNode = null;
+		(elem as unknown as MutableNode).parentNode = null;
 		replacement.forEach((elem) => {
-			(elem as any).parentNode = parent;
+			(elem as unknown as MutableNode).parentNode = parent;
 		});
-		(parent as any).childNodes = ([] as ChildNode[])
+		(parent as unknown as MutableNode).childNodes = ([] as ChildNode[])
 			.concat(Array.from(parent.childNodes).slice(0, index))
 			.concat(replacement as ChildNode[])
 			.concat(Array.from(parent.childNodes).slice(index + 1));
@@ -200,9 +214,9 @@ export function replaceChildren(parent: ParentNode, ...nodes: Node[]): void {
 	if (hasFunction(parent, "replaceChildren")) {
 		(parent as ParentNode).replaceChildren(...(nodes as Node[]));
 	} else {
-		(parent as any).childNodes = nodes as ChildNode[];
+		(parent as unknown as MutableNode).childNodes = nodes as ChildNode[];
 		nodes.forEach((node) => {
-			(node as any).parentNode = parent;
+			(node as unknown as MutableNode).parentNode = parent;
 		});
 	}
 }
@@ -211,8 +225,8 @@ export function appendChild(parent: Node, node: Node): Node {
 	if (hasFunction(node, "appendChild")) {
 		return parent.appendChild(node);
 	} else {
-		(parent as any).childNodes.push(node as ChildNode);
-		(node as any).parentNode = parent;
+		(parent as unknown as MutableNode).childNodes.push(node as ChildNode);
+		(node as unknown as MutableNode).parentNode = parent;
 		return node;
 	}
 }

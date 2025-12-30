@@ -176,9 +176,7 @@ function extractQueryParamIdentifiers(scope: ExpressionScope): Set<string> {
 	// Match $$identifier pattern (valid JS identifier after $$).
 	const pattern = /\$\$([a-zA-Z_][a-zA-Z0-9_]*)/g;
 	for (const entry of expressions) {
-		let match: RegExpExecArray | null;
-		// biome-ignore lint/suspicious/noAssignInExpressions: standard regex loop pattern
-		while ((match = pattern.exec(entry.expression)) !== null) {
+		for (const match of entry.expression.matchAll(pattern)) {
 			identifiers.add(`$$${match[1]}`);
 		}
 	}
@@ -277,10 +275,11 @@ function getAttributeValueRange(
 	html: string,
 	valueOffsetInAttrValue?: number,
 ): SourceRange | undefined {
-	const elementLocation = dom.nodeLocation(element) as any;
+	const elementLocation = dom.nodeLocation(element) as unknown as Record<string, unknown>;
 	if (!elementLocation) return undefined;
 
-	const attrLocation = elementLocation?.attrs?.[attributeName];
+	// biome-ignore lint/suspicious/noExplicitAny: location structure is complex
+	const attrLocation = (elementLocation.attrs as any)?.[attributeName];
 	if (!attrLocation) return undefined;
 
 	const attrText = html.slice(attrLocation.startOffset, attrLocation.endOffset);
@@ -294,7 +293,7 @@ function getAttributeValueRange(
 	}
 
 	let cursor = equalsIndex + 1;
-	while (cursor < attrText.length && /\s/.test(attrText[cursor]!)) {
+	while (cursor < attrText.length && /\s/.test(attrText[cursor] ?? "")) {
 		cursor++;
 	}
 
@@ -326,12 +325,14 @@ function getTextExpressionRange(
 	trimmedExpression: string,
 	dom: JSDOM,
 ): SourceRange | undefined {
-	const location = dom.nodeLocation(textNode) as any;
+	const location = dom.nodeLocation(textNode) as unknown as Record<string, unknown>;
 	if (!location) return undefined;
 
 	const rawExpression = match[1] ?? "";
+	// biome-ignore lint/suspicious/noExplicitAny: location structure is complex
+	const startOffset = (location as any).startOffset as number;
 	const leadingWhitespace = rawExpression.length - rawExpression.trimStart().length;
-	const start = location.startOffset + (match.index ?? 0) + 2 + leadingWhitespace;
+	const start = startOffset + (match.index ?? 0) + 2 + leadingWhitespace;
 	return { start, length: trimmedExpression.length };
 }
 
@@ -353,8 +354,9 @@ function computeForLoopVariableType(itemsType: string): string {
 	if (itemsType.endsWith("[]")) {
 		return itemsType.slice(0, -2);
 	}
-	if (itemsType.match(/^Array<(.+)>$/)) {
-		return itemsType.match(/^Array<(.+)>$/)![1];
+	const match = itemsType.match(/^Array<(.+)>$/);
+	if (match) {
+		return match[1];
 	}
 	// For complex types, try to infer element type
 	// This is a simple heuristic - for more complex cases, TypeScript would need to resolve the type
@@ -375,29 +377,33 @@ function getForLoopContext(element: Element, typesMap: Map<string, string>): Map
 
 			// Try to determine the type of the items expression
 			// First check if it's a simple variable name in our types map
-			if (typesMap.has(itemsExpression)) {
-				const itemsType = typesMap.get(itemsExpression)!;
+			const itemsType = typesMap.get(itemsExpression);
+			if (itemsType) {
 				const itemType = computeForLoopVariableType(itemsType);
 				forLoopTypes.set(itemName, itemType);
 			} else if (forLoopTypes.has(itemsExpression)) {
 				// Check if it's a for-loop variable from an outer loop (for shadowing)
-				const itemsType = forLoopTypes.get(itemsExpression)!;
-				const itemType = computeForLoopVariableType(itemsType);
-				forLoopTypes.set(itemName, itemType);
+				const itemsType = forLoopTypes.get(itemsExpression);
+				if (itemsType) {
+					const itemType = computeForLoopVariableType(itemsType);
+					forLoopTypes.set(itemName, itemType);
+				}
 			} else {
 				// Try to infer from more complex expressions like user.scores
 				// For now, use a simple heuristic
 				const match = itemsExpression.match(/^(\w+)\.(\w+)$/);
-				if (match && forLoopTypes.has(match[1])) {
-					// e.g., user.scores where user is already in forLoopTypes
-					const parentType = forLoopTypes.get(match[1])!;
-					const propertyName = match[2];
-					// Extract property type from parent type (simple heuristic)
-					const propMatch = parentType.match(new RegExp(`${propertyName}:\\s*([^,}]+)`));
-					if (propMatch) {
-						const propType = propMatch[1].trim();
-						const itemType = computeForLoopVariableType(propType);
-						forLoopTypes.set(itemName, itemType);
+				if (match) {
+					const parentType = forLoopTypes.get(match[1]);
+					if (parentType) {
+						// e.g., user.scores where user is already in forLoopTypes
+						const propertyName = match[2];
+						// Extract property type from parent type (simple heuristic)
+						const propMatch = parentType.match(new RegExp(`${propertyName}:\\s*([^,}]+)`));
+						if (propMatch) {
+							const propType = propMatch[1].trim();
+							const itemType = computeForLoopVariableType(propType);
+							forLoopTypes.set(itemName, itemType);
+						}
 					}
 				}
 			}

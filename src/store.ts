@@ -19,7 +19,7 @@ export type InternalStoreState = {
  * Base type for user-defined store state. Uses `any` intentionally to allow flexible
  * user-defined state types without requiring explicit index signatures.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: Intentional dynamic state
 export type StoreState = Record<string, any>;
 
 /** Type for expression evaluation function. */
@@ -28,14 +28,14 @@ type EvalFunction = (thisArg: SignalStoreProxy, args: Record<string, unknown>) =
 /**
  * Internal proxy type used within the store implementation. Uses `any` for dynamic property access.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: Proxy needs to handle dynamic props
 type SignalStoreProxy = SignalStore & InternalStoreState & { [key: string]: any };
 type Observer<T> = (this: SignalStoreProxy) => T;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type KeyValueHandler = (this: SignalStoreProxy, key: string, value: any) => void;
+type KeyValueHandler = (this: SignalStoreProxy, key: string, value: unknown) => void;
 
 abstract class IDebouncer {
-	timeouts: Map<(...args: any[]) => any, ReturnType<typeof setTimeout>> = new Map();
+	timeouts: Map<(...args: unknown[]) => unknown, ReturnType<typeof setTimeout>> = new Map();
 
 	debounce<T>(millis: number, callback: () => T | Promise<T>): Promise<T> {
 		return new Promise((resolve, reject) => {
@@ -138,7 +138,7 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-	private wrapFunction(fn: (...args: any[]) => any): (...args: any[]) => any {
+	private wrapFunction(fn: (...args: unknown[]) => unknown): (...args: unknown[]) => unknown {
 		return (...args: unknown[]) => fn.call(this.$, ...args);
 	}
 
@@ -188,7 +188,7 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 		if (!this.keyHandlers.has(pattern)) {
 			this.keyHandlers.set(pattern, new Set());
 		}
-		this.keyHandlers.get(pattern)!.add(handler);
+		this.keyHandlers.get(pattern)?.add(handler);
 	}
 
 	async notify(key: string, debounceMillis: number = REACTIVE_DEBOUNCE_MILLIS): Promise<void> {
@@ -209,7 +209,7 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 		if (this._store.has(key) && value === this._store.get(key)) return;
 		const callback = () => this.notify(key);
 		if (value && typeof value === "function") {
-			value = this.wrapFunction(value as (...args: any[]) => any);
+			value = this.wrapFunction(value as (...args: unknown[]) => unknown);
 		}
 		if (value && typeof value === "object") {
 			value = this.wrapObject(value, callback);
@@ -316,7 +316,7 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 					if (typeof prop !== "string") return undefined;
 					if (prop in target) return target[prop];
 					if (prop in thisArg) return thisArg[prop];
-					if (prop in globalThis) return (globalThis as any)[prop];
+					if (prop in globalThis) return (globalThis as unknown as Record<string, unknown>)[prop];
 					return thisArg[prop];
 				},
 				set(target, prop, value) {
@@ -345,7 +345,11 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 		if (!this.expressionCache.has(expr)) {
 			this.expressionCache.set(expr, this.makeEvalFunction(expr));
 		}
-		return this.expressionCache.get(expr)!;
+		const fn = this.expressionCache.get(expr);
+		if (!fn) {
+			throw new Error(`Failed to retrieve cached expression: ${expr}`);
+		}
+		return fn;
 	}
 
 	eval(expr: string, args: Record<string, unknown> = {}): unknown {

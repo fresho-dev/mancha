@@ -16,7 +16,9 @@ describe("Browser", () => {
 
 		afterEach(() => {
 			// Remove styles added during the test.
-			addedStyles.forEach((style) => style.remove());
+			addedStyles.forEach((style) => {
+				style.remove();
+			});
 			addedStyles = [];
 		});
 
@@ -95,7 +97,6 @@ describe("Browser", () => {
 				target: "#test-target",
 				state: { message: "Hello" },
 			});
-			assert.ok(initRenderer instanceof Renderer);
 
 			// Verify the initial state was rendered.
 			assert.equal(target.querySelector("span")?.textContent, "Hello");

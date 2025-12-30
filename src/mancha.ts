@@ -1,7 +1,7 @@
-import { CssName, injectCss, Renderer } from "./browser.js";
+import { type CssName, injectCss, Renderer } from "./browser.js";
 
-const Mancha = new Renderer();
-(globalThis as any).Mancha = Mancha;
+const instance = new Renderer();
+globalThis.Mancha = instance;
 const currentScript = globalThis.document?.currentScript;
 
 // If the init attribute is present, mount the content to the target element(s).
@@ -12,7 +12,7 @@ if (globalThis.document?.currentScript?.hasAttribute("init")) {
 	window.addEventListener("load", () => {
 		targets.map(async (target: string) => {
 			const fragment = globalThis.document.querySelector(target) as unknown as DocumentFragment;
-			await Mancha.debug(debug!).mount(fragment, { cache: cachePolicy });
+			await instance.debug(!!debug).mount(fragment, { cache: cachePolicy });
 		});
 	});
 }
@@ -23,4 +23,8 @@ if (globalThis.document?.currentScript?.hasAttribute("css")) {
 	injectCss(styleNames);
 }
 
-export default Mancha;
+export default instance;
+
+declare global {
+	var Mancha: Renderer;
+}

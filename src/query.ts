@@ -1,4 +1,4 @@
-import { IRenderer } from "./renderer.js";
+import type { IRenderer } from "./renderer.js";
 
 const KEY_PREFIX = "$$";
 const FALLBACK_URL = "http://localhost/";
@@ -55,7 +55,7 @@ async function updateStoreFromUrl(renderer: IRenderer, url: URL): Promise<void> 
  * @param value The value to set
  * @returns Whether the URL was changed
  */
-function updateUrlFromStoreValue(url: URL, storeKey: string, value: any): boolean {
+function updateUrlFromStoreValue(url: URL, storeKey: string, value: unknown): boolean {
 	const paramName = _storeKeyToParamName(storeKey);
 	let changed = false;
 

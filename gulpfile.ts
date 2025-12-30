@@ -4,10 +4,12 @@ import GulpClient from "gulp";
 import csso from "gulp-csso";
 
 const execTask = (command: string) => {
-	return async (done: (err?: any) => void) => {
-		const { err, stderr, stdout } = await new Promise<{ err: any; stderr: string; stdout: string }>(
-			(resolve) => exec(command, (err, stdout, stderr) => resolve({ err, stderr, stdout })),
-		);
+	return async (done: (err?: unknown) => void) => {
+		const { err, stderr, stdout } = await new Promise<{
+			err: unknown;
+			stderr: string;
+			stdout: string;
+		}>((resolve) => exec(command, (err, stdout, stderr) => resolve({ err, stderr, stdout })));
 		if (stdout) console.log(stdout);
 		if (stderr) console.error(stderr);
 		done(err);
