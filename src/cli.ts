@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import * as fs from "node:fs/promises";
-import { glob } from "glob";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { glob } from "glob";
 import * as ts from "typescript";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
@@ -10,6 +10,7 @@ import { hideBin } from "yargs/helpers";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, "..");
+
 import { Mancha } from "./index.js";
 import { typeCheck } from "./type_checker.js";
 
@@ -143,7 +144,7 @@ const _args = yargs(hideBin(process.argv))
 	.command(
 		"docs",
 		"Print all documentation for AI model consumption",
-		() => { },
+		() => {},
 		async () => {
 			const files = [
 				"README.md",
