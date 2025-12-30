@@ -1,6 +1,6 @@
-import { assert, setupGlobalTestEnvironment } from "./test_utils.js";
 import { Renderer } from "./browser.js";
 import { setupQueryParamBindings } from "./query.js";
+import { assert, setupGlobalTestEnvironment } from "./test_utils.js";
 
 const START_HREF = "/";
 

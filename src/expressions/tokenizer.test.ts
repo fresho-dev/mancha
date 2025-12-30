@@ -1,5 +1,5 @@
 import { assert } from "../test_utils.js";
-import { Tokenizer, Kind } from "./tokenizer.js";
+import { Kind, Tokenizer } from "./tokenizer.js";
 
 describe("Tokenizer", () => {
 	it("should tokenize simple expressions", () => {

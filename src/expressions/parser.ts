@@ -3,7 +3,7 @@
  * Portions Copyright (c) 2013, the Dart project authors.
  */
 
-import { ID, Invoke, Expression } from "./ast.js";
+import { Expression, ID, Invoke } from "./ast.js";
 import { AstFactory } from "./ast_factory.js";
 import { BINARY_OPERATORS, KEYWORDS, POSTFIX_PRECEDENCE, UNARY_OPERATORS } from "./constants.js";
 import { Kind, Token, Tokenizer } from "./tokenizer.js";
@@ -164,7 +164,7 @@ export class Parser<N extends Expression> {
 
 	private _parsePrimary() {
 		switch (this._kind) {
-			case Kind.KEYWORD:
+			case Kind.KEYWORD: {
 				const keyword = this._value!;
 				if (keyword === "this") {
 					this._advance();
@@ -174,6 +174,7 @@ export class Parser<N extends Expression> {
 					throw new Error(`unexpected keyword: ${keyword}`);
 				}
 				throw new Error(`unrecognized keyword: ${keyword}`);
+			}
 			case Kind.IDENTIFIER:
 				return this._parseInvokeOrIdentifier();
 			case Kind.STRING:

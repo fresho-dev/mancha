@@ -1,4 +1,4 @@
-import { safeAnchorEl, safeAreaEl, safeInputEl } from "safevalues/dom";
+import { safeAnchorEl, safeAreaEl } from "safevalues/dom";
 import {
 	appendChild,
 	attributeNameToCamelCase,
@@ -7,11 +7,12 @@ import {
 	firstElementChild,
 	getAttribute,
 	getAttributeOrDataset,
+	hasProperty,
 	insertBefore,
 	isRelativePath,
 	nodeToString,
-	removeAttributeOrDataset,
 	removeAttribute,
+	removeAttributeOrDataset,
 	removeChild,
 	replaceChildren,
 	replaceWith,
@@ -20,11 +21,10 @@ import {
 	setAttributeOrDataset,
 	setProperty,
 	traverse,
-	hasProperty,
 } from "./dome.js";
-import type { IRenderer } from "./renderer.js";
-import { ParserParams, RenderParams, RendererPlugin } from "./interfaces.js";
+import { ParserParams, RendererPlugin, RenderParams } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
+import type { IRenderer } from "./renderer.js";
 
 /** @internal */
 export namespace RendererPlugins {
@@ -63,7 +63,7 @@ export namespace RendererPlugins {
 		const subparameters: RenderParams & ParserParams = {
 			...params,
 			rootDocument: false,
-			maxdepth: params?.maxdepth!! - 1,
+			maxdepth: (params?.maxdepth ?? 100) - 1,
 		};
 		if (subparameters.maxdepth === 0) throw new Error("Maximum recursion depth reached.");
 
@@ -160,12 +160,12 @@ export namespace RendererPlugins {
 				this._customElements.set(customTagName, elem);
 
 				// Remove the original node from the DOM.
-				removeChild(elem.parentNode!!, elem);
+				removeChild(elem.parentNode!, elem);
 			}
 		}
 	};
 
-	export const resolveCustomElements: RendererPlugin = function (node, params) {
+	export const resolveCustomElements: RendererPlugin = function (node, _params) {
 		const elem = node as Element;
 		const tagName = elem.tagName?.toLowerCase();
 
@@ -173,7 +173,7 @@ export namespace RendererPlugins {
 		if (cusName === "div") cusName = getAttribute(elem, "role")?.toLowerCase() || cusName;
 		if (cusName && this._customElements.has(cusName)) {
 			this.log(`Processing custom element: ${cusName}\n`, nodeToString(elem, 128));
-			const template = this._customElements.get(cusName)!! as HTMLTemplateElement;
+			const template = this._customElements.get(cusName)! as HTMLTemplateElement;
 			const clone = (template.content || template).cloneNode(true) as Element;
 
 			// Add whatever attributes the custom element tag had to the first child.
@@ -194,7 +194,7 @@ export namespace RendererPlugins {
 		}
 	};
 
-	export const resolveTextNodeExpressions: RendererPlugin = function (node, params) {
+	export const resolveTextNodeExpressions: RendererPlugin = function (node, _params) {
 		const content = node.nodeValue || "";
 		if (node.nodeType !== 3 || !content?.trim()) return;
 		this.log(`Processing node content value:\n`, ellipsize(content, 128));
@@ -239,7 +239,7 @@ export namespace RendererPlugins {
 			}
 
 			// Evaluate the expression.
-			const result = subrenderer.eval(dataAttr, { $elem: node }) as Object;
+			const result = subrenderer.eval(dataAttr, { $elem: node }) as object;
 
 			// Await any promises in the result object.
 			await Promise.all(
@@ -270,7 +270,7 @@ export namespace RendererPlugins {
 		}
 	};
 
-	export const resolveClassAttribute: RendererPlugin = function (node, params) {
+	export const resolveClassAttribute: RendererPlugin = function (node, _params) {
 		if (this._skipNodes.has(node)) return;
 		const elem = node as HTMLElement;
 		const classAttr = getAttributeOrDataset(elem, "class", ":");
@@ -295,7 +295,7 @@ export namespace RendererPlugins {
 		}
 	};
 
-	export const resolveTextAttributes: RendererPlugin = function (node, params) {
+	export const resolveTextAttributes: RendererPlugin = function (node, _params) {
 		if (this._skipNodes.has(node)) return;
 		const elem = node as Element;
 		const textAttr = getAttributeOrDataset(elem, "text", ":");
@@ -326,17 +326,19 @@ export namespace RendererPlugins {
 			// Compute the function's result and track dependencies.
 			return this.effect(function () {
 				const result = this.eval(htmlAttr, { $elem: node }) as string;
-				return new Promise(async (resolve) => {
-					const fragment = await this.preprocessString(result, params);
-					await this.renderNode(fragment);
-					replaceChildren(elem, fragment);
-					resolve();
+				return new Promise((resolve) => {
+					(async () => {
+						const fragment = await this.preprocessString(result, params);
+						await this.renderNode(fragment);
+						replaceChildren(elem, fragment);
+						resolve();
+					})();
 				});
 			});
 		}
 	};
 
-	export const resolveEventAttributes: RendererPlugin = function (node, params) {
+	export const resolveEventAttributes: RendererPlugin = function (node, _params) {
 		if (this._skipNodes.has(node)) return;
 		const elem = node as Element;
 		for (const attr of Array.from(elem.attributes || [])) {
@@ -390,7 +392,7 @@ export namespace RendererPlugins {
 			setAttribute(elem, "style", "display: none;");
 
 			// Place the template node into a template element.
-			const parent = node.parentNode!!;
+			const parent = node.parentNode!;
 			const template = this.createElement("template", node.ownerDocument);
 			insertBefore(parent, template as Node, node);
 			removeChild(parent, node);
@@ -468,7 +470,7 @@ export namespace RendererPlugins {
 		}
 	};
 
-	export const resolveBindAttribute: RendererPlugin = function (node, params) {
+	export const resolveBindAttribute: RendererPlugin = function (node, _params) {
 		if (this._skipNodes.has(node)) return;
 		const elem = node as HTMLInputElement;
 		const bindExpr = getAttributeOrDataset(elem, "bind", ":");
@@ -479,7 +481,7 @@ export namespace RendererPlugins {
 			const defaultEvents = ["change", "input"];
 			const updateEvents =
 				getAttribute(elem, ":bind:on")?.split(",") ||
-				elem.dataset?.["bindOn"]?.split(",") ||
+				elem.dataset?.bindOn?.split(",") ||
 				defaultEvents;
 
 			// Remove the processed attributes from node.
@@ -513,7 +515,7 @@ export namespace RendererPlugins {
 		}
 	};
 
-	export const resolveIfAttribute: RendererPlugin = function (node, params) {
+	export const resolveIfAttribute: RendererPlugin = function (node, _params) {
 		if (this._skipNodes.has(node)) return;
 		const elem = node as HTMLElement;
 		const ifExpr = getAttributeOrDataset(elem, "if", ":");
@@ -544,7 +546,7 @@ export namespace RendererPlugins {
 		}
 	};
 
-	export const resolveShowAttribute: RendererPlugin = function (node, params) {
+	export const resolveShowAttribute: RendererPlugin = function (node, _params) {
 		if (this._skipNodes.has(node)) return;
 		const elem = node as HTMLElement;
 		const showExpr = getAttributeOrDataset(elem, "show", ":");
@@ -579,7 +581,7 @@ export namespace RendererPlugins {
 		}
 	};
 
-	export const resolveCustomAttribute: RendererPlugin = function (node, params) {
+	export const resolveCustomAttribute: RendererPlugin = function (node, _params) {
 		if (this._skipNodes.has(node)) return;
 		const elem = node as Element;
 		for (const attr of Array.from(elem.attributes || [])) {
@@ -591,7 +593,7 @@ export namespace RendererPlugins {
 				// Remove the processed attributes from node.
 				removeAttribute(elem, attr.name);
 
-				const attrName = attr.name.split(prefix1, 2).at(-1)?.split(prefix2, 2).at(-1)!!;
+				const attrName = (attr.name.split(prefix1, 2).at(-1) || "").split(prefix2, 2).at(-1)!;
 				this.effect(function () {
 					const attrValue = this.eval(attr.value, { $elem: node });
 					setAttribute(elem, attrName, attrValue as string);
@@ -600,7 +602,7 @@ export namespace RendererPlugins {
 		}
 	};
 
-	export const resolveCustomProperty: RendererPlugin = function (node, params) {
+	export const resolveCustomProperty: RendererPlugin = function (node, _params) {
 		if (this._skipNodes.has(node)) return;
 		const elem = node as Element;
 		for (const attr of Array.from(elem.attributes || [])) {
@@ -612,7 +614,7 @@ export namespace RendererPlugins {
 				// Remove the processed attributes from node.
 				removeAttribute(elem, attr.name);
 
-				const attrName = attr.name.split(prefix1, 2).at(-1)?.split(prefix2, 2).at(-1)!!;
+				const attrName = (attr.name.split(prefix1, 2).at(-1) || "").split(prefix2, 2).at(-1)!;
 				const propName = attributeNameToCamelCase(attrName);
 				this.effect(function () {
 					const propValue = this.eval(attr.value, { $elem: node });
@@ -622,7 +624,7 @@ export namespace RendererPlugins {
 		}
 	};
 
-	export const stripTypes: RendererPlugin = function (node, params) {
+	export const stripTypes: RendererPlugin = (node, _params) => {
 		const elem = node as Element;
 
 		// Remove :types and data-types attributes

@@ -1,18 +1,15 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {
-	MEDIA_BREAKPOINTS,
-	PROPS_CUSTOM,
-	PROPS_COLORS,
-	PROPS_SPACING,
-	PROPS_SIZING,
-	PROPS_POSITION,
-	PROPS_SIZING_MINMAX,
-	UNITS_ALL,
-	REM_UNIT,
-	PERCENTS,
 	DURATIONS,
-} from "../src/css_gen_utils.ts";
+	MEDIA_BREAKPOINTS,
+	PERCENTS,
+	PROPS_COLORS,
+	PROPS_CUSTOM,
+	PROPS_SIZING,
+	PROPS_SIZING_MINMAX,
+	PROPS_SPACING,
+} from "../src/css_gen_utils.js";
 
 const DOCS_PATH = path.join(process.cwd(), "docs", "css.md");
 
@@ -92,7 +89,7 @@ function generateMarkdown() {
 	md += "| Color | Shades |\n";
 	md += "| --- | --- |\n";
 	md += "| `white`, `black`, `transparent` | N/A |\n";
-	for (const [color, shades] of Object.entries(PROPS_COLORS)) {
+	for (const [color, _shades] of Object.entries(PROPS_COLORS)) {
 		md += `| \`${color}\` | \`50\`, \`100\`, \`200\`, \`300\`, \`400\`, \`500\`, \`600\`, \`700\`, \`800\`, \`900\` |\n`;
 	}
 	md += "\n";

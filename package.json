@@ -29,7 +29,11 @@
 		"test": "npm run test:node && npm run test:browser",
 		"check_size": "brotli -c dist/mancha.js | wc -c",
 		"cli": "node dist/cli.js",
-		"gen:docs": "tsx scripts/generate-css-docs.ts"
+		"gen:docs": "tsx scripts/generate-css-docs.ts",
+		"check": "biome check .",
+		"check:fix": "biome check --write .",
+		"format": "biome format --write .",
+		"lint": "biome lint ."
 	},
 	"bin": {
 		"mancha": "dist/cli.js"
@@ -56,6 +60,7 @@
 		"yargs": "^17.7.2"
 	},
 	"devDependencies": {
+		"@biomejs/biome": "^2.3.10",
 		"@types/chai": "^5.2.3",
 		"@types/chai-as-promised": "^8.0.1",
 		"@types/glob": "^8.1.0",

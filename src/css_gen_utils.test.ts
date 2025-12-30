@@ -82,7 +82,7 @@ describe("CSS Generation Utils", () => {
 			// First call (may be cached from previous tests, but that's fine)
 			const start1 = performance.now();
 			const css1 = rules();
-			const time1 = performance.now() - start1;
+			const _time1 = performance.now() - start1;
 
 			// Second call (should be instant due to memoization)
 			const start2 = performance.now();

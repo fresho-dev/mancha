@@ -1,10 +1,10 @@
+import { dirname, nodeToString, setProperty, traverse } from "./dome.js";
 import type { ParserParams, RenderParams } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
 import { RendererPlugins } from "./plugins.js";
-import { dirname, nodeToString, setProperty, traverse } from "./dome.js";
-import { SignalStore } from "./store.js";
-import type { StoreState } from "./store.js";
 import { setupQueryParamBindings } from "./query.js";
+import type { StoreState } from "./store.js";
+import { SignalStore } from "./store.js";
 
 export type EvalListener = (result: any, dependencies: string[]) => any;
 

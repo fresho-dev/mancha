@@ -1,8 +1,8 @@
-import { Renderer } from "./worker.js";
 import { traverse } from "./dome.js";
-import { assert, setupGlobalTestEnvironment, createFragment } from "./test_utils.js";
 import { testSuite as pluginsTestSuite } from "./plugins.test.js";
 import { testSuite as ssrTestSuite } from "./ssr.test.js";
+import { assert, createFragment, setupGlobalTestEnvironment } from "./test_utils.js";
+import { Renderer } from "./worker.js";
 
 describe("Worker Renderer Implementation", () => {
 	before(async () => {

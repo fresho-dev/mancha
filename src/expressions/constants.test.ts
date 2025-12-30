@@ -1,11 +1,11 @@
 import { assert } from "../test_utils.js";
 import {
-	KEYWORDS,
-	WORD_OPERATORS,
-	UNARY_OPERATORS,
 	BINARY_OPERATORS,
-	PRECEDENCE,
+	KEYWORDS,
 	POSTFIX_PRECEDENCE,
+	PRECEDENCE,
+	UNARY_OPERATORS,
+	WORD_OPERATORS,
 } from "./constants.js";
 
 describe("Expression Constants", () => {

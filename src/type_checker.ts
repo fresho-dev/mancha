@@ -1,9 +1,9 @@
-import * as ts from "typescript";
-import * as fs from "fs/promises";
-import * as path from "path";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import { JSDOM } from "jsdom";
-import * as expressions from "./expressions/index.js";
+import * as ts from "typescript";
 import { getAttributeOrDataset } from "./dome.js";
+import * as expressions from "./expressions/index.js";
 import { TRUSTED_DATA_ATTRIBS } from "./trusted_attributes.js";
 
 export interface TypeCheckOptions {
@@ -118,7 +118,7 @@ interface ExpressionScope {
 function replaceImportSyntax(typeString: string, baseDir?: string): string {
 	return typeString.replace(
 		/@import:([^:]+):([A-Za-z_][A-Za-z0-9_]*)/g,
-		(match, modulePath, typeName) => {
+		(_match, modulePath, typeName) => {
 			// If baseDir is provided and the path is relative, resolve it to an absolute path
 			if (baseDir && (modulePath.startsWith("./") || modulePath.startsWith("../"))) {
 				const absolutePath = path.resolve(baseDir, modulePath);
@@ -176,7 +176,8 @@ function extractQueryParamIdentifiers(scope: ExpressionScope): Set<string> {
 	// Match $$identifier pattern (valid JS identifier after $$).
 	const pattern = /\$\$([a-zA-Z_][a-zA-Z0-9_]*)/g;
 	for (const entry of expressions) {
-		let match;
+		let match: RegExpExecArray | null;
+		// biome-ignore lint/suspicious/noAssignInExpressions: standard regex loop pattern
 		while ((match = pattern.exec(entry.expression)) !== null) {
 			identifiers.add(`$$${match[1]}`);
 		}
@@ -189,10 +190,10 @@ function buildTypeScriptSource(
 	scope: ExpressionScope,
 	baseDir?: string,
 ): { source: string; expressionMap: Map<number, ExpressionEntry> } {
-	const namespace = `M`; // Use a constant namespace
+	const namespace = "M"; // Use a constant namespace
 
 	// Add reference directive for DOM lib
-	const libDirectives = `/// <reference lib="dom" />\n/// <reference lib="es2021" />`;
+	const libDirectives = '/// <reference lib="dom" />\n/// <reference lib="es2021" />';
 
 	// Default mancha-specific globals available in all templates
 	const defaultGlobals = ["declare const $elem: Element;", "declare const $event: Event;"].join(
@@ -226,12 +227,12 @@ function buildTypeScriptSource(
 	].join("\n");
 
 	const prefix = `${libDirectives}\n${globalAugmentations}\nnamespace ${namespace} {\n${defaultGlobals}\n${declarations}\n`;
-	const suffix = `\n}`;
+	const suffix = "\n}";
 	const expressionMap = new Map<number, ExpressionEntry>();
 	let currentOffset = prefix.length;
 
 	// Recursively build checks from scope
-	const buildChecks = (currentScope: ExpressionScope, indent: string = ""): string => {
+	const buildChecks = (currentScope: ExpressionScope, indent = ""): string => {
 		let result = "";
 
 		// Add expressions in current scope
@@ -252,7 +253,7 @@ function buildTypeScriptSource(
 			result += forLoopHeader;
 			currentOffset += forLoopHeader.length;
 
-			result += buildChecks(forLoop.scope, indent + "  ");
+			result += buildChecks(forLoop.scope, `${indent}  `);
 
 			const closingBrace = `${indent}}\n`;
 			result += closingBrace;
@@ -501,7 +502,7 @@ async function processTypesElement(
 				}
 			}
 
-			if (bestMatch && bestMatch.entry.range) {
+			if (bestMatch?.entry.range) {
 				const { range } = bestMatch.entry;
 				const tsOffsetInGeneratedCode = diag.start - bestMatch.offset;
 				const newStart = range.start + tsOffsetInGeneratedCode;

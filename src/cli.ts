@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-import * as fs from "fs/promises";
+import * as fs from "node:fs/promises";
 import { glob } from "glob";
+import * as ts from "typescript";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { Mancha } from "./index.js";
 import { typeCheck } from "./type_checker.js";
-import * as ts from "typescript";
 
-const args = yargs(hideBin(process.argv))
+const _args = yargs(hideBin(process.argv))
 	.command(
 		"render <input>",
 		"Render a Mancha template",
@@ -31,16 +31,16 @@ const args = yargs(hideBin(process.argv))
 				});
 		},
 		async (argv) => {
-			Mancha.debug(argv.debug!!);
-			Object.entries(JSON.parse(argv.vars || "{}")).forEach(
-				([key, value]) => (Mancha.$[key] = value),
-			);
+			Mancha.debug(argv.debug!);
+			Object.entries(JSON.parse(argv.vars || "{}")).forEach(([key, value]) => {
+				Mancha.$[key] = value;
+			});
 
 			const fragment = await Mancha.preprocessLocal(argv.input as string);
 			await Mancha.renderNode(fragment);
 
 			if (!argv.output || argv.output === "-") {
-				console.log(Mancha.serializeHTML(fragment) + "\n");
+				console.log(`${Mancha.serializeHTML(fragment)}\n`);
 			} else {
 				await fs.writeFile(argv.output, Mancha.serializeHTML(fragment));
 			}
@@ -87,9 +87,9 @@ const args = yargs(hideBin(process.argv))
 				const pattern = isDirectory ? `${input}/**/*.{html,htm}` : input;
 				const globOptions = isDirectory
 					? {
-						nodir: true,
-						ignore: ["**/node_modules/**", "**/.git/**"],
-					}
+							nodir: true,
+							ignore: ["**/node_modules/**", "**/.git/**"],
+						}
 					: { nodir: true };
 				const files = await glob(pattern, globOptions);
 				filesToCheck.push(...files);

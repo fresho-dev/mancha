@@ -11,7 +11,7 @@ import {
 	setAttributeOrDataset,
 	traverse,
 } from "./dome.js";
-import { assert, setupGlobalTestEnvironment, isNode, createFragment } from "./test_utils.js";
+import { assert, createFragment, isNode, setupGlobalTestEnvironment } from "./test_utils.js";
 
 type HtmlParser = (html: string) => DocumentFragment;
 

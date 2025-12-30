@@ -46,6 +46,8 @@ const _isIdentOrKeywordStart = (ch: number) =>
 	// ch &= ~32 puts ch into the range [65,90] [A-Z] only if ch was already in
 	// the that range or in the range [97,122] [a-z]. We must mutate ch only after
 	// checking other characters, thus the comma operator.
+	// biome-ignore lint/complexity/noCommaOperator: optimization
+	// biome-ignore lint/suspicious/noAssignInExpressions: optimization
 	((ch &= ~32), 65 /* A */ <= ch && ch <= 90); /* Z */
 
 // TODO(justinfagnani): allow code points > 127
