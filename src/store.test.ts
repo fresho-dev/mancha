@@ -269,7 +269,7 @@ describe("SignalStore", () => {
 
 			it("runs eval inside of effect", async () => {
 				const store = new SignalStore({ a: 1, b: 2 });
-				const { $ } = store;
+				// const { $ } = store;
 				let result = null;
 				store.effect(function () {
 					result = this.eval("a + b");
@@ -451,7 +451,7 @@ describe("SignalStore", () => {
 
 			it("local scope assignment", async () => {
 				const store = new SignalStore({ a: 1 });
-				const result = store.eval("a = x", { x: 2 });
+				const _result = store.eval("a = x", { x: 2 });
 				assert.equal(store.get("a"), 2);
 			});
 
@@ -689,7 +689,7 @@ describe("SignalStore", () => {
 						Array.from({ length: limit }, (_, i) => ({ id: String(i), name: `User ${i}` })),
 					);
 				},
-				deleteUser: (options?: { path: { id: string } }): Promise<{ success: boolean }> => {
+				deleteUser: (_options?: { path: { id: string } }): Promise<{ success: boolean }> => {
 					return Promise.resolve({ success: true });
 				},
 			};

@@ -1,5 +1,5 @@
+import { dirname, firstElementChild, getAttribute, traverse } from "./dome.js";
 import { IRenderer } from "./renderer.js";
-import { dirname, getAttribute, traverse, firstElementChild } from "./dome.js";
 import { REACTIVE_DEBOUNCE_MILLIS } from "./store.js";
 import { assert, getTextContent, innerHTML, setupGlobalTestEnvironment } from "./test_utils.js";
 
@@ -13,14 +13,13 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				"//foo.com/bar.html",
 				"//foo.com/baz/../bar.html",
 			].forEach((source) => {
-				it(`includes a remote source using absolute path (${source})`, async function () {
+				it(`includes a remote source using absolute path (${source})`, async () => {
 					const renderer = new ctor();
 					const html = `<include src="${source}"></include>`;
 					const fragment = renderer.parseHTML(html);
 
-					renderer.preprocessRemote = async function (fpath, _) {
-						return renderer.parseHTML(`<div>${fpath}</div>`) as unknown as DocumentFragment;
-					};
+					renderer.preprocessRemote = async (fpath, _) =>
+						renderer.parseHTML(`<div>${fpath}</div>`) as unknown as DocumentFragment;
 					await renderer.mount(fragment);
 
 					const node = fragment.firstChild as Element;
@@ -30,14 +29,13 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			});
 
 			["/bar.html", "/baz/../bar.html"].forEach((source) => {
-				it(`includes a local source using absolute path (${source})`, async function () {
+				it(`includes a local source using absolute path (${source})`, async () => {
 					const renderer = new ctor();
 					const html = `<include src="${source}"></include>`;
 					const fragment = renderer.parseHTML(html);
 
-					renderer.preprocessLocal = async function (fpath, params) {
-						return renderer.parseHTML(`<div>${fpath}</div>`) as unknown as DocumentFragment;
-					};
+					renderer.preprocessLocal = async (fpath, _params) =>
+						renderer.parseHTML(`<div>${fpath}</div>`) as unknown as DocumentFragment;
 					await renderer.mount(fragment, { dirpath: "/foo" });
 
 					const node = fragment.firstChild as Element;
@@ -47,14 +45,13 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			});
 
 			["bar.html", "./bar.html", "baz/../bar.html"].forEach((source) => {
-				it(`includes a local source using relative path (${source})`, async function () {
+				it(`includes a local source using relative path (${source})`, async () => {
 					const renderer = new ctor();
 					const html = `<include src="${source}"></include>`;
 					const fragment = renderer.parseHTML(html);
 
-					renderer.preprocessLocal = async function (fpath, params) {
-						return renderer.parseHTML(`<div>${fpath}</div>`) as unknown as DocumentFragment;
-					};
+					renderer.preprocessLocal = async (fpath, _params) =>
+						renderer.parseHTML(`<div>${fpath}</div>`) as unknown as DocumentFragment;
 					await renderer.mount(fragment, { dirpath: "/foo" });
 
 					const node = fragment.firstChild as Element;
@@ -63,16 +60,15 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				});
 			});
 
-			it(`propagates attributes to first child`, async function () {
+			it(`propagates attributes to first child`, async () => {
 				const renderer = new ctor({ a: "foo", b: "bar" });
 				const html = `<include src="foo.html" :on:click="fn()" :class="a" :text="b"></include>`;
 				const fragment = renderer.parseHTML(html);
 
-				renderer.preprocessLocal = async function (fpath, params) {
-					return renderer.parseHTML(
+				renderer.preprocessLocal = async (_fpath, _params) =>
+					renderer.parseHTML(
 						`<span>Hello</span> <span>World</span>`,
 					) as unknown as DocumentFragment;
-				};
 				await renderer.mount(fragment, { dirpath: "." });
 
 				const node = fragment.firstChild as Element;
@@ -84,7 +80,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 		});
 
 		describe("rebase", () => {
-			it("rebase relative paths", async function () {
+			it("rebase relative paths", async () => {
 				const renderer = new ctor();
 				const html = `<img src="bar/baz.jpg"></img>`;
 				const fragment = renderer.parseHTML(html);
@@ -95,7 +91,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(getAttribute(node, "src"), "/foo/bar/baz.jpg");
 			});
 
-			it("rebase (not) absolute paths", async function () {
+			it("rebase (not) absolute paths", async () => {
 				const renderer = new ctor();
 				const html = `<img src="/foo/bar.jpg"></img>`;
 				const fragment = renderer.parseHTML(html);
@@ -106,12 +102,12 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(getAttribute(node, "src"), "/foo/bar.jpg");
 			});
 
-			it("rebase relative paths with indirection", async function () {
+			it("rebase relative paths with indirection", async () => {
 				const renderer = new ctor();
 				const html = `<include src="foo/fragment.tpl.html"></include>`;
 				const fragment = renderer.parseHTML(html);
 
-				renderer.preprocessLocal = async function (fpath, params) {
+				renderer.preprocessLocal = async (fpath, params) => {
 					assert.equal(fpath, "foo/fragment.tpl.html");
 					const node = renderer.parseHTML(`<img src="bar/baz.jpg"></img>`);
 					await renderer.preprocessNode(node, {
@@ -126,12 +122,12 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(getAttribute(node, "src"), "foo/bar/baz.jpg");
 			});
 
-			it("rebase relative paths with indirection and base path", async function () {
+			it("rebase relative paths with indirection and base path", async () => {
 				const renderer = new ctor();
 				const html = `<include src="bar/fragment.tpl.html"></include>`;
 				const fragment = renderer.parseHTML(html);
 
-				renderer.preprocessLocal = async function (fpath, params) {
+				renderer.preprocessLocal = async (fpath, params) => {
 					assert.equal(fpath, "foo/bar/fragment.tpl.html");
 					const node = renderer.parseHTML(`<img src="baz/qux.jpg"></img>`);
 					await renderer.preprocessNode(node, {
@@ -148,7 +144,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 		});
 
 		describe("<custom-element>", () => {
-			it("custom element registration", async function () {
+			it("custom element registration", async () => {
 				const renderer = new ctor();
 				const customElement = "<span>Hello World</span>";
 				const template = `<template is="custom-element">${customElement}</template>`;
@@ -159,7 +155,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(innerHTML(tpl), customElement);
 			});
 
-			it("custom element with no attributes", async function () {
+			it("custom element with no attributes", async () => {
 				const renderer = new ctor();
 				const customElement = "<span>Hello World</span>";
 				const template = `<template is="custom-element">${customElement}</template>`;
@@ -171,7 +167,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(getTextContent(node), "Hello World");
 			});
 
-			it("custom element with :text and :class attributes", async function () {
+			it("custom element with :text and :class attributes", async () => {
 				const renderer = new ctor({ a: "foo", b: "bar" });
 				const customElement = "<span>Hello World</span>";
 				const template = `<template is="custom-element">${customElement}</template>`;
@@ -184,7 +180,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(getAttribute(node, "class"), "bar");
 			});
 
-			it("custom element with :data attribute", async function () {
+			it("custom element with :data attribute", async () => {
 				const renderer = new ctor();
 				const customElement = "<span>{{ foo.bar }}</span>";
 				const template = `<template is="custom-element">${customElement}</template>`;
@@ -197,7 +193,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(getAttribute(node, ":data"), null);
 			});
 
-			it("custom element with <slot/>", async function () {
+			it("custom element with <slot/>", async () => {
 				const renderer = new ctor({ foo: "bar" });
 				const customElement = "<span><slot/></span>";
 				const template = `<template is="custom-element">${customElement}</template>`;
@@ -209,12 +205,12 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(getTextContent(node), "bar");
 			});
 
-			it("custom element from include", async function () {
+			it("custom element from include", async () => {
 				const renderer = new ctor();
 				const html = `<custom-element></custom-element>`;
 				const include = `<include src="foo.html"></include>`;
 				const fragment = renderer.parseHTML(include + html);
-				renderer.preprocessLocal = async function (fpath, params) {
+				renderer.preprocessLocal = async function (_fpath, _params) {
 					const customElement = "<span>Hello World</span>";
 					const template = `<template is="custom-element">${customElement}</template>`;
 					return this.preprocessString(template) as unknown as DocumentFragment;
@@ -228,7 +224,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 		});
 
 		describe("{{ expressions }}", () => {
-			it("resolves single variable", async function () {
+			it("resolves single variable", async () => {
 				const content = "Hello {{ name }}";
 				const renderer = new ctor({ name: "World" });
 				const fragment = renderer.parseHTML(content);
@@ -249,7 +245,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 		});
 
 		describe(":data", () => {
-			it("initializes unseen value", async function () {
+			it("initializes unseen value", async () => {
 				const renderer = new ctor();
 				const html = `<div :data="{foo: 'bar'}"></div>`;
 				const fragment = renderer.parseHTML(html);
@@ -260,7 +256,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(subrenderer.$.foo, "bar");
 			});
 
-			it("initializes an array of values", async function () {
+			it("initializes an array of values", async () => {
 				const renderer = new ctor();
 				const html = `<div :data="{arr: [1, 2, 3]}"></div>`;
 				const fragment = renderer.parseHTML(html);
@@ -271,7 +267,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.deepEqual(subrenderer.$.arr, [1, 2, 3]);
 			});
 
-			it("initializes an array of objects", async function () {
+			it("initializes an array of objects", async () => {
 				const renderer = new ctor();
 				const html = `<div :data="{arr: [{n: 1}, {n: 2}, {n: 3}]}"></div>`;
 				const fragment = renderer.parseHTML(html);
@@ -282,7 +278,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.deepEqual(subrenderer.$.arr, [{ n: 1 }, { n: 2 }, { n: 3 }]);
 			});
 
-			it("initializes avoiding subrenderer", async function () {
+			it("initializes avoiding subrenderer", async () => {
 				const renderer = new ctor({ foo: 1, bar: 2 });
 				const html = `<div :data="{ baz: 3 }"></div>`;
 				const fragment = renderer.parseHTML(html);
@@ -298,7 +294,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(renderer.get("baz"), 3);
 			});
 
-			it("initializes using subrenderer", async function () {
+			it("initializes using subrenderer", async () => {
 				const renderer = new ctor({ foo: 1, bar: 2 });
 				const html = `<div><div :data="{ baz: 3 }"></div><div>`;
 				const fragment = renderer.parseHTML(html);
@@ -321,7 +317,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(subrenderer.$.baz, 3);
 			});
 
-			it("reuses existing renderer instance", async function () {
+			it("reuses existing renderer instance", async () => {
 				const renderer = new ctor();
 				const html = `<div :data="{ foo: 'bar' }"></div>`;
 				const fragment = renderer.parseHTML(html);
@@ -375,7 +371,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(renderer.get("execCount"), 1, "Children should be processed exactly once");
 			});
 
-			it("updates URL parameters when :data sets $$ variables", async function () {
+			it("updates URL parameters when :data sets $$ variables", async () => {
 				const renderer = new ctor();
 				await import("./query.js").then((m) => m.setupQueryParamBindings(renderer));
 
@@ -401,7 +397,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 		});
 
 		describe(":class", () => {
-			it("single class", async function () {
+			it("single class", async () => {
 				const renderer = new ctor({ foo: "bar" });
 				const html = `<div :class="foo"></div>`;
 				const fragment = renderer.parseHTML(html);
@@ -411,7 +407,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(renderer.$.foo, "bar");
 				assert.equal(getAttribute(node, "class"), "bar");
 			});
-			it("multiple classes", async function () {
+			it("multiple classes", async () => {
 				const renderer = new ctor({ foo: "bar", bar: "baz" });
 				const html = `<div class="foo" :class="foo"></div>`;
 				const fragment = renderer.parseHTML(html);
@@ -459,7 +455,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 
 		describe(":for", () => {
 			[0, 1, 10].forEach((n) => {
-				it(`container with ${n} items`, async function () {
+				it(`container with ${n} items`, async () => {
 					const renderer = new ctor();
 					const html = `<div :for="item in items">{{ item }}</div>`;
 					const fragment = renderer.parseHTML(html);
@@ -484,7 +480,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				});
 			});
 
-			it("container that updates items", async function () {
+			it("container that updates items", async () => {
 				const renderer = new ctor();
 				const html = `<div :for="item in items">{{ item }}</div>`;
 				const fragment = renderer.parseHTML(html);
@@ -530,7 +526,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(getTextContent(children3[2] as Element), "bar");
 			});
 
-			it("container does not resolve initially", async function () {
+			it("container does not resolve initially", async () => {
 				const renderer = new ctor();
 				const html = `<div :for="item in items">{{ item }}</div>`;
 				const fragment = renderer.parseHTML(html);
@@ -560,7 +556,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(templateFirstChild, node);
 			});
 
-			it("template node with :text property", async function () {
+			it("template node with :text property", async () => {
 				const renderer = new ctor();
 				const html = `<div :text="item" :for="item in items"></div>`;
 				const fragment = renderer.parseHTML(html);
@@ -570,7 +566,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 
 				// Filter out template node; keep only rendered divs.
 				const divs = Array.from(fragment.childNodes).filter(
-					(n) => (n as Element).tagName?.toLowerCase() !== "template"
+					(n) => (n as Element).tagName?.toLowerCase() !== "template",
 				);
 				assert.equal(divs.length, 2);
 				assert.equal(getTextContent(divs[0] as Element)?.trim(), "1");
@@ -578,14 +574,14 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 
 				await renderer.set("items", ["a", "b"]);
 				const divsAB = Array.from(fragment.childNodes).filter(
-					(n) => (n as Element).tagName?.toLowerCase() !== "template"
+					(n) => (n as Element).tagName?.toLowerCase() !== "template",
 				);
 				assert.equal(divsAB.length, 2);
 				assert.equal(getTextContent(divsAB[0] as Element)?.trim(), "a");
 				assert.equal(getTextContent(divsAB[1] as Element)?.trim(), "b");
 			});
 
-			it(`container with object items`, async function () {
+			it(`container with object items`, async () => {
 				const renderer = new ctor();
 				const html = `<div :for="item in items">{{ item.text }}</div>`;
 				const fragment = renderer.parseHTML(html);
@@ -608,12 +604,12 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				}
 			});
 
-			it("container with nested arrays", async function () {
+			it("container with nested arrays", async () => {
 				// Create array with 0..n elements.
 				let curr = 0;
 				const container = [];
 				for (let i = 0; i < 10; i++) {
-					const subarr = Array.from({ length: 10 }, (_, x) => ({ text: String(curr++) }));
+					const subarr = Array.from({ length: 10 }, (_, _x) => ({ text: String(curr++) }));
 					container.push({ text: String(i), items: subarr });
 				}
 				const renderer = new ctor({ items: container });
@@ -645,7 +641,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				}
 			});
 
-			it("template element is not displayed", async function () {
+			it("template element is not displayed", async () => {
 				const renderer = new ctor();
 				const html = `<div :for="item in items">{{ item }}</div>`;
 				const fragment = renderer.parseHTML(html);
@@ -664,12 +660,13 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 
 				// The template element has display none, and the child element has the text.
 				// For browser renderers, content is in template.content; for worker it's in template.childNodes
-				const templateChild = (tplelem as HTMLTemplateElement).content?.firstChild || tplelem.childNodes[0];
+				const templateChild =
+					(tplelem as HTMLTemplateElement).content?.firstChild || tplelem.childNodes[0];
 				assert.equal(getAttribute(templateChild as Element, "style"), "display: none;");
 				assert.equal(getTextContent(childelem), "foo");
 			});
 
-			it("container using map with arrow function", async function () {
+			it("container using map with arrow function", async () => {
 				const renderer = new ctor();
 				const html = `<div :for="item in items.map((x) => x * 2)">{{ item }}</div>`;
 				const fragment = renderer.parseHTML(html);
@@ -773,7 +770,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 		});
 
 		describe(":show", () => {
-			it("shows then hides an element", async function () {
+			it("shows then hides an element", async () => {
 				const renderer = new ctor();
 				const html = `<div :show="foo" />`;
 				const fragment = renderer.parseHTML(html);
@@ -791,7 +788,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal((node as HTMLElement).style?.display ?? "none", "none");
 			});
 
-			it("hides then shows an element", async function () {
+			it("hides then shows an element", async () => {
 				const renderer = new ctor();
 				const html = `<div :show="foo" style="display: table;" />`;
 				const fragment = renderer.parseHTML(html);
@@ -809,7 +806,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal((node as HTMLElement).style?.display ?? "table", "table");
 			});
 
-			it("hides an element based on data from the same element", async function () {
+			it("hides an element based on data from the same element", async () => {
 				const renderer = new ctor();
 				const html = `<div :data="{ show: false }" :show="show" />`;
 				const fragment = renderer.parseHTML(html);
@@ -829,7 +826,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 		});
 
 		describe(":if", () => {
-			it("removes element when condition is false", async function () {
+			it("removes element when condition is false", async () => {
 				const renderer = new ctor();
 				const html = '<div :if="false">Content</div>';
 				const fragment = renderer.parseHTML(html);
@@ -838,17 +835,20 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(fragment.childNodes[0].nodeType, 8);
 			});
 
-			it("shows element when condition is true", async function () {
+			it("shows element when condition is true", async () => {
 				const renderer = new ctor();
 				const html = '<div :if="true">Content</div>';
 				const fragment = renderer.parseHTML(html);
 				await renderer.mount(fragment);
 				await renderer.mount(fragment);
 				assert.equal(getTextContent(fragment as unknown as Element), "Content");
-				assert.equal((firstElementChild(fragment as unknown as Element))?.tagName.toUpperCase(), "DIV");
+				assert.equal(
+					firstElementChild(fragment as unknown as Element)?.tagName.toUpperCase(),
+					"DIV",
+				);
 			});
 
-			it("toggles element visibility reactively", async function () {
+			it("toggles element visibility reactively", async () => {
 				const renderer = new ctor({ show: true });
 				const html = '<div :if="show">Content</div>';
 				const fragment = renderer.parseHTML(html);
@@ -862,7 +862,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(getTextContent(fragment as unknown as Element), "Content");
 			});
 
-			it("preserves order of multiple elements", async function () {
+			it("preserves order of multiple elements", async () => {
 				const renderer = new ctor({ cond1: true, cond2: true });
 				const html = 'Start<div :if="cond1">1</div><div :if="cond2">2</div>End';
 				const fragment = renderer.parseHTML(html);
@@ -882,7 +882,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(getTextContent(fragment as unknown as Element), "Start12End");
 			});
 
-			it("works combined with :for loop", async function () {
+			it("works combined with :for loop", async () => {
 				const renderer = new ctor({ items: [1, 2, 3] });
 				const html = '<span :for="i in items" :if="i % 2 !== 0">{{ i }}</span>';
 				const fragment = renderer.parseHTML(html);
@@ -891,20 +891,28 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			});
 		});
 
-		it("reacts to changes within :for loop items", async function () {
-			const renderer = new ctor({ items: [{ val: 1, show: true }, { val: 2, show: false }] });
+		it("reacts to changes within :for loop items", async () => {
+			const renderer = new ctor({
+				items: [
+					{ val: 1, show: true },
+					{ val: 2, show: false },
+				],
+			});
 			const html = '<span :for="i in items" :if="i.show">{{ i.val }}</span>';
 			const fragment = renderer.parseHTML(html);
 			await renderer.mount(fragment);
 			assert.equal(getTextContent(fragment as unknown as Element), "1");
 
-			await renderer.set("items", [{ val: 1, show: true }, { val: 2, show: true }]);
+			await renderer.set("items", [
+				{ val: 1, show: true },
+				{ val: 2, show: true },
+			]);
 			assert.equal(getTextContent(fragment as unknown as Element), "12");
 		});
 	});
 
 	describe(":text", () => {
-		it("render simple text string", async function () {
+		it("render simple text string", async () => {
 			const renderer = new ctor({ foo: "bar" });
 			const html = `<div :text="foo"></div>`;
 			const fragment = renderer.parseHTML(html);
@@ -917,7 +925,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 	});
 
 	describe(":html", () => {
-		it("render simple HTML", async function () {
+		it("render simple HTML", async () => {
 			const renderer = new ctor();
 			const html = `<div :html="foo" />`;
 			const fragment = renderer.parseHTML(html);
@@ -930,7 +938,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			assert.equal(node.childNodes.length, 1);
 		});
 
-		it("render contents of HTML", async function () {
+		it("render contents of HTML", async () => {
 			const renderer = new ctor();
 			const html = `<div :html="foo"></div>`;
 			const fragment = renderer.parseHTML(html);
@@ -947,7 +955,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			assert.equal(getTextContent(node.firstChild?.firstChild as Element), "Goodbye World");
 		});
 
-		it("render HTML within a :for", async function () {
+		it("render HTML within a :for", async () => {
 			const renderer = new ctor();
 			const html = `<div :for="item in items" :html="$parent.inner"></div>`;
 			const fragment = renderer.parseHTML(html);
@@ -964,7 +972,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 	});
 
 	describe(":attr", () => {
-		it("processes href attribute", async function () {
+		it("processes href attribute", async () => {
 			const renderer = new ctor({ foo: "example.com" });
 			const html = `<a :attr:href="foo"></a>`;
 			const fragment = renderer.parseHTML(html);
@@ -987,7 +995,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 	});
 
 	describe(":prop", () => {
-		it("processes disabled property", async function () {
+		it("processes disabled property", async () => {
 			const renderer = new ctor({ foo: true });
 			const html = `<option :prop:disabled="foo">value</option>`;
 			const fragment = renderer.parseHTML(html);
@@ -1021,7 +1029,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 	});
 
 	describe(":stripTypes plugin", () => {
-		it("strips :types attribute after rendering", async function () {
+		it("strips :types attribute after rendering", async () => {
 			const renderer = new ctor({ name: "John" });
 			const html = `<div :types='{"name": "string"}'><span>{{ name }}</span></div>`;
 			const fragment = renderer.parseHTML(html);
@@ -1033,7 +1041,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			assert.equal(getAttribute(elem, ":types"), null);
 		});
 
-		it("strips data-types attribute after rendering", async function () {
+		it("strips data-types attribute after rendering", async () => {
 			const renderer = new ctor({ name: "Jane" });
 			const html = `<div data-types='{"name": "string"}'><span>{{ name }}</span></div>`;
 			const fragment = renderer.parseHTML(html);
@@ -1045,7 +1053,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			assert.equal(getAttribute(elem, "data-types"), null);
 		});
 
-		it("strips types from nested elements", async function () {
+		it("strips types from nested elements", async () => {
 			const renderer = new ctor({ name: "Bob", age: 30 });
 			const html = `
           <div :types='{"name": "string"}'>
@@ -1069,7 +1077,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 	});
 
 	describe("$resolve", () => {
-		it("is accessible in :data expressions", async function () {
+		it("is accessible in :data expressions", async () => {
 			// Mock API client.
 			const api = {
 				listUsers: () => Promise.resolve([{ name: "Alice" }, { name: "Bob" }]),
@@ -1093,7 +1101,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			assert.ok("$error" in users, "users should have $error");
 		});
 
-		it("passes options to the function", async function () {
+		it("passes options to the function", async () => {
 			let receivedOptions: any = null;
 			const api = {
 				getUser: (opts: any) => {
@@ -1113,7 +1121,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			assert.deepEqual(receivedOptions, { path: { id: "42" } });
 		});
 
-		it("state object updates after promise resolves", async function () {
+		it("state object updates after promise resolves", async () => {
 			const api = {
 				getData: () => Promise.resolve({ value: 123 }),
 			};
@@ -1136,7 +1144,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			assert.equal(result.$error, null);
 		});
 
-		it("state object updates after promise rejects", async function () {
+		it("state object updates after promise rejects", async () => {
 			const api = {
 				failingCall: () => Promise.reject(new Error("API Error")),
 			};
@@ -1163,7 +1171,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 
 	describe(":render", () => {
 		describe("path resolution (rebaseRelativePaths)", () => {
-			it("resolves relative path with dirpath", async function () {
+			it("resolves relative path with dirpath", async () => {
 				const renderer = new ctor();
 				const html = `<div :render="./init.js"></div>`;
 				const fragment = renderer.parseHTML(html);
@@ -1176,7 +1184,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(resolved, "/components/./init.js");
 			});
 
-			it("resolves relative path without leading ./", async function () {
+			it("resolves relative path without leading ./", async () => {
 				const renderer = new ctor();
 				const html = `<div :render="init.js"></div>`;
 				const fragment = renderer.parseHTML(html);
@@ -1188,7 +1196,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(resolved, "/components/init.js");
 			});
 
-			it("preserves absolute path starting with /", async function () {
+			it("preserves absolute path starting with /", async () => {
 				const renderer = new ctor();
 				const html = `<div :render="/lib/init.js"></div>`;
 				const fragment = renderer.parseHTML(html);
@@ -1200,7 +1208,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(resolved, "/lib/init.js");
 			});
 
-			it("preserves absolute URL with protocol", async function () {
+			it("preserves absolute URL with protocol", async () => {
 				const renderer = new ctor();
 				const html = `<div :render="https://cdn.example.com/init.js"></div>`;
 				const fragment = renderer.parseHTML(html);
@@ -1212,7 +1220,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(resolved, "https://cdn.example.com/init.js");
 			});
 
-			it("handles missing dirpath param by using renderer default", async function () {
+			it("handles missing dirpath param by using renderer default", async () => {
 				const renderer = new ctor();
 				const html = `<div :render="./init.js"></div>`;
 				const fragment = renderer.parseHTML(html);
@@ -1230,7 +1238,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				);
 			});
 
-			it("works with data-render attribute", async function () {
+			it("works with data-render attribute", async () => {
 				const renderer = new ctor();
 				const html = `<div data-render="./init.js"></div>`;
 				const fragment = renderer.parseHTML(html);
@@ -1241,7 +1249,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(getAttribute(elem, "data-render"), "/components/./init.js");
 			});
 
-			it("resolves path inside custom component template", async function () {
+			it("resolves path inside custom component template", async () => {
 				const renderer = new ctor();
 				const html = `
             <template is="my-widget">
@@ -1266,11 +1274,11 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				}
 				assert.ok(resolvedElem, "Should find element with class='widget'");
 				const resolved =
-					getAttribute(resolvedElem!!, ":render") || getAttribute(resolvedElem!!, "data-render");
+					getAttribute(resolvedElem!, ":render") || getAttribute(resolvedElem!, "data-render");
 				assert.equal(resolved, "/components/./widget.js");
 			});
 
-			it("rebases paths before template is cloned (race condition test)", async function () {
+			it("rebases paths before template is cloned (race condition test)", async () => {
 				const renderer = new ctor();
 				// Template with an img that has a relative src path.
 				const html = `
@@ -1293,13 +1301,13 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				}
 				assert.ok(imgElem, "Should find img element with class='test-img'");
 				// The path should be rebased to /assets/./image.png.
-				const src = getAttribute(imgElem!!, "src");
+				const src = getAttribute(imgElem!, "src");
 				assert.equal(src, "/assets/./image.png", "img src should be rebased before cloning");
 			});
 		});
 
 		describe("execution (rendering)", () => {
-			it("removes :render attribute after execution attempt", async function () {
+			it("removes :render attribute after execution attempt", async () => {
 				const renderer = new ctor();
 				const html = `<div :render="/nonexistent.js"></div>`;
 				const fragment = renderer.parseHTML(html);
@@ -1312,7 +1320,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(resolved, null);
 			});
 
-			it("removes data-render attribute after execution attempt", async function () {
+			it("removes data-render attribute after execution attempt", async () => {
 				const renderer = new ctor();
 				const html = `<div data-render="/nonexistent.js"></div>`;
 				const fragment = renderer.parseHTML(html);
@@ -1324,7 +1332,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(getAttribute(elem, "data-render"), null);
 			});
 
-			it("removes :render from cloned elements in :for loop", async function () {
+			it("removes :render from cloned elements in :for loop", async () => {
 				const renderer = new ctor({ items: ["a", "b", "c"] });
 				const html = `<div :for="item in items" :render="/nonexistent.js">{{ item }}</div>`;
 				const fragment = renderer.parseHTML(html);
@@ -1351,7 +1359,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(cloneCount, 3, "Should have 3 div clones");
 			});
 
-			it("removes :render from nested elements", async function () {
+			it("removes :render from nested elements", async () => {
 				const renderer = new ctor();
 				const html = `
             <div :render="/outer.js">
@@ -1371,7 +1379,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				}
 			});
 
-			it("removes :render even when element is hidden with :show=false", async function () {
+			it("removes :render even when element is hidden with :show=false", async () => {
 				const renderer = new ctor({ visible: false });
 				const html = `<div :show="visible" :render="/nonexistent.js"></div>`;
 				const fragment = renderer.parseHTML(html);
@@ -1383,7 +1391,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				assert.equal(resolved, null, ":render should be removed even if hidden");
 			});
 
-			it("processes :render on multiple sibling elements", async function () {
+			it("processes :render on multiple sibling elements", async () => {
 				const renderer = new ctor();
 				const html = `
             <div :render="/a.js" class="a"></div>

@@ -94,12 +94,12 @@ export function hasAttributeOrDataset(
 }
 
 export function setAttribute(elem: ElementWithAttribs, name: string, value: string): void {
-	if (hasProperty(elem, "attribs")) elem.attribs!![name] = value;
+	if (hasProperty(elem, "attribs")) elem.attribs![name] = value;
 	else (elem as any).setAttribute?.(name, value);
 }
 
 export function safeSetAttribute(elem: ElementWithAttribs, name: string, value: string): void {
-	if (hasProperty(elem, "attribs")) elem.attribs!![name] = value;
+	if (hasProperty(elem, "attribs")) elem.attribs![name] = value;
 	else safeElement.setPrefixedAttribute(SAFE_ATTRS, elem, name, value);
 }
 
@@ -122,7 +122,7 @@ export function setProperty(elem: ElementWithAttribs, name: string, value: any):
 }
 
 export function removeAttribute(elem: ElementWithAttribs, name: string): void {
-	if (hasProperty(elem, "attribs")) delete elem.attribs!![name];
+	if (hasProperty(elem, "attribs")) delete elem.attribs![name];
 	else elem.removeAttribute?.(name);
 }
 
@@ -158,7 +158,7 @@ export function cloneAttribute(
 	name: string,
 ): void {
 	if (hasProperty(elemFrom, "attribs") && hasProperty(elemDest, "attribs")) {
-		elemDest.attribs!![name] = elemFrom.attribs!![name];
+		elemDest.attribs![name] = elemFrom.attribs![name];
 	} else if (name.startsWith("data-")) {
 		const datasetKey = attributeNameToCamelCase(name.slice(5));
 		elemDest.dataset![datasetKey] = elemFrom.dataset?.[datasetKey];
@@ -179,13 +179,16 @@ export function firstElementChild(elem: Element): Element | null {
 
 export function replaceWith(original: ChildNode, ...replacement: Node[]): void {
 	if (hasFunction(original, "replaceWith")) {
-		return (original as ChildNode).replaceWith(...(replacement as Node[]));
+		(original as ChildNode).replaceWith(...(replacement as Node[]));
+		return;
 	} else {
 		const elem = original;
 		const parent = elem.parentNode!;
 		const index = Array.from(parent.childNodes).indexOf(elem);
 		(elem as any).parentNode = null;
-		replacement.forEach((elem) => ((elem as any).parentNode = parent));
+		replacement.forEach((elem) => {
+			(elem as any).parentNode = parent;
+		});
 		(parent as any).childNodes = ([] as ChildNode[])
 			.concat(Array.from(parent.childNodes).slice(0, index))
 			.concat(replacement as ChildNode[])
@@ -198,7 +201,9 @@ export function replaceChildren(parent: ParentNode, ...nodes: Node[]): void {
 		(parent as ParentNode).replaceChildren(...(nodes as Node[]));
 	} else {
 		(parent as any).childNodes = nodes as ChildNode[];
-		nodes.forEach((node) => ((node as any).parentNode = parent));
+		nodes.forEach((node) => {
+			(node as any).parentNode = parent;
+		});
 	}
 }
 
@@ -235,7 +240,7 @@ export function insertBefore(parent: Node, node: Node, reference: ChildNode | nu
 export function ellipsize(str: string | null, maxLength: number = 0): string {
 	if (!str) return "";
 	else if (str.length <= maxLength) return str;
-	else return str.slice(0, maxLength - 1) + "…";
+	else return `${str.slice(0, maxLength - 1)}…`;
 }
 
 export function nodeToString(node: Node, maxLength: number = 0): string {

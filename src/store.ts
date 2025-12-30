@@ -35,7 +35,7 @@ type Observer<T> = (this: SignalStoreProxy) => T;
 type KeyValueHandler = (this: SignalStoreProxy, key: string, value: any) => void;
 
 abstract class IDebouncer {
-	timeouts: Map<Function, ReturnType<typeof setTimeout>> = new Map();
+	timeouts: Map<(...args: any[]) => any, ReturnType<typeof setTimeout>> = new Map();
 
 	debounce<T>(millis: number, callback: () => T | Promise<T>): Promise<T> {
 		return new Promise((resolve, reject) => {
@@ -138,7 +138,7 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-	private wrapFunction(fn: Function): Function {
+	private wrapFunction(fn: (...args: any[]) => any): (...args: any[]) => any {
 		return (...args: unknown[]) => fn.call(this.$, ...args);
 	}
 
@@ -209,7 +209,7 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 		if (this._store.has(key) && value === this._store.get(key)) return;
 		const callback = () => this.notify(key);
 		if (value && typeof value === "function") {
-			value = this.wrapFunction(value);
+			value = this.wrapFunction(value as (...args: any[]) => any);
 		}
 		if (value && typeof value === "object") {
 			value = this.wrapObject(value, callback);
@@ -305,8 +305,6 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 	 * @returns The evaluation function.
 	 */
 	private makeEvalFunction(expr: string): EvalFunction {
-
-
 		return (thisArg: SignalStoreProxy, args: { [key: string]: unknown }) => {
 			const ast = expressions.parse(expr, AST_FACTORY);
 
@@ -347,7 +345,7 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 		if (!this.expressionCache.has(expr)) {
 			this.expressionCache.set(expr, this.makeEvalFunction(expr));
 		}
-		return this.expressionCache.get(expr)!!;
+		return this.expressionCache.get(expr)!;
 	}
 
 	eval(expr: string, args: Record<string, unknown> = {}): unknown {

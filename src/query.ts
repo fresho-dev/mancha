@@ -143,7 +143,7 @@ export async function setupQueryParamBindings(renderer: IRenderer): Promise<void
 	updateUrlFromStore(url, renderer);
 
 	// Set up the URL updater to listen for changes in the store.
-	renderer.addKeyHandler(new RegExp(`^\\$\\$`), (key, value) => {
+	renderer.addKeyHandler(/^\$\$/, (key, value) => {
 		const url = getWindowURL();
 		const changed = updateUrlFromStoreValue(url, key, value);
 

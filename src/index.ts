@@ -1,10 +1,10 @@
-import * as fs from "fs/promises";
+import * as fs from "node:fs/promises";
 import { JSDOM } from "jsdom";
 import { ParserParams, RenderParams } from "./interfaces.js";
 import { IRenderer } from "./renderer.js";
 
+export type { ParserParams, RendererPlugin, RenderParams } from "./interfaces.js";
 export { IRenderer } from "./renderer.js";
-export type { ParserParams, RenderParams, RendererPlugin } from "./interfaces.js";
 
 export class Renderer extends IRenderer {
 	readonly impl = "jsdom";

@@ -31,7 +31,7 @@ export default function (elem: HTMLCanvasElement, renderer: IRenderer) {
 	draw();
 
 	// Re-draw whenever renderCount changes.
-  renderer.effect(function () {
+	renderer.effect(function () {
 		// Access the reactive variable to register dependency.
 		void this.$.renderCount;
 		draw();

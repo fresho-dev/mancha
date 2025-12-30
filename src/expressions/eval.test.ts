@@ -128,7 +128,7 @@ describe("Evaluator", () => {
 			["x"],
 			factory.binary(factory.id("x"), "+", factory.literal(1)),
 		);
-		const fn = evalNode(node) as Function;
+		const fn = evalNode(node) as (...args: any[]) => any;
 		assert.equal(fn(1), 2);
 	});
 
@@ -188,7 +188,6 @@ describe("Evaluator", () => {
 		});
 	});
 
-
 	describe("Nullish Coalescing (??)", () => {
 		it("should return the left-hand side if it is not null or undefined", () => {
 			assert.equal(evalNode(factory.binary(factory.literal(1), "??", factory.literal(2))), 1);
@@ -211,10 +210,9 @@ describe("Evaluator", () => {
 		it("should return the right-hand side if the left-hand side is null", () => {
 			assert.equal(evalNode(factory.binary(factory.literal(null), "??", factory.literal(1))), 1);
 			assert.equal(
-				evalNode(
-					factory.binary(factory.id("variable"), "??", factory.literal("default")),
-					{ variable: null },
-				),
+				evalNode(factory.binary(factory.id("variable"), "??", factory.literal("default")), {
+					variable: null,
+				}),
 				"default",
 			);
 		});
@@ -225,10 +223,9 @@ describe("Evaluator", () => {
 				1,
 			);
 			assert.equal(
-				evalNode(
-					factory.binary(factory.id("variable"), "??", factory.literal("default")),
-					{ variable: undefined },
-				),
+				evalNode(factory.binary(factory.id("variable"), "??", factory.literal("default")), {
+					variable: undefined,
+				}),
 				"default",
 			);
 			assert.equal(

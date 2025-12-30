@@ -1,13 +1,13 @@
-import * as fs from "fs";
-import * as path from "path";
-// @ts-ignore
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+// @ts-expect-error
 import * as StaticServer from "static-server";
-import { fileURLToPath } from "url";
-import { assert } from "./test_utils.js";
 import { IRenderer } from "./renderer.js";
+import { assert } from "./test_utils.js";
 
 // Use a fixed, random port for each test run.
-const PORT = Math.floor(1_024 + Math.random() * (Math.pow(2, 16) - 1_024));
+const PORT = Math.floor(1_024 + Math.random() * (2 ** 16 - 1_024));
 
 // Fix `__filename` and `__dirname`: https://stackoverflow.com/a/64383997.
 const __filename = fileURLToPath(import.meta.url);
@@ -22,20 +22,22 @@ function testRenderString(
 	expected: string,
 	vars: any = {},
 ) {
-	return new Promise<void>(async (resolve, reject) => {
-		const content = fs.readFileSync(fname);
-		try {
-			const renderer = new ctor(vars);
-			const fragment = await renderer.preprocessString(content.toString("utf8"), {
-				rootDocument: !fname.endsWith(".tpl.html"),
-			});
-			await renderer.renderNode(fragment);
-			const result = renderer.serializeHTML(fragment).replaceAll("\n", "");
-			resolve(assert.equal(result, expected.replaceAll("\n", ""), String(result)));
-		} catch (exc) {
-			console.error(exc);
-			reject(exc);
-		}
+	return new Promise<void>((resolve, reject) => {
+		(async () => {
+			const content = fs.readFileSync(fname);
+			try {
+				const renderer = new ctor(vars);
+				const fragment = await renderer.preprocessString(content.toString("utf8"), {
+					rootDocument: !fname.endsWith(".tpl.html"),
+				});
+				await renderer.renderNode(fragment);
+				const result = renderer.serializeHTML(fragment).replaceAll("\n", "");
+				resolve(assert.equal(result, expected.replaceAll("\n", ""), String(result)));
+			} catch (exc) {
+				console.error(exc);
+				reject(exc);
+			}
+		})();
 	});
 }
 
@@ -48,20 +50,22 @@ function testRenderLocal(
 	expected: string,
 	vars: any = {},
 ) {
-	return new Promise<void>(async (resolve, reject) => {
-		const wwwroot = path.join(__dirname, "fixtures");
-		const relpath = path.relative(fname, wwwroot) || ".";
-		const context = Object.assign({ wwwroot: relpath }, vars);
-		try {
-			const renderer = new ctor(context);
-			const fragment = await renderer.preprocessLocal(fname);
-			await renderer.renderNode(fragment);
-			const result = renderer.serializeHTML(fragment).replaceAll("\n", "");
-			resolve(assert.equal(result, expected.replaceAll("\n", ""), String(result)));
-		} catch (exc) {
-			console.error(exc);
-			reject(exc);
-		}
+	return new Promise<void>((resolve, reject) => {
+		(async () => {
+			const wwwroot = path.join(__dirname, "fixtures");
+			const relpath = path.relative(fname, wwwroot) || ".";
+			const context = Object.assign({ wwwroot: relpath }, vars);
+			try {
+				const renderer = new ctor(context);
+				const fragment = await renderer.preprocessLocal(fname);
+				await renderer.renderNode(fragment);
+				const result = renderer.serializeHTML(fragment).replaceAll("\n", "");
+				resolve(assert.equal(result, expected.replaceAll("\n", ""), String(result)));
+			} catch (exc) {
+				console.error(exc);
+				reject(exc);
+			}
+		})();
 	});
 }
 
@@ -74,21 +78,23 @@ function testRenderRemote(
 	expected: string,
 	vars: any = {},
 ) {
-	return new Promise<void>(async (resolve, reject) => {
-		const wwwroot = path.join(__dirname, "fixtures");
-		const relpath = path.relative(fname, wwwroot) || ".";
-		const remotePath = `http://127.0.0.1:${PORT}/${path.relative(wwwroot, fname)}`;
-		const context = Object.assign({ wwwroot: relpath }, vars);
-		try {
-			const renderer = new ctor(context);
-			const fragment = await renderer.preprocessRemote(remotePath);
-			await renderer.renderNode(fragment);
-			const result = renderer.serializeHTML(fragment).replaceAll("\n", "");
-			resolve(assert.equal(result, expected.replaceAll("\n", ""), String(result)));
-		} catch (exc) {
-			console.error(exc);
-			reject(exc);
-		}
+	return new Promise<void>((resolve, reject) => {
+		(async () => {
+			const wwwroot = path.join(__dirname, "fixtures");
+			const relpath = path.relative(fname, wwwroot) || ".";
+			const remotePath = `http://127.0.0.1:${PORT}/${path.relative(wwwroot, fname)}`;
+			const context = Object.assign({ wwwroot: relpath }, vars);
+			try {
+				const renderer = new ctor(context);
+				const fragment = await renderer.preprocessRemote(remotePath);
+				await renderer.renderNode(fragment);
+				const result = renderer.serializeHTML(fragment).replaceAll("\n", "");
+				resolve(assert.equal(result, expected.replaceAll("\n", ""), String(result)));
+			} catch (exc) {
+				console.error(exc);
+				reject(exc);
+			}
+		})();
 	});
 }
 
@@ -109,7 +115,7 @@ function testAllMethods(
 		if (["htmlparser2"].includes(new ctor().impl)) this.skip();
 		await testRenderLocal(ctor, fname, expected, vars);
 	});
-	it("remote path render", async function () {
+	it("remote path render", async () => {
 		await testRenderRemote(ctor, fname, expected, vars);
 	});
 }

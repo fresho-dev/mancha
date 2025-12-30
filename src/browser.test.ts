@@ -1,4 +1,4 @@
-import { Renderer, initMancha, injectCss, injectBasicCss, injectUtilsCss } from "./browser.js";
+import { initMancha, injectBasicCss, injectCss, injectUtilsCss, Renderer } from "./browser.js";
 import { testSuite as pluginsTestSuite } from "./plugins.test.js";
 import { testSuite as rendererTestSuite } from "./renderer.test.js";
 import { assert } from "./test_utils.js";

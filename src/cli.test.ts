@@ -1,9 +1,9 @@
+import { exec } from "node:child_process";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { assert, setupGlobalTestEnvironment } from "./test_utils.js";
-import { exec } from "child_process";
-import { promisify } from "util";
-import * as path from "path";
-import * as fs from "fs/promises";
-import { fileURLToPath } from "url";
 
 const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
@@ -16,7 +16,7 @@ describe("CLI", function () {
 
 	const cliPath = path.join(__dirname, "cli.js");
 
-	it("should not hang when running --help", async function () {
+	it("should not hang when running --help", async () => {
 		const { stdout } = await execAsync(`node ${cliPath} --help`);
 		assert.ok(stdout.includes("Commands"), "Should display help text");
 	});

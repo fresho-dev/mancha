@@ -1,4 +1,4 @@
-import { SafeStyleSheet, concatStyleSheets, safeStyleSheet } from "safevalues";
+import { concatStyleSheets, SafeStyleSheet, safeStyleSheet } from "safevalues";
 
 export default function rules(): SafeStyleSheet {
 	// Based on https://www.swyx.io/css-100-bytes.

@@ -13,7 +13,9 @@ const _BINARY_OPERATORS: Record<string, BinaryOp> = {
 	"*": (a, b) => (a as number) * (b as number),
 	"/": (a, b) => (a as number) / (b as number),
 	"%": (a, b) => (a as number) % (b as number),
+	// biome-ignore lint/suspicious/noDoubleEquals: must be loose equality
 	"==": (a, b) => a == b,
+	// biome-ignore lint/suspicious/noDoubleEquals: must be loose equality
 	"!=": (a, b) => a != b,
 	"===": (a, b) => a === b,
 	"!==": (a, b) => a !== b,
@@ -218,7 +220,7 @@ export class EvalAstFactory implements AstFactory<Expression> {
 						throw new Error(`Invalid assignment target: ${this.left}`);
 					}
 					const value = this.right.evaluate(scope);
-					let receiver: Record<string, unknown> | undefined = undefined;
+					let receiver: Record<string, unknown> | undefined;
 					let property!: string;
 					if (this.left.type === "Getter") {
 						receiver = this.left.receiver.evaluate(scope) as Record<string, unknown> | undefined;
@@ -231,6 +233,7 @@ export class EvalAstFactory implements AstFactory<Expression> {
 						receiver = scope as Record<string, unknown>;
 						property = this.left.value;
 					}
+					// biome-ignore lint/suspicious/noAssignInExpressions: assignment in return
 					return receiver === undefined ? undefined : (receiver[property] = value);
 				}
 				return f(this.left.evaluate(scope), this.right.evaluate(scope));
@@ -292,7 +295,7 @@ export class EvalAstFactory implements AstFactory<Expression> {
 				// TODO(justinfagnani): this might be wrong in cases where we're
 				// invoking a top-level function rather than a method. If method is
 				// defined on a nested scope, then we should probably set _this to null.
-				const _this = this.method ? receiver : (scope?.["this"] ?? scope);
+				const _this = this.method ? receiver : (scope?.this ?? scope);
 				const f = this.method ? receiver?.[this.method] : receiver;
 				const args = this.arguments ?? [];
 				const argValues: unknown[] = [];
@@ -453,20 +456,21 @@ export class EvalAstFactory implements AstFactory<Expression> {
 			evaluate(scope) {
 				const params = this.params;
 				const body = this.body;
-				return function (...args: unknown[]) {
+				return (...args: unknown[]) => {
 					// TODO: this isn't correct for assignments to variables in outer
 					// scopes
 					// const newScope = Object.create(scope ?? null);
 					const paramsObj = Object.fromEntries(params.map((p, i) => [p, args[i]]));
 					const newScope = new Proxy(scope ?? {}, {
 						set(target, prop, value) {
-							if (paramsObj.hasOwnProperty(prop)) {
+							if (Object.hasOwn(paramsObj, prop)) {
 								paramsObj[prop as string] = value;
 							}
+							// biome-ignore lint/suspicious/noAssignInExpressions: assignment in return
 							return (target[prop as string] = value);
 						},
 						get(target, prop) {
-							if (paramsObj.hasOwnProperty(prop)) {
+							if (Object.hasOwn(paramsObj, prop)) {
 								return paramsObj[prop as string];
 							}
 							return target[prop as string];

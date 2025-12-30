@@ -1,31 +1,31 @@
+import { getAttributeOrDataset } from "./dome.js";
 import { IRenderer } from "./renderer.js";
 import { assert } from "./test_utils.js";
-import { getAttributeOrDataset } from "./dome.js";
 
 export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 	describe("parseHTML", () => {
-		it("parses root document", function () {
+		it("parses root document", () => {
 			const renderer = new ctor();
 			const html = "<html><head></head><body></body></html>";
 			const doc = renderer.parseHTML(html, { rootDocument: true });
 			assert.ok(doc instanceof Document);
 		});
 
-		it("parses document fragment", function () {
+		it("parses document fragment", () => {
 			const renderer = new ctor();
 			const html = "<div></div>";
 			const doc = renderer.parseHTML(html);
 			assert.ok(doc instanceof DocumentFragment);
 		});
 
-		it("parses simple DIV element", function () {
+		it("parses simple DIV element", () => {
 			const renderer = new ctor();
 			const html = "<div></div>";
 			const fragment = renderer.parseHTML(html) as DocumentFragment;
 			assert.equal(fragment.children.length, 1);
 		});
 
-		it("parses element with :for attribute", function () {
+		it("parses element with :for attribute", () => {
 			const renderer = new ctor();
 			const html = '<div :for="_ in [1,2,3]"></div>';
 			const fragment = renderer.parseHTML(html) as DocumentFragment;
@@ -34,7 +34,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			assert.equal(attr, "_ in [1,2,3]");
 		});
 
-		it("parses element with data-for attribute", function () {
+		it("parses element with data-for attribute", () => {
 			const renderer = new ctor();
 			const html = '<div data-for="_ in [1,2,3]"></div>';
 			const fragment = renderer.parseHTML(html) as DocumentFragment;
@@ -45,7 +45,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 	});
 
 	describe("serializeHTML", () => {
-		it("serializes a simple DIV element", function () {
+		it("serializes a simple DIV element", () => {
 			const renderer = new ctor();
 			const html = "<div></div>";
 			const fragment = renderer.parseHTML(html) as DocumentFragment;
@@ -53,7 +53,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			assert.equal(serialized, "<div></div>");
 		});
 
-		it("serializes a full document", function () {
+		it("serializes a full document", () => {
 			const renderer = new ctor();
 			const html = "<html><head></head><body></body></html>";
 			const doc = renderer.parseHTML(html, { rootDocument: true });
@@ -63,7 +63,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 	});
 
 	describe("mount", () => {
-		it("processes a :for directive", async function () {
+		it("processes a :for directive", async () => {
 			const renderer = new ctor();
 			const html = '<div :for="item in [1,2,3]">{{ item }}</div>';
 			const fragment = renderer.parseHTML(html);
@@ -75,7 +75,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			assert.equal(elems[2].textContent, "3");
 		});
 
-		it("sets the $rootNode property", async function () {
+		it("sets the $rootNode property", async () => {
 			const renderer = new ctor();
 			const html = "<div></div>";
 			const fragment = renderer.parseHTML(html);
@@ -85,13 +85,13 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 	});
 
 	describe("subrenderer", () => {
-		it("creates a subrenderer with the same root node", function () {
+		it("creates a subrenderer with the same root node", () => {
 			const renderer = new ctor();
 			const subrenderer = renderer.subrenderer();
 			assert.equal(subrenderer.$.$rootNode, renderer.$.$rootNode);
 		});
 
-		it("does not override the root node", async function () {
+		it("does not override the root node", async () => {
 			const renderer = new ctor();
 			const fragment1 = renderer.parseHTML("<div></div>");
 			await renderer.mount(fragment1);
@@ -102,19 +102,19 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			assert.notEqual(subrenderer.$.$rootNode, renderer.$.$rootNode);
 		});
 
-		it("sets the $parent property", function () {
+		it("sets the $parent property", () => {
 			const renderer = new ctor();
 			const subrenderer = renderer.subrenderer();
 			assert.equal(subrenderer.$.$parent, renderer);
 		});
 
-		it("sets the $rootRenderer property", function () {
+		it("sets the $rootRenderer property", () => {
 			const renderer = new ctor();
 			const subrenderer = renderer.subrenderer();
 			assert.equal(subrenderer.$.$rootRenderer, renderer.get("$rootRenderer") ?? renderer);
 		});
 
-		it("modifying value in parent notifies subrenderer", async function () {
+		it("modifying value in parent notifies subrenderer", async () => {
 			const renderer = new ctor({ a: 1 });
 			const subrenderer = renderer.subrenderer();
 			let notified = false;
@@ -125,7 +125,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			assert.equal(notified, true);
 		});
 
-		it("modifying value in subrenderer notifies parent", async function () {
+		it("modifying value in subrenderer notifies parent", async () => {
 			const renderer = new ctor({ a: 1 });
 			const subrenderer = renderer.subrenderer();
 			let notified = false;
@@ -138,7 +138,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 	});
 
 	describe("eval", () => {
-		it("evaluates a property from ancestor", async function () {
+		it("evaluates a property from ancestor", async () => {
 			const renderer = new ctor({ a: 1 });
 			const subrenderer = renderer.subrenderer();
 			const result = subrenderer.eval("a");

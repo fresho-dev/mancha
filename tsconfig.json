@@ -15,12 +15,8 @@
 		"forceConsistentCasingInFileNames": true,
 		"baseUrl": ".",
 		"paths": {
-			"mancha": [
-				"./src/index.ts"
-			],
-			"mancha/*": [
-				"./src/*.ts"
-			]
+			"mancha": ["./src/index.ts"],
+			"mancha/*": ["./src/*.ts"]
 		},
 		"plugins": [
 			{
@@ -29,10 +25,7 @@
 			}
 		]
 	},
-	"include": [
-		"src/**/*",
-		"global.d.ts"
-	],
+	"include": ["src/**/*", "global.d.ts"],
 	"exclude": [
 		"scripts",
 		"examples",

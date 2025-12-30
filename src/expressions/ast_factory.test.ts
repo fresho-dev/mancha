@@ -1,6 +1,6 @@
 import { assert } from "../test_utils.js";
+
 import { DefaultAstFactory } from "./ast_factory.js";
-import * as AST from "./ast.js";
 
 describe("DefaultAstFactory", () => {
 	let factory: DefaultAstFactory;
