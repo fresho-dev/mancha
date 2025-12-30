@@ -30,10 +30,8 @@
 		"check_size": "brotli -c dist/mancha.js | wc -c",
 		"cli": "node dist/cli.js",
 		"gen:docs": "tsx scripts/generate-css-docs.ts",
-		"check": "biome check .",
-		"check:fix": "biome check --write .",
-		"format": "biome format --write .",
-		"lint": "biome lint ."
+		"lint": "biome check .",
+		"lint:fix": "biome check --write ."
 	},
 	"bin": {
 		"mancha": "dist/cli.js"
