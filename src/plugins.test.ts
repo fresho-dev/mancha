@@ -1,9 +1,32 @@
+import type { ElementWithAttribs } from "./dome.js";
 import { dirname, firstElementChild, getAttribute, traverse } from "./dome.js";
-import { IRenderer } from "./renderer.js";
+import type { IRenderer } from "./renderer.js";
+import type { StoreState } from "./store.js";
 import { REACTIVE_DEBOUNCE_MILLIS } from "./store.js";
-import { assert, getTextContent, innerHTML, setupGlobalTestEnvironment } from "./test_utils.js";
+import {
+	assert,
+	getTextContent,
+	innerHTML,
+	setInnerHTML,
+	setupGlobalTestEnvironment,
+} from "./test_utils.js";
 
-export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
+interface RenderedState {
+	className?: string;
+	textContent?: string | null;
+	displayStyle?: string;
+	[key: string]: unknown;
+}
+
+interface RenderedElement extends ElementWithAttribs {
+	_initState?: StoreState;
+	_renderedState?: RenderedState;
+	renderer?: IRenderer;
+	_renderExecuted?: boolean;
+	_modifiedCount?: number;
+}
+
+export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 	describe("Plugins Test Suite", () => {
 		before(() => setupGlobalTestEnvironment());
 		describe("<include>", () => {
@@ -151,7 +174,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				const fragment = renderer.parseHTML(template);
 				await renderer.mount(fragment);
 				assert.equal(renderer._customElements.has("custom-element"), true);
-				const tpl = renderer._customElements.get("custom-element")! as HTMLTemplateElement;
+				const tpl = renderer._customElements.get("custom-element") as HTMLTemplateElement;
 				assert.equal(innerHTML(tpl), customElement);
 			});
 
@@ -251,7 +274,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				const fragment = renderer.parseHTML(html);
 				const node = fragment.firstChild as Element;
 				await renderer.mount(fragment);
-				const subrenderer = (node as any).renderer;
+				const subrenderer = (node as unknown as { renderer: IRenderer }).renderer;
 				assert.equal(getAttribute(node, ":data"), null);
 				assert.equal(subrenderer.$.foo, "bar");
 			});
@@ -262,7 +285,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				const fragment = renderer.parseHTML(html);
 				const node = fragment.firstChild as Element;
 				await renderer.mount(fragment);
-				const subrenderer = (node as any).renderer;
+				const subrenderer = (node as unknown as { renderer: IRenderer }).renderer;
 				assert.equal(getAttribute(node, ":data"), null);
 				assert.deepEqual(subrenderer.$.arr, [1, 2, 3]);
 			});
@@ -273,7 +296,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				const fragment = renderer.parseHTML(html);
 				const node = fragment.firstChild as Element;
 				await renderer.mount(fragment);
-				const subrenderer = (node as any).renderer;
+				const subrenderer = (node as unknown as { renderer: IRenderer }).renderer;
 				assert.equal(getAttribute(node, ":data"), null);
 				assert.deepEqual(subrenderer.$.arr, [{ n: 1 }, { n: 2 }, { n: 3 }]);
 			});
@@ -285,7 +308,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				const node = fragment.firstChild as Element;
 				// Mount the node directly, otherwise it's not the root node.
 				await renderer.mount(node);
-				assert.equal(renderer, (node as any).renderer);
+				assert.equal(renderer, (node as unknown as { renderer: IRenderer }).renderer);
 				assert.equal(getAttribute(node, ":data"), null);
 
 				// The renderer has all the initial properties + the new one.
@@ -302,7 +325,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				// Mount the node directly, otherwise it's not the root node.
 				await renderer.mount(node);
 				const subnode = node.firstChild as Element;
-				const subrenderer = (subnode as any).renderer;
+				const subrenderer = (subnode as unknown as { renderer: IRenderer }).renderer;
 				assert.notEqual(renderer, subrenderer);
 				assert.equal(getAttribute(node, ":data"), null);
 
@@ -324,7 +347,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				const node = fragment.firstChild as Element;
 
 				await renderer.mount(fragment);
-				const initialRenderer = (node as any).renderer;
+				const initialRenderer = (node as unknown as { renderer: IRenderer }).renderer;
 				assert.ok(initialRenderer, "Renderer should be attached after first mount");
 				assert.equal(initialRenderer.$.foo, "bar", "Initial data should be set");
 
@@ -335,7 +358,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				// In a real scenario, this could be triggered by a parent :for loop re-rendering
 				// or a manual call to renderNode on an already mounted element.
 				await renderer.mount(fragment);
-				const currentRenderer = (node as any).renderer;
+				const currentRenderer = (node as unknown as { renderer: IRenderer }).renderer;
 
 				assert.ok(currentRenderer, "Renderer should still be attached after re-mount");
 				assert.equal(initialRenderer, currentRenderer, "Should reuse the same renderer instance");
@@ -391,7 +414,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				);
 
 				// Should be in renderer
-				const subrenderer = (node as any).renderer;
+				const subrenderer = (node as unknown as { renderer: IRenderer }).renderer;
 				assert.equal(subrenderer.get("$$foo"), "bar");
 			});
 		});
@@ -692,7 +715,8 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 
 				// Since we're dealing with events, we need to create a full document.
 				const doc = globalThis.document.implementation.createHTMLDocument();
-				(doc.body as any).innerHTML = `<input :bind="foo" />`;
+				// tsec-disable-next-line
+				setInnerHTML(doc.body, `<input :bind="foo" />`);
 				const node = doc.body.firstChild as HTMLInputElement;
 
 				const renderer = new ctor();
@@ -723,7 +747,8 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 
 				// Since we're dealing with events, we need to create a full document.
 				const doc = globalThis.document.implementation.createHTMLDocument();
-				(doc.body as any).innerHTML = `<input :bind="foo" />`;
+				// tsec-disable-next-line
+				setInnerHTML(doc.body, `<input :bind="foo" />`);
 
 				// Value does not exist in store before mount().
 				const renderer = new ctor();
@@ -740,7 +765,8 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 
 				// Since we're dealing with events, we need to create a full document.
 				const doc = globalThis.document.implementation.createHTMLDocument();
-				(doc.body as any).innerHTML = `<input :bind="foo" :bind:on="my-custom-event" />`;
+				// tsec-disable-next-line
+				setInnerHTML(doc.body, `<input :bind="foo" :bind:on="my-custom-event" />`);
 				const node = doc.body.firstChild as HTMLInputElement;
 
 				const renderer = new ctor();
@@ -813,7 +839,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				const node = fragment.firstChild as HTMLElement;
 
 				await renderer.mount(fragment);
-				const subrenderer = (node as any).renderer;
+				const subrenderer = (node as unknown as { renderer: IRenderer }).renderer;
 
 				assert.ok(!node.hasAttribute?.(":show"));
 				assert.equal(getAttribute(node, "style"), "display: none;");
@@ -1024,7 +1050,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			const node = fragment.firstChild as HTMLElement;
 			await renderer.mount(fragment);
 			assert.equal(getAttribute(node, "custom-prop"), null);
-			assert.equal((node as any).customProp, "example.com");
+			assert.equal((node as unknown as { customProp: string }).customProp, "example.com");
 		});
 	});
 
@@ -1089,12 +1115,14 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			await renderer.mount(fragment);
 
 			// Get the subrenderer's store.
-			const elem = fragment.firstChild as any;
-			const subrenderer = elem.renderer;
+			const elem = fragment.firstChild as unknown as { renderer: IRenderer };
+			const el = elem as unknown as RenderedElement;
+			if (!el.renderer) throw new Error("renderer missing");
+			const subrenderer = el.renderer;
 
 			// Verify the state object was created.
-			const users = subrenderer.get("users");
-			assert.ok(users !== null, "users should be set");
+			const users = subrenderer.get("users") as StoreState;
+			assert.ok(users, "users should be set");
 			assert.equal(typeof users, "object", "users should be an object");
 			assert.ok("$pending" in users, "users should have $pending");
 			assert.ok("$result" in users, "users should have $result");
@@ -1102,9 +1130,9 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 		});
 
 		it("passes options to the function", async () => {
-			let receivedOptions: any = null;
+			let receivedOptions: unknown = null;
 			const api = {
-				getUser: (opts: any) => {
+				getUser: (opts: unknown) => {
 					receivedOptions = opts;
 					return Promise.resolve({ name: "Test" });
 				},
@@ -1131,14 +1159,18 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			const fragment = renderer.parseHTML(html);
 			await renderer.mount(fragment);
 
-			const elem = fragment.firstChild as any;
-			const subrenderer = elem.renderer;
+			const elem = fragment.firstChild as unknown as { renderer: IRenderer };
+			const el = elem as unknown as RenderedElement;
+			if (!el.renderer) throw new Error("renderer missing");
+			const subrenderer = el.renderer;
 
 			// Wait for promise to resolve.
 			await new Promise((resolve) => setTimeout(resolve, 30));
 
 			// State should be updated.
-			const result = subrenderer.get("result");
+			// Verify the state object was created.
+			const result = subrenderer.get("result") as StoreState | null;
+			if (!result) throw new Error("result should be set");
 			assert.equal(result.$pending, false);
 			assert.deepEqual(result.$result, { value: 123 });
 			assert.equal(result.$error, null);
@@ -1154,18 +1186,21 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 			const fragment = renderer.parseHTML(html);
 			await renderer.mount(fragment);
 
-			const elem = fragment.firstChild as any;
-			const subrenderer = elem.renderer;
-			const result = subrenderer.get("result");
+			const elem = fragment.firstChild as unknown as { renderer: IRenderer };
+			const el = elem as unknown as RenderedElement;
+			if (!el.renderer) throw new Error("renderer missing");
+			const subrenderer = el.renderer;
+			const result = subrenderer.get("result") as StoreState | null;
 
 			// Wait for promise to reject.
 			await new Promise((resolve) => setTimeout(resolve, 30));
 
 			// State should be updated.
+			if (!result) throw new Error("result should be set");
 			assert.equal(result.$pending, false);
 			assert.equal(result.$result, null);
 			assert.ok(result.$error instanceof Error);
-			assert.equal(result.$error?.message, "API Error");
+			assert.equal((result.$error as Error).message, "API Error");
 		});
 	});
 
@@ -1274,7 +1309,8 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				}
 				assert.ok(resolvedElem, "Should find element with class='widget'");
 				const resolved =
-					getAttribute(resolvedElem!, ":render") || getAttribute(resolvedElem!, "data-render");
+					getAttribute(resolvedElem as Element, ":render") ||
+					getAttribute(resolvedElem as Element, "data-render");
 				assert.equal(resolved, "/components/./widget.js");
 			});
 
@@ -1301,7 +1337,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				}
 				assert.ok(imgElem, "Should find img element with class='test-img'");
 				// The path should be rebased to /assets/./image.png.
-				const src = getAttribute(imgElem!, "src");
+				const src = getAttribute(imgElem as Element, "src");
 				assert.equal(src, "/assets/./image.png", "img src should be rebased before cloning");
 			});
 		});
@@ -1429,32 +1465,34 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				await renderer.mount(fragment, { dirpath: "." });
 
 				// Find the element with class="chart".
-				let elem: any = null;
+				let elem: Element | null = null;
 				for (const node of traverse(fragment)) {
 					if (getAttribute(node as Element, "class") === "chart") {
-						elem = node;
+						elem = node as Element;
 						break;
 					}
 				}
 				assert.ok(elem, "Should find element with class='chart'");
+				const el = elem as unknown as RenderedElement;
 
 				// The init function stored what it could access at execution time.
-				assert.ok(elem._initState, "Init function should have stored state");
+				if (!el._initState) throw new Error("Init function should have stored state");
 
 				// chartType from :data IS available when :render executes.
 				assert.equal(
-					elem._initState.hasChartType,
+					el._initState.hasChartType,
 					true,
 					"chartType should be available when :render executes",
 				);
 				assert.equal(
-					elem._initState.chartType,
+					el._initState?.chartType,
 					"bar",
 					"chartType should be 'bar' when :render executes",
 				);
 
 				// After mount completes, the variable is still set.
-				const subrenderer = elem.renderer;
+				if (!el.renderer) throw new Error("renderer missing");
+				const subrenderer = el.renderer;
 				assert.equal(
 					subrenderer.$.chartType,
 					"bar",
@@ -1477,27 +1515,29 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				await renderer.mount(fragment, { dirpath: "." });
 
 				// Find the nested element.
-				let elem: any = null;
+				let elem: Element | null = null;
 				for (const node of traverse(fragment)) {
 					if (getAttribute(node as Element, "class") === "nested") {
-						elem = node;
+						elem = node as Element;
 						break;
 					}
 				}
 				assert.ok(elem, "Should find element with class='nested'");
-				assert.ok(elem._initState, "Init function should have stored state");
+				const el = elem as unknown as RenderedElement;
+				assert.ok(el._initState, "Init function should have stored state");
 
 				// The child's :data variable should be available.
-				assert.equal(elem.renderer.$.childConfig, "local", "childConfig should be 'local'");
+				if (!el.renderer) throw new Error("renderer missing");
+				assert.equal(el.renderer.$.childConfig, "local", "childConfig should be 'local'");
 
 				// The parent's variable should be accessible via $parent.
 				assert.equal(
-					elem._initState.parentVar,
+					el._initState?.parentVar,
 					undefined,
 					"parentVar should be undefined (fixture looks for 'inheritedVar')",
 				);
 				assert.equal(
-					elem.renderer.$.$parent?.$.parentConfig,
+					el.renderer.$.$parent?.$.parentConfig,
 					"inherited",
 					"parentConfig should be accessible via $parent",
 				);
@@ -1514,18 +1554,20 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				await renderer.mount(fragment, { dirpath: "." });
 
 				// Find the counter element.
-				let elem: any = null;
+				let elem: Element | null = null;
 				for (const node of traverse(fragment)) {
 					if (getAttribute(node as Element, "class") === "counter") {
-						elem = node;
+						elem = node as Element;
 						break;
 					}
 				}
 				assert.ok(elem, "Should find element with class='counter'");
+				const el = elem as unknown as RenderedElement;
 
 				// The init function should have read count=5 and set count=6.
-				assert.equal(elem._modifiedCount, 6, "Init should have incremented count to 6");
-				assert.equal(elem.renderer.$.count, 6, "Store should have count=6");
+				assert.equal(el._modifiedCount, 6, "Init should have incremented count to 6");
+				if (!el.renderer) throw new Error("renderer missing");
+				assert.equal(el.renderer.$.count, 6, "Store should have count=6");
 			});
 
 			it(":render with :data accessing deep object properties", async function () {
@@ -1545,17 +1587,19 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				await renderer.mount(fragment, { dirpath: "." });
 
 				// Find the themed element.
-				let elem: any = null;
+				let elem: Element | null = null;
 				for (const node of traverse(fragment)) {
 					if (getAttribute(node as Element, "class") === "themed") {
-						elem = node;
+						elem = node as Element;
 						break;
 					}
 				}
 				assert.ok(elem, "Should find element with class='themed'");
+				const el = elem as unknown as RenderedElement;
 
 				// Verify nested object is accessible.
-				const subrenderer = elem.renderer;
+				if (!el.renderer) throw new Error("renderer missing");
+				const subrenderer = el.renderer;
 				assert.deepEqual(
 					subrenderer.$.config,
 					{ theme: { primary: "blue", secondary: "green" } },
@@ -1580,20 +1624,21 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				await renderer.mount(fragment, { dirpath: "." });
 
 				// Find the standalone element.
-				let elem: any = null;
+				let elem: Element | null = null;
 				for (const node of traverse(fragment)) {
 					if (getAttribute(node as Element, "class") === "standalone") {
-						elem = node;
+						elem = node as Element;
 						break;
 					}
 				}
 				assert.ok(elem, "Should find element with class='standalone'");
-				assert.ok(elem._initState, "Init function should have stored state");
+				const el = elem as unknown as RenderedElement;
+				if (!el._initState) throw new Error("Init function should have stored state");
 
 				// The init function receives a subrenderer. has() checks local store only,
 				// so it returns false. But get()/$.xxx accesses parent chain.
-				assert.equal(elem._initState.hasChartType, false, "has() checks local store only");
-				assert.equal(elem._initState.chartType, "line", "chartType accessible via parent chain");
+				assert.equal(el._initState.hasChartType, false, "has() checks local store only");
+				assert.equal(el._initState.chartType, "line", "chartType accessible via parent chain");
 			});
 
 			it(":for with :render and :data executes init for each iteration with its scope", async function () {
@@ -1610,7 +1655,7 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				await renderer.mount(fragment, { dirpath: "." });
 
 				// Find visible item elements (skip the hidden template).
-				const visibleItems: any[] = [];
+				const visibleItems: Element[] = [];
 				for (const node of traverse(fragment)) {
 					const elem = node as Element;
 					if (getAttribute(elem, "class") === "item") {
@@ -1626,8 +1671,9 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 				// Each visible item should have _initState from its :render call.
 				for (let i = 0; i < visibleItems.length; i++) {
 					const elem = visibleItems[i];
-					assert.ok(elem._initState, `Item ${i} should have _initState`);
-					assert.ok(elem.renderer, `Item ${i} should have renderer`);
+					const el = elem as unknown as RenderedElement;
+					assert.ok(el._initState, `Item ${i} should have _initState`);
+					assert.ok(el.renderer, `Item ${i} should have renderer`);
 				}
 			});
 
@@ -1641,10 +1687,12 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 					const fragment = renderer.parseHTML(html);
 					await renderer.mount(fragment, { dirpath: "." });
 
-					const elem = fragment.querySelector("div") as any;
-					assert.ok(elem._renderedState, "Should have captured rendered state");
+					const elem = fragment.querySelector("div");
+					assert.ok(elem);
+					const el = elem as unknown as RenderedElement;
+					if (!el._renderedState) throw new Error("Should have captured rendered state");
 					assert.equal(
-						elem._renderedState.textContent,
+						el._renderedState.textContent,
 						"Hello World",
 						":render should see text content from :text",
 					);
@@ -1659,14 +1707,17 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 					const fragment = renderer.parseHTML(html);
 					await renderer.mount(fragment, { dirpath: "." });
 
-					const elem = fragment.querySelector("div") as any;
-					assert.ok(elem._renderedState, "Should have captured rendered state");
+					const elem = fragment.querySelector("div");
+					assert.ok(elem);
+					const el = elem as unknown as RenderedElement;
+					if (!el._renderedState) throw new Error("Should have captured rendered state");
+					if (!el._renderedState.className) throw new Error("Should have captured className");
 					assert.ok(
-						elem._renderedState.className.includes("active"),
+						el._renderedState.className.includes("active"),
 						":render should see 'active' class from :class",
 					);
 					assert.ok(
-						elem._renderedState.className.includes("base"),
+						el._renderedState.className.includes("base"),
 						":render should see original 'base' class",
 					);
 				});
@@ -1680,10 +1731,12 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 					const fragment = renderer.parseHTML(html);
 					await renderer.mount(fragment, { dirpath: "." });
 
-					const elem = fragment.querySelector("div") as any;
-					assert.ok(elem._renderedState, "Should have captured rendered state");
+					const elem = fragment.querySelector("div");
+					assert.ok(elem);
+					const el = elem as unknown as RenderedElement;
+					if (!el._renderedState) throw new Error("Should have captured rendered state");
 					assert.equal(
-						elem._renderedState.displayStyle,
+						el._renderedState.displayStyle,
 						"none",
 						":render should see display:none from :show=false",
 					);
@@ -1698,11 +1751,13 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 					const fragment = renderer.parseHTML(html);
 					await renderer.mount(fragment, { dirpath: "." });
 
-					const elem = fragment.querySelector("div") as any;
-					assert.ok(elem._renderedState, "Should have captured rendered state");
+					const elem = fragment.querySelector("div");
+					assert.ok(elem);
+					const el = elem as unknown as RenderedElement;
+					assert.ok(el._renderedState, "Should have captured rendered state");
 
 					// Verify the attribute was set on the element after mount.
-					const attrValue = getAttribute(elem, "data-testid");
+					const attrValue = getAttribute(el, "data-testid");
 					assert.equal(attrValue, "my-component", "Attribute should be set after mount");
 				});
 
@@ -1724,11 +1779,14 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 					const fragment = renderer.parseHTML(html);
 					await renderer.mount(fragment, { dirpath: "." });
 
-					const elem = fragment.querySelector("div") as any;
-					assert.ok(elem._renderedState, "Should have captured rendered state");
-					assert.equal(elem._renderedState.textContent, "Dashboard", "Should see :text content");
-					assert.ok(elem._renderedState.className.includes("admin"), "Should see :class effect");
-					assert.ok(elem._renderedState.className.includes("panel"), "Should see original class");
+					const elem = fragment.querySelector("div");
+					assert.ok(elem);
+					const el = elem as unknown as RenderedElement;
+					if (!el._renderedState) throw new Error("Should have captured rendered state");
+					if (!el._renderedState.className) throw new Error("Should have captured className");
+					assert.equal(el._renderedState.textContent, "Dashboard", "Should see :text content");
+					assert.ok(el._renderedState.className.includes("admin"), "Should see :class effect");
+					assert.ok(el._renderedState.className.includes("panel"), "Should see original class");
 				});
 			});
 
@@ -1747,8 +1805,10 @@ export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
 					const fragment = renderer.parseHTML(html);
 					await renderer.mount(fragment, { dirpath: "." });
 
-					const elem = fragment.querySelector("div") as any;
-					assert.ok(elem._renderExecuted, ":render callback should have executed");
+					const elem = fragment.querySelector("div");
+					assert.ok(elem);
+					const el = elem as unknown as RenderedElement;
+					assert.ok(el._renderExecuted, ":render callback should have executed");
 
 					// The span should now contain the message set by :render.
 					const span = fragment.querySelector(".message") as Element;

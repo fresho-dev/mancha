@@ -40,15 +40,11 @@ const _isWhitespace = (ch: number) =>
 	ch === 9 /* \t */ || ch === 10 /* \n */ || ch === 13 /* \r */ || ch === 32; /* space */
 
 // TODO(justinfagnani): allow code points > 127
-const _isIdentOrKeywordStart = (ch: number) =>
-	ch === 95 /* _ */ ||
-	ch === 36 /* $ */ ||
-	// ch &= ~32 puts ch into the range [65,90] [A-Z] only if ch was already in
-	// the that range or in the range [97,122] [a-z]. We must mutate ch only after
-	// checking other characters, thus the comma operator.
-	// biome-ignore lint/complexity/noCommaOperator: optimization
-	// biome-ignore lint/suspicious/noAssignInExpressions: optimization
-	((ch &= ~32), 65 /* A */ <= ch && ch <= 90); /* Z */
+const _isIdentOrKeywordStart = (ch: number) => {
+	if (ch === 95 /* _ */ || ch === 36 /* $ */) return true;
+	const upper = ch & ~32;
+	return 65 <= upper && upper <= 90;
+};
 
 // TODO(justinfagnani): allow code points > 127
 const _isIdentifier = (ch: number) => _isIdentOrKeywordStart(ch) || _isNumber(ch);
@@ -112,19 +108,19 @@ export class Tokenizer {
 	}
 
 	nextToken() {
-		while (_isWhitespace(this._next!)) {
+		while (_isWhitespace(this._next ?? -1)) {
 			this._advance(true);
 		}
-		if (_isQuote(this._next!)) return this._tokenizeString();
-		if (_isIdentOrKeywordStart(this._next!)) {
+		if (_isQuote(this._next ?? -1)) return this._tokenizeString();
+		if (_isIdentOrKeywordStart(this._next ?? -1)) {
 			return this._tokenizeIdentOrKeyword();
 		}
-		if (_isNumber(this._next!)) return this._tokenizeNumber();
+		if (_isNumber(this._next ?? -1)) return this._tokenizeNumber();
 		if (this._next === 46 /* . */) return this._tokenizeDot();
 		if (this._next === 44 /* , */) return this._tokenizeComma();
 		if (this._next === 58 /* : */) return this._tokenizeColon();
-		if (_isOperator(this._next!)) return this._tokenizeOperator();
-		if (_isGrouper(this._next!)) return this._tokenizeGrouper();
+		if (_isOperator(this._next ?? -1)) return this._tokenizeOperator();
+		if (_isGrouper(this._next ?? -1)) return this._tokenizeGrouper();
 		// no match, should be end of input
 		this._advance();
 		if (this._next !== undefined) {
@@ -179,7 +175,7 @@ export class Tokenizer {
 		// be called if _isIdentOrKeywordStart(this._next!) has returned true.
 		do {
 			this._advance();
-		} while (_isIdentifier(this._next!));
+		} while (_isIdentifier(this._next ?? -1));
 		const value = this._getValue();
 		const kind = _isKeyword(value)
 			? Kind.KEYWORD
@@ -194,14 +190,14 @@ export class Tokenizer {
 		// be called if _isNumber(this._next!) has returned true.
 		do {
 			this._advance();
-		} while (_isNumber(this._next!));
+		} while (_isNumber(this._next ?? -1));
 		if (this._next === 46 /* . */) return this._tokenizeDot();
 		return token(Kind.INTEGER, this._getValue());
 	}
 
 	private _tokenizeDot() {
 		this._advance();
-		if (_isNumber(this._next!)) return this._tokenizeFraction();
+		if (_isNumber(this._next ?? -1)) return this._tokenizeFraction();
 		if (this._next === 46 /* . */) {
 			this._advance();
 			if (this._next === 46 /* . */) {
@@ -230,7 +226,7 @@ export class Tokenizer {
 		// be called if _isNumber(this._next!) has returned true.
 		do {
 			this._advance();
-		} while (_isNumber(this._next!));
+		} while (_isNumber(this._next ?? -1));
 		return token(Kind.DECIMAL, this._getValue());
 	}
 
@@ -270,7 +266,7 @@ export class Tokenizer {
 	}
 
 	private _tokenizeGrouper() {
-		const value = String.fromCharCode(this._next!);
+		const value = String.fromCharCode(this._next ?? 0);
 		const t = token(Kind.GROUPER, value, PRECEDENCE[value]);
 		this._advance(true);
 		return t;

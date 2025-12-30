@@ -22,7 +22,7 @@ import {
 	setProperty,
 	traverse,
 } from "./dome.js";
-import { ParserParams, RendererPlugin, RenderParams } from "./interfaces.js";
+import type { ParserParams, RendererPlugin, RenderParams } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
 import type { IRenderer } from "./renderer.js";
 
@@ -160,7 +160,9 @@ export namespace RendererPlugins {
 				this._customElements.set(customTagName, elem);
 
 				// Remove the original node from the DOM.
-				removeChild(elem.parentNode!, elem);
+				if (elem?.parentNode) {
+					removeChild(elem.parentNode, elem);
+				}
 			}
 		}
 	};
@@ -173,7 +175,7 @@ export namespace RendererPlugins {
 		if (cusName === "div") cusName = getAttribute(elem, "role")?.toLowerCase() || cusName;
 		if (cusName && this._customElements.has(cusName)) {
 			this.log(`Processing custom element: ${cusName}\n`, nodeToString(elem, 128));
-			const template = this._customElements.get(cusName)! as HTMLTemplateElement;
+			const template = this._customElements.get(cusName) as HTMLTemplateElement;
 			const clone = (template.content || template).cloneNode(true) as Element;
 
 			// Add whatever attributes the custom element tag had to the first child.
@@ -229,7 +231,7 @@ export namespace RendererPlugins {
 
 			// Check if the element already has a renderer attached.
 			if (hasProperty(node, "renderer")) {
-				subrenderer = (node as any).renderer as IRenderer;
+				subrenderer = (node as unknown as { renderer: IRenderer }).renderer;
 				this.log("Reusing existing subrenderer for node:", nodeToString(node, 64));
 			} else {
 				subrenderer = this.subrenderer();
@@ -392,7 +394,8 @@ export namespace RendererPlugins {
 			setAttribute(elem, "style", "display: none;");
 
 			// Place the template node into a template element.
-			const parent = node.parentNode!;
+			const parent = node.parentNode;
+			if (!parent) return; // Should already be skipped but for safety
 			const template = this.createElement("template", node.ownerDocument);
 			insertBefore(parent, template as Node, node);
 			removeChild(parent, node);
@@ -593,7 +596,7 @@ export namespace RendererPlugins {
 				// Remove the processed attributes from node.
 				removeAttribute(elem, attr.name);
 
-				const attrName = (attr.name.split(prefix1, 2).at(-1) || "").split(prefix2, 2).at(-1)!;
+				const attrName = (attr.name.split(prefix1, 2).at(-1) || "").split(prefix2, 2).at(-1) ?? "";
 				this.effect(function () {
 					const attrValue = this.eval(attr.value, { $elem: node });
 					setAttribute(elem, attrName, attrValue as string);
@@ -614,7 +617,7 @@ export namespace RendererPlugins {
 				// Remove the processed attributes from node.
 				removeAttribute(elem, attr.name);
 
-				const attrName = (attr.name.split(prefix1, 2).at(-1) || "").split(prefix2, 2).at(-1)!;
+				const attrName = (attr.name.split(prefix1, 2).at(-1) || "").split(prefix2, 2).at(-1) ?? "";
 				const propName = attributeNameToCamelCase(attrName);
 				this.effect(function () {
 					const propValue = this.eval(attr.value, { $elem: node });
@@ -656,7 +659,7 @@ export namespace RendererPlugins {
 
 		// Check if the element already has a renderer attached.
 		if (hasProperty(node, "renderer")) {
-			subrenderer = (node as any).renderer as IRenderer;
+			subrenderer = (node as unknown as { renderer: IRenderer }).renderer;
 			this.log("Reusing existing subrenderer for :render:", nodeToString(node, 64));
 		} else {
 			// Create a subrenderer to process this node and its descendants.

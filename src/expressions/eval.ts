@@ -3,8 +3,8 @@
  * Portions Copyright (c) 2013, the Dart project authors.
  */
 
-import * as ast from "./ast.js";
-import { AstFactory } from "./ast_factory.js";
+import type * as ast from "./ast.js";
+import type { AstFactory } from "./ast_factory.js";
 
 type BinaryOp = (a: unknown, b: unknown) => unknown;
 const _BINARY_OPERATORS: Record<string, BinaryOp> = {
@@ -233,8 +233,9 @@ export class EvalAstFactory implements AstFactory<Expression> {
 						receiver = scope as Record<string, unknown>;
 						property = this.left.value;
 					}
-					// biome-ignore lint/suspicious/noAssignInExpressions: assignment in return
-					return receiver === undefined ? undefined : (receiver[property] = value);
+					if (receiver === undefined) return undefined;
+					receiver[property] = value;
+					return value;
 				}
 				return f(this.left.evaluate(scope), this.right.evaluate(scope));
 			},
@@ -316,7 +317,9 @@ export class EvalAstFactory implements AstFactory<Expression> {
 			},
 			getIds(idents) {
 				this.receiver.getIds(idents);
-				this.arguments?.forEach((a) => a?.getIds(idents));
+				this.arguments?.forEach((a) => {
+					a?.getIds(idents);
+				});
 				return idents;
 			},
 		};
@@ -442,7 +445,9 @@ export class EvalAstFactory implements AstFactory<Expression> {
 				return result;
 			},
 			getIds(idents) {
-				this.items?.forEach((i) => i?.getIds(idents));
+				this.items?.forEach((i) => {
+					i?.getIds(idents);
+				});
 				return idents;
 			},
 		};
@@ -466,8 +471,8 @@ export class EvalAstFactory implements AstFactory<Expression> {
 							if (Object.hasOwn(paramsObj, prop)) {
 								paramsObj[prop as string] = value;
 							}
-							// biome-ignore lint/suspicious/noAssignInExpressions: assignment in return
-							return (target[prop as string] = value);
+							target[prop as string] = value;
+							return value;
 						},
 						get(target, prop) {
 							if (Object.hasOwn(paramsObj, prop)) {

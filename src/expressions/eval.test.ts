@@ -1,9 +1,9 @@
 import { assert } from "../test_utils.js";
-import { EvalAstFactory, Expression } from "./eval.js";
+import { EvalAstFactory, type Expression } from "./eval.js";
 
 describe("Evaluator", () => {
 	const factory = new EvalAstFactory();
-	const evalNode = (node: Expression, scope: any = {}) => node.evaluate(scope);
+	const evalNode = (node: Expression, scope: Record<string, unknown> = {}) => node.evaluate(scope);
 
 	it("should evaluate literals", () => {
 		assert.equal(evalNode(factory.literal(123)), 123);
@@ -128,7 +128,7 @@ describe("Evaluator", () => {
 			["x"],
 			factory.binary(factory.id("x"), "+", factory.literal(1)),
 		);
-		const fn = evalNode(node) as (...args: any[]) => any;
+		const fn = evalNode(node) as (...args: unknown[]) => unknown;
 		assert.equal(fn(1), 2);
 	});
 

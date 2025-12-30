@@ -1,6 +1,6 @@
 import * as fs from "node:fs/promises";
 import { JSDOM } from "jsdom";
-import { ParserParams, RenderParams } from "./interfaces.js";
+import type { ParserParams, RenderParams } from "./interfaces.js";
 import { IRenderer } from "./renderer.js";
 
 export type { ParserParams, RendererPlugin, RenderParams } from "./interfaces.js";

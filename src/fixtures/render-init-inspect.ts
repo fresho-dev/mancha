@@ -2,7 +2,7 @@ import type { IRenderer } from "../renderer.js";
 
 // This module captures the element's rendered state when :render executes.
 // Used to verify that :render runs after all other plugins.
-export default function (elem: any, renderer: IRenderer) {
+export default function (elem: HTMLElement & Record<string, unknown>, renderer: IRenderer) {
 	elem._renderedState = {
 		// Text content (after :text is applied).
 		textContent: elem.textContent?.trim() || "",

@@ -1,8 +1,9 @@
 import { getAttributeOrDataset } from "./dome.js";
-import { IRenderer } from "./renderer.js";
+import type { IRenderer } from "./renderer.js";
+import type { StoreState } from "./store.js";
 import { assert } from "./test_utils.js";
 
-export function testSuite(ctor: new (...args: any[]) => IRenderer): void {
+export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 	describe("parseHTML", () => {
 		it("parses root document", () => {
 			const renderer = new ctor();

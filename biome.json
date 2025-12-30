@@ -23,16 +23,16 @@
 		"rules": {
 			"recommended": true,
 			"complexity": {
-				"noUselessTypeConstraint": "off"
+				"noUselessTypeConstraint": "error"
 			},
 			"style": {
-				"noNonNullAssertion": "off",
-				"useConst": "off",
-				"useImportType": "off"
+				"noNonNullAssertion": "error",
+				"useConst": "error",
+				"useImportType": "error"
 			},
 			"suspicious": {
-				"noExplicitAny": "off",
-				"useIterableCallbackReturn": "off"
+				"noExplicitAny": "error",
+				"useIterableCallbackReturn": "error"
 			}
 		}
 	},

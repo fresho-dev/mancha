@@ -31,7 +31,7 @@ const _args = yargs(hideBin(process.argv))
 				});
 		},
 		async (argv) => {
-			Mancha.debug(argv.debug!);
+			Mancha.debug(argv.debug ?? false);
 			Object.entries(JSON.parse(argv.vars || "{}")).forEach(([key, value]) => {
 				Mancha.$[key] = value;
 			});

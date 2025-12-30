@@ -3,10 +3,10 @@
  * Portions Copyright (c) 2013, the Dart project authors.
  */
 
-import { Expression, ID, Invoke } from "./ast.js";
-import { AstFactory } from "./ast_factory.js";
+import type { Expression, ID, Invoke } from "./ast.js";
+import type { AstFactory } from "./ast_factory.js";
 import { BINARY_OPERATORS, KEYWORDS, POSTFIX_PRECEDENCE, UNARY_OPERATORS } from "./constants.js";
-import { Kind, Token, Tokenizer } from "./tokenizer.js";
+import { Kind, type Token, Tokenizer } from "./tokenizer.js";
 
 export const parse = <E extends Expression>(
 	expr: string,
@@ -104,6 +104,7 @@ export class Parser<N extends Expression> {
 			return this._ast.getter(left, (right as ID).value, optional);
 		} else if (right.type === "Invoke" && (right as Invoke).receiver.type === "ID") {
 			const method = (right as Invoke).receiver as ID;
+			// biome-ignore lint/suspicious/noExplicitAny: arguments array type is complex
 			return this._ast.invoke(left, method.value, (right as Invoke).arguments as any, optional);
 		} else {
 			throw new Error(`expected identifier: ${right}`);
@@ -118,9 +119,10 @@ export class Parser<N extends Expression> {
 		let right = this._parseUnary();
 		while (
 			(this._kind === Kind.OPERATOR || this._kind === Kind.DOT || this._kind === Kind.GROUPER) &&
-			this._token!.precedence > op.precedence
+			this._token &&
+			(this._token.precedence ?? 0) > op.precedence
 		) {
-			right = this._parsePrecedence(right, this._token!.precedence);
+			right = this._parsePrecedence(right, this._token?.precedence ?? 0);
 		}
 		if (right === undefined) {
 			throw new Error(`Expected expression after ${op.value}`);
@@ -147,9 +149,9 @@ export class Parser<N extends Expression> {
 					return this._parseDecimal(value);
 				}
 			}
-			if (!UNARY_OPERATORS.has(value!)) throw new Error(`unexpected token: ${value}`);
+			if (!value || !UNARY_OPERATORS.has(value)) throw new Error(`unexpected token: ${value}`);
 			const expr = this._parsePrecedence(this._parsePrimary(), POSTFIX_PRECEDENCE);
-			return this._ast.unary(value!, expr);
+			return this._ast.unary(value, expr);
 		}
 		return this._parsePrimary();
 	}
@@ -165,7 +167,7 @@ export class Parser<N extends Expression> {
 	private _parsePrimary() {
 		switch (this._kind) {
 			case Kind.KEYWORD: {
-				const keyword = this._value!;
+				const keyword = this._value ?? "";
 				if (keyword === "this") {
 					this._advance();
 					// TODO(justin): return keyword node
@@ -231,7 +233,7 @@ export class Parser<N extends Expression> {
 					properties.push(this._ast.spreadProperty(expr));
 				}
 			} else {
-				const key = this._value!;
+				const key = this._value ?? "";
 				if (this._matches(Kind.STRING) || this._matches(Kind.IDENTIFIER)) {
 					this._advance();
 				}
@@ -248,6 +250,7 @@ export class Parser<N extends Expression> {
 			}
 		} while (this._matches(Kind.COMMA));
 		this._advance(Kind.GROUPER, "}");
+		// biome-ignore lint/suspicious/noExplicitAny: properties array type is complex
 		return this._ast.map(properties as any);
 	}
 
@@ -280,7 +283,7 @@ export class Parser<N extends Expression> {
 		}
 		const value = this._value;
 		this._advance();
-		return this._ast.id(value!);
+		return this._ast.id(value ?? "");
 	}
 
 	private _parseArguments() {
@@ -324,12 +327,12 @@ export class Parser<N extends Expression> {
 			const params = expressions?.map((e) => (e as ID).value) ?? [];
 			return this._ast.arrowFunction(params, body);
 		} else {
-			return this._ast.paren(expressions![0]);
+			return this._ast.paren(expressions?.[0]);
 		}
 	}
 
 	private _parseString() {
-		const value = this._ast.literal(this._value!);
+		const value = this._ast.literal(this._value ?? "");
 		this._advance();
 		return value;
 	}
