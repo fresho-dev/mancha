@@ -15,7 +15,7 @@ export const UNITS_ALL = [
 	...UNITS_XL,
 	...Object.values(MEDIA_BREAKPOINTS),
 ];
-export const PERCENTS = [1, 2, 5, 10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90, 95, 98, 99, 100];
+export const PERCENTS = Array.from({ length: 100 }, (_, i) => i + 1);
 export const DURATIONS = [25, 50, 75, 100, 150, 200, 300, 500, 700, 1000];
 const PSEUDO_STATES = ["hover", "focus", "disabled", "active"];
 export const PROPS_SPACING = {
