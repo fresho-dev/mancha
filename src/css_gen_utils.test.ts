@@ -1,4 +1,4 @@
-import rules from "./css_gen_utils.js";
+import rules, { PERCENTS } from "./css_gen_utils.js";
 import { assert } from "./test_utils.js";
 
 describe("CSS Generation Utils", () => {
@@ -23,6 +23,17 @@ describe("CSS Generation Utils", () => {
 			assert.ok(css.includes("@media (min-width: 640px)"), "Should include sm breakpoint");
 			assert.ok(css.includes("@media (min-width: 768px)"), "Should include md breakpoint");
 			assert.ok(css.includes("@media (min-width: 1024px)"), "Should include lg breakpoint");
+		});
+
+		it("support all percentages 0-100", () => {
+			assert.equal(PERCENTS.length, 100);
+			assert.equal(PERCENTS[0], 1);
+			assert.equal(PERCENTS[99], 100);
+
+			const css = rules();
+			assert.ok(css.includes(".w-37\\%"), "Should include w-37%");
+			assert.ok(css.includes(".opacity-1"), "Should include opacity-1");
+			assert.ok(css.includes(".opacity-99"), "Should include opacity-99");
 		});
 
 		it("includes size utilities matching media breakpoints", () => {
