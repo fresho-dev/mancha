@@ -3,21 +3,18 @@ const MEDIA_ENTRIES = Object.entries(MEDIA_BREAKPOINTS);
 export const REM_UNIT = 0.25;
 // Generate 1-15
 const UNITS_SM = [...Array(15)].map((_, i) => i + 1);
-// Common larger values
-const UNITS_LG = [16, 20, 24, 25, 28, 30, 32, 36, 40, 44, 48, 50, 52, 56, 60];
-const UNITS_XL = [
-	64, 72, 80, 96, 100, 112, 128, 144, 160, 192, 200, 224, 256, 288, 300, 320, 384, 400, 448, 500,
-	512,
-];
+const UNITS_LG = [16, 20, 24, 28, 32, 36, 40, 48, 56, 64];
+const UNITS_XL = [72, 80, 96, 128, 160, 192, 256, 320, 384, 512];
 export const UNITS_ALL = [
 	...UNITS_SM,
 	...UNITS_LG,
 	...UNITS_XL,
 	...Object.values(MEDIA_BREAKPOINTS),
 ];
-export const PERCENTS = Array.from({ length: 100 }, (_, i) => i + 1);
+export const PERCENTS = Array.from({ length: 20 }, (_, i) => (i + 1) * 5);
+export const COLOR_OPACITY_MODIFIERS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 export const DURATIONS = [25, 50, 75, 100, 150, 200, 300, 500, 700, 1000];
-const PSEUDO_STATES = ["hover", "focus", "disabled", "active"];
+const PSEUDO_STATES = ["hover", "focus"];
 export const PROPS_SPACING = {
 	margin: "m",
 	padding: "p",
@@ -648,6 +645,14 @@ function wrapAll(pairs: string[][]): string[] {
 	]);
 }
 
+// Lighter wrapper without media queries - for utilities like colors that rarely need responsive variants
+function wrapBase(pairs: string[][]): string[] {
+	return pairs.flatMap(([klass, rule]) => [
+		`.${klass} { ${rule} }`,
+		`${wrapPseudoStates(klass).join(",")} { ${rule} }`,
+	]);
+}
+
 function ruleSorter(a: string, b: string): number {
 	// Media queries start with '@', regular rules start with '.'
 	const aMedia = a[0] === "@";
@@ -889,7 +894,7 @@ function colors(): string[] {
 		];
 		if (value.startsWith("#")) {
 			const rgb = hexToRgb(value);
-			for (const opacity of PERCENTS) {
+			for (const opacity of COLOR_OPACITY_MODIFIERS) {
 				const alpha = opacity / 100;
 				variants.push(
 					[`text-${color}\\/${opacity}`, `color: rgb(${rgb} / ${alpha})`],
@@ -900,7 +905,7 @@ function colors(): string[] {
 		}
 		return variants;
 	};
-	return wrapAll([
+	return wrapBase([
 		...colorVariants("white", "#fff"),
 		...colorVariants("black", "#000"),
 		...colorVariants("transparent", "transparent"),
