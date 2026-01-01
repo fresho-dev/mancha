@@ -54,7 +54,7 @@ Cloaking hides your content until rendering is complete, preventing users from s
 
 ### How It Works
 
-Cloaking sets `opacity: 0` on target elements via a `data-mancha-cloak` attribute, then removes it once rendering completes.
+Cloaking injects a global `<style>` tag that sets `opacity: 0 !important` for target elements immediately. Once rendering is complete, this style rule is updated to `opacity: 1` to trigger a smooth fade-in transition (if configured) before being removed. This ensures content is hidden instantly, preventing any FOUC.
 
 ### Script Tag Defaults
 

@@ -147,7 +147,8 @@ describe("Browser", () => {
 			});
 
 			// After initMancha completes, element should be uncloaked.
-			assert.ok(!target.hasAttribute("data-mancha-cloak"), "Element should be uncloaked");
+			// After initMancha completes, element should be uncloaked.
+			// The style tag should be removed (or empty if we only removed content, but we remove the element).
 			assert.ok(!document.getElementById("mancha-cloak-style"), "Cloak style should be removed");
 
 			// Verify rendering still worked.
@@ -168,8 +169,7 @@ describe("Browser", () => {
 			});
 
 			// Both should be uncloaked after completion.
-			assert.ok(!target1.hasAttribute("data-mancha-cloak"));
-			assert.ok(!target2.hasAttribute("data-mancha-cloak"));
+			assert.ok(!document.getElementById("mancha-cloak-style"));
 
 			target1.remove();
 			target2.remove();
@@ -238,7 +238,7 @@ describe("Browser", () => {
 
 			// Should have taken at least ~50ms due to the animation.
 			assert.ok(duration >= 40, `Animation should have delayed (took ${duration}ms)`);
-			assert.ok(!target.hasAttribute("data-mancha-cloak"));
+			assert.ok(!document.getElementById("mancha-cloak-style"));
 
 			target.remove();
 		});
@@ -256,7 +256,7 @@ describe("Browser", () => {
 
 			// Should complete quickly (no animation delay).
 			assert.ok(duration < 50, `Should reveal instantly (took ${duration}ms)`);
-			assert.ok(!target.hasAttribute("data-mancha-cloak"));
+			assert.ok(!document.getElementById("mancha-cloak-style"));
 
 			target.remove();
 		});
@@ -274,7 +274,7 @@ describe("Browser", () => {
 			});
 
 			// Should complete without error.
-			assert.ok(!target.hasAttribute("data-mancha-cloak"));
+			assert.ok(!document.getElementById("mancha-cloak-style"));
 
 			target.remove();
 		});
@@ -287,6 +287,37 @@ describe("Browser", () => {
 				cloak: true,
 			});
 			assert.ok(renderer instanceof Renderer);
+		});
+	});
+
+	it("initMancha waits for DOMContentLoaded if document is loading", async () => {
+		// Mock document.readyState
+		const originalReadyState = document.readyState;
+		Object.defineProperty(document, "readyState", {
+			value: "loading",
+			writable: true,
+		});
+
+		let resolved = false;
+		const initPromise = initMancha().then(() => {
+			resolved = true;
+		});
+
+		// Should not resolve yet
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		assert.equal(resolved, false, "Should wait for DOMContentLoaded");
+
+		// Trigger DOMContentLoaded
+		window.dispatchEvent(new Event("DOMContentLoaded"));
+
+		// Should now resolve
+		await initPromise;
+		assert.equal(resolved, true, "Should resolve after DOMContentLoaded");
+
+		// Restore readyState
+		Object.defineProperty(document, "readyState", {
+			value: originalReadyState,
+			writable: true,
 		});
 	});
 });
