@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import {
+import rules, {
+	COLOR_OPACITY_MODIFIERS,
 	DURATIONS,
 	MEDIA_BREAKPOINTS,
 	PERCENTS,
@@ -105,7 +106,7 @@ function generateMarkdown() {
 		md += `| \`${color}\` | \`50\`, \`100\`, \`200\`, \`300\`, \`400\`, \`500\`, \`600\`, \`700\`, \`800\`, \`900\` |\n`;
 	}
 	md += "\n";
-	md += "You can also control the opacity of any color utility by appending `/{opacity}`:\n";
+	md += `You can also control the opacity of any color utility by appending \`/{opacity}\` (${COLOR_OPACITY_MODIFIERS.join(", ")}):\n`;
 	md += "- `bg-black/50`\n";
 	md += "- `text-red-500/20`\n";
 	md += "- `border-blue-600/100`\n";
@@ -139,7 +140,7 @@ function generateMarkdown() {
 	}
 	// Document opacity
 	md += "| `opacity-0` | Fully transparent |\n";
-	md += `| \`opacity-{${PERCENTS.join(",")}}\` | Opacity values from 0-100 |\n`;
+	md += `| \`opacity-{${PERCENTS.join(",")}}\` | Opacity values (multiples of 5) |\n`;
 	md += "\n";
 
 	md += "### Outline\n\n";
@@ -475,5 +476,13 @@ function generateMarkdown() {
 	return md;
 }
 
+// Generate CSS and calculate stats
+const css = rules();
+const ruleCount = (css.match(/\{[^}]+\}/g) || []).length;
+const sizeBytes = css.length;
+const sizeKB = (sizeBytes / 1024).toFixed(1);
+const sizeMB = (sizeBytes / 1024 / 1024).toFixed(2);
+
 fs.writeFileSync(DOCS_PATH, generateMarkdown());
 console.log(`Documentation generated at ${DOCS_PATH}`);
+console.log(`CSS Stats: ${ruleCount.toLocaleString()} rules, ${sizeKB} KB (${sizeMB} MB)`);

@@ -23,23 +23,24 @@ describe("CSS Generation Utils", () => {
 			assert.ok(css.includes("@media (min-width: 640px)"), "Should include sm breakpoint");
 			assert.ok(css.includes("@media (min-width: 768px)"), "Should include md breakpoint");
 			assert.ok(css.includes("@media (min-width: 1024px)"), "Should include lg breakpoint");
+			assert.ok(css.includes("@media (min-width: 1280px)"), "Should include xl breakpoint");
 		});
 
-		it("support all percentages 0-100", () => {
-			assert.equal(PERCENTS.length, 100);
-			assert.equal(PERCENTS[0], 1);
-			assert.equal(PERCENTS[99], 100);
+		it("support percentage utilities in multiples of 5", () => {
+			assert.equal(PERCENTS.length, 20);
+			assert.equal(PERCENTS[0], 5);
+			assert.equal(PERCENTS[19], 100);
 
 			const css = rules();
-			assert.ok(css.includes(".w-37\\%"), "Should include w-37%");
-			assert.ok(css.includes(".opacity-1"), "Should include opacity-1");
-			assert.ok(css.includes(".opacity-99"), "Should include opacity-99");
+			assert.ok(css.includes(".w-35\\%"), "Should include w-35%");
+			assert.ok(css.includes(".opacity-5"), "Should include opacity-5");
+			assert.ok(css.includes(".opacity-100"), "Should include opacity-100");
 		});
 
 		it("includes size utilities matching media breakpoints", () => {
 			const css = rules();
 			assert.ok(css.includes(".w-sm { width: 640px }"), "Should include w-sm utility");
-			assert.ok(css.includes(".max-w-md { max-width: 768px }"), "Should include max-w-md utility");
+			assert.ok(css.includes(".max-w-lg { max-width: 1024px }"), "Should include max-w-lg utility");
 			assert.ok(
 				css.includes(".min-h-lg { min-height: 1024px }"),
 				"Should include min-h-lg utility",
