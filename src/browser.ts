@@ -206,7 +206,7 @@ export async function initMancha<T extends StoreState = StoreState>(
 			: ["body"];
 		const cloakSelectors =
 			cloakOpts.selector &&
-				(Array.isArray(cloakOpts.selector) || typeof cloakOpts.selector === "string")
+			(Array.isArray(cloakOpts.selector) || typeof cloakOpts.selector === "string")
 				? Array.isArray(cloakOpts.selector)
 					? cloakOpts.selector
 					: [cloakOpts.selector]
@@ -249,7 +249,7 @@ export async function initMancha<T extends StoreState = StoreState>(
 
 	// If callback is provided, call it and let user handle mounting.
 	if (options.callback) {
-		await options.callback(renderer, uncloak ?? (async () => { }));
+		await options.callback(renderer, uncloak ?? (async () => {}));
 	} else if (options.target) {
 		// Mount to targets if specified (and no callback).
 		const targets = Array.isArray(options.target) ? options.target : [options.target];
