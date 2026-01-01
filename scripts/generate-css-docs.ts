@@ -40,7 +40,8 @@ function generateMarkdown() {
 	md += "### Key Features\n";
 	md += "- **Box Sizing**: `border-box` globally\n";
 	md += "- **Typography**: Default sans-serif font stack, consistent line-height\n";
-	md += "- **Form Elements**: Inherit font styles, transparent backgrounds, `cursor: pointer` for buttons\n";
+	md +=
+		"- **Form Elements**: Inherit font styles, transparent backgrounds, `cursor: pointer` for buttons\n";
 	md += "- **Media**: Images/videos max-width 100%\n";
 	md += "- **Dialog**: Default backdrop styling\n";
 	md += "- **Resets**: Removes default margins/paddings from most block elements\n\n";
