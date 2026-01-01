@@ -10,7 +10,7 @@ To get started, simply add this to your HTML head attribute:
 
 ## Basic Form
 
-After importing `Mancha`, you can take advantage of reactivity and tailwind-compatible CSS styling. For a full list of supported CSS utilities and basic styles, see the [CSS Documentation](./css.md).
+After importing `Mancha`, you can take advantage of reactivity and tailwind-compatible CSS styling. For a full list of supported CSS utilities and minimal styles, see the [CSS Documentation](./css.md).
 
 For example, a basic form might look like this:
 

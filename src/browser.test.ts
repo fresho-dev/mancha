@@ -1,4 +1,4 @@
-import { initMancha, injectBasicCss, injectCss, injectUtilsCss, Renderer } from "./browser.js";
+import { initMancha, injectMinimalCss, injectCss, injectUtilsCss, Renderer } from "./browser.js";
 import { testSuite as pluginsTestSuite } from "./plugins.test.js";
 import { testSuite as rendererTestSuite } from "./renderer.test.js";
 import { assert } from "./test_utils.js";
@@ -24,7 +24,7 @@ describe("Browser", () => {
 
 		it("injectCss adds a style element to head", () => {
 			const initialCount = document.head.querySelectorAll("style").length;
-			injectCss(["basic"]);
+			injectCss(["minimal"]);
 			const styles = document.head.querySelectorAll("style");
 			assert.equal(styles.length, initialCount + 1);
 			addedStyles.push(styles[styles.length - 1]);
@@ -32,16 +32,16 @@ describe("Browser", () => {
 
 		it("injectCss adds multiple style elements", () => {
 			const initialCount = document.head.querySelectorAll("style").length;
-			injectCss(["basic", "utils"]);
+			injectCss(["minimal", "utils"]);
 			const styles = document.head.querySelectorAll("style");
 			assert.equal(styles.length, initialCount + 2);
 			addedStyles.push(styles[styles.length - 1]);
 			addedStyles.push(styles[styles.length - 2]);
 		});
 
-		it("injectBasicCss adds a style element", () => {
+		it("injectMinimalCss adds a style element", () => {
 			const initialCount = document.head.querySelectorAll("style").length;
-			injectBasicCss();
+			injectMinimalCss();
 			const styles = document.head.querySelectorAll("style");
 			assert.equal(styles.length, initialCount + 1);
 			addedStyles.push(styles[styles.length - 1]);
@@ -56,7 +56,7 @@ describe("Browser", () => {
 		});
 
 		it("injected style elements contain CSS content", () => {
-			injectBasicCss();
+			injectMinimalCss();
 			const styles = document.head.querySelectorAll("style");
 			const lastStyle = styles[styles.length - 1];
 			addedStyles.push(lastStyle);
