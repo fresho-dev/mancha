@@ -120,30 +120,30 @@ export interface InitManchaOptions {
 
 /** CSS rule used to hide cloaked elements. */
 const CLOAK_STYLE_ID = "mancha-cloak-style";
-const CLOAK_ATTR = "data-mancha-cloak";
-const CLOAK_CSS = `[${CLOAK_ATTR}] { opacity: 0 !important; }`;
 
 /**
- * Applies cloaking to the specified elements.
+ * Applies cloaking to the specified elements immediately.
  * @param selectors - Selectors for elements to cloak.
- * @returns The style element that was added.
+ * @param duration - Animation duration in ms.
  */
-function applyCloak(selectors: string[]): HTMLStyleElement {
-	// Inject the cloaking CSS rule.
-	const style = document.createElement("style");
-	style.id = CLOAK_STYLE_ID;
-	style.textContent = CLOAK_CSS;
-	document.head.appendChild(style);
-
-	// Add the cloak attribute to all target elements.
-	for (const selector of selectors) {
-		const elements = document.querySelectorAll(selector);
-		for (const el of elements) {
-			el.setAttribute(CLOAK_ATTR, "");
-		}
+function applyCloak(selectors: string[], duration: number): void {
+	// Idempotency check: if style already exists, do nothing.
+	// We assume selectors don't change between calls for the same page load.
+	if (document.getElementById(CLOAK_STYLE_ID)) {
+		return;
 	}
 
-	return style;
+	const selectorList = selectors.join(", ");
+	// Important: use !important to override any existing styles that might cause a flash.
+	// We include the transition in the initial style so browser handles it.
+	const transition =
+		duration > 0 ? `transition: opacity ${duration}ms ease-in-out !important;` : "";
+	const css = `${selectorList} { opacity: 0 !important; ${transition} }`;
+
+	const style = document.createElement("style");
+	style.id = CLOAK_STYLE_ID;
+	style.textContent = css;
+	document.head.appendChild(style);
 }
 
 /**
@@ -158,46 +158,24 @@ function createUncloakFn(animate: number | false): () => Promise<void> {
 		if (called) return;
 		called = true;
 
-		const elements = document.querySelectorAll(`[${CLOAK_ATTR}]`);
-		const style = document.getElementById(CLOAK_STYLE_ID);
+		const style = document.getElementById(CLOAK_STYLE_ID) as HTMLStyleElement;
+		if (!style) return;
 
-		if (animate !== false && elements.length > 0) {
-			// Remove the !important rule by removing the style.
-			style?.remove();
-
-			// Set inline styles for the transition.
-			for (const el of elements) {
-				const htmlEl = el as HTMLElement;
-				htmlEl.style.opacity = "0";
-				htmlEl.style.transition = `opacity ${animate}ms ease-in-out`;
+		if (animate !== false) {
+			// CSSOM approach: Update the single global rule to trigger the transition
+			// for all elements simultaneously, without DOM iteration.
+			const sheet = style.sheet;
+			if (sheet && sheet.cssRules.length > 0) {
+				const rule = sheet.cssRules[0] as CSSStyleRule;
+				rule.style.setProperty("opacity", "1", "important");
 			}
 
-			// Force reflow to ensure the transition starts from opacity 0.
-			void document.body.offsetHeight;
-
-			// Trigger the fade-in animation.
-			for (const el of elements) {
-				const htmlEl = el as HTMLElement;
-				htmlEl.style.opacity = "1";
-				el.removeAttribute(CLOAK_ATTR);
-			}
-
-			// Wait for the animation to complete before cleaning up.
+			// Wait for animation to complete.
 			await new Promise((resolve) => setTimeout(resolve, animate));
-
-			// Remove inline styles after animation completes.
-			for (const el of elements) {
-				const htmlEl = el as HTMLElement;
-				htmlEl.style.transition = "";
-				htmlEl.style.opacity = "";
-			}
-		} else {
-			// No animation: just remove cloak.
-			style?.remove();
-			for (const el of elements) {
-				el.removeAttribute(CLOAK_ATTR);
-			}
 		}
+
+		// Remove the style tag (cleanup).
+		style.remove();
 	};
 }
 
@@ -211,33 +189,46 @@ function createUncloakFn(animate: number | false): () => Promise<void> {
 export async function initMancha<T extends StoreState = StoreState>(
 	options: InitManchaOptions = {},
 ): Promise<Renderer<T>> {
-	const renderer = (options.renderer as Renderer<T>) ?? new Renderer<T>();
-
-	// Determine cloak settings.
+	// 1. Apply cloaking immediately if requested.
+	// This prevents FOUC even if we have to wait for DOMContentLoaded.
 	let uncloak: (() => Promise<void>) | undefined;
-	if (options.cloak) {
-		// Normalize cloak option to CloakOptions.
-		const cloakOpts: CloakOptions = options.cloak === true ? {} : options.cloak;
+	const cloakOpts: CloakOptions | undefined = options.cloak
+		? options.cloak === true
+			? {}
+			: options.cloak
+		: undefined;
 
-		// Determine which elements to cloak.
+	if (cloakOpts) {
 		const defaultSelectors = options.target
 			? Array.isArray(options.target)
 				? options.target
 				: [options.target]
 			: ["body"];
-		const cloakSelectors = cloakOpts.selector
-			? Array.isArray(cloakOpts.selector)
-				? cloakOpts.selector
-				: [cloakOpts.selector]
-			: defaultSelectors;
+		const cloakSelectors =
+			cloakOpts.selector &&
+				(Array.isArray(cloakOpts.selector) || typeof cloakOpts.selector === "string")
+				? Array.isArray(cloakOpts.selector)
+					? cloakOpts.selector
+					: [cloakOpts.selector]
+				: defaultSelectors;
 
-		// Determine animation duration (0 = no animation).
 		const animateDuration = cloakOpts.duration ?? 0;
 
-		// Apply cloaking immediately.
-		applyCloak(cloakSelectors);
+		// Apply styles immediately.
+		applyCloak(cloakSelectors, animateDuration);
+
+		// Prepare uncloak function.
 		uncloak = createUncloakFn(animateDuration > 0 ? animateDuration : false);
 	}
+
+	// 2. Wait for DOMContentLoaded if necessary.
+	if (document.readyState === "loading") {
+		await new Promise<void>((resolve) => {
+			window.addEventListener("DOMContentLoaded", () => resolve(), { once: true });
+		});
+	}
+
+	const renderer = (options.renderer as Renderer<T>) ?? new Renderer<T>();
 
 	// Inject CSS if specified.
 	if (options.css && options.css.length > 0) {
@@ -249,7 +240,7 @@ export async function initMancha<T extends StoreState = StoreState>(
 		renderer.debug(true);
 	}
 
-	// Set initial state before mounting to ensure reactivity works.
+	// Set initial state before mounting.
 	if (options.state) {
 		for (const [key, value] of Object.entries(options.state)) {
 			await renderer.set(key, value);
@@ -258,7 +249,7 @@ export async function initMancha<T extends StoreState = StoreState>(
 
 	// If callback is provided, call it and let user handle mounting.
 	if (options.callback) {
-		await options.callback(renderer, uncloak ?? (async () => {}));
+		await options.callback(renderer, uncloak ?? (async () => { }));
 	} else if (options.target) {
 		// Mount to targets if specified (and no callback).
 		const targets = Array.isArray(options.target) ? options.target : [options.target];
@@ -272,8 +263,8 @@ export async function initMancha<T extends StoreState = StoreState>(
 		}
 	}
 
-	// Uncloak after everything is ready.
-	if (uncloak) {
+	// Uncloak after everything is ready (if not handled by callback).
+	if (uncloak && !options.callback) {
 		await uncloak();
 	}
 

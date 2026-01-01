@@ -12,7 +12,7 @@ if (currentScript?.hasAttribute("init")) {
 	// Parse all configuration from script tag attributes.
 	const debug = currentScript.hasAttribute("debug");
 	const cachePolicy = (currentScript.getAttribute("cache") as RequestCache) || undefined;
-	const targets = currentScript.getAttribute("target")?.split("+") || ["body"];
+	const target = currentScript.getAttribute("target")?.split("+") || ["body"];
 	const cssNames = currentScript.getAttribute("css")?.split("+") as CssName[] | undefined;
 
 	// Cloaking is ON by default for script tag init.
@@ -31,16 +31,15 @@ if (currentScript?.hasAttribute("init")) {
 		cloak = true;
 	}
 
-	window.addEventListener("load", async () => {
-		// Use initMancha with the global instance for consistent behavior.
-		await initMancha({
-			renderer: instance,
-			css: cssNames,
-			target: targets,
-			debug,
-			cache: cachePolicy,
-			cloak,
-		});
+	// Call initMancha immediately. It will cloak immediately to prevent FOUC,
+	// and wait for DOMContentLoaded internally before mounting.
+	initMancha({
+		renderer: instance,
+		css: cssNames,
+		target,
+		debug,
+		cache: cachePolicy,
+		cloak,
 	});
 } else if (currentScript?.hasAttribute("css")) {
 	// Legacy behavior: only inject CSS if css attribute is present but init is not.
