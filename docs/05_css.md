@@ -4,7 +4,7 @@ Mancha provides a set of CSS utilities and minimal styles to help you build your
 
 ## Minimal CSS
 
-The minimal CSS rules provide a clean, readable default style for standard HTML elements. You can inject them using `injectMinimalCss()` or by adding `css="minimal"` to your script tag.
+The minimal CSS rules provide a clean, readable default style for standard HTML elements. You can inject them using `injectCss(["minimal"])` or by adding `css="minimal"` to your script tag.
 
 ### Reset & Defaults
 - **Max Width**: 70ch (centered)
@@ -16,7 +16,7 @@ The minimal CSS rules provide a clean, readable default style for standard HTML 
 
 ## Basic CSS
 
-The basic CSS rules provide a more comprehensive reset and set of defaults, widely based on Tailwind CSS Preflight. You can inject them using `injectBasicCss()` or by adding `css="basic"` to your script tag.
+The basic CSS rules provide a more comprehensive reset and set of defaults, widely based on Tailwind CSS Preflight. You can inject them using `injectCss(["basic"])` or by adding `css="basic"` to your script tag.
 
 ### Key Features
 - **Box Sizing**: `border-box` globally
@@ -28,7 +28,7 @@ The basic CSS rules provide a more comprehensive reset and set of defaults, wide
 
 ## Utility CSS
 
-The utility CSS rules are inspired by Tailwind CSS. You can inject them using `injectUtilsCss()` or by adding `css="utils"` to your script tag.
+The utility CSS rules are inspired by Tailwind CSS. You can inject them using `injectCss(["utils"])` or by adding `css="utils"` to your script tag.
 
 ### Media Breakpoints
 

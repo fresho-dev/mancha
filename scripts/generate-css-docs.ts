@@ -12,7 +12,7 @@ import rules, {
 	PROPS_SPACING,
 } from "../src/css_gen_utils.js";
 
-const DOCS_PATH = path.join(process.cwd(), "docs", "css.md");
+const DOCS_PATH = path.join(process.cwd(), "docs", "05_css.md");
 
 function handledBySize(klass: string) {
 	return klass.startsWith("text-") && (klass.endsWith("px") || klass.endsWith("rem"));
@@ -26,7 +26,7 @@ function generateMarkdown() {
 
 	md += "## Minimal CSS\n\n";
 	md +=
-		'The minimal CSS rules provide a clean, readable default style for standard HTML elements. You can inject them using `injectMinimalCss()` or by adding `css="minimal"` to your script tag.\n\n';
+		'The minimal CSS rules provide a clean, readable default style for standard HTML elements. You can inject them using `injectCss(["minimal"])` or by adding `css="minimal"` to your script tag.\n\n';
 	md += "### Reset & Defaults\n";
 	md += "- **Max Width**: 70ch (centered)\n";
 	md += "- **Padding**: 2em 1em\n";
@@ -37,7 +37,7 @@ function generateMarkdown() {
 
 	md += "## Basic CSS\n\n";
 	md +=
-		'The basic CSS rules provide a more comprehensive reset and set of defaults, widely based on Tailwind CSS Preflight. You can inject them using `injectBasicCss()` or by adding `css="basic"` to your script tag.\n\n';
+		'The basic CSS rules provide a more comprehensive reset and set of defaults, widely based on Tailwind CSS Preflight. You can inject them using `injectCss(["basic"])` or by adding `css="basic"` to your script tag.\n\n';
 	md += "### Key Features\n";
 	md += "- **Box Sizing**: `border-box` globally\n";
 	md += "- **Typography**: Default sans-serif font stack, consistent line-height\n";
@@ -49,7 +49,7 @@ function generateMarkdown() {
 
 	md += "## Utility CSS\n\n";
 	md +=
-		'The utility CSS rules are inspired by Tailwind CSS. You can inject them using `injectUtilsCss()` or by adding `css="utils"` to your script tag.\n\n';
+		'The utility CSS rules are inspired by Tailwind CSS. You can inject them using `injectCss(["utils"])` or by adding `css="utils"` to your script tag.\n\n';
 
 	md += "### Media Breakpoints\n\n";
 	md += "| Prefix | Min Width |\n";
