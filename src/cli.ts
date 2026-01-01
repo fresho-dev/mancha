@@ -146,17 +146,11 @@ const _args = yargs(hideBin(process.argv))
 		"Print all documentation for AI model consumption",
 		() => {},
 		async () => {
-			const files = [
-				"README.md",
-				"docs/quickstart.md",
-				"docs/syntax.md",
-				"docs/reactivity.md",
-				"docs/components.md",
-				"docs/ssr.md",
-				"docs/typescript.md",
-				"docs/testing.md",
-				"docs/css.md",
-			];
+			// List README.md first, then all docs/*.md files in lexicographical order.
+			const docsDir = path.join(packageRoot, "docs");
+			const docFiles = await fs.readdir(docsDir);
+			const mdFiles = docFiles.filter((f) => f.endsWith(".md")).sort();
+			const files = ["README.md", ...mdFiles.map((f) => `docs/${f}`)];
 
 			for (const file of files) {
 				const filePath = path.join(packageRoot, file);

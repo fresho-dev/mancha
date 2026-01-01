@@ -50,14 +50,15 @@ Here's a small sample of the things that you can do with `mancha`:
 
 ## Documentation
 
-- **[Quick Start](./docs/quickstart.md)**: Get up and running in minutes.
-- **[Syntax](./docs/syntax.md)**: Reference for attributes and expressions.
-- **[Reactivity](./docs/reactivity.md)**: How variables, scoping, and URL binding work.
-- **[Components](./docs/components.md)**: Creating reusable components and includes.
-- **[CSS](./docs/css.md)**: Built-in CSS utilities.
-- **[Server-Side Rendering](./docs/ssr.md)**: Using Mancha on the server (Node, Workers).
-- **[TypeScript](./docs/typescript.md)**: Type safety and checking.
-- **[Testing](./docs/testing.md)**: Testing your UI.
+- **[Quick Start](./docs/00_quickstart.md)**: Get up and running in minutes.
+- **[Syntax](./docs/01_syntax.md)**: Reference for attributes and expressions.
+- **[Initialization](./docs/02_initialization.md)**: Script tag options, ESM API, cloaking, and callbacks.
+- **[Reactivity](./docs/03_reactivity.md)**: How variables, scoping, and URL binding work.
+- **[Components](./docs/04_components.md)**: Creating reusable components and includes.
+- **[CSS](./docs/05_css.md)**: Built-in CSS utilities.
+- **[Server-Side Rendering](./docs/06_ssr.md)**: Using Mancha on the server (Node, Workers).
+- **[TypeScript](./docs/07_typescript.md)**: Type safety and checking.
+- **[Testing](./docs/08_testing.md)**: Testing your UI.
 
 ## AI Agents
 

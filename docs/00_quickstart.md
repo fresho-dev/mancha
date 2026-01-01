@@ -8,9 +8,11 @@ To get started, simply add this to your HTML head attribute:
 <script src="//unpkg.com/mancha" css="utils" init></script>
 ```
 
+The `init` attribute automatically hides content until rendering is complete, preventing users from seeing raw template syntax. For advanced options like fade-in animations, see [Initialization](./02_initialization.md).
+
 ## Basic Form
 
-After importing `Mancha`, you can take advantage of reactivity and tailwind-compatible CSS styling. For a full list of supported CSS utilities and minimal styles, see the [CSS Documentation](./css.md).
+After importing `Mancha`, you can take advantage of reactivity and tailwind-compatible CSS styling. For a full list of supported CSS utilities and minimal styles, see the [CSS Documentation](./05_css.md).
 
 For example, a basic form might look like this:
 
@@ -118,10 +120,11 @@ If you want more control over the initialization lifecycle, you can remove the `
 
 Now that you've seen the basics, explore the full capabilities of `mancha`:
 
-- **[Syntax](./syntax.md)**: Learn about all the attributes (`:data`, `:for`, `:if`, etc.) and the expression language.
-- **[Reactivity](./reactivity.md)**: Dive deep into variable scoping and URL binding.
-- **[Components](./components.md)**: Build reusable components with `<include>`, `<template>`, and `:render`.
-- **[CSS](./css.md)**: Explore the built-in utility classes.
-- **[Server-Side Rendering](./ssr.md)**: Render templates on the server or in workers.
-- **[TypeScript](./typescript.md)**: Use TypeScript for type-safe state and template checking.
-- **[Testing](./testing.md)**: Test your components with JSDOM.
+- **[Syntax](./01_syntax.md)**: Learn about all the attributes (`:data`, `:for`, `:if`, etc.) and the expression language.
+- **[Initialization](./02_initialization.md)**: Script tag options, ESM API, cloaking, and callbacks.
+- **[Reactivity](./03_reactivity.md)**: Dive deep into variable scoping and URL binding.
+- **[Components](./04_components.md)**: Build reusable components with `<include>`, `<template>`, and `:render`.
+- **[CSS](./05_css.md)**: Explore the built-in utility classes.
+- **[Server-Side Rendering](./06_ssr.md)**: Render templates on the server or in workers.
+- **[TypeScript](./07_typescript.md)**: Use TypeScript for type-safe state and template checking.
+- **[Testing](./08_testing.md)**: Test your components with JSDOM.

@@ -1,4 +1,4 @@
-import { initMancha, injectCss, injectMinimalCss, injectUtilsCss, Renderer } from "./browser.js";
+import { initMancha, injectCss, Renderer } from "./browser.js";
 import { testSuite as pluginsTestSuite } from "./plugins.test.js";
 import { testSuite as rendererTestSuite } from "./renderer.test.js";
 import { assert } from "./test_utils.js";
@@ -39,24 +39,24 @@ describe("Browser", () => {
 			addedStyles.push(styles[styles.length - 2]);
 		});
 
-		it("injectMinimalCss adds a style element", () => {
+		it("injectCss(['minimal']) adds a style element", () => {
 			const initialCount = document.head.querySelectorAll("style").length;
-			injectMinimalCss();
+			injectCss(["minimal"]);
 			const styles = document.head.querySelectorAll("style");
 			assert.equal(styles.length, initialCount + 1);
 			addedStyles.push(styles[styles.length - 1]);
 		});
 
-		it("injectUtilsCss adds a style element", () => {
+		it("injectCss(['utils']) adds a style element", () => {
 			const initialCount = document.head.querySelectorAll("style").length;
-			injectUtilsCss();
+			injectCss(["utils"]);
 			const styles = document.head.querySelectorAll("style");
 			assert.equal(styles.length, initialCount + 1);
 			addedStyles.push(styles[styles.length - 1]);
 		});
 
 		it("injected style elements contain CSS content", () => {
-			injectMinimalCss();
+			injectCss(["minimal"]);
 			const styles = document.head.querySelectorAll("style");
 			const lastStyle = styles[styles.length - 1];
 			addedStyles.push(lastStyle);
@@ -107,6 +107,186 @@ describe("Browser", () => {
 
 			// Clean up.
 			target.remove();
+		});
+	});
+
+	describe("Cloaking", () => {
+		// Helper to create test elements.
+		function createTestElement(id: string): Element {
+			const renderer = new Renderer();
+			const fragment = renderer.parseHTML(`<div id="${id}"><span :text="msg"></span></div>`);
+			const target = fragment.querySelector(`#${id}`) as Element;
+			document.body.appendChild(target);
+			return target;
+		}
+
+		afterEach(() => {
+			// Clean up any leftover cloak styles and elements.
+			document.getElementById("mancha-cloak-style")?.remove();
+			document.querySelectorAll("[data-mancha-cloak]").forEach((el) => {
+				el.removeAttribute("data-mancha-cloak");
+			});
+			document.querySelectorAll('[id^="cloak-test-"]').forEach((el) => {
+				el.remove();
+			});
+		});
+
+		it("cloaks and uncloaks target element with cloak: true", async () => {
+			const target = createTestElement("cloak-test-1");
+
+			// Verify element is visible initially.
+			assert.ok(!target.hasAttribute("data-mancha-cloak"));
+
+			// The cloaking happens synchronously at the start of initMancha.
+			// We can't test the "cloaked" state easily since initMancha awaits until completion.
+			// But we can verify the element is uncloaked after initMancha returns.
+			await initMancha({
+				target: "#cloak-test-1",
+				cloak: true,
+				state: { msg: "Hello" },
+			});
+
+			// After initMancha completes, element should be uncloaked.
+			assert.ok(!target.hasAttribute("data-mancha-cloak"), "Element should be uncloaked");
+			assert.ok(!document.getElementById("mancha-cloak-style"), "Cloak style should be removed");
+
+			// Verify rendering still worked.
+			assert.equal(target.querySelector("span")?.textContent, "Hello");
+
+			target.remove();
+		});
+
+		it("cloaks custom selector when specified", async () => {
+			const target1 = createTestElement("cloak-test-2a");
+			const target2 = createTestElement("cloak-test-2b");
+
+			// Only target2 should be cloaked via custom selector.
+			await initMancha({
+				target: "#cloak-test-2a",
+				cloak: { selector: "#cloak-test-2b" },
+				state: { msg: "Test" },
+			});
+
+			// Both should be uncloaked after completion.
+			assert.ok(!target1.hasAttribute("data-mancha-cloak"));
+			assert.ok(!target2.hasAttribute("data-mancha-cloak"));
+
+			target1.remove();
+			target2.remove();
+		});
+
+		it("callback receives renderer and uncloak function", async () => {
+			const target = createTestElement("cloak-test-3");
+
+			let callbackInvoked = false;
+			let receivedRendererIsInstance = false;
+			let receivedUncloakIsFunction = false;
+
+			await initMancha({
+				cloak: true,
+				callback: async (renderer, uncloak) => {
+					callbackInvoked = true;
+					receivedRendererIsInstance = renderer instanceof Renderer;
+					receivedUncloakIsFunction = typeof uncloak === "function";
+
+					// Manually mount within the callback.
+					const el = document.querySelector("#cloak-test-3") as unknown as DocumentFragment;
+					await renderer.set("msg", "Manual Mount");
+					await renderer.mount(el);
+				},
+			});
+
+			assert.ok(callbackInvoked, "callback should be called");
+			assert.ok(receivedRendererIsInstance, "Should receive Renderer instance");
+			assert.ok(receivedUncloakIsFunction, "Should receive uncloak function");
+			assert.equal(target.querySelector("span")?.textContent, "Manual Mount");
+
+			target.remove();
+		});
+
+		it("callback prevents automatic mounting", async () => {
+			const target = createTestElement("cloak-test-4");
+
+			await initMancha({
+				target: "#cloak-test-4",
+				state: { msg: "AutoMount" },
+				callback: async () => {
+					// Do nothing - don't mount.
+				},
+			});
+
+			// The :text attribute should still be present since we didn't mount.
+			assert.ok(
+				target.querySelector("span")?.hasAttribute(":text"),
+				"Should not have auto-mounted",
+			);
+
+			target.remove();
+		});
+
+		it("cloak with duration sets up transition animation", async () => {
+			const target = createTestElement("cloak-test-5");
+
+			// We can't easily test the animation timing, but we can verify it completes.
+			const startTime = Date.now();
+			await initMancha({
+				target: "#cloak-test-5",
+				cloak: { duration: 50 },
+				state: { msg: "Animated" },
+			});
+			const duration = Date.now() - startTime;
+
+			// Should have taken at least ~50ms due to the animation.
+			assert.ok(duration >= 40, `Animation should have delayed (took ${duration}ms)`);
+			assert.ok(!target.hasAttribute("data-mancha-cloak"));
+
+			target.remove();
+		});
+
+		it("cloak: true reveals instantly without animation", async () => {
+			const target = createTestElement("cloak-test-6");
+
+			const startTime = Date.now();
+			await initMancha({
+				target: "#cloak-test-6",
+				cloak: true,
+				state: { msg: "Instant" },
+			});
+			const duration = Date.now() - startTime;
+
+			// Should complete quickly (no animation delay).
+			assert.ok(duration < 50, `Should reveal instantly (took ${duration}ms)`);
+			assert.ok(!target.hasAttribute("data-mancha-cloak"));
+
+			target.remove();
+		});
+
+		it("uncloak can only be called once", async () => {
+			const target = createTestElement("cloak-test-7");
+
+			await initMancha({
+				cloak: true,
+				callback: async (_renderer, uncloak) => {
+					// Call uncloak twice - should be idempotent.
+					await uncloak();
+					await uncloak();
+				},
+			});
+
+			// Should complete without error.
+			assert.ok(!target.hasAttribute("data-mancha-cloak"));
+
+			target.remove();
+		});
+
+		it("defaults cloak selector to body when no target specified", async () => {
+			// The body should be cloaked when no target is specified.
+			// Note: We can't easily test this without affecting the test runner's body.
+			// Instead, verify that providing cloak without target doesn't throw.
+			const renderer = await initMancha({
+				cloak: true,
+			});
+			assert.ok(renderer instanceof Renderer);
 		});
 	});
 });
