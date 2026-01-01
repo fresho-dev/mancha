@@ -4,11 +4,13 @@ import type { ParserParams, RenderParams } from "./interfaces.js";
 import { IRenderer } from "./renderer.js";
 import type { StoreState } from "./store.js";
 
+export { default as minimalCssRules } from "./css_gen_minimal.js";
 export { default as basicCssRules } from "./css_gen_basic.js";
 export { default as utilsCssRules } from "./css_gen_utils.js";
 export type { ParserParams, RendererPlugin, RenderParams } from "./interfaces.js";
 export { IRenderer } from "./renderer.js";
 
+import minimalCssRules from "./css_gen_minimal.js";
 import basicCssRules from "./css_gen_basic.js";
 import utilsCssRules from "./css_gen_utils.js";
 
@@ -51,16 +53,19 @@ export class Renderer<T extends StoreState = StoreState> extends IRenderer<T> {
 export const Mancha = new Renderer();
 
 /** Options for CSS injection. */
-export type CssName = "basic" | "utils";
+export type CssName = "minimal" | "utils" | "basic";
 
 /**
  * Injects CSS rules into the document head.
- * @param names - Array of CSS names to inject ("basic", "utils").
+ * @param names - Array of CSS names to inject ("minimal", "utils", "basic").
  */
 export function injectCss(names: CssName[]): void {
 	for (const styleName of names) {
 		const style = document.createElement("style");
 		switch (styleName) {
+			case "minimal":
+				safeStyleEl.setTextContent(style, minimalCssRules());
+				break;
 			case "basic":
 				safeStyleEl.setTextContent(style, basicCssRules());
 				break;
@@ -73,6 +78,13 @@ export function injectCss(names: CssName[]): void {
 		}
 		globalThis.document.head.appendChild(style);
 	}
+}
+
+/**
+ * Injects the minimal CSS rules into the document head.
+ */
+export function injectMinimalCss(): void {
+	injectCss(["minimal"]);
 }
 
 /**

@@ -1,10 +1,10 @@
 # CSS Documentation
 
-Mancha provides a set of CSS utilities and basic styles to help you build your application.
+Mancha provides a set of CSS utilities and minimal styles to help you build your application.
 
-## Basic CSS
+## Minimal CSS
 
-The basic CSS rules provide a clean, readable default style for standard HTML elements. You can inject them using `injectBasicCss()` or by adding `css="basic"` to your script tag.
+The minimal CSS rules provide a clean, readable default style for standard HTML elements. You can inject them using `injectMinimalCss()` or by adding `css="minimal"` to your script tag.
 
 ### Reset & Defaults
 - **Max Width**: 70ch (centered)
@@ -13,6 +13,18 @@ The basic CSS rules provide a clean, readable default style for standard HTML el
 - **Font Family**: sans-serif
 - **H1-H6 Margin**: 1em 0 0.5em
 - **P, UL, OL Margin Bottom**: 1em
+
+## Basic CSS
+
+The basic CSS rules provide a more comprehensive reset and set of defaults, widely based on Tailwind CSS Preflight. You can inject them using `injectBasicCss()` or by adding `css="basic"` to your script tag.
+
+### Key Features
+- **Box Sizing**: `border-box` globally
+- **Typography**: Default sans-serif font stack, consistent line-height
+- **Form Elements**: Inherit font styles, transparent backgrounds, `cursor: pointer` for buttons
+- **Media**: Images/videos max-width 100%
+- **Dialog**: Default backdrop styling
+- **Resets**: Removes default margins/paddings from most block elements
 
 ## Utility CSS
 

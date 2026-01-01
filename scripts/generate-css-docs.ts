@@ -21,11 +21,11 @@ function generateMarkdown() {
 	let md = "# CSS Documentation\n\n";
 
 	md +=
-		"Mancha provides a set of CSS utilities and basic styles to help you build your application.\n\n";
+		"Mancha provides a set of CSS utilities and minimal styles to help you build your application.\n\n";
 
-	md += "## Basic CSS\n\n";
+	md += "## Minimal CSS\n\n";
 	md +=
-		'The basic CSS rules provide a clean, readable default style for standard HTML elements. You can inject them using `injectBasicCss()` or by adding `css="basic"` to your script tag.\n\n';
+		'The minimal CSS rules provide a clean, readable default style for standard HTML elements. You can inject them using `injectMinimalCss()` or by adding `css="minimal"` to your script tag.\n\n';
 	md += "### Reset & Defaults\n";
 	md += "- **Max Width**: 70ch (centered)\n";
 	md += "- **Padding**: 2em 1em\n";
@@ -33,6 +33,17 @@ function generateMarkdown() {
 	md += "- **Font Family**: sans-serif\n";
 	md += "- **H1-H6 Margin**: 1em 0 0.5em\n";
 	md += "- **P, UL, OL Margin Bottom**: 1em\n\n";
+
+	md += "## Basic CSS\n\n";
+	md +=
+		'The basic CSS rules provide a more comprehensive reset and set of defaults, widely based on Tailwind CSS Preflight. You can inject them using `injectBasicCss()` or by adding `css="basic"` to your script tag.\n\n';
+	md += "### Key Features\n";
+	md += "- **Box Sizing**: `border-box` globally\n";
+	md += "- **Typography**: Default sans-serif font stack, consistent line-height\n";
+	md += "- **Form Elements**: Inherit font styles, transparent backgrounds, `cursor: pointer` for buttons\n";
+	md += "- **Media**: Images/videos max-width 100%\n";
+	md += "- **Dialog**: Default backdrop styling\n";
+	md += "- **Resets**: Removes default margins/paddings from most block elements\n\n";
 
 	md += "## Utility CSS\n\n";
 	md +=
