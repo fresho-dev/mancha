@@ -101,6 +101,23 @@ await initMancha({
 | `selector` | `string \| string[]` | Element(s) to cloak. Defaults to `target` or `body` |
 | `duration` | `number` | Fade-in animation duration in ms. Defaults to 0 (instant) |
 
+### Keeping Loading Indicator Active
+
+To keep the browser's loading spinner active while `mancha` initializes (e.g., fetching data or waiting for cloaking animations), use a module script with top-level await:
+
+```html
+<script type="module">
+  import { initMancha } from "//unpkg.com/mancha/browser?module";
+
+  // The browser considers the page "loading" until this await resolves
+  await initMancha({
+    target: "#app",
+    cloak: true,
+    // ...
+  });
+</script>
+```
+
 ## Custom Initialization Callback
 
 For advanced use cases, provide a `callback` function. When used, automatic mounting is skipped—you must call `renderer.mount()` yourself:
