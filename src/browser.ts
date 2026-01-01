@@ -4,14 +4,14 @@ import type { ParserParams, RenderParams } from "./interfaces.js";
 import { IRenderer } from "./renderer.js";
 import type { StoreState } from "./store.js";
 
-export { default as minimalCssRules } from "./css_gen_minimal.js";
 export { default as basicCssRules } from "./css_gen_basic.js";
+export { default as minimalCssRules } from "./css_gen_minimal.js";
 export { default as utilsCssRules } from "./css_gen_utils.js";
 export type { ParserParams, RendererPlugin, RenderParams } from "./interfaces.js";
 export { IRenderer } from "./renderer.js";
 
-import minimalCssRules from "./css_gen_minimal.js";
 import basicCssRules from "./css_gen_basic.js";
+import minimalCssRules from "./css_gen_minimal.js";
 import utilsCssRules from "./css_gen_utils.js";
 
 export class Renderer<T extends StoreState = StoreState> extends IRenderer<T> {
