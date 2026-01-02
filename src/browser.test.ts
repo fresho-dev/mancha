@@ -181,7 +181,6 @@ describe("Browser", () => {
 			let callbackInvoked = false;
 			let receivedRendererIsInstance = false;
 
-
 			await initMancha({
 				cloak: true,
 				callback: async (renderer) => {
