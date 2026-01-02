@@ -127,22 +127,19 @@ import { initMancha } from "mancha/browser";
 
 await initMancha({
   cloak: { duration: 150 },
-  callback: async (renderer, uncloak) => {
+  callback: async (renderer) => {
     // Fetch data before mounting
     const data = await fetch("/api/data").then((r) => r.json());
     await renderer.set("items", data.items);
 
     // Mount to the DOM
     await renderer.mount(document.getElementById("app"));
-
-    // uncloak() is called automatically after callback returns
   },
 });
 ```
 
 The callback receives:
 - `renderer`: The initialized Renderer instance
-- `uncloak`: A function to manually reveal cloaked content (called automatically after callback returns)
 
 ## Manual Initialization
 

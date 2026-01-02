@@ -115,7 +115,7 @@ export interface InitManchaOptions {
 	 * @param renderer - The initialized Renderer instance.
 	 * @param uncloak - Function to reveal cloaked content with optional animation.
 	 */
-	callback?: (renderer: Renderer, uncloak: () => Promise<void>) => void | Promise<void>;
+	callback?: (renderer: Renderer) => void | Promise<void>;
 }
 
 /** CSS rule used to hide cloaked elements. */
@@ -249,7 +249,7 @@ export async function initMancha<T extends StoreState = StoreState>(
 
 	// If callback is provided, call it and let user handle mounting.
 	if (options.callback) {
-		await options.callback(renderer, uncloak ?? (async () => {}));
+		await options.callback(renderer);
 	} else if (options.target) {
 		// Mount to targets if specified (and no callback).
 		const targets = Array.isArray(options.target) ? options.target : [options.target];
@@ -263,8 +263,8 @@ export async function initMancha<T extends StoreState = StoreState>(
 		}
 	}
 
-	// Uncloak after everything is ready (if not handled by callback).
-	if (uncloak && !options.callback) {
+	// Uncloak after everything is ready (initMancha uncloak is idempotent).
+	if (uncloak) {
 		await uncloak();
 	}
 

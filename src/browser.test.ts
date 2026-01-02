@@ -175,19 +175,18 @@ describe("Browser", () => {
 			target2.remove();
 		});
 
-		it("callback receives renderer and uncloak function", async () => {
+		it("callback receives renderer instance", async () => {
 			const target = createTestElement("cloak-test-3");
 
 			let callbackInvoked = false;
 			let receivedRendererIsInstance = false;
-			let receivedUncloakIsFunction = false;
+
 
 			await initMancha({
 				cloak: true,
-				callback: async (renderer, uncloak) => {
+				callback: async (renderer) => {
 					callbackInvoked = true;
 					receivedRendererIsInstance = renderer instanceof Renderer;
-					receivedUncloakIsFunction = typeof uncloak === "function";
 
 					// Manually mount within the callback.
 					const el = document.querySelector("#cloak-test-3") as unknown as DocumentFragment;
@@ -198,7 +197,6 @@ describe("Browser", () => {
 
 			assert.ok(callbackInvoked, "callback should be called");
 			assert.ok(receivedRendererIsInstance, "Should receive Renderer instance");
-			assert.ok(receivedUncloakIsFunction, "Should receive uncloak function");
 			assert.equal(target.querySelector("span")?.textContent, "Manual Mount");
 
 			target.remove();
@@ -256,24 +254,6 @@ describe("Browser", () => {
 
 			// Should complete quickly (no animation delay).
 			assert.ok(duration < 50, `Should reveal instantly (took ${duration}ms)`);
-			assert.ok(!document.getElementById("mancha-cloak-style"));
-
-			target.remove();
-		});
-
-		it("uncloak can only be called once", async () => {
-			const target = createTestElement("cloak-test-7");
-
-			await initMancha({
-				cloak: true,
-				callback: async (_renderer, uncloak) => {
-					// Call uncloak twice - should be idempotent.
-					await uncloak();
-					await uncloak();
-				},
-			});
-
-			// Should complete without error.
 			assert.ok(!document.getElementById("mancha-cloak-style"));
 
 			target.remove();
