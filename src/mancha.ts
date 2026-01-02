@@ -5,7 +5,9 @@ const currentScript = globalThis.document?.currentScript;
 
 // Create the global instance immediately for backward compatibility.
 const instance = new Renderer();
-globalThis.Mancha = instance;
+// @ts-expect-error - attaching initMancha to the instance for convenience
+instance.initMancha = initMancha;
+globalThis.Mancha = instance as unknown as Renderer & { initMancha: typeof initMancha };
 
 // If the init attribute is present, initialize mancha using the unified initMancha function.
 if (currentScript?.hasAttribute("init")) {
@@ -50,5 +52,5 @@ if (currentScript?.hasAttribute("init")) {
 export default instance;
 
 declare global {
-	var Mancha: Renderer;
+	var Mancha: Renderer & { initMancha: typeof initMancha };
 }
