@@ -92,7 +92,7 @@ export default function rules(): SafeStyleSheet {
 		safeStyleSheet`button,[role="button"]{cursor:pointer}`,
 
 		// Disabled cursor.
-		safeStyleSheet`:disabled{cursor:default}`,
+		safeStyleSheet`:disabled{cursor:default;pointer-events:none;opacity:0.75}`,
 
 		// Image display.
 		safeStyleSheet`img,svg,video,canvas,audio,iframe,embed,object{display:block;vertical-align:middle}`,

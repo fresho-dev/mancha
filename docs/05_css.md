@@ -45,7 +45,6 @@ The following pseudo states are supported for all utilities:
 - `hover:`
 - `focus:`
 - `disabled:`
-- `active:`
 
 ### Spacing (Margin & Padding)
 
@@ -501,6 +500,7 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | `grid` | `{"display":"grid"}` |
 | `box-border` | `{"box-sizing":"border-box"}` |
 | `box-content` | `{"box-sizing":"content-box"}` |
+| `appearance-none` | `{"appearance":"none","-webkit-appearance":"none","-moz-appearance":"none"}` |
 | `text-{0-99}px` | Font size in pixels (e.g., `text-12px`, `text-16px`) |
 | `text-{0-24.75}rem` | Font size in rem units (0.25rem increments) |
 

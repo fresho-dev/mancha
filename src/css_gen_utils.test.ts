@@ -65,6 +65,7 @@ describe("CSS Generation Utils", () => {
 			const css = rules();
 			assert.ok(css.includes(".hover\\:"), "Should include hover variants");
 			assert.ok(css.includes(".focus\\:"), "Should include focus variants");
+			assert.ok(css.includes(".disabled\\:"), "Should include disabled variants");
 		});
 
 		it("supports ring-inset", () => {
