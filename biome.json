@@ -7,7 +7,16 @@
 	},
 	"files": {
 		"ignoreUnknown": true,
-		"includes": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.json"]
+		"includes": [
+			"**/*.ts",
+			"**/*.tsx",
+			"**/*.js",
+			"**/*.jsx",
+			"**/*.json"
+		],
+		"ignore": [
+			"examples/browser/mancha.js"
+		]
 	},
 	"formatter": {
 		"enabled": true,
