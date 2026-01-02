@@ -98,8 +98,28 @@ await initMancha({
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `selector` | `string \| string[]` | Element(s) to cloak. Defaults to `target` or `body` |
 | `duration` | `number` | Fade-in animation duration in ms. Defaults to 0 (instant) |
+| `selector` | `string \| string[]` | Element(s) to cloak. Defaults to `target` or `body` |
+
+### Preventing FOUC with ESM
+
+> [!WARNING]
+> Because `<script type="module">` is deferred by default, using `initMancha` with `cloak` options may still result in a Flash of Unstyled Content (FOUC) because the script runs *after* the page has first rendered.
+
+To guarantee zero FOUC when using ESM, you **must** manually add the cloak style to your `<head>`:
+
+```html
+<head>
+  <!-- ... -->
+  
+  <!-- Pre-cloak the body (or your target element) to hide it immediately -->
+  <style id="mancha-cloak">
+    body { opacity: 0 !important; }
+  </style>
+</head>
+```
+
+When `initMancha({ cloak: ... })` runs, it will detect this existing style tag (by its ID `mancha-cloak`) and take control of it, applying any configured transitions and removing it once rendering is complete.
 
 ### Keeping Loading Indicator Active
 
@@ -141,31 +161,28 @@ await initMancha({
 The callback receives:
 - `renderer`: The initialized Renderer instance
 
-## Manual Initialization
+The callback receives:
+- `renderer`: The initialized Renderer instance
 
-If you need full control, omit the `init` attribute and call `mount()` directly:
+## Advanced: Manual Initialization
 
-```html
-<script src="//unpkg.com/mancha" css="utils"></script>
+> [!CAUTION]
+> This is an advanced API. Most users should prefer `initMancha` which handles CSS injection, state initialization, and FOUC prevention automatically.
 
-<body :data="{ name: 'World' }">
-  <p>Hello, {{ name }}!</p>
-</body>
-
-<script type="module">
-  const { $ } = Mancha;
-  await $.mount(document.body);
-</script>
-```
-
-Or using the ESM API without `initMancha`:
+If you need full control without `initMancha`, you can use the lower-level API directly:
 
 ```typescript
 import { Renderer, injectCss } from "mancha/browser";
 
+// 1. Inject CSS utilities (optional)
 injectCss(["utils"]);
 
+// 2. Create renderer
 const renderer = new Renderer();
+
+// 3. Set state
 await renderer.set("name", "World");
+
+// 4. Mount to DOM
 await renderer.mount(document.body);
 ```

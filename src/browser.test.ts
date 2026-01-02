@@ -122,7 +122,7 @@ describe("Browser", () => {
 
 		afterEach(() => {
 			// Clean up any leftover cloak styles and elements.
-			document.getElementById("mancha-cloak-style")?.remove();
+			document.getElementById("mancha-cloak")?.remove();
 			document.querySelectorAll("[data-mancha-cloak]").forEach((el) => {
 				el.removeAttribute("data-mancha-cloak");
 			});
@@ -149,7 +149,7 @@ describe("Browser", () => {
 			// After initMancha completes, element should be uncloaked.
 			// After initMancha completes, element should be uncloaked.
 			// The style tag should be removed (or empty if we only removed content, but we remove the element).
-			assert.ok(!document.getElementById("mancha-cloak-style"), "Cloak style should be removed");
+			assert.ok(!document.getElementById("mancha-cloak"), "Cloak style should be removed");
 
 			// Verify rendering still worked.
 			assert.equal(target.querySelector("span")?.textContent, "Hello");
@@ -169,7 +169,7 @@ describe("Browser", () => {
 			});
 
 			// Both should be uncloaked after completion.
-			assert.ok(!document.getElementById("mancha-cloak-style"));
+			assert.ok(!document.getElementById("mancha-cloak"));
 
 			target1.remove();
 			target2.remove();
@@ -235,7 +235,7 @@ describe("Browser", () => {
 
 			// Should have taken at least ~50ms due to the animation.
 			assert.ok(duration >= 40, `Animation should have delayed (took ${duration}ms)`);
-			assert.ok(!document.getElementById("mancha-cloak-style"));
+			assert.ok(!document.getElementById("mancha-cloak"));
 
 			target.remove();
 		});
@@ -253,7 +253,7 @@ describe("Browser", () => {
 
 			// Should complete quickly (no animation delay).
 			assert.ok(duration < 50, `Should reveal instantly (took ${duration}ms)`);
-			assert.ok(!document.getElementById("mancha-cloak-style"));
+			assert.ok(!document.getElementById("mancha-cloak"));
 
 			target.remove();
 		});
@@ -266,6 +266,28 @@ describe("Browser", () => {
 				cloak: true,
 			});
 			assert.ok(renderer instanceof Renderer);
+		});
+
+		it("reuse existing cloak style data if present (manual pre-cloaking)", async () => {
+			// Manually create the style tag (simulate user avoiding FOUC).
+			const style = document.createElement("style");
+			style.id = "mancha-cloak";
+			style.textContent = "body { opacity: 0 !important; }";
+			document.head.appendChild(style);
+
+			const target = createTestElement("cloak-test-7");
+
+			await initMancha({
+				target: "#cloak-test-7",
+				cloak: true,
+				state: { msg: "Pre-Cloaked" },
+			});
+
+			// Should have removed the style tag.
+			assert.ok(!document.getElementById("mancha-cloak"));
+			assert.equal(target.querySelector("span")?.textContent, "Pre-Cloaked");
+
+			target.remove();
 		});
 	});
 
