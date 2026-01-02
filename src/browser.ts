@@ -119,7 +119,7 @@ export interface InitManchaOptions {
 }
 
 /** CSS rule used to hide cloaked elements. */
-const CLOAK_STYLE_ID = "mancha-cloak-style";
+const CLOAK_STYLE_ID = "mancha-cloak";
 
 /**
  * Applies cloaking to the specified elements immediately.
@@ -127,12 +127,6 @@ const CLOAK_STYLE_ID = "mancha-cloak-style";
  * @param duration - Animation duration in ms.
  */
 function applyCloak(selectors: string[], duration: number): void {
-	// Idempotency check: if style already exists, do nothing.
-	// We assume selectors don't change between calls for the same page load.
-	if (document.getElementById(CLOAK_STYLE_ID)) {
-		return;
-	}
-
 	const selectorList = selectors.join(", ");
 	// Important: use !important to override any existing styles that might cause a flash.
 	// We include the transition in the initial style so browser handles it.
@@ -140,10 +134,16 @@ function applyCloak(selectors: string[], duration: number): void {
 		duration > 0 ? `transition: opacity ${duration}ms ease-in-out !important;` : "";
 	const css = `${selectorList} { opacity: 0 !important; ${transition} }`;
 
-	const style = document.createElement("style");
-	style.id = CLOAK_STYLE_ID;
+	let style = document.getElementById(CLOAK_STYLE_ID);
+	if (!style) {
+		style = document.createElement("style");
+		style.id = CLOAK_STYLE_ID;
+		document.head.appendChild(style);
+	}
+
+	// Update content (whether new or existing).
+	// This ensures we respect the configured duration even if a manual style exists.
 	style.textContent = css;
-	document.head.appendChild(style);
 }
 
 /**
