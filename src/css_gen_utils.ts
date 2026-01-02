@@ -14,7 +14,7 @@ export const UNITS_ALL = [
 export const PERCENTS = Array.from({ length: 20 }, (_, i) => (i + 1) * 5);
 export const COLOR_OPACITY_MODIFIERS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 export const DURATIONS = [25, 50, 75, 100, 150, 200, 300, 500, 700, 1000];
-const PSEUDO_STATES = ["hover", "focus"];
+const PSEUDO_STATES = ["hover", "focus", "disabled"];
 export const PROPS_SPACING = {
 	margin: "m",
 	padding: "p",

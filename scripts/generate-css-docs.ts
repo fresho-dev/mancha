@@ -63,8 +63,7 @@ function generateMarkdown() {
 	md += "The following pseudo states are supported for all utilities:\n";
 	md += "- `hover:`\n";
 	md += "- `focus:`\n";
-	md += "- `disabled:`\n";
-	md += "- `active:`\n\n";
+	md += "- `disabled:`\n\n";
 
 	md += "### Spacing (Margin & Padding)\n\n";
 	md += "Spacing utilities use a 0.25rem (4px) unit by default.\n\n";
