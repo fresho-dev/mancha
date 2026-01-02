@@ -9,6 +9,7 @@ describe("CSS Generation Utils", () => {
 			assert.ok(css.includes(".flex {"), "Should include flex utility");
 			assert.ok(css.includes(".hidden {"), "Should include hidden utility");
 			assert.ok(css.includes(".text-center {"), "Should include text-center utility");
+			assert.ok(css.includes(".appearance-none {"), "Should include appearance-none utility");
 		});
 
 		it("includes color utilities", () => {

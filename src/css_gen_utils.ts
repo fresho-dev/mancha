@@ -224,6 +224,12 @@ export const PROPS_CUSTOM = {
 	"resize-x": { resize: "horizontal" },
 	"resize-y": { resize: "vertical" },
 	"resize-none": { resize: "none" },
+	// Appearance.
+	"appearance-none": {
+		appearance: "none",
+		"-webkit-appearance": "none",
+		"-moz-appearance": "none",
+	},
 	// Borders.
 	border: { border: "1px solid" },
 	"border-none": { border: "none" },
