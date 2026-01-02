@@ -13,9 +13,6 @@
 			"**/*.js",
 			"**/*.jsx",
 			"**/*.json"
-		],
-		"ignore": [
-			"examples/browser/mancha.js"
 		]
 	},
 	"formatter": {
