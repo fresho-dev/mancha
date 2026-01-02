@@ -1,0 +1,4 @@
+examples/browser/mancha.js
+dist/
+node_modules/
+.git/
