@@ -289,6 +289,67 @@ describe("Browser", () => {
 
 			target.remove();
 		});
+
+		it("removes pre-cloaked style when using callback with duration (repro bug)", async () => {
+			// Manually create the style tag (simulate ESM user pre-cloaking for FOUC).
+			const style = document.createElement("style");
+			style.id = "mancha-cloak";
+			style.textContent = "body { opacity: 0 !important; }";
+			document.head.appendChild(style);
+
+			const target = createTestElement("cloak-test-8");
+
+			// User's exact scenario: callback + cloak with duration.
+			await initMancha({
+				css: ["utils"],
+				cloak: { duration: 100 },
+				callback: async (renderer) => {
+					await renderer.mount(
+						document.querySelector("#cloak-test-8") as unknown as DocumentFragment,
+					);
+					await renderer.set("msg", "Hello World!");
+				},
+			});
+
+			// Should have removed the style tag.
+			assert.ok(
+				!document.getElementById("mancha-cloak"),
+				"Cloak style should be removed after callback with duration",
+			);
+			assert.equal(target.querySelector("span")?.textContent, "Hello World!");
+
+			target.remove();
+		});
+
+		it("removes cloak even when callback throws an exception", async () => {
+			// Manually create the style tag.
+			const style = document.createElement("style");
+			style.id = "mancha-cloak";
+			style.textContent = "body { opacity: 0 !important; }";
+			document.head.appendChild(style);
+
+			const target = createTestElement("cloak-test-9");
+
+			// User scenario: callback throws an error.
+			try {
+				await initMancha({
+					cloak: { duration: 50 },
+					callback: async () => {
+						throw new Error("Simulated error in callback");
+					},
+				});
+			} catch (_e) {
+				// Expected to throw.
+			}
+
+			// Even though callback threw, cloak should still be removed.
+			assert.ok(
+				!document.getElementById("mancha-cloak"),
+				"Cloak style should be removed even when callback throws",
+			);
+
+			target.remove();
+		});
 	});
 
 	it("initMancha waits for DOMContentLoaded if document is loading", async () => {

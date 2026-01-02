@@ -247,25 +247,29 @@ export async function initMancha<T extends StoreState = StoreState>(
 		}
 	}
 
-	// If callback is provided, call it and let user handle mounting.
-	if (options.callback) {
-		await options.callback(renderer);
-	} else if (options.target) {
-		// Mount to targets if specified (and no callback).
-		const targets = Array.isArray(options.target) ? options.target : [options.target];
-		for (const target of targets) {
-			const element = globalThis.document.querySelector(target);
-			if (element) {
-				await renderer.mount(element as unknown as DocumentFragment, { cache: options.cache });
-			} else {
-				console.error(`Target element not found: "${target}"`);
+	// Execute the main rendering logic in a try/finally to ensure uncloak always runs.
+	try {
+		// If callback is provided, call it and let user handle mounting.
+		if (options.callback) {
+			await options.callback(renderer);
+		} else if (options.target) {
+			// Mount to targets if specified (and no callback).
+			const targets = Array.isArray(options.target) ? options.target : [options.target];
+			for (const target of targets) {
+				const element = globalThis.document.querySelector(target);
+				if (element) {
+					await renderer.mount(element as unknown as DocumentFragment, { cache: options.cache });
+				} else {
+					console.error(`Target element not found: "${target}"`);
+				}
 			}
 		}
-	}
-
-	// Uncloak after everything is ready (initMancha uncloak is idempotent).
-	if (uncloak) {
-		await uncloak();
+	} finally {
+		// Uncloak after everything is ready (or if an error occurred).
+		// This ensures the page is never left in a cloaked state.
+		if (uncloak) {
+			await uncloak();
+		}
 	}
 
 	return renderer;
