@@ -350,8 +350,28 @@ describe("Browser", () => {
 
 			target.remove();
 		});
-	});
 
+		it("removes manual cloak style even if cloak option is not provided", async () => {
+			const style = document.createElement("style");
+			style.id = "mancha-cloak";
+			style.textContent = "body { opacity: 0 !important; }";
+			document.head.appendChild(style);
+
+			assert.ok(document.getElementById("mancha-cloak"), "Style should exist before init");
+
+			const target = createTestElement("cloak-test-manual-no-opt");
+
+			await initMancha({
+				target: "#cloak-test-manual-no-opt",
+				// No cloak option provided
+			});
+
+			assert.ok(
+				!document.getElementById("mancha-cloak"),
+				"Cloak style should be removed even without cloak option",
+			);
+		});
+	});
 	it("initMancha waits for DOMContentLoaded if document is loading", async () => {
 		// Mock document.readyState
 		const originalReadyState = document.readyState;
@@ -381,5 +401,32 @@ describe("Browser", () => {
 			value: originalReadyState,
 			writable: true,
 		});
+	});
+
+	it("adds and removes mancha-loading class during initialization", async () => {
+		// Verify class is not present initially
+		assert.ok(!document.documentElement.classList.contains("mancha-loading"));
+
+		let verifiedInsideCallback = false;
+
+		await initMancha({
+			callback: async () => {
+				// Verify class is present during callback
+				assert.ok(
+					document.documentElement.classList.contains("mancha-loading"),
+					"Class should be present during initialization",
+				);
+				verifiedInsideCallback = true;
+				// Simulate some work
+				await new Promise((resolve) => setTimeout(resolve, 10));
+			},
+		});
+
+		assert.ok(verifiedInsideCallback, "Callback should have been called");
+		// Verify class is removed after initialization
+		assert.ok(
+			!document.documentElement.classList.contains("mancha-loading"),
+			"Class should be removed after initialization",
+		);
 	});
 });

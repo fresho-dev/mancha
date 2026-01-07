@@ -192,6 +192,8 @@ export async function initMancha<T extends StoreState = StoreState>(
 	// 1. Apply cloaking immediately if requested.
 	// This prevents FOUC even if we have to wait for DOMContentLoaded.
 	let uncloak: (() => Promise<void>) | undefined;
+	document.documentElement.classList.add("mancha-loading");
+
 	const cloakOpts: CloakOptions | undefined = options.cloak
 		? options.cloak === true
 			? {}
@@ -219,6 +221,11 @@ export async function initMancha<T extends StoreState = StoreState>(
 
 		// Prepare uncloak function.
 		uncloak = createUncloakFn(animateDuration > 0 ? animateDuration : false);
+	} else {
+		// Even if no cloak options, ensure we cleanup any existing manual cloak style.
+		// This handles the case where users add the style tag manually to prevent FOUC in ESM,
+		// but don't explicitly enable cloaking in initMancha.
+		uncloak = createUncloakFn(false);
 	}
 
 	// 2. Wait for DOMContentLoaded if necessary.
@@ -265,6 +272,8 @@ export async function initMancha<T extends StoreState = StoreState>(
 			}
 		}
 	} finally {
+		document.documentElement.classList.remove("mancha-loading");
+
 		// Uncloak after everything is ready (or if an error occurred).
 		// This ensures the page is never left in a cloaked state.
 		if (uncloak) {

@@ -138,6 +138,39 @@ To keep the browser's loading spinner active while `mancha` initializes (e.g., f
 </script>
 ```
 
+### Custom Loading Indicators
+
+During initialization (until `initMancha` resolves), `mancha` adds a `mancha-loading` class to the `<html>` element. You can use this class to display a custom loading indicator or overlay while your application is bootstrapping.
+
+**Recipe: Full-screen loading overlay**
+
+```css
+/* Hide the loader by default */
+.loader {
+  display: none;
+}
+
+/* Show the loader only while mancha is loading */
+html.mancha-loading .loader {
+  display: flex;
+  position: fixed;
+  inset: 0;
+  background: white;
+  z-index: 9999;
+  justify-content: center;
+  align-items: center;
+}
+```
+
+```html
+<body>
+  <div class="loader">Loading...</div>
+  <div id="app">...</div>
+</body>
+```
+
+This works perfectly with cloaking: `mancha-loading` is removed *immediately before* the cloaking fade-in animation starts, ensuring a seamless transition from your custom loader to the rendered app.
+
 ## Custom Initialization Callback
 
 For advanced use cases, provide a `callback` function. When used, automatic mounting is skipped—you must call `renderer.mount()` yourself:
