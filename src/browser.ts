@@ -89,9 +89,9 @@ export interface CloakOptions {
 }
 
 /** Options for initializing Mancha. */
-export interface InitManchaOptions {
+export interface InitManchaOptions<T extends StoreState = StoreState> {
 	/** Use an existing Renderer instance instead of creating a new one. */
-	renderer?: Renderer;
+	renderer?: Renderer<T>;
 	/** CSS styles to inject before mounting. */
 	css?: CssName[];
 	/** Target selector(s) to mount the renderer to. */
@@ -115,7 +115,7 @@ export interface InitManchaOptions {
 	 * @param renderer - The initialized Renderer instance.
 	 * @param uncloak - Function to reveal cloaked content with optional animation.
 	 */
-	callback?: (renderer: Renderer) => void | Promise<void>;
+	callback?: (renderer: Renderer<T>) => void | Promise<void>;
 }
 
 /** CSS rule used to hide cloaked elements. */
@@ -187,7 +187,7 @@ function createUncloakFn(animate: number | false): () => Promise<void> {
  * @returns A promise that resolves to the Renderer instance.
  */
 export async function initMancha<T extends StoreState = StoreState>(
-	options: InitManchaOptions = {},
+	options: InitManchaOptions<T> = {},
 ): Promise<Renderer<T>> {
 	// 1. Apply cloaking immediately if requested.
 	// This prevents FOUC even if we have to wait for DOMContentLoaded.
@@ -228,7 +228,7 @@ export async function initMancha<T extends StoreState = StoreState>(
 		});
 	}
 
-	const renderer = (options.renderer as Renderer<T>) ?? new Renderer<T>();
+	const renderer = options.renderer ?? new Renderer<T>();
 
 	// Inject CSS if specified.
 	if (options.css && options.css.length > 0) {
