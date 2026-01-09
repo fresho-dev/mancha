@@ -146,6 +146,11 @@ const _args = yargs(hideBin(process.argv))
 		"Print all documentation for AI model consumption",
 		() => {},
 		async () => {
+			// Output the current version of mancha for reference.
+			const packageJsonPath = path.join(packageRoot, "package.json");
+			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf-8"));
+			console.log(`mancha version ${packageJson.version}\n`);
+
 			// List README.md first, then all docs/*.md files in lexicographical order.
 			const docsDir = path.join(packageRoot, "docs");
 			const docFiles = await fs.readdir(docsDir);

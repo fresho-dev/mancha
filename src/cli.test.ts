@@ -89,5 +89,15 @@ describe("CLI", function () {
 			assert.ok(stdout.includes("# Quick Start"), "Should include Quick Start");
 			assert.ok(stdout.includes("# Syntax"), "Should include Syntax docs");
 		});
+
+		it("should output the current version", async () => {
+			const packageJsonPath = path.join(__dirname, "..", "package.json");
+			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf-8"));
+			const { stdout } = await execAsync(`node ${cliPath} docs`);
+			assert.ok(
+				stdout.includes(`mancha version ${packageJson.version}`),
+				"Should include version number",
+			);
+		});
 	});
 });
