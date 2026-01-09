@@ -417,6 +417,138 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				const subrenderer = (node as unknown as { renderer: IRenderer }).renderer;
 				assert.equal(subrenderer.get("$$foo"), "bar");
 			});
+
+			it("preserves URL parameter values when using nullish coalescing in :data", async () => {
+				const renderer = new ctor();
+
+				// Set up URL with existing parameter BEFORE mount
+				window.history.replaceState(null, "", "/?mode=analysis");
+
+				const html = `<div :data="{ '$$mode': $$mode ?? 'play' }"></div>`;
+				const fragment = renderer.parseHTML(html);
+				const node = fragment.firstChild as Element;
+
+				await renderer.mount(fragment);
+
+				// The URL parameter should take precedence over the default
+				const subrenderer = (node as unknown as { renderer: IRenderer }).renderer;
+				assert.equal(
+					subrenderer.get("$$mode"),
+					"analysis",
+					"URL parameter should be preserved, not overwritten by default",
+				);
+
+				// Reset URL
+				window.history.replaceState(null, "", "/");
+			});
+
+			it("preserves URL parameter values when :data is on body element", async () => {
+				// Set up URL with existing parameter BEFORE creating renderer
+				window.history.replaceState(null, "", "/?mode=analysis");
+
+				const renderer = new ctor();
+
+				// Use body directly as mount point with :data
+				const body = document.body;
+				body.setAttribute(":data", "{ '$$mode': $$mode ?? 'play' }");
+
+				await renderer.mount(body);
+
+				// The URL parameter should take precedence over the default
+				assert.equal(
+					renderer.get("$$mode"),
+					"analysis",
+					"URL parameter should be preserved on root mount node",
+				);
+
+				// Clean up
+				body.removeAttribute(":data");
+				window.history.replaceState(null, "", "/");
+			});
+
+			it("preserves URL parameter values with nested :data elements", async () => {
+				// Set up URL with existing parameter
+				window.history.replaceState(null, "", "/?page=5");
+
+				const renderer = new ctor();
+
+				// Nested structure with :data on inner element
+				const html = `<div><span :data="{ '$$page': $$page ?? '1' }"></span></div>`;
+				const fragment = renderer.parseHTML(html);
+				const span = (fragment.firstChild as Element).firstChild as Element;
+
+				await renderer.mount(fragment);
+
+				// The URL parameter should take precedence
+				const subrenderer = (span as unknown as { renderer: IRenderer }).renderer;
+				assert.equal(
+					subrenderer.get("$$page"),
+					"5",
+					"Nested :data should see URL parameter from parent",
+				);
+
+				// Reset URL
+				window.history.replaceState(null, "", "/");
+			});
+
+			it("URL parameter accessible via $ proxy after :data evaluation", async () => {
+				// Set up URL with existing parameter
+				window.history.replaceState(null, "", "/?tab=settings");
+
+				const renderer = new ctor();
+
+				const html = `<div :data="{ '$$tab': $$tab ?? 'home' }"></div>`;
+				const fragment = renderer.parseHTML(html);
+				const node = fragment.firstChild as Element;
+
+				await renderer.mount(fragment);
+
+				// Check both .get() and .$ proxy access
+				const subrenderer = (node as unknown as { renderer: IRenderer }).renderer;
+				assert.equal(subrenderer.get("$$tab"), "settings", ".get() should return URL value");
+				assert.equal(subrenderer.$.$$tab, "settings", ".$ proxy should return URL value");
+
+				// Reset URL
+				window.history.replaceState(null, "", "/");
+			});
+
+			it("URL parameter takes precedence over default in :data (non-string key)", async () => {
+				// Test with unquoted key syntax (like the issue example)
+				window.history.replaceState(null, "", "/?mode=analysis");
+
+				const renderer = new ctor();
+
+				// Use syntax closer to the issue: without quoting the key
+				// Note: In JS, { $$mode: value } is the same as { "$$mode": value }
+				const html = `<div :data="{ $$mode: $$mode ?? 'play' }"></div>`;
+				const fragment = renderer.parseHTML(html);
+				const node = fragment.firstChild as Element;
+
+				await renderer.mount(fragment);
+
+				// URL parameter should be preserved
+				const subrenderer = (node as unknown as { renderer: IRenderer }).renderer;
+				assert.equal(
+					subrenderer.get("$$mode"),
+					"analysis",
+					"URL parameter 'analysis' should be preserved, not replaced with default 'play'",
+				);
+				assert.equal(
+					subrenderer.$.$$mode,
+					"analysis",
+					"$ proxy should also return URL value 'analysis'",
+				);
+
+				// Also verify the root renderer has the URL param
+				assert.equal(
+					renderer.get("$$mode"),
+					"analysis",
+					"Root renderer should have URL parameter",
+				);
+
+				// Reset URL
+				window.history.replaceState(null, "", "/");
+			});
 		});
 
 		describe(":class", () => {
