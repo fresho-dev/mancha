@@ -502,10 +502,24 @@ export namespace RendererPlugins {
 			}
 
 			// Watch for updates in the store and bind our property ==> node value.
+			// NOTE: We capture `renderer` here because `this` inside the effect refers
+			// to the proxified store, not the renderer instance directly.
+			const renderer = this;
 			this.effect(function () {
 				const result = this.eval(bindExpr, { $elem: node });
-				if (prop === "checked") elem.checked = !!result;
-				else elem.value = result as string;
+				if (prop === "checked") {
+					elem.checked = !!result;
+				} else {
+					elem.value = result as string;
+					// Some elements (notably <select>) silently fail when setting .value
+					// if required children don't exist yet. Queue a retry for later.
+					// See IRenderer._pendingValueRetries for detailed explanation.
+					if (elem.value !== result && result != null) {
+						renderer._pendingValueRetries.push(() => {
+							elem.value = result as string;
+						});
+					}
+				}
 			});
 
 			// Bind node value ==> our property.

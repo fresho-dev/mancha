@@ -793,6 +793,36 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
 				assert.equal(renderer.get("foo"), "qux");
 			});
+
+			it("binds select value when options are generated with :for", async function () {
+				// Skip test if renderer does not support events.
+				if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+				// Since we're dealing with events, we need to create a full document.
+				const doc = globalThis.document.implementation.createHTMLDocument();
+				// tsec-disable-next-line
+				setInnerHTML(
+					doc.body,
+					`<select :bind="selected">
+						<option :for="item in items" :attr:value="item.id">{{ item.name }}</option>
+					</select>`,
+				);
+				const select = doc.body.firstChild as HTMLSelectElement;
+
+				const renderer = new ctor();
+				await renderer.set("items", [
+					{ id: "apple", name: "Apple" },
+					{ id: "banana", name: "Banana" },
+					{ id: "cherry", name: "Cherry" },
+				]);
+				// Set the initial value to a non-first option.
+				await renderer.set("selected", "banana");
+				await renderer.mount(doc.body);
+
+				// The select should reflect the bound value, not default to first option.
+				assert.equal(select.value, "banana");
+				assert.equal(renderer.get("selected"), "banana");
+			});
 		});
 
 		describe(":show", () => {
