@@ -540,11 +540,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				);
 
 				// Also verify the root renderer has the URL param
-				assert.equal(
-					renderer.get("$$mode"),
-					"analysis",
-					"Root renderer should have URL parameter",
-				);
+				assert.equal(renderer.get("$$mode"), "analysis", "Root renderer should have URL parameter");
 
 				// Reset URL
 				window.history.replaceState(null, "", "/");
