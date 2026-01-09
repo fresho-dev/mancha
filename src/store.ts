@@ -25,6 +25,12 @@ export type StoreState = Record<string, any>;
 /** Type for expression evaluation function. */
 type EvalFunction = (thisArg: SignalStoreProxy, args: Record<string, unknown>) => unknown;
 
+/** Type for observer entries that include the store context for proper binding. */
+type ObserverEntry = {
+	observer: Observer<unknown>;
+	store: SignalStore;
+};
+
 /**
  * Internal proxy type used within the store implementation. Uses `any` for dynamic property access.
  */
@@ -122,7 +128,7 @@ export function setNestedProperty(
 export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 	protected readonly evalkeys: string[] = ["$elem", "$event"];
 	protected readonly expressionCache: Map<string, EvalFunction> = new Map();
-	protected readonly observers = new Map<string, Set<Observer<unknown>>>();
+	protected readonly observers = new Map<string, Set<ObserverEntry>>();
 	protected readonly keyHandlers = new Map<RegExp, Set<KeyValueHandler>>();
 	protected _observer: Observer<unknown> | null = null;
 	readonly _store = new Map<string, unknown>();
@@ -179,8 +185,12 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 		if (!owner.observers.has(key)) {
 			owner.observers.set(key, new Set());
 		}
-		if (!owner.observers.get(key)?.has(observer)) {
-			owner.observers.get(key)?.add(observer);
+
+		// Check if this observer is already registered (avoid duplicates).
+		const existing = Array.from(owner.observers.get(key) || []);
+		if (!existing.some((entry) => entry.observer === observer)) {
+			// Store the observer along with the store context that registered it.
+			owner.observers.get(key)?.add({ observer, store: this });
 		}
 	}
 
@@ -193,9 +203,10 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 
 	async notify(key: string, debounceMillis: number = REACTIVE_DEBOUNCE_MILLIS): Promise<void> {
 		const owner = getAncestorKeyStore(this, key);
-		const observers = Array.from(owner?.observers.get(key) || []);
+		const entries = Array.from(owner?.observers.get(key) || []);
 		await this.debounce(debounceMillis, () =>
-			Promise.all(observers.map((observer) => observer.call(this.proxify(observer)))),
+			// Call each observer with its original store context to ensure proper binding.
+			Promise.all(entries.map((entry) => entry.observer.call(entry.store.proxify(entry.observer)))),
 		);
 	}
 
