@@ -915,6 +915,34 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				await renderer.mount(fragment);
 				assert.equal(getTextContent(fragment as unknown as Element), "13");
 			});
+
+			it("reacts to parent variable changes with :for and :if combined", async () => {
+				// Issue #7: Elements should be properly removed when :if condition becomes false
+				const renderer = new ctor({
+					selected: "apple",
+					items: [
+						{ id: "apple", name: "Apple", hidden: false },
+						{ id: "banana", name: "Banana", hidden: false },
+						{ id: "secret", name: "Secret", hidden: true },
+					],
+				});
+				// Using selected without $parent to match the actual issue
+				const html =
+					'<span :for="item in items" :if="!item.hidden || item.id === selected">{{ item.name }}</span>';
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				// Initially, only apple and banana should be visible (secret is hidden)
+				assert.equal(getTextContent(fragment as unknown as Element), "AppleBanana");
+
+				// Change selection to banana - secret should still be hidden
+				await renderer.set("selected", "banana");
+				assert.equal(getTextContent(fragment as unknown as Element), "AppleBanana");
+
+				// Change back to apple - secret should still be hidden
+				await renderer.set("selected", "apple");
+				assert.equal(getTextContent(fragment as unknown as Element), "AppleBanana");
+			});
 		});
 
 		it("reacts to changes within :for loop items", async () => {
