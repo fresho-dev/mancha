@@ -20,6 +20,22 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 	protected readonly dirpath: string = "";
 	readonly _skipNodes: Set<Node> = new Set();
 	readonly _customElements: Map<string, Node> = new Map();
+
+	/**
+	 * Queue for retrying failed element.value assignments.
+	 *
+	 * Some DOM elements (notably <select>) silently fail when setting .value if
+	 * the required child elements don't exist yet. For example, setting
+	 * select.value = "banana" does nothing if no <option value="banana"> exists.
+	 *
+	 * This happens when :bind on a parent element runs before :for on child
+	 * elements creates those children (due to BFS traversal order).
+	 *
+	 * The fix: after setting .value, check if it actually worked. If not, queue
+	 * a retry callback. These callbacks are executed at the end of renderNode()
+	 * after all child elements have been created.
+	 */
+	readonly _pendingValueRetries: Array<() => void> = [];
 	abstract parseHTML(content: string, params?: ParserParams): Document | DocumentFragment;
 	abstract serializeHTML(root: DocumentFragment | Node): string;
 	abstract createElement(tag: string, owner?: Document | null): Element;
@@ -222,6 +238,12 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 			await RendererPlugins.resolveCustomProperty.call(this, node, params);
 			// Strip :types and data-types attributes from rendered output.
 			await RendererPlugins.stripTypes.call(this, node, params);
+		}
+
+		// Retry any .value assignments that failed during rendering.
+		// See _pendingValueRetries documentation for why this is needed.
+		for (const retry of this._pendingValueRetries.splice(0)) {
+			retry();
 		}
 
 		// Return the input node, which should now be fully rendered.
