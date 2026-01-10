@@ -207,14 +207,21 @@ export namespace RendererPlugins {
 
 		// To update the node, we re-evaluate all of the expressions since that's much simpler than
 		// caching results.
-		return this.effect(function () {
-			let updatedContent = content;
-			for (const expr of expressions) {
-				const result = this.eval(expr, { $elem: node }) as string;
-				updatedContent = updatedContent.replace(`{{ ${expr} }}`, String(result));
-			}
-			node.nodeValue = updatedContent;
-		});
+		return this.effect(
+			function (this: IRenderer) {
+				let updatedContent = content;
+				for (const expr of expressions) {
+					const result = this.eval(expr, { $elem: node }) as string;
+					updatedContent = updatedContent.replace(`{{ ${expr} }}`, String(result));
+				}
+				node.nodeValue = updatedContent;
+			},
+			{
+				directive: "text",
+				element: node.parentElement ?? undefined,
+				expression: expressions.join(", "),
+			},
+		);
 	};
 
 	export const resolveDataAttribute: RendererPlugin = async function (node, params) {
@@ -286,14 +293,17 @@ export namespace RendererPlugins {
 			const originalClass = getAttribute(elem, "class") || "";
 
 			// Compute the function's result.
-			return this.effect(function () {
-				const result = this.eval(classAttr, { $elem: node });
-				safeSetAttribute(
-					elem,
-					"class",
-					(result ? `${originalClass} ${result}` : originalClass).trim(),
-				);
-			});
+			return this.effect(
+				function (this: IRenderer) {
+					const result = this.eval(classAttr, { $elem: node });
+					safeSetAttribute(
+						elem,
+						"class",
+						(result ? `${originalClass} ${result}` : originalClass).trim(),
+					);
+				},
+				{ directive: "class", element: elem, expression: classAttr },
+			);
 		}
 	};
 
@@ -309,9 +319,12 @@ export namespace RendererPlugins {
 
 			// Compute the function's result and track dependencies.
 			const setTextContent = (content: string) => this.textContent(node, content);
-			return this.effect(function () {
-				setTextContent(this.eval(textAttr, { $elem: node }) as string);
-			});
+			return this.effect(
+				function (this: IRenderer) {
+					setTextContent(this.eval(textAttr, { $elem: node }) as string);
+				},
+				{ directive: ":text", element: elem, expression: textAttr },
+			);
 		}
 	};
 
@@ -326,17 +339,20 @@ export namespace RendererPlugins {
 			removeAttributeOrDataset(elem, "html", ":");
 
 			// Compute the function's result and track dependencies.
-			return this.effect(function () {
-				const result = this.eval(htmlAttr, { $elem: node }) as string;
-				return new Promise((resolve) => {
-					(async () => {
-						const fragment = await this.preprocessString(result, params);
-						await this.renderNode(fragment);
-						replaceChildren(elem, fragment);
-						resolve();
-					})();
-				});
-			});
+			return this.effect(
+				function (this: IRenderer) {
+					const result = this.eval(htmlAttr, { $elem: node }) as string;
+					return new Promise((resolve) => {
+						(async () => {
+							const fragment = await this.preprocessString(result, params);
+							await this.renderNode(fragment);
+							replaceChildren(elem, fragment);
+							resolve();
+						})();
+					});
+				},
+				{ directive: ":html", element: elem, expression: htmlAttr },
+			);
 		}
 	};
 
@@ -417,59 +433,62 @@ export namespace RendererPlugins {
 
 			// Compute the container expression and track dependencies.
 			const [loopKey, itemsExpr] = tokens;
-			await this.effect(function () {
-				const items = this.eval(itemsExpr, { $elem: node });
-				this.log(":for list items:", items);
+			await this.effect(
+				function (this: IRenderer) {
+					const items = this.eval(itemsExpr, { $elem: node });
+					this.log(":for list items:", items);
 
-				// Remove all the previously added children, if any.
-				children.splice(0, children.length).forEach((child) => {
-					// Only remove if child is still part of this parent (may have been moved by :if).
-					if (child.parentNode === parent) {
-						removeChild(parent, child);
+					// Remove all the previously added children, if any.
+					children.splice(0, children.length).forEach((child) => {
+						// Only remove if child is still part of this parent (may have been moved by :if).
+						if (child.parentNode === parent) {
+							removeChild(parent, child);
+						}
+						this._skipNodes.delete(child);
+					});
+
+					// Validate that the expression returns a list of items.
+					if (!Array.isArray(items)) {
+						console.error(`Expression did not yield a list: \`${itemsExpr}\` => \`${items}\``);
+						return Promise.resolve();
 					}
-					this._skipNodes.delete(child);
-				});
 
-				// Validate that the expression returns a list of items.
-				if (!Array.isArray(items)) {
-					console.error(`Expression did not yield a list: \`${itemsExpr}\` => \`${items}\``);
-					return Promise.resolve();
-				}
+					// Loop through the container items.
+					const awaiters: Promise<void>[] = [];
+					for (const item of items) {
+						// Create a subrenderer that will hold the loop item and all node descendants.
+						const subrenderer = this.subrenderer();
 
-				// Loop through the container items.
-				const awaiters: Promise<void>[] = [];
-				for (const item of items) {
-					// Create a subrenderer that will hold the loop item and all node descendants.
-					const subrenderer = this.subrenderer();
+						// NOTE: Using the store object directly to avoid modifying ancestor values.
+						subrenderer._store.set(loopKey, item);
 
-					// NOTE: Using the store object directly to avoid modifying ancestor values.
-					subrenderer._store.set(loopKey, item);
+						// Create a new HTML element for each item and add them to parent node.
+						const copy = node.cloneNode(true);
 
-					// Create a new HTML element for each item and add them to parent node.
-					const copy = node.cloneNode(true);
+						// Restore the original style of the node.
+						setAttribute(copy as Element, "style", originalStyle);
 
-					// Restore the original style of the node.
-					setAttribute(copy as Element, "style", originalStyle);
+						// Also add the new element to the store.
+						children.push(copy);
 
-					// Also add the new element to the store.
-					children.push(copy);
+						// Since the element will be handled by a subrenderer, skip it in parent renderer.
+						this._skipNodes.add(copy);
 
-					// Since the element will be handled by a subrenderer, skip it in parent renderer.
-					this._skipNodes.add(copy);
+						// Render the element using the subrenderer.
+						awaiters.push(subrenderer.mount(copy, params));
+						this.log("Rendered list child:\n", nodeToString(copy, 128));
+					}
 
-					// Render the element using the subrenderer.
-					awaiters.push(subrenderer.mount(copy, params));
-					this.log("Rendered list child:\n", nodeToString(copy, 128));
-				}
+					// Insert the new children into the parent container.
+					const reference = template.nextSibling as ChildNode;
+					for (const child of children) {
+						insertBefore(parent, child, reference);
+					}
 
-				// Insert the new children into the parent container.
-				const reference = template.nextSibling as ChildNode;
-				for (const child of children) {
-					insertBefore(parent, child, reference);
-				}
-
-				return Promise.all(awaiters);
-			});
+					return Promise.all(awaiters);
+				},
+				{ directive: ":for", element: elem, expression: forAttr },
+			);
 		}
 	};
 
@@ -505,22 +524,25 @@ export namespace RendererPlugins {
 			// NOTE: We capture `renderer` here because `this` inside the effect refers
 			// to the proxified store, not the renderer instance directly.
 			const renderer = this;
-			this.effect(function () {
-				const result = this.eval(bindExpr, { $elem: node });
-				if (prop === "checked") {
-					elem.checked = !!result;
-				} else {
-					elem.value = result as string;
-					// Some elements (notably <select>) silently fail when setting .value
-					// if required children don't exist yet. Queue a retry for later.
-					// See IRenderer._pendingValueRetries for detailed explanation.
-					if (elem.value !== result && result != null) {
-						renderer._pendingValueRetries.push(() => {
-							elem.value = result as string;
-						});
+			this.effect(
+				function (this: IRenderer) {
+					const result = this.eval(bindExpr, { $elem: node });
+					if (prop === "checked") {
+						elem.checked = !!result;
+					} else {
+						elem.value = result as string;
+						// Some elements (notably <select>) silently fail when setting .value
+						// if required children don't exist yet. Queue a retry for later.
+						// See IRenderer._pendingValueRetries for detailed explanation.
+						if (elem.value !== result && result != null) {
+							renderer._pendingValueRetries.push(() => {
+								elem.value = result as string;
+							});
+						}
 					}
-				}
-			});
+				},
+				{ directive: ":bind", element: elem, expression: bindExpr },
+			);
 
 			// Bind node value ==> our property.
 			const nodeExpr = `${bindExpr} = $elem.${prop}`;
@@ -546,20 +568,23 @@ export namespace RendererPlugins {
 			const placeholder = this.createComment(" :if placeholder ", node.ownerDocument);
 
 			// Compute the function's result and track dependencies.
-			this.effect(function () {
-				const result = this.eval(ifExpr, { $elem: node });
-				if (result) {
-					// Toggle ON: element should be visible.
-					if (!elem.parentNode && placeholder.parentNode) {
-						replaceWith(placeholder as ChildNode, elem);
+			this.effect(
+				function (this: IRenderer) {
+					const result = this.eval(ifExpr, { $elem: node });
+					if (result) {
+						// Toggle ON: element should be visible.
+						if (!elem.parentNode && placeholder.parentNode) {
+							replaceWith(placeholder as ChildNode, elem);
+						}
+					} else {
+						// Toggle OFF: element should be hidden.
+						if (elem.parentNode) {
+							replaceWith(elem, placeholder);
+						}
 					}
-				} else {
-					// Toggle OFF: element should be hidden.
-					if (elem.parentNode) {
-						replaceWith(elem, placeholder);
-					}
-				}
-			});
+				},
+				{ directive: ":if", element: elem, expression: ifExpr },
+			);
 		}
 	};
 
@@ -589,12 +614,15 @@ export namespace RendererPlugins {
 							?.trim());
 
 			// Compute the function's result and track dependencies.
-			this.effect(function () {
-				const result = this.eval(showExpr, { $elem: node });
-				// If the result is false, set the node's display to none.
-				if (elem.style) elem.style.display = result ? display : "none";
-				else safeSetAttribute(elem, "style", `display: ${result ? display : "none"};`);
-			});
+			this.effect(
+				function (this: IRenderer) {
+					const result = this.eval(showExpr, { $elem: node });
+					// If the result is false, set the node's display to none.
+					if (elem.style) elem.style.display = result ? display : "none";
+					else safeSetAttribute(elem, "style", `display: ${result ? display : "none"};`);
+				},
+				{ directive: ":show", element: elem, expression: showExpr },
+			);
 		}
 	};
 
@@ -611,10 +639,13 @@ export namespace RendererPlugins {
 				removeAttribute(elem, attr.name);
 
 				const attrName = (attr.name.split(prefix1, 2).at(-1) || "").split(prefix2, 2).at(-1) ?? "";
-				this.effect(function () {
-					const attrValue = this.eval(attr.value, { $elem: node });
-					setAttribute(elem, attrName, attrValue as string);
-				});
+				this.effect(
+					function (this: IRenderer) {
+						const attrValue = this.eval(attr.value, { $elem: node });
+						setAttribute(elem, attrName, attrValue as string);
+					},
+					{ directive: `:attr:${attrName}`, element: elem, expression: attr.value },
+				);
 			}
 		}
 	};
@@ -633,10 +664,13 @@ export namespace RendererPlugins {
 
 				const attrName = (attr.name.split(prefix1, 2).at(-1) || "").split(prefix2, 2).at(-1) ?? "";
 				const propName = attributeNameToCamelCase(attrName);
-				this.effect(function () {
-					const propValue = this.eval(attr.value, { $elem: node });
-					setProperty(elem, propName, propValue);
-				});
+				this.effect(
+					function (this: IRenderer) {
+						const propValue = this.eval(attr.value, { $elem: node });
+						setProperty(elem, propName, propValue);
+					},
+					{ directive: `:prop:${propName}`, element: elem, expression: attr.value },
+				);
 			}
 		}
 	};
