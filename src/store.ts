@@ -1,4 +1,5 @@
 import * as expressions from "./expressions/index.js";
+import type { EffectMeta } from "./interfaces.js";
 
 /**
  * Internal store properties that are always present. These are managed by the framework
@@ -259,7 +260,27 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 		return this._store.has(key);
 	}
 
-	effect<T>(observer: Observer<T>): T {
+	/**
+	 * Returns observer statistics for performance reporting.
+	 */
+	getObserverStats(): { totalKeys: number; totalObservers: number; byKey: Record<string, number> } {
+		const byKey: Record<string, number> = {};
+		let totalObservers = 0;
+
+		for (const [key, observers] of this.observers) {
+			byKey[key] = observers.size;
+			totalObservers += observers.size;
+		}
+
+		return {
+			totalKeys: this.observers.size,
+			totalObservers,
+			byKey,
+		};
+	}
+
+	effect<T>(observer: Observer<T>, _meta?: EffectMeta): T {
+		// Base implementation ignores metadata; IRenderer overrides to add performance tracking.
 		return observer.call(this.proxify(observer));
 	}
 

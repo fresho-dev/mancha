@@ -1,5 +1,11 @@
-import { dirname, nodeToString, setProperty, traverse } from "./dome.js";
-import type { ParserParams, RenderParams } from "./interfaces.js";
+import { dirname, ellipsize, nodeToString, setProperty, traverse } from "./dome.js";
+import type {
+	DebugLevel,
+	EffectMeta,
+	ParserParams,
+	PerformanceReport,
+	RenderParams,
+} from "./interfaces.js";
 import { Iterator } from "./iterator.js";
 import { RendererPlugins } from "./plugins.js";
 import { setupQueryParamBindings } from "./query.js";
@@ -16,8 +22,17 @@ export type EvalListener = (result: unknown, dependencies: string[]) => unknown;
  */
 export abstract class IRenderer<T extends StoreState = StoreState> extends SignalStore<T> {
 	abstract readonly impl: string;
-	protected debugging: boolean = false;
+	private _debugLevel: DebugLevel = "off";
 	protected readonly dirpath: string = "";
+
+	/** Performance data collected during rendering. Reset on each mount(). */
+	private _perfData: {
+		lifecycle: { mountTime?: number; preprocessTime?: number; renderTime?: number };
+		effects: Map<string, { count: number; totalTime: number }>;
+	} = { lifecycle: {}, effects: new Map() };
+
+	/** Debug level ordering for comparison. */
+	private static readonly DEBUG_LEVELS: DebugLevel[] = ["off", "lifecycle", "effects", "verbose"];
 	readonly _skipNodes: Set<Node> = new Set();
 	readonly _customElements: Map<string, Node> = new Map();
 
@@ -43,14 +58,165 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 	abstract textContent(node: Node, tag: string): void;
 
 	/**
-	 * Sets the debugging flag for the current instance.
+	 * Sets the debug level for the current instance.
 	 *
-	 * @param flag - The flag indicating whether debugging is enabled or disabled.
+	 * @param flag - Boolean for backwards compat (true -> 'lifecycle') or a DebugLevel.
 	 * @returns The current instance of the class.
 	 */
-	debug(flag: boolean): this {
-		this.debugging = flag;
+	debug(flag: boolean | DebugLevel): this {
+		if (typeof flag === "boolean") {
+			this._debugLevel = flag ? "lifecycle" : "off";
+		} else {
+			this._debugLevel = flag;
+		}
 		return this;
+	}
+
+	/**
+	 * Returns whether debugging is enabled (any level except 'off').
+	 */
+	get debugging(): boolean {
+		return this._debugLevel !== "off";
+	}
+
+	/**
+	 * Checks if the current debug level is at least the specified level.
+	 */
+	private shouldLog(level: DebugLevel): boolean {
+		return (
+			IRenderer.DEBUG_LEVELS.indexOf(this._debugLevel) >= IRenderer.DEBUG_LEVELS.indexOf(level)
+		);
+	}
+
+	/**
+	 * Resets performance data. Called at the start of mount().
+	 */
+	private resetPerfData(): void {
+		this._perfData = { lifecycle: {}, effects: new Map() };
+	}
+
+	/**
+	 * Generates a DOM path for an element (e.g., "html>body>div>ul>li:nth-child(2)").
+	 */
+	private getNodePath(elem: Element): string {
+		const parts: string[] = [];
+		let current: Element | null = elem;
+
+		while (current?.tagName) {
+			const tag = current.tagName.toLowerCase();
+			const parent: Element | null = current.parentElement;
+
+			if (parent) {
+				const siblings = Array.from(parent.children).filter(
+					(c: Element) => c.tagName.toLowerCase() === tag,
+				);
+				if (siblings.length > 1) {
+					const index = siblings.indexOf(current) + 1;
+					parts.unshift(`${tag}:nth-child(${index})`);
+				} else {
+					parts.unshift(tag);
+				}
+			} else {
+				parts.unshift(tag);
+			}
+
+			current = parent;
+		}
+
+		return parts.join(">");
+	}
+
+	/**
+	 * Builds an effect identifier from metadata.
+	 */
+	buildEffectId(meta?: EffectMeta): string {
+		const directive = meta?.directive ?? "unknown";
+		const expression = ellipsize(meta?.expression ?? "", 32);
+		const elem = meta?.element as HTMLElement | undefined;
+
+		const elemId = elem
+			? (elem.dataset?.perfid ?? elem.id ?? elem.dataset?.testid ?? this.getNodePath(elem))
+			: "unknown";
+
+		return `${directive}:${elemId}:${expression}`;
+	}
+
+	/**
+	 * Records an effect execution for performance tracking.
+	 */
+	recordEffectExecution(meta: EffectMeta | undefined, duration: number): void {
+		const id = this.buildEffectId(meta);
+		const stats = this._perfData.effects.get(id) ?? { count: 0, totalTime: 0 };
+		stats.count++;
+		stats.totalTime += duration;
+		this._perfData.effects.set(id, stats);
+	}
+
+	/**
+	 * Returns a structured performance report.
+	 */
+	performanceReport(): PerformanceReport {
+		const effects = Array.from(this._perfData.effects.entries());
+		const byDirective: Record<string, { count: number; totalTime: number }> = {};
+
+		for (const [id, stats] of effects) {
+			const directive = id.split(":")[0];
+			if (!byDirective[directive]) byDirective[directive] = { count: 0, totalTime: 0 };
+			byDirective[directive].count += stats.count;
+			byDirective[directive].totalTime += stats.totalTime;
+		}
+
+		const sorted = effects
+			.map(([id, s]) => ({
+				id,
+				executionCount: s.count,
+				totalTime: s.totalTime,
+				avgTime: s.count > 0 ? s.totalTime / s.count : 0,
+			}))
+			.sort((a, b) => b.totalTime - a.totalTime)
+			.slice(0, 10);
+
+		return {
+			lifecycle: this._perfData.lifecycle,
+			effects: {
+				total: effects.length,
+				byDirective,
+				slowest: sorted,
+			},
+			observers: this.getObserverStats(),
+		};
+	}
+
+	/**
+	 * Override effect() to add performance tracking.
+	 * Tracks effect execution time and logs slow effects (>16ms).
+	 */
+	override effect<T>(observer: () => T, meta?: EffectMeta): T {
+		// Skip tracking if debugging is off.
+		if (!this.shouldLog("lifecycle")) {
+			return super.effect(observer, meta);
+		}
+
+		const startTime = performance.now();
+		const result = super.effect(observer, meta);
+		const duration = performance.now() - startTime;
+
+		// Record effect execution for performance report.
+		if (meta) {
+			this.recordEffectExecution(meta, duration);
+		}
+
+		// Log slow effects (>16ms = potentially dropped frame).
+		if (duration > 16) {
+			console.warn(`Slow effect (${duration.toFixed(1)}ms):`, this.buildEffectId(meta));
+		}
+
+		// Log individual effect timings at 'effects' level.
+		if (this.shouldLog("effects")) {
+			console.debug(`Effect (${duration.toFixed(2)}ms):`, this.buildEffectId(meta));
+		}
+
+		return result;
 	}
 
 	/**
@@ -154,11 +320,11 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 	}
 
 	/**
-	 * Logs the provided arguments if debugging is enabled.
+	 * Logs the provided arguments if verbose debugging is enabled.
 	 * @param args - The arguments to be logged.
 	 */
 	log(...args: unknown[]): void {
-		if (this.debugging) console.debug(...args);
+		if (this.shouldLog("verbose")) console.debug(...args);
 	}
 
 	/**
@@ -173,6 +339,7 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 		root: T,
 		params?: RenderParams,
 	): Promise<T> {
+		const startTime = this.shouldLog("lifecycle") ? performance.now() : 0;
 		params = { dirpath: this.dirpath, maxdepth: 10, ...params };
 
 		const promises = new Iterator(traverse(root, this._skipNodes)).map(async (node) => {
@@ -190,6 +357,12 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 		// Wait for all the rendering operations to complete.
 		await Promise.all(promises.generator());
 
+		// Record preprocess timing.
+		if (startTime) {
+			this._perfData.lifecycle.preprocessTime =
+				(this._perfData.lifecycle.preprocessTime ?? 0) + (performance.now() - startTime);
+		}
+
 		// Return the input node, which should now be fully preprocessed.
 		return root;
 	}
@@ -206,6 +379,8 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 		root: T,
 		params?: RenderParams,
 	): Promise<T> {
+		const startTime = this.shouldLog("lifecycle") ? performance.now() : 0;
+
 		// Iterate over all the nodes and apply appropriate handlers.
 		// Do these steps one at a time to avoid any potential race conditions.
 		for (const node of traverse(root, this._skipNodes)) {
@@ -246,6 +421,12 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 			retry();
 		}
 
+		// Record render timing.
+		if (startTime) {
+			this._perfData.lifecycle.renderTime =
+				(this._perfData.lifecycle.renderTime ?? 0) + (performance.now() - startTime);
+		}
+
 		// Return the input node, which should now be fully rendered.
 		return root;
 	}
@@ -258,6 +439,11 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 	 * @returns A promise that resolves when the mounting process is complete.
 	 */
 	async mount(root: Document | DocumentFragment | Node, params?: RenderParams): Promise<void> {
+		const startTime = this.shouldLog("lifecycle") ? performance.now() : 0;
+
+		// Reset performance data for this mount cycle.
+		if (startTime) this.resetPerfData();
+
 		params = { ...params, rootNode: root };
 
 		// Attach ourselves to the HTML node.
@@ -283,5 +469,10 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 
 		// Now that the DOM is complete, render all the nodes.
 		await this.renderNode(root, params);
+
+		// Record mount timing.
+		if (startTime) {
+			this._perfData.lifecycle.mountTime = performance.now() - startTime;
+		}
 	}
 }
