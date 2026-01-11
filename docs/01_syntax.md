@@ -8,7 +8,7 @@
   ```html
   <div :data="{ name: 'Stranger' }"></div>
   ```
-- `:for` clones the node and repeats it
+- `:for` clones the node and repeats it. The loop re-renders when the array is mutated (e.g., `push`, `pop`, `splice`, or `items.length = 0` to clear).
   ```html
   <div :for="item in ['a', 'b', 'c']">{{ item }}</div>
   ```
