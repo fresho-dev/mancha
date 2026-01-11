@@ -296,6 +296,263 @@ describe("SignalStore", () => {
 			});
 		});
 
+		describe("function call reactivity", () => {
+			it("re-evaluates function when internal dependency changes", async () => {
+				const store = new SignalStore({
+					counter: 1,
+					getDouble() {
+						return this.counter * 2;
+					},
+				});
+
+				let result: number | null = null;
+				store.effect(function () {
+					result = this.getDouble();
+				});
+				assert.equal(result, 2);
+
+				await store.set("counter", 5);
+				assert.equal(result, 10);
+			});
+
+			it("re-evaluates function accessing multiple dependencies", async () => {
+				const store = new SignalStore({
+					a: 1,
+					b: 2,
+					c: 3,
+					getSum() {
+						return this.a + this.b + this.c;
+					},
+				});
+
+				let result: number | null = null;
+				store.effect(function () {
+					result = this.getSum();
+				});
+				assert.equal(result, 6);
+
+				await store.set("a", 10);
+				assert.equal(result, 15);
+
+				await store.set("b", 20);
+				assert.equal(result, 33);
+
+				await store.set("c", 30);
+				assert.equal(result, 60);
+			});
+
+			it("re-evaluates nested function calls", async () => {
+				const store = new SignalStore({
+					value: 2,
+					double() {
+						return this.value * 2;
+					},
+					quadruple() {
+						return this.double() * 2;
+					},
+				});
+
+				let result: number | null = null;
+				store.effect(function () {
+					result = this.quadruple();
+				});
+				assert.equal(result, 8);
+
+				await store.set("value", 5);
+				assert.equal(result, 20);
+			});
+
+			it("re-evaluates function accessing nested object properties", async () => {
+				const store = new SignalStore({
+					data: { count: 5 },
+					getMessage() {
+						return `Count is ${this.data.count}`;
+					},
+				});
+
+				let result: string | null = null;
+				store.effect(function () {
+					result = this.getMessage();
+				});
+				assert.equal(result, "Count is 5");
+
+				store.$.data.count = 10;
+				await new Promise((r) => setTimeout(r, 20));
+				assert.equal(result, "Count is 10");
+			});
+
+			it("re-evaluates function accessing array elements", async () => {
+				const store = new SignalStore({
+					items: [1, 2, 3],
+					getFirst() {
+						return this.items[0];
+					},
+				});
+
+				let result: number | null = null;
+				store.effect(function () {
+					result = this.getFirst();
+				});
+				assert.equal(result, 1);
+
+				store.$.items[0] = 100;
+				await new Promise((r) => setTimeout(r, 20));
+				assert.equal(result, 100);
+			});
+
+			it("re-evaluates function with conditional dependency access", async () => {
+				const store = new SignalStore({
+					useA: true,
+					a: 10,
+					b: 20,
+					getValue() {
+						return this.useA ? this.a : this.b;
+					},
+				});
+
+				let result: number | null = null;
+				store.effect(function () {
+					result = this.getValue();
+				});
+				assert.equal(result, 10);
+
+				await store.set("a", 15);
+				assert.equal(result, 15);
+
+				await store.set("useA", false);
+				assert.equal(result, 20);
+
+				await store.set("b", 25);
+				assert.equal(result, 25);
+			});
+
+			it("re-evaluates regular function (not arrow function)", async () => {
+				const store = new SignalStore({
+					x: 3,
+					compute() {
+						return this.x * this.x;
+					},
+				});
+
+				let result: number | null = null;
+				store.effect(function () {
+					result = this.compute();
+				});
+				assert.equal(result, 9);
+
+				await store.set("x", 4);
+				assert.equal(result, 16);
+			});
+
+			it("re-evaluates function via eval() expression", async () => {
+				const store = new SignalStore({
+					n: 5,
+					factorial(): number {
+						let result = 1;
+						for (let i = 2; i <= this.n; i++) result *= i;
+						return result;
+					},
+				});
+
+				let result: number | null = null;
+				store.effect(function () {
+					result = this.eval("factorial()") as number;
+				});
+				assert.equal(result, 120);
+
+				await store.set("n", 6);
+				assert.equal(result, 720);
+			});
+
+			it("re-evaluates function called via eval expression", async () => {
+				const store = new SignalStore({
+					multiplier: 2,
+					multiply(x: number) {
+						return x * this.multiplier;
+					},
+				});
+
+				let result: number | null = null;
+				store.effect(function () {
+					result = this.eval("multiply(5)") as number;
+				});
+				assert.equal(result, 10);
+
+				await store.set("multiplier", 3);
+				assert.equal(result, 15);
+			});
+
+			it("handles function that returns undefined initially", async () => {
+				const store = new SignalStore({
+					maybeData: undefined as string | undefined,
+					getData() {
+						return this.maybeData;
+					},
+				});
+
+				let result: unknown = "initial";
+				let callCount = 0;
+				store.effect(function () {
+					result = this.getData();
+					callCount++;
+				});
+				assert.equal(result, undefined);
+				assert.equal(callCount, 1);
+
+				await store.set("maybeData", "now exists");
+				assert.equal(result, "now exists");
+				assert.equal(callCount, 2);
+			});
+
+			it("tracks dependencies across multiple function calls in same effect", async () => {
+				const store = new SignalStore({
+					x: 1,
+					y: 2,
+					getX() {
+						return this.x;
+					},
+					getY() {
+						return this.y;
+					},
+				});
+
+				let result: number | null = null;
+				store.effect(function () {
+					result = this.getX() + this.getY();
+				});
+				assert.equal(result, 3);
+
+				await store.set("x", 10);
+				assert.equal(result, 12);
+
+				await store.set("y", 20);
+				assert.equal(result, 30);
+			});
+
+			it("does not trigger effect for unrelated property changes", async () => {
+				const store = new SignalStore({
+					tracked: 1,
+					untracked: 2,
+					getTracked() {
+						return this.tracked;
+					},
+				});
+
+				let callCount = 0;
+				store.effect(function () {
+					this.getTracked();
+					callCount++;
+				});
+				assert.equal(callCount, 1);
+
+				await store.set("untracked", 100);
+				assert.equal(callCount, 1);
+
+				await store.set("tracked", 10);
+				assert.equal(callCount, 2);
+			});
+		});
+
 		describe("optional chaining", () => {
 			it("optional property access", async () => {
 				const store = new SignalStore({ a: { b: 1 }, c: null });

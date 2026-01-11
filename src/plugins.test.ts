@@ -267,6 +267,233 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			});
 		});
 
+		describe("function call reactivity in templates", () => {
+			it("updates {{ getDouble() }} when internal dependency changes", async () => {
+				const renderer = new ctor({ counter: 1 });
+				renderer.$.getDouble = function () {
+					return this.counter * 2;
+				};
+
+				const html = `<span>{{ getDouble() }}</span>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment.firstChild as Element), "2");
+
+				await renderer.set("counter", 5);
+				assert.equal(getTextContent(fragment.firstChild as Element), "10");
+			});
+
+			it("updates :text with function call when dependency changes", async () => {
+				const renderer = new ctor({ count: 3 });
+				renderer.$.formatCount = function () {
+					return `Count: ${this.count}`;
+				};
+
+				const html = `<div :text="formatCount()"></div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment.firstChild as Element), "Count: 3");
+
+				await renderer.set("count", 10);
+				assert.equal(getTextContent(fragment.firstChild as Element), "Count: 10");
+			});
+
+			it("updates :class with function call when dependency changes", async () => {
+				const renderer = new ctor({ isActive: false });
+				renderer.$.getClass = function () {
+					return this.isActive ? "active" : "inactive";
+				};
+
+				const html = `<div :class="getClass()"></div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				const node = fragment.firstChild as Element;
+				assert.equal(getAttribute(node, "class"), "inactive");
+
+				await renderer.set("isActive", true);
+				assert.equal(getAttribute(node, "class"), "active");
+			});
+
+			it("updates :show with function call when dependency changes", async () => {
+				const renderer = new ctor({ visible: false });
+				renderer.$.shouldShow = function () {
+					return this.visible;
+				};
+
+				const html = `<div :show="shouldShow()">Content</div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				const node = fragment.firstChild as HTMLElement;
+				assert.equal(getAttribute(node, "style"), "display: none;");
+
+				await renderer.set("visible", true);
+				assert.notEqual(getAttribute(node, "style"), "display: none;");
+			});
+
+			it("updates :if with function call when dependency changes", async () => {
+				const renderer = new ctor({ show: false });
+				renderer.$.shouldRender = function () {
+					return this.show;
+				};
+
+				const html = `<div :if="shouldRender()">Visible</div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment as unknown as Element), "");
+
+				await renderer.set("show", true);
+				assert.equal(getTextContent(fragment as unknown as Element), "Visible");
+			});
+
+			it("updates function that accesses nested object property", async () => {
+				const renderer = new ctor({ user: { name: "Alice" } });
+				renderer.$.getGreeting = function () {
+					return `Hello, ${this.user.name}!`;
+				};
+
+				const html = `<span>{{ getGreeting() }}</span>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment.firstChild as Element), "Hello, Alice!");
+
+				renderer.$.user.name = "Bob";
+				await new Promise((r) => setTimeout(r, REACTIVE_DEBOUNCE_MILLIS * 2));
+				assert.equal(getTextContent(fragment.firstChild as Element), "Hello, Bob!");
+			});
+
+			it("updates function that uses this to access state", async () => {
+				const renderer = new ctor({ x: 2, y: 3 });
+				renderer.$.multiply = function () {
+					return this.x * this.y;
+				};
+
+				const html = `<span>{{ multiply() }}</span>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment.firstChild as Element), "6");
+
+				await renderer.set("x", 4);
+				assert.equal(getTextContent(fragment.firstChild as Element), "12");
+
+				await renderer.set("y", 5);
+				assert.equal(getTextContent(fragment.firstChild as Element), "20");
+			});
+
+			it("updates nested function calls when dependency changes", async () => {
+				const renderer = new ctor({ base: 2 });
+				renderer.$.double = function () {
+					return this.base * 2;
+				};
+				renderer.$.quadruple = function () {
+					return this.double() * 2;
+				};
+
+				const html = `<span>{{ quadruple() }}</span>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment.firstChild as Element), "8");
+
+				await renderer.set("base", 5);
+				assert.equal(getTextContent(fragment.firstChild as Element), "20");
+			});
+
+			it("updates function in :for loop item context", async () => {
+				const renderer = new ctor({ multiplier: 2 });
+				renderer.$.scale = function (value: number) {
+					return value * this.multiplier;
+				};
+
+				const html = `<span :for="n in [1, 2, 3]">{{ $parent.scale(n) }}</span>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				const spans = Array.from(fragment.childNodes).filter(
+					(n) => (n as Element).tagName?.toLowerCase() === "span",
+				);
+				assert.equal(spans.length, 3);
+				assert.equal(getTextContent(spans[0] as Element), "2");
+				assert.equal(getTextContent(spans[1] as Element), "4");
+				assert.equal(getTextContent(spans[2] as Element), "6");
+
+				await renderer.set("multiplier", 10);
+				await new Promise((r) => setTimeout(r, REACTIVE_DEBOUNCE_MILLIS * 2));
+				// Re-query spans as :for might re-render nodes
+				const updatedSpans = Array.from(fragment.childNodes).filter(
+					(n) => (n as Element).tagName?.toLowerCase() === "span",
+				);
+				assert.equal(getTextContent(updatedSpans[0] as Element), "10");
+				assert.equal(getTextContent(updatedSpans[1] as Element), "20");
+				assert.equal(getTextContent(updatedSpans[2] as Element), "30");
+			});
+
+			it("combines direct variable and function call in same expression", async () => {
+				const renderer = new ctor({ prefix: "Result", value: 5 });
+				renderer.$.compute = function () {
+					return this.value * 2;
+				};
+
+				const html = `<span>{{ prefix }}: {{ compute() }}</span>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment.firstChild as Element), "Result: 10");
+
+				await renderer.set("value", 7);
+				assert.equal(getTextContent(fragment.firstChild as Element), "Result: 14");
+
+				await renderer.set("prefix", "Output");
+				assert.equal(getTextContent(fragment.firstChild as Element), "Output: 14");
+			});
+
+			it("updates function with array dependency", async () => {
+				const renderer = new ctor({ items: [1, 2, 3] });
+				renderer.$.getSum = function () {
+					return this.items.reduce((a: number, b: number) => a + b, 0);
+				};
+
+				const html = `<span>{{ getSum() }}</span>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment.firstChild as Element), "6");
+
+				renderer.$.items.push(4);
+				await new Promise((r) => setTimeout(r, REACTIVE_DEBOUNCE_MILLIS * 2));
+				assert.equal(getTextContent(fragment.firstChild as Element), "10");
+			});
+
+			it("does not update when unrelated property changes", async () => {
+				const renderer = new ctor({ tracked: 1, untracked: 100 });
+				let callCount = 0;
+				renderer.$.getTracked = function () {
+					callCount++;
+					return this.tracked;
+				};
+
+				const html = `<span>{{ getTracked() }}</span>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment.firstChild as Element), "1");
+				const initialCalls = callCount;
+
+				await renderer.set("untracked", 200);
+				assert.equal(callCount, initialCalls, "Should not re-call function for unrelated change");
+
+				await renderer.set("tracked", 2);
+				assert.equal(callCount, initialCalls + 1, "Should re-call for tracked change");
+				assert.equal(getTextContent(fragment.firstChild as Element), "2");
+			});
+		});
+
 		describe(":data", () => {
 			it("initializes unseen value", async () => {
 				const renderer = new ctor();
