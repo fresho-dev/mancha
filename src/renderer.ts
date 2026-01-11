@@ -89,9 +89,29 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 	}
 
 	/**
-	 * Resets performance data. Called at the start of mount().
+	 * Clears accumulated performance data. Called automatically at the start of `mount()`.
+	 *
+	 * Use this to reset performance tracking before measuring a specific user flow.
+	 * After clearing, only effects and lifecycle events from subsequent operations
+	 * will be included in the next `getPerformanceReport()` call.
+	 *
+	 * @example
+	 * ```js
+	 * // Setup phase
+	 * $.debug('lifecycle');
+	 * await $.mount(document.body);
+	 *
+	 * // Clear to start fresh measurement
+	 * $.clearPerformanceReport();
+	 *
+	 * // Perform user flow to measure
+	 * $.items = generateLargeList();
+	 *
+	 * // Get report for just this flow
+	 * const report = $.getPerformanceReport();
+	 * ```
 	 */
-	private resetPerfData(): void {
+	clearPerformanceReport(): void {
 		this._perfData = { lifecycle: {}, effects: new Map() };
 	}
 
@@ -155,7 +175,7 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 	/**
 	 * Returns a structured performance report.
 	 */
-	performanceReport(): PerformanceReport {
+	getPerformanceReport(): PerformanceReport {
 		const effects = Array.from(this._perfData.effects.entries());
 		const byDirective: Record<string, { count: number; totalTime: number }> = {};
 
@@ -442,7 +462,7 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 		const startTime = this.shouldLog("lifecycle") ? performance.now() : 0;
 
 		// Reset performance data for this mount cycle.
-		if (startTime) this.resetPerfData();
+		if (startTime) this.clearPerformanceReport();
 
 		params = { ...params, rootNode: root };
 
