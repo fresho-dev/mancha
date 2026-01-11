@@ -163,6 +163,9 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 				return false;
 			},
 			set: (target: U, prop: string | symbol, value: unknown, receiver: unknown): boolean => {
+				// Skip if the value is unchanged.
+				if (Reflect.get(target, prop, receiver) === value) return true;
+
 				if (typeof value === "object" && value !== null) {
 					value = this.wrapObject(value as object, callback);
 				}
