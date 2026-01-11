@@ -359,7 +359,7 @@ describe("Browser", () => {
 
 			assert.ok(document.getElementById("mancha-cloak"), "Style should exist before init");
 
-			const target = createTestElement("cloak-test-manual-no-opt");
+			createTestElement("cloak-test-manual-no-opt");
 
 			await initMancha({
 				target: "#cloak-test-manual-no-opt",

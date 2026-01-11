@@ -2,6 +2,15 @@ import * as chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { DomUtils } from "htmlparser2";
 import { hasProperty } from "./dome.js";
+import { REACTIVE_DEBOUNCE_MILLIS } from "./store.js";
+
+/** Time to sleep for reactive side effects to complete (1.1x debounce time). */
+export const REACTIVE_SLEEP_MS = Math.ceil(REACTIVE_DEBOUNCE_MILLIS * 1.1);
+
+/** Sleep for the reactive debounce period to allow side effects to complete. */
+export function sleepForReactivity(): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, REACTIVE_SLEEP_MS));
+}
 
 export function innerHTML(elem: Element): string {
 	if (hasProperty(elem, "innerHTML")) return elem.innerHTML;

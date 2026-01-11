@@ -1,5 +1,5 @@
 import { SignalStore } from "./store.js";
-import { assert } from "./test_utils.js";
+import { assert, sleepForReactivity } from "./test_utils.js";
 
 describe("SignalStore", () => {
 	describe("properties", () => {
@@ -477,7 +477,7 @@ describe("SignalStore", () => {
 				const result = await store.eval(fn);
 				assert.equal(result, 1);
 				assert.deepEqual(store.get("x"), { a: 1 });
-				await new Promise((resolve) => setTimeout(resolve, 10));
+				await sleepForReactivity();
 				assert.equal(notified, 2);
 			});
 
@@ -777,7 +777,60 @@ describe("SignalStore", () => {
 		});
 	});
 
-	// TODO: Test setting objects and arrays as store values.
+	describe("wrapped object reactivity", () => {
+		it("does not trigger observer when setting same primitive value on nested object", async () => {
+			const store = new SignalStore({ obj: { count: 0 } });
+			let observerCalls = 0;
+
+			store.effect(function () {
+				this.obj.count;
+				observerCalls++;
+			});
+
+			// Initial call during effect setup.
+			assert.equal(observerCalls, 1);
+
+			// Setting the same value should NOT trigger the observer.
+			store.$.obj.count = 0;
+			await sleepForReactivity();
+			assert.equal(observerCalls, 1, "Observer should not trigger when setting same value");
+		});
+
+		it("does not trigger observer when clearing an already empty array", async () => {
+			const store = new SignalStore({ items: [] as number[] });
+			let observerCalls = 0;
+
+			store.effect(function () {
+				this.items.length;
+				observerCalls++;
+			});
+
+			// Initial call during effect setup.
+			assert.equal(observerCalls, 1);
+
+			// Clearing an already empty array should NOT trigger the observer.
+			store.$.items.length = 0;
+			await sleepForReactivity();
+			assert.equal(observerCalls, 1, "Observer should not trigger when array is already empty");
+		});
+
+		it("still triggers observer when value actually changes", async () => {
+			const store = new SignalStore({ obj: { count: 0 } });
+			let observerCalls = 0;
+
+			store.effect(function () {
+				this.obj.count;
+				observerCalls++;
+			});
+
+			assert.equal(observerCalls, 1);
+
+			// Setting a different value SHOULD trigger the observer.
+			store.$.obj.count = 1;
+			await sleepForReactivity();
+			assert.equal(observerCalls, 2, "Observer should trigger when value changes");
+		});
+	});
 
 	describe("typed store", () => {
 		it("provides typed access via $ proxy", () => {
@@ -809,7 +862,7 @@ describe("SignalStore", () => {
 			assert.equal(store.$.value, 1);
 
 			store.$.value = 42;
-			await new Promise((resolve) => setTimeout(resolve, 20));
+			await sleepForReactivity();
 			assert.equal(store.$.value, 42);
 		});
 
