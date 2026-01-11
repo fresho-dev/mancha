@@ -363,7 +363,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(getTextContent(fragment.firstChild as Element), "Hello, Alice!");
 
 				renderer.$.user.name = "Bob";
-				await new Promise((r) => setTimeout(r, REACTIVE_DEBOUNCE_MILLIS * 2));
+				await sleepForReactivity();
 				assert.equal(getTextContent(fragment.firstChild as Element), "Hello, Bob!");
 			});
 
@@ -424,7 +424,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(getTextContent(spans[2] as Element), "6");
 
 				await renderer.set("multiplier", 10);
-				await new Promise((r) => setTimeout(r, REACTIVE_DEBOUNCE_MILLIS * 2));
+				await sleepForReactivity();
 				// Re-query spans as :for might re-render nodes
 				const updatedSpans = Array.from(fragment.childNodes).filter(
 					(n) => (n as Element).tagName?.toLowerCase() === "span",
@@ -466,7 +466,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(getTextContent(fragment.firstChild as Element), "6");
 
 				renderer.$.items.push(4);
-				await new Promise((r) => setTimeout(r, REACTIVE_DEBOUNCE_MILLIS * 2));
+				await sleepForReactivity();
 				assert.equal(getTextContent(fragment.firstChild as Element), "10");
 			});
 
