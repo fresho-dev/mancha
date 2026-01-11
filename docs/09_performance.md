@@ -33,7 +33,7 @@ $.debug('off');
 | `effects`  | Same as lifecycle           | Above + individual effect timings       |
 | `verbose`  | Same as lifecycle           | Above + all internal logging            |
 
-The `lifecycle` level is the recommended default for performance analysis. It tracks all the data needed for `performanceReport()` while keeping console output minimal.
+The `lifecycle` level is the recommended default for performance analysis. It tracks all the data needed for `getPerformanceReport()` while keeping console output minimal.
 
 ## Performance Reports
 
@@ -44,7 +44,7 @@ const { $ } = Mancha;
 $.debug('lifecycle');
 await $.mount(document.body);
 
-const report = $.performanceReport();
+const report = $.getPerformanceReport();
 console.log(report);
 ```
 
@@ -84,6 +84,28 @@ console.log(report);
   }
 }
 ```
+
+## Measuring Specific User Flows
+
+By default, performance data resets on each `mount()` call. To measure a specific user flow (like a button click or data update) after the initial mount, use `clearPerformanceReport()`:
+
+```js
+const { $ } = Mancha;
+$.debug('lifecycle');
+await $.mount(document.body);
+
+// Setup is complete. Now measure a specific user flow.
+$.clearPerformanceReport();
+
+// Perform the user flow you want to measure.
+$.items = await fetchLargeDataset();
+
+// Get the report for just this flow.
+const report = $.getPerformanceReport();
+console.log('User flow effects:', report.effects.slowest);
+```
+
+This is useful for optimizing specific interactions without the noise of initial mount timing.
 
 ## Effect Identification
 
@@ -127,7 +149,7 @@ This helps identify render bottlenecks without needing to analyze the full perfo
 
 ### 1. Profile Before Optimizing
 
-Always measure before making changes. Enable debugging, interact with your application, then check `performanceReport()`:
+Always measure before making changes. Enable debugging, interact with your application, then check `getPerformanceReport()`:
 
 ```js
 $.debug('lifecycle');
@@ -135,7 +157,7 @@ await $.mount(document.body);
 
 // Interact with your application...
 
-console.table($.performanceReport().effects.slowest);
+console.table($.getPerformanceReport().effects.slowest);
 ```
 
 ### 2. Add data-perfid to Critical Elements
@@ -155,7 +177,7 @@ For elements in loops or those with complex expressions, add `data-perfid` for c
 High observer counts on a single key can indicate performance issues:
 
 ```js
-const report = $.performanceReport();
+const report = $.getPerformanceReport();
 for (const [key, count] of Object.entries(report.observers.byKey)) {
   if (count > 50) {
     console.warn(`Key "${key}" has ${count} observers - consider restructuring`);
@@ -171,10 +193,10 @@ Performance data automatically resets when `mount()` is called. This means each 
 $.debug('lifecycle');
 
 await $.mount(element1);
-console.log($.performanceReport()); // Data for element1
+console.log($.getPerformanceReport()); // Data for element1
 
 await $.mount(element2);
-console.log($.performanceReport()); // Fresh data for element2 only
+console.log($.getPerformanceReport()); // Fresh data for element2 only
 ```
 
 ### 5. Disable in Production
@@ -201,7 +223,7 @@ if (process.env.NODE_ENV !== 'production') {
   Mancha.debug('lifecycle');
   await Mancha.mount(document.body);
 
-  const report = Mancha.performanceReport();
+  const report = Mancha.getPerformanceReport();
 
   // Check which directives are slowest
   console.log('By directive:', report.effects.byDirective);
