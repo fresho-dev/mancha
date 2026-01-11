@@ -83,6 +83,68 @@ Renderers also have a `$parent`, `$rootRenderer` and `$rootNode` attributes. The
 
 While evaluating expressions, there will also be an `$elem` attribute which references the current element being rendered or, in the case of events, the element dispatching the event as well as the corresponding `$event` attribute.
 
+## Observer Triggering
+
+Observers only trigger when a value actually changes. Setting a variable to the same value it already holds will not notify observers or cause re-renders:
+
+```js
+const { $ } = Mancha;
+$.count = 5;
+$.count = 5; // No observer triggered - value unchanged
+$.count = 6; // Observers triggered - value changed
+```
+
+This optimization applies to both top-level variables and nested object/array properties:
+
+```js
+$.user = { name: "Alice" };
+$.user.name = "Alice"; // No observer triggered - same value
+$.user.name = "Bob";   // Observers triggered
+```
+
+### Working with Arrays
+
+Arrays in `mancha` are wrapped in reactive proxies, so mutations like `push`, `pop`, `splice`, and direct index assignment will trigger observers:
+
+```js
+$.items = ["a", "b", "c"];
+$.items.push("d");    // Observers triggered
+$.items[0] = "x";     // Observers triggered
+$.items.pop();        // Observers triggered
+```
+
+To clear an array while triggering observers, set its length to zero:
+
+```js
+$.items.length = 0;   // Clears the array, observers triggered
+```
+
+Note that clearing an already-empty array will not trigger observers since the length is unchanged:
+
+```js
+$.items = [];
+$.items.length = 0;   // No observer triggered - already empty
+```
+
+### Replacing vs. Mutating
+
+When you assign a new array or object, observers always trigger because the reference changes:
+
+```js
+$.items = [];
+$.items = []; // Observers triggered - different array reference
+```
+
+If you want to avoid triggering observers when the content is logically the same, mutate the existing array instead of replacing it:
+
+```js
+// This always triggers (new reference):
+$.items = [];
+
+// This only triggers if the array wasn't already empty:
+$.items.length = 0;
+```
+
 ## URL Query Parameter Binding
 
 `mancha` provides a convenient way to establish a two-way binding between the state of your application and the URL query parameters. This is useful for preserving state across page reloads and for sharing links that restore the application to a specific state.

@@ -2,13 +2,13 @@ import type { ElementWithAttribs } from "./dome.js";
 import { dirname, firstElementChild, getAttribute, traverse } from "./dome.js";
 import type { IRenderer } from "./renderer.js";
 import type { StoreState } from "./store.js";
-import { REACTIVE_DEBOUNCE_MILLIS } from "./store.js";
 import {
 	assert,
 	getTextContent,
 	innerHTML,
 	setInnerHTML,
 	setupGlobalTestEnvironment,
+	sleepForReactivity,
 } from "./test_utils.js";
 
 interface RenderedState {
@@ -258,11 +258,11 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(textNode.data, "Hello World");
 
 				renderer.set("name", "Stranger");
-				await new Promise((resolve) => setTimeout(resolve, 10));
+				await sleepForReactivity();
 				assert.equal(textNode.data, "Hello Stranger");
 
 				renderer.set("name", "John");
-				await new Promise((resolve) => setTimeout(resolve, 10));
+				await sleepForReactivity();
 				assert.equal(textNode.data, "Hello John");
 			});
 		});
@@ -582,7 +582,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(renderer.$.counter, 0);
 
 				node.click?.();
-				await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
+				await sleepForReactivity();
 				assert.equal(renderer.$.counter, 1);
 			});
 
@@ -598,7 +598,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 
 				const event = new window.Event("click", { cancelable: true });
 				node.dispatchEvent(event);
-				await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
+				await sleepForReactivity();
 				assert.equal(renderer.$.counter, 1);
 				assert.equal(event.defaultPrevented, true);
 			});
@@ -654,14 +654,14 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 
 				// Add a single item.
 				renderer.$.items = ["foo"];
-				await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
+				await sleepForReactivity();
 				const children1 = Array.from(parent?.childNodes || []);
 				assert.equal(children1.length, renderer.$.items.length + 1);
 				assert.equal(getTextContent(children1[1] as Element), "foo");
 
 				// Add multiple items.
 				renderer.$.items.push("bar", "baz");
-				await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
+				await sleepForReactivity();
 				const children2 = Array.from(parent?.childNodes || []);
 				assert.equal(children2.length, renderer.$.items.length + 1);
 				assert.equal(getTextContent(children2[1] as Element), "foo");
@@ -670,7 +670,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 
 				// Remove one item.
 				renderer.$.items.pop();
-				await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
+				await sleepForReactivity();
 				const children3 = Array.from(parent?.childNodes || []);
 				assert.equal(children3.length, renderer.$.items.length + 1);
 				assert.equal(getTextContent(children3[1] as Element), "foo");
@@ -865,7 +865,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				// Update the node value, and watch the store value react.
 				node.value = "qux";
 				node.dispatchEvent(new globalThis.window.Event("change"));
-				await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
+				await sleepForReactivity();
 				assert.equal(renderer.get("foo"), "qux");
 			});
 
@@ -915,10 +915,10 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				// Update the node value, and watch the store value react only to the right event.
 				node.value = "qux";
 				node.dispatchEvent(new globalThis.window.Event("change"));
-				await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
+				await sleepForReactivity();
 				assert.equal(renderer.get("foo"), "baz");
 				node.dispatchEvent(new globalThis.window.Event("my-custom-event"));
-				await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
+				await sleepForReactivity();
 				assert.equal(renderer.get("foo"), "qux");
 			});
 
