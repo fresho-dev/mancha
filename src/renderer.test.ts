@@ -186,7 +186,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 		});
 	});
 
-	describe("performanceReport", () => {
+	describe("getPerformanceReport", () => {
 		it("returns a performance report with lifecycle timing", async () => {
 			const renderer = new ctor();
 			renderer.debug(true);
@@ -194,7 +194,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			const fragment = renderer.parseHTML(html);
 			await renderer.mount(fragment);
 
-			const report = renderer.performanceReport();
+			const report = renderer.getPerformanceReport();
 			assert.ok(report.lifecycle);
 			assert.ok(report.lifecycle.mountTime !== undefined, "mountTime should be defined");
 			assert.ok((report.lifecycle.mountTime as number) >= 0, "mountTime should be >= 0");
@@ -207,7 +207,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			const fragment = renderer.parseHTML(html);
 			await renderer.mount(fragment);
 
-			const report = renderer.performanceReport();
+			const report = renderer.getPerformanceReport();
 			assert.ok(report.effects);
 			assert.ok(typeof report.effects.total === "number");
 			assert.ok(report.effects.total >= 0);
@@ -220,7 +220,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			const fragment = renderer.parseHTML(html);
 			await renderer.mount(fragment);
 
-			const report = renderer.performanceReport();
+			const report = renderer.getPerformanceReport();
 			assert.ok(report.observers);
 			assert.ok(typeof report.observers.totalKeys === "number");
 			assert.ok(typeof report.observers.totalObservers === "number");
@@ -233,18 +233,63 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			const fragment1 = renderer.parseHTML(html1);
 			await renderer.mount(fragment1);
 
-			const report1 = renderer.performanceReport();
+			const report1 = renderer.getPerformanceReport();
 			const _mountTime1 = report1.lifecycle.mountTime;
 
 			const html2 = "<span>simple</span>";
 			const fragment2 = renderer.parseHTML(html2);
 			await renderer.mount(fragment2);
 
-			const report2 = renderer.performanceReport();
+			const report2 = renderer.getPerformanceReport();
 			// Second mount should have reset the data, so mountTime should be different.
 			assert.ok(typeof report2.lifecycle.mountTime === "number");
 			// The second mount is simpler, but we can't guarantee it's faster, so just check it exists.
 			assert.ok(report2.lifecycle.mountTime !== undefined);
+		});
+	});
+
+	describe("clearPerformanceReport", () => {
+		it("clears accumulated performance data", async () => {
+			const renderer = new ctor({ value: "hello" });
+			renderer.debug(true);
+			const html = '<div :text="value"></div>';
+			const fragment = renderer.parseHTML(html);
+			await renderer.mount(fragment);
+
+			// Verify we have data.
+			const report1 = renderer.getPerformanceReport();
+			assert.ok(report1.lifecycle.mountTime !== undefined);
+
+			// Clear the data.
+			renderer.clearPerformanceReport();
+
+			// Verify the data was cleared.
+			const report2 = renderer.getPerformanceReport();
+			assert.equal(report2.lifecycle.mountTime, undefined);
+			assert.equal(report2.lifecycle.preprocessTime, undefined);
+			assert.equal(report2.lifecycle.renderTime, undefined);
+			assert.equal(report2.effects.total, 0);
+		});
+
+		it("allows measuring a specific user flow after mount", async () => {
+			const renderer = new ctor({ items: [1, 2, 3] });
+			renderer.debug(true);
+			const html = '<ul><li :for="item in items">{{ item }}</li></ul>';
+			const fragment = renderer.parseHTML(html);
+			await renderer.mount(fragment);
+
+			// Clear to start fresh measurement.
+			renderer.clearPerformanceReport();
+
+			// Simulate a user flow by updating data.
+			await renderer.set("items", [1, 2, 3, 4, 5]);
+
+			// Get report for just this flow.
+			const report = renderer.getPerformanceReport();
+
+			// Should have effect data from the update, but no lifecycle timing.
+			assert.equal(report.lifecycle.mountTime, undefined);
+			assert.ok(report.effects.total >= 0);
 		});
 	});
 
