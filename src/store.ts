@@ -38,11 +38,11 @@ type ObserverEntry = {
 // biome-ignore lint/suspicious/noExplicitAny: Proxy needs to handle dynamic props
 type SignalStoreProxy = SignalStore & InternalStoreState & { [key: string]: any };
 type Observer<T> = (this: SignalStoreProxy) => T;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type KeyValueHandler = (this: SignalStoreProxy, key: string, value: unknown) => void;
+type AnyFunction = (...args: unknown[]) => unknown;
 
 abstract class IDebouncer {
-	timeouts: Map<(...args: unknown[]) => unknown, ReturnType<typeof setTimeout>> = new Map();
+	timeouts: Map<AnyFunction, ReturnType<typeof setTimeout>> = new Map();
 
 	debounce<T>(millis: number, callback: () => T | Promise<T>): Promise<T> {
 		return new Promise((resolve, reject) => {
@@ -131,7 +131,6 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 	protected readonly expressionCache: Map<string, EvalFunction> = new Map();
 	protected readonly observers = new Map<string, Set<ObserverEntry>>();
 	protected readonly keyHandlers = new Map<RegExp, Set<KeyValueHandler>>();
-	protected _observer: Observer<unknown> | null = null;
 	readonly _store = new Map<string, unknown>();
 	_lock: Promise<void> = Promise.resolve();
 
@@ -142,11 +141,6 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 			// the return value since we know that no observers will be triggered.
 			this.set(key, value);
 		}
-	}
-
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-	private wrapFunction(fn: (...args: unknown[]) => unknown): (...args: unknown[]) => unknown {
-		return (...args: unknown[]) => fn.call(this.$, ...args);
 	}
 
 	private wrapObject<U extends object>(obj: U, callback: () => void): U {
@@ -223,9 +217,8 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 		// Early return if the key exists in this store and has the same value.
 		if (this._store.has(key) && value === this._store.get(key)) return;
 		const callback = () => this.notify(key);
-		if (value && typeof value === "function") {
-			value = this.wrapFunction(value as (...args: unknown[]) => unknown);
-		}
+		// Note: Functions are NOT wrapped here. They are wrapped dynamically at access
+		// time in proxify() to ensure the correct observer context is used.
 		if (value && typeof value === "object") {
 			value = this.wrapObject(value, callback);
 		}
@@ -290,6 +283,21 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 	private proxify<T>(observer?: Observer<T>): SignalStoreProxy {
 		const keys = Array.from(this._store.entries()).map(([key]) => key);
 		const keyval = Object.fromEntries(keys.map((key) => [key, null]));
+
+		// Wraps a function to use the receiver proxy as `this`, ensuring proper
+		// context and dependency tracking when the function accesses reactive properties.
+		// Skips "constructor" as it needs to be callable with `new`.
+		const wrapMaybeFunction = (
+			value: unknown,
+			prop: string | symbol,
+			receiver: unknown,
+		): unknown => {
+			if (typeof value === "function" && prop !== "constructor") {
+				return (...args: unknown[]) => (value as AnyFunction).call(receiver, ...args);
+			}
+			return value;
+		};
+
 		return new Proxy(keyval as SignalStoreProxy, {
 			has: (_, prop) => {
 				if (typeof prop === "string") {
@@ -302,7 +310,13 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 			get: (_, prop, receiver) => {
 				if (typeof prop === "string") {
 					if (getAncestorKeyStore(this, prop)) {
-						return this.get(prop, observer);
+						const value = this.get(prop, observer);
+						// If the value is a SignalStore (e.g., $parent) and we have an
+						// observer, return it as a proxy for proper dependency tracking.
+						if (observer && value instanceof SignalStore) {
+							return value.proxify(observer);
+						}
+						return wrapMaybeFunction(value, prop, receiver);
 					}
 					// If the property is not found, but we are observing, we assume it's a
 					// state variable that hasn't been initialized yet. We initialize it to
@@ -316,7 +330,8 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 				if (prop === "$") {
 					return this.proxify(observer);
 				} else {
-					return Reflect.get(this, prop, receiver);
+					const value = Reflect.get(this, prop, receiver);
+					return wrapMaybeFunction(value, prop, receiver);
 				}
 			},
 			set: (_, prop, value, receiver) => {
@@ -388,8 +403,9 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 	}
 
 	eval(expr: string, args: Record<string, unknown> = {}): unknown {
-		// Determine whether we have already been proxified to avoid doing it again.
-		const thisArg = this._observer ? (this as unknown as SignalStoreProxy) : this.$;
+		// Use this.$ which returns a proxy. When called through an effect's proxy,
+		// this.$ inherits the observer for proper dependency tracking.
+		const thisArg = this.$;
 		if (this._store.has(expr)) {
 			// Shortcut: if the expression is just an item from the value store, use that directly.
 			return thisArg[expr];
