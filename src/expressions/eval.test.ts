@@ -234,4 +234,64 @@ describe("Evaluator", () => {
 			);
 		});
 	});
+
+	describe("Arrow Function this Binding", () => {
+		it("should use captured scope when called normally", () => {
+			const scope = { x: 10 };
+			const node = factory.arrowFunction([], factory.id("x"));
+			const fn = evalNode(node, scope) as () => unknown;
+			// Called without .call(), uses captured scope
+			assert.equal(fn(), 10);
+		});
+
+		it("should use bound this when called with .call()", () => {
+			const capturedScope = { x: 10 };
+			const boundScope = { x: 99 };
+			const node = factory.arrowFunction([], factory.id("x"));
+			const fn = evalNode(node, capturedScope) as () => unknown;
+			// Called with .call(), uses bound scope
+			assert.equal(fn.call(boundScope), 99);
+		});
+
+		it("should fall back to captured scope when this is undefined", () => {
+			const scope = { x: 42 };
+			const node = factory.arrowFunction([], factory.id("x"));
+			const fn = evalNode(node, scope) as () => unknown;
+			// Called with .call(undefined), falls back to captured scope
+			assert.equal(fn.call(undefined), 42);
+		});
+
+		it("should prioritize function parameters over scope", () => {
+			const boundScope = { x: 100 };
+			const node = factory.arrowFunction(["x"], factory.id("x"));
+			const fn = evalNode(node, {}) as (x: number) => unknown;
+			// Parameter x should take precedence over bound scope
+			assert.equal(fn.call(boundScope, 5), 5);
+		});
+
+		it("should work with expressions accessing bound scope", () => {
+			const boundScope = { a: 3, b: 4 };
+			const node = factory.arrowFunction(
+				[],
+				factory.binary(factory.id("a"), "+", factory.id("b")),
+			);
+			const fn = evalNode(node, {}) as () => unknown;
+			assert.equal(fn.call(boundScope), 7);
+		});
+
+		it("should work in map-like scenarios with captured scope", () => {
+			const scope = {
+				multiplier: 2,
+				items: [1, 2, 3],
+			};
+			// Simulates: items.map((x) => x * multiplier)
+			const arrowNode = factory.arrowFunction(
+				["x"],
+				factory.binary(factory.id("x"), "*", factory.id("multiplier")),
+			);
+			const fn = evalNode(arrowNode, scope) as (x: number) => number;
+			const result = scope.items.map(fn);
+			assert.deepEqual(result, [2, 4, 6]);
+		});
+	});
 });
