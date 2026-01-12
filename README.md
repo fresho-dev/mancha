@@ -43,7 +43,7 @@ Here's a small sample of the things that you can do with `mancha`:
 | Feature               | mancha | Svelte | React.js | Vue.js | petite-vue | Alpine.js |
 | --------------------- | ------ | ------ | -------- | ------ | ---------- | --------- |
 | Simple to learn       | ✔️     | ❌     | ❌       | ❌     | ✔️         | ✔️        |
-| < 16kb compressed     | ✔️     | ✔️     | ❌       | ❌     | ✔️         | ❌        |
+| < 18kb compressed     | ✔️     | ✔️     | ❌       | ❌     | ✔️         | ❌        |
 | Custom web components | ✔️     | ✔️     | ✔️       | ✔️     | ❌         | ❌        |
 | Client-side rendering | ✔️     | ❌     | ❌       | ✔️     | ✔️         | ✔️        |
 | Server-side rendering | ✔️     | ✔️     | ✔️       | ✔️     | ❌         | ❌        |
