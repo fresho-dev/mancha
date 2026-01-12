@@ -1300,6 +1300,197 @@ describe("SignalStore", () => {
 			await sleepForReactivity();
 			assert.equal(observerCalls, 2, "Observer should trigger when value changes");
 		});
+
+		it("prevents infinite loop when object method modifies internal state", async () => {
+			// Issue #26: Simulates class instances (like Chess.js) that modify internal
+			// state when methods are called. Without loop prevention, this causes infinite loops.
+			let callCount = 0;
+
+			// Create an object that modifies internal state when methods are called.
+			const statefulObject = {
+				_internalCounter: 0,
+				getValue() {
+					// Simulate Chess.js behavior: reading a value modifies internal state.
+					this._internalCounter++;
+					return this._internalCounter;
+				},
+			};
+
+			const store = new SignalStore({ obj: statefulObject });
+
+			store.effect(function () {
+				callCount++;
+				if (callCount > 100) return; // Safety limit.
+				// Calling getValue() modifies _internalCounter, triggering proxy set trap.
+				this.obj.getValue();
+			});
+
+			// Initial call.
+			assert.equal(callCount, 1);
+
+			// Wait for any cascading notifications.
+			await sleepForReactivity();
+
+			// Should remain at 1 - internal state changes should not re-trigger the observer.
+			assert.ok(callCount < 10, `Expected < 10 calls, got ${callCount}`);
+		});
+
+		it("prevents infinite loop with mutually updating properties", async () => {
+			// Test case: two properties that would update each other.
+			let callCount = 0;
+
+			const store = new SignalStore({
+				a: 0,
+				b: 0,
+				updateBoth() {
+					// Modifying both properties in one method.
+					this.a++;
+					this.b++;
+				},
+			});
+
+			store.effect(function () {
+				callCount++;
+				if (callCount > 100) return; // Safety limit.
+				// Trigger updates to both properties.
+				this.updateBoth();
+			});
+
+			assert.equal(callCount, 1);
+			await sleepForReactivity();
+
+			// Multiple notifications may fire due to a and b being different keys,
+			// but it should be bounded, not infinite.
+			assert.ok(callCount < 20, `Expected < 20 calls, got ${callCount}`);
+		});
+
+		it("prevents infinite loop when variable updates itself inside observer", async () => {
+			let callCount = 0;
+
+			const store = new SignalStore({ counter: 0 });
+
+			store.effect(function () {
+				callCount++;
+				if (callCount > 100) return; // Safety limit.
+				// Attempt to update the same variable being observed.
+				this.counter++;
+			});
+
+			assert.equal(callCount, 1);
+			await sleepForReactivity();
+
+			// The self-update during notification should be blocked.
+			assert.ok(callCount < 10, `Expected < 10 calls, got ${callCount}`);
+		});
+
+		it("works correctly with observers in ancestor stores", async () => {
+			// Child store observes parent value, parent value change triggers child observer.
+			const parent = new SignalStore({ sharedValue: 0 });
+			const child = new SignalStore<{ sharedValue: number }>({
+				$parent: parent,
+			} as unknown as { sharedValue: number });
+
+			let parentCalls = 0;
+			let childCalls = 0;
+
+			parent.effect(function () {
+				parentCalls++;
+				this.sharedValue;
+			});
+
+			child.effect(function () {
+				childCalls++;
+				this.sharedValue;
+			});
+
+			assert.equal(parentCalls, 1);
+			assert.equal(childCalls, 1);
+
+			// Update from parent.
+			parent.$.sharedValue = 1;
+			await sleepForReactivity();
+
+			// Both observers should have been called.
+			assert.ok(parentCalls >= 2, "Parent observer should be notified");
+			assert.ok(childCalls >= 2, "Child observer should be notified");
+
+			// Should not cause infinite loops.
+			assert.ok(parentCalls < 10, `Parent calls should be bounded, got ${parentCalls}`);
+			assert.ok(childCalls < 10, `Child calls should be bounded, got ${childCalls}`);
+		});
+
+		it("works correctly when child store modifies parent value", async () => {
+			const parent = new SignalStore({ count: 0 });
+			const child = new SignalStore<{ count: number }>({
+				$parent: parent,
+			} as unknown as { count: number });
+
+			let callCount = 0;
+
+			child.effect(function () {
+				callCount++;
+				if (callCount > 100) return; // Safety limit.
+				// Child modifying parent value.
+				this.count++;
+			});
+
+			assert.equal(callCount, 1);
+			await sleepForReactivity();
+
+			// Should not cause infinite loops.
+			assert.ok(callCount < 10, `Expected < 10 calls, got ${callCount}`);
+		});
+
+		it("handles deeply nested object modifications without loops", async () => {
+			let callCount = 0;
+
+			const store = new SignalStore({
+				root: {
+					level1: {
+						level2: {
+							value: 0,
+							increment() {
+								this.value++;
+							},
+						},
+					},
+				},
+			});
+
+			store.effect(function () {
+				callCount++;
+				if (callCount > 100) return; // Safety limit.
+				// Deep property access and modification.
+				this.root.level1.level2.increment();
+			});
+
+			assert.equal(callCount, 1);
+			await sleepForReactivity();
+
+			// Should not cause infinite loops.
+			assert.ok(callCount < 10, `Expected < 10 calls, got ${callCount}`);
+		});
+
+		it("handles array mutations inside effects without loops", async () => {
+			let callCount = 0;
+
+			const store = new SignalStore({
+				items: [1, 2, 3],
+			});
+
+			store.effect(function () {
+				callCount++;
+				if (callCount > 100) return; // Safety limit.
+				// Array mutation inside effect.
+				this.items.push(this.items.length + 1);
+			});
+
+			assert.equal(callCount, 1);
+			await sleepForReactivity();
+
+			// Should not cause infinite loops.
+			assert.ok(callCount < 10, `Expected < 10 calls, got ${callCount}`);
+		});
 	});
 
 	describe("typed store", () => {
