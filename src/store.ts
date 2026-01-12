@@ -37,9 +37,44 @@ type ObserverEntry = {
  */
 // biome-ignore lint/suspicious/noExplicitAny: Proxy needs to handle dynamic props
 type SignalStoreProxy = SignalStore & InternalStoreState & { [key: string]: any };
+
+/**
+ * The reactive context type exposed to effects and computed functions.
+ * Includes the store's typed state T, internal state, and an index signature for dynamic access.
+ */
+export type ReactiveContext<T extends StoreState = StoreState> = SignalStore<T> &
+	InternalStoreState &
+	T &
+	Record<string, unknown>;
+
 type Observer<T> = (this: SignalStoreProxy) => T;
 type KeyValueHandler = (this: SignalStoreProxy, key: string, value: unknown) => void;
 type AnyFunction = (...args: unknown[]) => unknown;
+
+/** Symbol used to identify computed value markers. */
+const COMPUTED_MARKER = Symbol("__computed__");
+
+/** Function type for computed value definitions. Receives reactive context as `$` parameter. */
+export type ComputedFn<T extends StoreState, R> = (
+	this: ReactiveContext<T>,
+	$: ReactiveContext<T>,
+) => R;
+
+/** Marker object returned by $computed() to signal that a value should be computed reactively. */
+export interface ComputedMarker<R> {
+	[COMPUTED_MARKER]: true;
+	fn: ComputedFn<StoreState, R>;
+}
+
+/** Type guard to check if a value is a computed marker. */
+function isComputedMarker<T>(value: unknown): value is ComputedMarker<T> {
+	return (
+		value !== null &&
+		typeof value === "object" &&
+		COMPUTED_MARKER in value &&
+		(value as ComputedMarker<T>)[COMPUTED_MARKER] === true
+	);
+}
 
 abstract class IDebouncer {
 	timeouts: Map<AnyFunction, ReturnType<typeof setTimeout>> = new Map();
@@ -213,7 +248,40 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 		return getAncestorValue(this, key);
 	}
 
-	async set(key: string, value: unknown): Promise<void> {
+	private setupComputed<R>(key: string, computedFn: ComputedFn<StoreState, R>): void {
+		const store = this;
+		this.effect(function (this: ReactiveContext<T>) {
+			// Pass `this` as both the context and first argument, so arrow functions
+			// can receive the reactive proxy as `$` parameter.
+			const result = computedFn.call(this, this);
+			const oldValue = store._store.get(key);
+			// Only update and notify if value actually changed.
+			if (oldValue !== result) {
+				setAncestorValue(store, key, result);
+				// Synchronously invoke observers of the computed key to ensure
+				// cascading computed values update in the same tick.
+				const owner = getAncestorKeyStore(store, key);
+				const entries = Array.from(owner?.observers.get(key) || []);
+				for (const entry of entries) {
+					entry.observer.call(entry.store.proxify(entry.observer));
+				}
+			}
+		});
+	}
+
+	/**
+	 * Sets a value in the store.
+	 * @param key - The key to set.
+	 * @param value - The value to set (can be a computed marker).
+	 * @param local - If true, sets directly on this store bypassing ancestor lookup.
+	 *                Use for creating local scope variables that shadow ancestors.
+	 */
+	async set(key: string, value: unknown, local?: boolean): Promise<void> {
+		if (isComputedMarker(value)) {
+			this.setupComputed(key, value.fn);
+			return;
+		}
+
 		// Early return if the key exists in this store and has the same value.
 		if (this._store.has(key) && value === this._store.get(key)) return;
 		const callback = () => this.notify(key);
@@ -222,13 +290,21 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 		if (value && typeof value === "object") {
 			value = this.wrapObject(value, callback);
 		}
-		setAncestorValue(this, key, value);
 
-		// Invoke any key handlers.
-		for (const [pattern, handlers] of this.keyHandlers.entries()) {
-			if (pattern.test(key)) {
-				for (const handler of handlers) {
-					await Promise.resolve(handler.call(this.$, key, value));
+		if (local) {
+			// Set directly on this store, not on ancestors.
+			this._store.set(key, value);
+		} else {
+			setAncestorValue(this, key, value);
+		}
+
+		// Invoke any key handlers (only for non-local sets).
+		if (!local) {
+			for (const [pattern, handlers] of this.keyHandlers.entries()) {
+				if (pattern.test(key)) {
+					for (const handler of handlers) {
+						await Promise.resolve(handler.call(this.$, key, value));
+					}
 				}
 			}
 		}
@@ -275,9 +351,24 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 		};
 	}
 
-	effect<T>(observer: Observer<T>, _meta?: EffectMeta): T {
+	effect<R>(observer: (this: ReactiveContext<T>) => R, _meta?: EffectMeta): R {
 		// Base implementation ignores metadata; IRenderer overrides to add performance tracking.
-		return observer.call(this.proxify(observer));
+		return observer.call(this.proxify(observer as Observer<R>) as ReactiveContext<T>);
+	}
+
+	/**
+	 * Creates a computed value marker. When passed to set(), the function will be
+	 * evaluated in a reactive effect, and the result stored. When dependencies change,
+	 * the function re-evaluates and updates the stored value.
+	 *
+	 * @example
+	 * // Using function() to access reactive `this`:
+	 * store.set('double', store.$computed(function() { return this.count * 2 }));
+	 * // Using arrow function with $ parameter (for templates):
+	 * store.set('double', store.$computed(($) => $.count * 2));
+	 */
+	$computed<R>(fn: ComputedFn<T, R>): ComputedMarker<R> {
+		return { [COMPUTED_MARKER]: true, fn: fn as ComputedFn<StoreState, R> };
 	}
 
 	private proxify<T>(observer?: Observer<T>): SignalStoreProxy {

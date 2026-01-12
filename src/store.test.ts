@@ -1346,4 +1346,325 @@ describe("SignalStore", () => {
 			assert.equal(store.get("nullVar"), null);
 		});
 	});
+
+	describe("$computed", () => {
+		it("creates a derived value from dependencies", async () => {
+			const store = new SignalStore({ count: 2 });
+			store.set(
+				"double",
+				store.$computed(function () {
+					return this.count * 2;
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("double"), 4);
+		});
+
+		it("updates when dependency changes", async () => {
+			const store = new SignalStore({ count: 2 });
+			store.set(
+				"double",
+				store.$computed(function () {
+					return this.count * 2;
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("double"), 4);
+
+			await store.set("count", 5);
+			assert.equal(store.get("double"), 10);
+		});
+
+		it("tracks multiple dependencies", async () => {
+			const store = new SignalStore({ a: 1, b: 2 });
+			store.set(
+				"sum",
+				store.$computed(function () {
+					return this.a + this.b;
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("sum"), 3);
+
+			await store.set("a", 10);
+			assert.equal(store.get("sum"), 12);
+
+			await store.set("b", 20);
+			assert.equal(store.get("sum"), 30);
+		});
+
+		it("supports nested computed values", async () => {
+			const store = new SignalStore({ base: 2 });
+			store.set(
+				"double",
+				store.$computed(function () {
+					return this.base * 2;
+				}),
+			);
+			await sleepForReactivity();
+			store.set(
+				"quadruple",
+				store.$computed(function () {
+					return (this.double as number) * 2;
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("double"), 4);
+			assert.equal(store.get("quadruple"), 8);
+
+			await store.set("base", 3);
+			assert.equal(store.get("double"), 6);
+			assert.equal(store.get("quadruple"), 12);
+		});
+
+		it("tracks nested object properties", async () => {
+			const store = new SignalStore({ user: { name: "Alice" } });
+			store.set(
+				"greeting",
+				store.$computed(function () {
+					return `Hello, ${this.user.name}!`;
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("greeting"), "Hello, Alice!");
+
+			store.$.user.name = "Bob";
+			await sleepForReactivity();
+			assert.equal(store.get("greeting"), "Hello, Bob!");
+		});
+
+		it("tracks array dependencies", async () => {
+			const store = new SignalStore({ items: [1, 2, 3] });
+			store.set(
+				"sum",
+				store.$computed(function () {
+					return this.items.reduce((a: number, b: number) => a + b, 0);
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("sum"), 6);
+
+			store.$.items.push(4);
+			await sleepForReactivity();
+			assert.equal(store.get("sum"), 10);
+		});
+
+		it("does not update for unrelated changes", async () => {
+			const store = new SignalStore({ tracked: 1, untracked: 100 });
+			let callCount = 0;
+			store.set(
+				"derived",
+				store.$computed(function () {
+					callCount++;
+					return this.tracked * 2;
+				}),
+			);
+			await sleepForReactivity();
+
+			const initialCalls = callCount;
+			assert.equal(store.get("derived"), 2);
+
+			await store.set("untracked", 200);
+			assert.equal(callCount, initialCalls, "Should not re-compute for unrelated changes");
+
+			await store.set("tracked", 5);
+			assert.equal(callCount, initialCalls + 1, "Should re-compute for tracked changes");
+			assert.equal(store.get("derived"), 10);
+		});
+
+		it("works with conditional dependencies", async () => {
+			const store = new SignalStore({ useA: true, a: 10, b: 20 });
+			store.set(
+				"value",
+				store.$computed(function () {
+					return this.useA ? this.a : this.b;
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("value"), 10);
+
+			await store.set("useA", false);
+			assert.equal(store.get("value"), 20);
+
+			await store.set("b", 30);
+			assert.equal(store.get("value"), 30);
+		});
+
+		it("can call methods from within computed", async () => {
+			const store = new SignalStore({
+				count: 5,
+				multiplier: 2,
+				multiply(x: number) {
+					return x * this.multiplier;
+				},
+			});
+			store.set(
+				"result",
+				store.$computed(function () {
+					return this.multiply(this.count);
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("result"), 10);
+
+			await store.set("count", 7);
+			assert.equal(store.get("result"), 14);
+
+			await store.set("multiplier", 3);
+			assert.equal(store.get("result"), 21);
+		});
+
+		it("handles undefined initial dependencies", async () => {
+			const store = new SignalStore<{ maybeValue?: string }>({});
+			store.set(
+				"display",
+				store.$computed(function () {
+					return this.maybeValue ?? "default";
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("display"), "default");
+
+			await store.set("maybeValue", "actual");
+			assert.equal(store.get("display"), "actual");
+		});
+
+		it("works via proxy assignment", async () => {
+			// Use Record<string, unknown> to allow dynamic property assignment via proxy.
+			const store = new SignalStore<Record<string, unknown>>({ x: 3 });
+			store.$.squared = store.$computed(function () {
+				return (this.x as number) * (this.x as number);
+			});
+			await sleepForReactivity();
+
+			assert.equal(store.$.squared, 9);
+
+			store.$.x = 4;
+			await sleepForReactivity();
+			assert.equal(store.$.squared, 16);
+		});
+
+		it("is accessible in effects", async () => {
+			const store = new SignalStore({ count: 2 });
+			store.set(
+				"double",
+				store.$computed(function () {
+					return this.count * 2;
+				}),
+			);
+			await sleepForReactivity();
+
+			let effectValue: number | null = null;
+			store.effect(function () {
+				effectValue = this.double as number;
+			});
+
+			assert.equal(effectValue, 4);
+
+			await store.set("count", 5);
+			assert.equal(effectValue, 10);
+		});
+
+		it("works with parent-child store hierarchy", async () => {
+			const parent = new SignalStore({ multiplier: 2 });
+			const child = new SignalStore({ value: 5, $parent: parent });
+			child.set(
+				"result",
+				child.$computed(function () {
+					return this.value * (this.multiplier as number);
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(child.get("result"), 10);
+
+			await parent.set("multiplier", 3);
+			assert.equal(child.get("result"), 15);
+
+			await child.set("value", 10);
+			assert.equal(child.get("result"), 30);
+		});
+
+		it("works with arrow functions using $ parameter", async () => {
+			// Arrow functions can use the $ parameter which receives the reactive context.
+			const store = new SignalStore({ count: 3 });
+
+			store.set(
+				"triple",
+				store.$computed(($) => $.count * 3),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("triple"), 9);
+
+			await store.set("count", 5);
+			assert.equal(store.get("triple"), 15);
+		});
+
+		it("arrow function $ parameter tracks multiple dependencies", async () => {
+			const store = new SignalStore({ x: 2, y: 3 });
+
+			store.set(
+				"sum",
+				store.$computed(($) => $.x + $.y),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("sum"), 5);
+
+			await store.set("x", 10);
+			assert.equal(store.get("sum"), 13);
+
+			await store.set("y", 20);
+			assert.equal(store.get("sum"), 30);
+		});
+
+		it("arrow function $ parameter works with nested computed", async () => {
+			const store = new SignalStore({ base: 2 });
+
+			store.set(
+				"double",
+				store.$computed(($) => $.base * 2),
+			);
+			await sleepForReactivity();
+
+			store.set(
+				"quadruple",
+				store.$computed(($) => ($.double as number) * 2),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("double"), 4);
+			assert.equal(store.get("quadruple"), 8);
+
+			await store.set("base", 3);
+			assert.equal(store.get("double"), 6);
+			assert.equal(store.get("quadruple"), 12);
+		});
+
+		it("arrow function $ parameter accesses nested objects", async () => {
+			const store = new SignalStore({ user: { name: "Alice" } });
+
+			store.set(
+				"greeting",
+				store.$computed(($) => `Hello, ${$.user.name}!`),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("greeting"), "Hello, Alice!");
+
+			store.$.user.name = "Bob";
+			await sleepForReactivity();
+			assert.equal(store.get("greeting"), "Hello, Bob!");
+		});
+	});
 });

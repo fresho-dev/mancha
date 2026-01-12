@@ -461,12 +461,18 @@ export class EvalAstFactory implements AstFactory<Expression> {
 			evaluate(scope) {
 				const params = this.params;
 				const body = this.body;
-				return (...args: unknown[]) => {
+				// Use a regular function (not arrow) so `this` can be rebound when called
+				// via .call(). This allows $computed(() => count * 2) to work by binding
+				// `this` to the reactive context at call time.
+				return function (this: Scope | undefined, ...args: unknown[]) {
 					// TODO: this isn't correct for assignments to variables in outer
 					// scopes
 					// const newScope = Object.create(scope ?? null);
-					const paramsObj = Object.fromEntries(params.map((p, i) => [p, args[i]]));
-					const newScope = new Proxy(scope ?? {}, {
+					const paramsObj: Scope = Object.fromEntries(params.map((p, i) => [p, args[i]]));
+					// Use `this` if bound (e.g., via .call()), otherwise fall back to captured scope.
+					// This enables reactive dependency tracking in $computed contexts.
+					const effectiveScope: Scope = this ?? scope ?? {};
+					const newScope = new Proxy(effectiveScope, {
 						set(target, prop, value) {
 							if (Object.hasOwn(paramsObj, prop)) {
 								paramsObj[prop as string] = value;
