@@ -126,6 +126,43 @@ $.items = [];
 $.items.length = 0;   // No observer triggered - already empty
 ```
 
+### Deep Reactivity
+
+`mancha` supports deep reactivity for nested objects within arrays. When you modify a property of an object inside an array, observers are triggered automatically:
+
+```js
+$.items = [
+	{ name: "a", visible: false },
+	{ name: "b", visible: true },
+];
+
+// Modifying nested properties triggers observers
+$.items[0].visible = true;  // Observers triggered
+$.items[1].name = "c";      // Observers triggered
+```
+
+This also works with user-defined class instances:
+
+```js
+class Item {
+	constructor(name, visible) {
+		this.name = name;
+		this.visible = visible;
+	}
+	toggle() {
+		this.visible = !this.visible;
+	}
+}
+
+$.items = [new Item("a", false), new Item("b", true)];
+
+// Property changes trigger observers
+$.items[0].visible = true;  // Observers triggered
+
+// Class methods work and trigger reactivity
+$.items[0].toggle();        // Observers triggered
+```
+
 ### Replacing vs. Mutating
 
 When you assign a new array or object, observers always trigger because the reference changes:
