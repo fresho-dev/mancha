@@ -271,10 +271,7 @@ describe("Evaluator", () => {
 
 		it("should work with expressions accessing bound scope", () => {
 			const boundScope = { a: 3, b: 4 };
-			const node = factory.arrowFunction(
-				[],
-				factory.binary(factory.id("a"), "+", factory.id("b")),
-			);
+			const node = factory.arrowFunction([], factory.binary(factory.id("a"), "+", factory.id("b")));
 			const fn = evalNode(node, {}) as () => unknown;
 			assert.equal(fn.call(boundScope), 7);
 		});

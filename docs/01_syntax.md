@@ -4,9 +4,10 @@
 
 ## Attributes
 
-- `:data` provides scoped variables to all subnodes, evaluated using `jexpr`
+- `:data` provides scoped variables to all subnodes, evaluated using `jexpr`. Use `$computed` for derived values that update automatically (see [Reactivity](./03_reactivity.md#computed-values)).
   ```html
   <div :data="{ name: 'Stranger' }"></div>
+  <div :data="{ count: 1, doubled: $computed(() => count * 2) }"></div>
   ```
 - `:for` clones the node and repeats it. The loop re-renders when the array is mutated (e.g., `push`, `pop`, `splice`, or `items.length = 0` to clear).
   ```html

@@ -774,6 +774,143 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			});
 		});
 
+		describe("$computed in :data", () => {
+			it("creates a reactive computed value", async () => {
+				const renderer = new ctor({ count: 2 });
+				const html = `<div :data="{ double: $computed(($) => $.count * 2) }">{{ double }}</div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment.firstChild as Element), "4");
+
+				await renderer.set("count", 5);
+				assert.equal(getTextContent(fragment.firstChild as Element), "10");
+			});
+
+			it("computed value updates when parent scope changes", async () => {
+				const renderer = new ctor({ multiplier: 3 });
+				const html = `<div :data="{ base: 4, result: $computed(($) => $.base * $.multiplier) }">{{ result }}</div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment.firstChild as Element), "12");
+
+				await renderer.set("multiplier", 5);
+				assert.equal(getTextContent(fragment.firstChild as Element), "20");
+			});
+
+			it("computed value works with nested :data scopes", async () => {
+				const renderer = new ctor({ factor: 2 });
+				const html = `<div :data="{ x: 3 }"><span :data="{ doubled: $computed(($) => $.x * $.factor) }">{{ doubled }}</span></div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				const span = (fragment.firstChild as Element).firstChild as Element;
+				assert.equal(getTextContent(span), "6");
+
+				await renderer.set("factor", 4);
+				assert.equal(getTextContent(span), "12");
+			});
+
+			it("multiple computed values in same :data", async () => {
+				const renderer = new ctor({ n: 5 });
+				const html = `<div :data="{
+					doubled: $computed(($) => $.n * 2),
+					squared: $computed(($) => $.n * $.n)
+				}">{{ doubled }} / {{ squared }}</div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment.firstChild as Element), "10 / 25");
+
+				await renderer.set("n", 3);
+				assert.equal(getTextContent(fragment.firstChild as Element), "6 / 9");
+			});
+
+			it("computed value can depend on another computed value", async () => {
+				const renderer = new ctor({ base: 2 });
+				const html = `<div :data="{
+					double: $computed(($) => $.base * 2),
+					quadruple: $computed(($) => $.double * 2)
+				}">{{ quadruple }}</div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment.firstChild as Element), "8");
+
+				await renderer.set("base", 3);
+				assert.equal(getTextContent(fragment.firstChild as Element), "12");
+			});
+		});
+
+		describe("$computed with simpler syntax", () => {
+			it("creates a reactive computed value without $ parameter", async () => {
+				const renderer = new ctor({ count: 2 });
+				const html = `<div :data="{ double: $computed(() => count * 2) }">{{ double }}</div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment.firstChild as Element), "4");
+
+				await renderer.set("count", 5);
+				assert.equal(getTextContent(fragment.firstChild as Element), "10");
+			});
+
+			it("simpler syntax works with multiple dependencies", async () => {
+				const renderer = new ctor({ a: 2, b: 3 });
+				const html = `<div :data="{ sum: $computed(() => a + b) }">{{ sum }}</div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment.firstChild as Element), "5");
+
+				await renderer.set("a", 10);
+				assert.equal(getTextContent(fragment.firstChild as Element), "13");
+
+				await renderer.set("b", 7);
+				assert.equal(getTextContent(fragment.firstChild as Element), "17");
+			});
+
+			it("simpler syntax works with parent scope variables", async () => {
+				const renderer = new ctor({ multiplier: 3 });
+				const html = `<div :data="{ base: 4, result: $computed(() => base * multiplier) }">{{ result }}</div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment.firstChild as Element), "12");
+
+				await renderer.set("multiplier", 5);
+				assert.equal(getTextContent(fragment.firstChild as Element), "20");
+			});
+
+			it("simpler syntax works with cascading computed values", async () => {
+				const renderer = new ctor({ base: 2 });
+				const html = `<div :data="{
+					double: $computed(() => base * 2),
+					quadruple: $computed(() => double * 2)
+				}">{{ quadruple }}</div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment.firstChild as Element), "8");
+
+				await renderer.set("base", 3);
+				assert.equal(getTextContent(fragment.firstChild as Element), "12");
+			});
+
+			it("simpler syntax works with string concatenation", async () => {
+				const renderer = new ctor({ name: "Alice" });
+				const html = `<div :data="{ greeting: $computed(() => 'Hello, ' + name + '!') }">{{ greeting }}</div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				assert.equal(getTextContent(fragment.firstChild as Element), "Hello, Alice!");
+
+				await renderer.set("name", "Bob");
+				assert.equal(getTextContent(fragment.firstChild as Element), "Hello, Bob!");
+			});
+		});
+
 		describe(":class", () => {
 			it("single class", async () => {
 				const renderer = new ctor({ foo: "bar" });
