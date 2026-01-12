@@ -169,6 +169,12 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 	readonly _store = new Map<string, unknown>();
 	_lock: Promise<void> = Promise.resolve();
 
+	/**
+	 * Keys currently being notified. Used to prevent infinite loops where
+	 * an observer modifies state that would re-trigger notification for the same key.
+	 */
+	protected readonly _notifyingKeys: Set<string> = new Set();
+
 	constructor(data?: T) {
 		super();
 		for (const [key, value] of Object.entries(data || {})) {
@@ -269,10 +275,20 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 	async notify(key: string, debounceMillis: number = REACTIVE_DEBOUNCE_MILLIS): Promise<void> {
 		const owner = getAncestorKeyStore(this, key);
 		const entries = Array.from(owner?.observers.get(key) || []);
-		await this.debounce(debounceMillis, () =>
-			// Call each observer with its original store context to ensure proper binding.
-			Promise.all(entries.map((entry) => entry.observer.call(entry.store.proxify(entry.observer)))),
-		);
+
+		await this.debounce(debounceMillis, async () => {
+			// Skip if this key is already being notified (prevents infinite loops).
+			if (this._notifyingKeys.has(key)) return;
+
+			this._notifyingKeys.add(key);
+			try {
+				await Promise.all(
+					entries.map((entry) => entry.observer.call(entry.store.proxify(entry.observer))),
+				);
+			} finally {
+				this._notifyingKeys.delete(key);
+			}
+		});
 	}
 
 	get<T>(key: string, observer?: Observer<T>): unknown {
