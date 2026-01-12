@@ -1102,6 +1102,152 @@ describe("SignalStore", () => {
 	});
 
 	describe("wrapped object reactivity", () => {
+		it("does not trigger spurious notifications when reading nested object properties", async () => {
+			// Issue #26: Deep reactivity causes performance regression in :for loops.
+			// Reading nested properties should NOT trigger notifications.
+			const store = new SignalStore({
+				items: [
+					{ name: "a", visible: false },
+					{ name: "b", visible: true },
+					{ name: "c", visible: false },
+				],
+			});
+
+			let observerCalls = 0;
+			store.effect(function () {
+				// Access all nested properties (simulating :for loop access).
+				for (const item of this.items) {
+					const _ = item.name;
+					const __ = item.visible;
+				}
+				observerCalls++;
+			});
+
+			// Initial call during effect setup.
+			assert.equal(observerCalls, 1);
+
+			// Wait for any potential spurious notifications.
+			await sleepForReactivity();
+
+			// There should be no additional observer calls from just reading.
+			assert.equal(observerCalls, 1, "Reading nested properties should not trigger notifications");
+		});
+
+		it("accessing items from function return value does not cause exponential notifications", async () => {
+			// Issue #26: Simulates the exact pattern from the bug report:
+			// getBoard() returns an array of objects, each accessed in a :for loop.
+			let callCount = 0;
+
+			const store = new SignalStore({
+				board: Array.from({ length: 64 }, (_, i) => ({
+					square: `sq${i}`,
+					piece: i < 16 ? `piece${i}` : null,
+					classes: `class${i % 8}`,
+					legalMove: false,
+				})),
+				getBoard() {
+					return this.board;
+				},
+			});
+
+			// Simulate what happens in a :for loop effect.
+			store.effect(function () {
+				callCount++;
+				const items = this.getBoard();
+				for (const sq of items) {
+					// Access multiple properties like in the bug report.
+					const _ = sq.square;
+					const __ = sq.classes;
+					const ___ = sq.legalMove;
+					if (sq.piece) {
+						const ____ = sq.piece;
+					}
+				}
+			});
+
+			// Initial call.
+			assert.equal(callCount, 1);
+
+			// Wait for potential cascading notifications.
+			await sleepForReactivity();
+
+			// Should still be 1 - no spurious notifications from reading.
+			assert.equal(
+				callCount,
+				1,
+				"Reading from 64 items should not trigger cascading notifications",
+			);
+		});
+
+		it("accessing 64 items with nested properties completes in reasonable time", async () => {
+			// Issue #26: Performance stress test - accessing many items should be fast.
+			const store = new SignalStore({
+				board: Array.from({ length: 64 }, (_, i) => ({
+					square: `sq${i}`,
+					piece: i < 16 ? `piece${i}` : null,
+					classes: `class${i % 8}`,
+					legalMove: false,
+				})),
+			});
+
+			const startTime = Date.now();
+
+			// Simulate multiple effects accessing the same items (like :for loop children).
+			for (let effectNum = 0; effectNum < 64; effectNum++) {
+				store.effect(function () {
+					const sq = this.board[effectNum];
+					const _ = sq.square;
+					const __ = sq.classes;
+					const ___ = sq.legalMove;
+					if (sq.piece) {
+						const ____ = sq.piece;
+					}
+				});
+			}
+
+			const duration = Date.now() - startTime;
+
+			// This should complete in less than 100ms, definitely less than 1000ms.
+			assert.ok(duration < 1000, `Creating 64 effects took ${duration}ms, expected < 1000ms`);
+		});
+
+		it("handles frozen arrays without errors", async () => {
+			// Issue #26: Frozen objects should not cause proxy invariant errors.
+			const frozenItems = Object.freeze([
+				Object.freeze({ name: "a", visible: false }),
+				Object.freeze({ name: "b", visible: true }),
+			]);
+			const store = new SignalStore({ items: frozenItems });
+
+			let callCount = 0;
+			// This should not throw.
+			store.effect(function () {
+				callCount++;
+				for (const item of this.items) {
+					const _ = item.name;
+					const __ = item.visible;
+				}
+			});
+
+			assert.equal(callCount, 1);
+			await sleepForReactivity();
+			assert.equal(callCount, 1);
+		});
+
+		it("handles sealed objects without errors", async () => {
+			// Sealed objects should also be skipped for wrapping.
+			const sealedItem = Object.seal({ name: "sealed", value: 42 });
+			const store = new SignalStore({ item: sealedItem });
+
+			let callCount = 0;
+			store.effect(function () {
+				callCount++;
+				const _ = this.item.name;
+			});
+
+			assert.equal(callCount, 1);
+		});
+
 		it("does not trigger observer when setting same primitive value on nested object", async () => {
 			const store = new SignalStore({ obj: { count: 0 } });
 			let observerCalls = 0;

@@ -182,6 +182,10 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 		// Skip nulls and already-proxified objects.
 		if (obj == null || isProxified(obj)) return obj;
 
+		// Skip frozen/sealed objects - they can't be modified and proxying them would
+		// violate JS invariants (get trap must return actual value for non-configurable props).
+		if (Object.isFrozen(obj) || Object.isSealed(obj)) return obj;
+
 		// Skip built-in types that don't work well with proxies (have internal slots).
 		// User-defined class instances are allowed since their properties are just data.
 		if (
