@@ -76,29 +76,7 @@ function isComputedMarker<T>(value: unknown): value is ComputedMarker<T> {
 	);
 }
 
-abstract class IDebouncer {
-	timeouts: Map<AnyFunction, ReturnType<typeof setTimeout>> = new Map();
-
-	debounce<T>(millis: number, callback: () => T | Promise<T>): Promise<T> {
-		return new Promise((resolve, reject) => {
-			const timeout = this.timeouts.get(callback);
-			if (timeout) clearTimeout(timeout);
-			this.timeouts.set(
-				callback,
-				setTimeout(() => {
-					try {
-						resolve(callback());
-						this.timeouts.delete(callback);
-					} catch (exc) {
-						reject(exc);
-					}
-				}, millis),
-			);
-		});
-	}
-}
-
-/** Default debouncer time in millis. */
+/** Default notification debounce time in millis. */
 export const REACTIVE_DEBOUNCE_MILLIS = 10;
 
 /** Shared AST factory. */
@@ -161,7 +139,7 @@ export function setNestedProperty(
 	current[keys[keys.length - 1]] = value;
 }
 
-export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
+export class SignalStore<T extends StoreState = StoreState> {
 	protected readonly evalkeys: string[] = ["$elem", "$event"];
 	protected readonly expressionCache: Map<string, EvalFunction> = new Map();
 	protected readonly observers = new Map<string, Set<ObserverEntry>>();
@@ -170,13 +148,12 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 	_lock: Promise<void> = Promise.resolve();
 
 	/**
-	 * Keys currently being notified. Used to prevent infinite loops where
-	 * an observer modifies state that would re-trigger notification for the same key.
+	 * Notification state per key. Value is a pending timeout, or "executing"
+	 * when observers are running. Used to debounce and prevent infinite loops.
 	 */
-	protected readonly _notifyingKeys: Set<string> = new Set();
+	private readonly _notify: Map<string, ReturnType<typeof setTimeout> | "executing"> = new Map();
 
 	constructor(data?: T) {
-		super();
 		for (const [key, value] of Object.entries(data || {})) {
 			// Use our set method to ensure that callbacks and wrappers are appropriately set, but ignore
 			// the return value since we know that no observers will be triggered.
@@ -273,21 +250,35 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 	}
 
 	async notify(key: string, debounceMillis: number = REACTIVE_DEBOUNCE_MILLIS): Promise<void> {
+		// Capture observers NOW (at call time). This ensures constructor calls
+		// don't trigger effects registered later.
 		const owner = getAncestorKeyStore(this, key);
 		const entries = Array.from(owner?.observers.get(key) || []);
 
-		await this.debounce(debounceMillis, async () => {
-			// Skip if this key is already being notified (prevents infinite loops).
-			if (this._notifyingKeys.has(key)) return;
+		const current = this._notify.get(key);
 
-			this._notifyingKeys.add(key);
-			try {
-				await Promise.all(
-					entries.map((entry) => entry.observer.call(entry.store.proxify(entry.observer))),
-				);
-			} finally {
-				this._notifyingKeys.delete(key);
-			}
+		// Skip if observers are already executing for this key (prevents infinite loops).
+		if (current === "executing") return;
+
+		// Clear any pending notification (debounce).
+		if (current) clearTimeout(current);
+
+		// Schedule the notification.
+		return new Promise((resolve) => {
+			this._notify.set(
+				key,
+				setTimeout(async () => {
+					this._notify.set(key, "executing");
+					try {
+						await Promise.all(
+							entries.map((entry) => entry.observer.call(entry.store.proxify(entry.observer))),
+						);
+					} finally {
+						this._notify.delete(key);
+					}
+					resolve();
+				}, debounceMillis),
+			);
 		});
 	}
 
