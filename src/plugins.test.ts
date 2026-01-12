@@ -1534,6 +1534,28 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			assert.equal(getTextContent(fragment as unknown as Element), "12");
 		});
 
+		it("reacts to nested property changes via parent proxy (issue #22)", async () => {
+			// Issue #22: Nested property changes should trigger reactivity in subrenderers.
+			const renderer = new ctor({
+				items: [
+					{ name: "a", visible: false },
+					{ name: "b", visible: true },
+				],
+			});
+			const html = '<span :for="item in items" :if="item.visible">{{ item.name }}</span>';
+			const fragment = renderer.parseHTML(html);
+			await renderer.mount(fragment);
+
+			// Initially only "b" is visible
+			assert.equal(getTextContent(fragment as unknown as Element), "b");
+
+			// Modifying nested property via parent proxy SHOULD trigger the :for effect
+			renderer.$.items[0].visible = true;
+			await sleepForReactivity();
+			// Now both "a" and "b" should be visible
+			assert.equal(getTextContent(fragment as unknown as Element), "ab");
+		});
+
 		it("cleans up properly when :if toggles and then items array changes", async () => {
 			// Regression test: ensure elements are properly tracked for cleanup
 			// when :if toggles elements back ON before the items array changes.
