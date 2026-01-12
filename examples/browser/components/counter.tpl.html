@@ -1,4 +1,4 @@
-<div :data="{ counter: 0 }" class="flex flex-row gap-1">
-	Here is a counter:
-	<button class="w-8" :on:click="counter = counter + 1">{{ counter }}</button>
+<div :data="{ counter: 0, doubled: $computed(() => counter * 2) }" class="flex flex-row gap-2 items-center">
+	<span>Counter: {{ counter }} (doubled: {{ doubled }})</span>
+	<button class="px-2 py-1 bg-blue-500 text-white rounded" :on:click="counter = counter + 1">+1</button>
 </div>

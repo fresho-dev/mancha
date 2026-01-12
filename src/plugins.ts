@@ -260,8 +260,9 @@ export namespace RendererPlugins {
 						const root = subrenderer._store.get("$rootRenderer") as IRenderer;
 						return (root || subrenderer).set(k, v);
 					}
-					// Use the store's set method to update the value and avoid modifying ancestor values.
-					return subrenderer._store.set(k, v);
+					// Use local=true to create local scope variables that shadow ancestors,
+					// while still handling computed markers properly.
+					return subrenderer.set(k, v, true);
 				}),
 			);
 
@@ -459,8 +460,8 @@ export namespace RendererPlugins {
 						// Create a subrenderer that will hold the loop item and all node descendants.
 						const subrenderer = this.subrenderer();
 
-						// NOTE: Using the store object directly to avoid modifying ancestor values.
-						subrenderer._store.set(loopKey, item);
+						// Use local=true to avoid modifying ancestor values.
+						subrenderer.set(loopKey, item, true);
 
 						// Create a new HTML element for each item and add them to parent node.
 						const copy = node.cloneNode(true);

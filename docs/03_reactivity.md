@@ -145,6 +145,104 @@ $.items = [];
 $.items.length = 0;
 ```
 
+## Computed Values
+
+Computed values are derived values that automatically update when their dependencies change. Use `$computed` to create a named reactive value that recalculates whenever the values it depends on are modified.
+
+### Basic Usage
+
+In `:data` attributes, use `$computed` with an arrow function:
+
+```html
+<div :data="{ count: 2, doubled: $computed(() => count * 2) }">
+	<p>Count: {{ count }}</p>
+	<p>Doubled: {{ doubled }}</p>
+	<button :on:click="count = count + 1">Increment</button>
+</div>
+```
+
+When `count` changes, `doubled` automatically updates to reflect the new value.
+
+### Multiple Computed Values
+
+You can define multiple computed values in the same `:data` attribute:
+
+```html
+<div :data="{
+	price: 100,
+	quantity: 2,
+	subtotal: $computed(() => price * quantity),
+	tax: $computed(() => subtotal * 0.1),
+	total: $computed(() => subtotal + tax)
+}">
+	<p>Subtotal: {{ subtotal }}</p>
+	<p>Tax: {{ tax }}</p>
+	<p>Total: {{ total }}</p>
+</div>
+```
+
+Computed values can depend on other computed values. When `price` or `quantity` changes, all three computed values update in the correct order.
+
+### Syntax Options
+
+Both of these syntaxes work in templates:
+
+```html
+<!-- Simpler: access variables directly -->
+<div :data="{ x: 5, squared: $computed(() => x * x) }">
+
+<!-- Explicit: use $ parameter for the reactive context -->
+<div :data="{ x: 5, squared: $computed(($) => $.x * $.x) }">
+```
+
+The explicit `$` parameter style can be useful when you want to be clear about which context you're accessing, especially in nested scopes.
+
+Note: `function()` syntax is not supported by the expression parser in templates. In JavaScript code, you can use either arrow functions or `function()` with `this`.
+
+### Performance Considerations
+
+There are three ways to derive values in templates:
+
+| Approach | Example | When to Use |
+|----------|---------|-------------|
+| Inline expression | `{{ count * 2 }}` | Simple, one-off calculations |
+| Function call | `{{ getDouble() }}` | Reusable logic, complex calculations |
+| Computed value | `$computed(($) => $.count * 2)` | Cached, referenced multiple times |
+
+**Key differences:**
+
+1. **Caching**: `$computed` stores the result. Multiple references to `{{ doubled }}` read the cached value. Function calls like `{{ getDouble() }}` run every time they're referenced.
+
+2. **Change detection**: `$computed` only notifies observers when the result actually changes. If dependencies change but produce the same result, downstream effects are skipped.
+
+3. **Granularity**: Each `$computed` has its own effect tracking its specific dependencies, which can be more efficient than a larger parent effect.
+
+**Use `$computed` when:**
+- The derived value is referenced multiple times
+- The computation is expensive
+- You want to prevent unnecessary updates when results don't change
+- You need to pass the derived value to child components
+
+**Use inline expressions or function calls when:**
+- Simple, cheap one-off calculations
+- Only referenced once in the template
+
+### JavaScript API
+
+When working with the renderer directly in JavaScript, you can use either arrow functions with `$` or traditional `function()` syntax with `this`:
+
+```js
+const { $ } = Mancha;
+
+// Arrow function with $ parameter
+$.set('doubled', $.$computed(($) => $.count * 2));
+
+// Traditional function with this (works in JS, not in templates)
+$.set('doubled', $.$computed(function() {
+	return this.count * 2;
+}));
+```
+
 ## URL Query Parameter Binding
 
 `mancha` provides a convenient way to establish a two-way binding between the state of your application and the URL query parameters. This is useful for preserving state across page reloads and for sharing links that restore the application to a specific state.
