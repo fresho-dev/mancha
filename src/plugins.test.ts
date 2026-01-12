@@ -1041,6 +1041,54 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(getTextContent(children3[2] as Element), "bar");
 			});
 
+			it("renders items fully before inserting into DOM (no flash of untemplated content)", async () => {
+				// Issue #21: Ensure elements are fully rendered before insertion to prevent
+				// flash of raw {{ variable }} syntax during reactive updates.
+				const renderer = new ctor();
+				const html = `<div :for="item in items"><span>{{ item.name }}</span></div>`;
+				const fragment = renderer.parseHTML(html);
+
+				// Helper to check rendered divs (excluding template element which holds raw template)
+				const getRenderedDivs = () =>
+					Array.from(fragment.childNodes).filter(
+						(n) => (n as Element).tagName?.toLowerCase() === "div",
+					);
+
+				// Initial render
+				renderer.set("items", [{ name: "first" }, { name: "second" }]);
+				await renderer.mount(fragment);
+
+				// Verify initial render has no raw template syntax in rendered divs
+				const initialDivs = getRenderedDivs();
+				for (const div of initialDivs) {
+					const content = innerHTML(div as unknown as Element);
+					assert.ok(
+						!content.includes("{{"),
+						`Initial render should not contain raw template syntax. Got: ${content}`,
+					);
+				}
+
+				// Trigger reactive update with new array
+				renderer.$.items = [{ name: "updated1" }, { name: "updated2" }, { name: "updated3" }];
+				await sleepForReactivity();
+
+				// After reactive update, rendered divs should be fully rendered (no raw {{ }})
+				const updatedDivs = getRenderedDivs();
+				for (const div of updatedDivs) {
+					const content = innerHTML(div as unknown as Element);
+					assert.ok(
+						!content.includes("{{"),
+						`Reactive update should not leave raw template syntax. Got: ${content}`,
+					);
+				}
+
+				// Verify content is correct
+				assert.equal(updatedDivs.length, 3);
+				assert.equal(getTextContent(updatedDivs[0] as Element), "updated1");
+				assert.equal(getTextContent(updatedDivs[1] as Element), "updated2");
+				assert.equal(getTextContent(updatedDivs[2] as Element), "updated3");
+			});
+
 			it("container does not resolve initially", async () => {
 				const renderer = new ctor();
 				const html = `<div :for="item in items">{{ item }}</div>`;
@@ -1484,6 +1532,41 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				{ val: 2, show: true },
 			]);
 			assert.equal(getTextContent(fragment as unknown as Element), "12");
+		});
+
+		it("cleans up properly when :if toggles and then items array changes", async () => {
+			// Regression test: ensure elements are properly tracked for cleanup
+			// when :if toggles elements back ON before the items array changes.
+			const renderer = new ctor({
+				items: [
+					{ val: "a", show: false },
+					{ val: "b", show: true },
+				],
+			});
+			const html = '<span :for="i in items" :if="i.show">{{ i.val }}</span>';
+			const fragment = renderer.parseHTML(html);
+			await renderer.mount(fragment);
+
+			// Initially only "b" is visible
+			assert.equal(getTextContent(fragment as unknown as Element), "b");
+
+			// Toggle "a" to visible by replacing the items array with updated values
+			await renderer.set("items", [
+				{ val: "a", show: true },
+				{ val: "b", show: true },
+			]);
+			assert.equal(getTextContent(fragment as unknown as Element), "ab");
+
+			// Now change the items array entirely - all old elements should be cleaned up
+			renderer.$.items = [{ val: "x", show: true }];
+			await sleepForReactivity();
+
+			// Should only have "x", not "ab" + "x" (which would indicate orphaned elements)
+			const spans = Array.from(fragment.childNodes).filter(
+				(n) => (n as Element).tagName?.toLowerCase() === "span",
+			);
+			assert.equal(spans.length, 1);
+			assert.equal(getTextContent(fragment as unknown as Element), "x");
 		});
 	});
 
