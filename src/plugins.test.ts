@@ -1246,6 +1246,42 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(getTextContent(children[1] as Element), "4");
 				assert.equal(getTextContent(children[2] as Element), "6");
 			});
+
+			it("performance: 64 items with multiple directives completes quickly", async () => {
+				// Issue #26: Test that :for with many items and multiple directives per item
+				// does not cause excessive slowdown.
+				const board = Array.from({ length: 64 }, (_, i) => ({
+					square: `sq${i}`,
+					piece: i < 16 ? `./pieces/piece${i}.svg` : null,
+					classes: `cell ${i % 2 === 0 ? "light" : "dark"}`,
+					legalMove: false,
+				}));
+
+				const renderer = new ctor({
+					board,
+					getBoard() {
+						return this.board;
+					},
+				});
+
+				// Pattern from issue #26
+				const html = `
+					<div :for="sq in getBoard()" :class="sq.classes" :attr:data-square="sq.square">
+						<div :if="sq.legalMove" class="legal">legal</div>
+						<img :if="sq.piece" :prop:src="sq.piece" class="piece">
+					</div>
+				`;
+
+				const fragment = renderer.parseHTML(html);
+				const startTime = Date.now();
+
+				await renderer.mount(fragment);
+
+				const duration = Date.now() - startTime;
+
+				// Should complete in reasonable time - definitely less than 5 seconds
+				assert.ok(duration < 5000, `Mount with 64 items took ${duration}ms, expected < 5000ms`);
+			});
 		});
 
 		describe(":bind", () => {
