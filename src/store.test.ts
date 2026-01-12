@@ -2071,4 +2071,88 @@ describe("SignalStore", () => {
 			assert.equal(store.get("greeting"), "Hello, Bob!");
 		});
 	});
+
+	describe("notification debouncing", () => {
+		it("debounces multiple notify calls for the same key", async () => {
+			// When a class instance modifies internal state during method calls,
+			// each modification triggers notify(). These should be debounced to a single
+			// observer execution, not run once per modification.
+			let observerCalls = 0;
+
+			// Simulate a class where reading properties modifies internal state.
+			const chessLike = {
+				_accessCount: 0,
+				get(_square: string) {
+					// Every read modifies internal state (like Chess.js caching).
+					this._accessCount++;
+					return { type: "p", color: "w" };
+				},
+			};
+
+			const store = new SignalStore({ game: chessLike });
+
+			store.effect(function () {
+				observerCalls++;
+				// Simulate buildBoard(): access game.get() 64 times.
+				for (let i = 0; i < 64; i++) {
+					this.game.get(`square${i}`);
+				}
+			});
+
+			// Initial call.
+			assert.equal(observerCalls, 1);
+
+			// Wait for any debounced notifications to fire.
+			await sleepForReactivity();
+
+			// Key assertion: despite 64 internal state modifications during the effect,
+			// the observer should only run once (the initial run), not 64+ times.
+			// The debounce should coalesce all the notify() calls.
+			assert.ok(
+				observerCalls <= 2,
+				`Expected <= 2 observer calls (initial + maybe 1 debounced), got ${observerCalls}`,
+			);
+		});
+
+		it("limits observer calls when class instance methods modify state frequently", async () => {
+			// More aggressive test: simulates a class that modifies multiple properties per call.
+			let observerCalls = 0;
+			const MAX_ACCEPTABLE_CALLS = 5; // Should be much lower than 64.
+
+			const statefulClass = {
+				_cache: {} as Record<string, number>,
+				_hits: 0,
+				_misses: 0,
+				lookup(key: string) {
+					if (key in this._cache) {
+						this._hits++;
+						return this._cache[key];
+					}
+					this._misses++;
+					this._cache[key] = Math.random();
+					return this._cache[key];
+				},
+			};
+
+			const store = new SignalStore({ service: statefulClass });
+
+			store.effect(function () {
+				observerCalls++;
+				if (observerCalls > 100) return; // Safety limit.
+				// Simulate 64 lookups, each potentially modifying _cache, _hits, _misses.
+				for (let i = 0; i < 64; i++) {
+					this.service.lookup(`key${i}`);
+				}
+			});
+
+			assert.equal(observerCalls, 1);
+			await sleepForReactivity();
+
+			assert.ok(
+				observerCalls <= MAX_ACCEPTABLE_CALLS,
+				`Expected <= ${MAX_ACCEPTABLE_CALLS} observer calls, got ${observerCalls}. ` +
+					"This suggests notify() calls are not being properly debounced.",
+			);
+		});
+	});
 });
