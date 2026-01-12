@@ -179,8 +179,24 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 	}
 
 	private wrapObject<U extends object>(obj: U, callback: () => void): U {
-		// If this object is already a proxy or not a plain object (or array), return it as-is.
-		if (obj == null || isProxified(obj) || (obj.constructor !== Object && !Array.isArray(obj))) {
+		// Skip nulls and already-proxified objects.
+		if (obj == null || isProxified(obj)) return obj;
+
+		// Skip built-in types that don't work well with proxies (have internal slots).
+		// User-defined class instances are allowed since their properties are just data.
+		if (
+			obj instanceof Date ||
+			obj instanceof RegExp ||
+			obj instanceof Map ||
+			obj instanceof Set ||
+			obj instanceof WeakMap ||
+			obj instanceof WeakSet ||
+			obj instanceof Error ||
+			obj instanceof Promise ||
+			ArrayBuffer.isView(obj) ||
+			obj instanceof ArrayBuffer ||
+			(typeof Node !== "undefined" && obj instanceof Node)
+		) {
 			return obj;
 		}
 		return new Proxy(obj, {
@@ -205,7 +221,19 @@ export class SignalStore<T extends StoreState = StoreState> extends IDebouncer {
 			},
 			get: (target: U, prop: string | symbol, receiver: unknown): unknown => {
 				if (prop === PROXY_MARKER) return true;
-				return Reflect.get(target, prop, receiver);
+				const result = Reflect.get(target, prop, receiver);
+
+				// Lazily wrap nested objects for deep reactivity.
+				// This ensures that modifications like items[0].visible = true trigger notifications.
+				if (result !== null && typeof result === "object" && !isProxified(result)) {
+					const wrapped = this.wrapObject(result as object, callback);
+					// If wrapObject returned a different object (a proxy), store it back for identity.
+					if (wrapped !== result) {
+						Reflect.set(target, prop, wrapped, receiver);
+						return wrapped;
+					}
+				}
+				return result;
 			},
 		});
 	}

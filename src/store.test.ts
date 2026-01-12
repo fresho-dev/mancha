@@ -400,6 +400,73 @@ describe("SignalStore", () => {
 				assert.equal(result, 100);
 			});
 
+			it("re-evaluates when nested object property changes via parent proxy", async () => {
+				// Issue #22: Nested property changes should trigger reactivity.
+				const store = new SignalStore({
+					items: [
+						{ name: "a", visible: false },
+						{ name: "b", visible: true },
+					],
+				});
+
+				let callCount = 0;
+				store.effect(function () {
+					// Access nested property
+					const _ = this.items[0].visible;
+					callCount++;
+				});
+				assert.equal(callCount, 1);
+
+				// Modifying nested property via parent proxy SHOULD trigger the effect
+				store.$.items[0].visible = true;
+				await sleepForReactivity();
+				assert.equal(callCount, 2); // Effect should re-run
+
+				// Replacing the entire array also triggers the effect
+				await store.set("items", [
+					{ name: "a", visible: true },
+					{ name: "b", visible: true },
+				]);
+				assert.equal(callCount, 3);
+			});
+
+			it("re-evaluates when class instance property changes", async () => {
+				// Issue #22: Class instances should also support deep reactivity.
+				class Item {
+					name: string;
+					visible: boolean;
+					constructor(name: string, visible: boolean) {
+						this.name = name;
+						this.visible = visible;
+					}
+					toggle() {
+						this.visible = !this.visible;
+					}
+				}
+
+				const store = new SignalStore({
+					items: [new Item("a", false), new Item("b", true)],
+				});
+
+				let callCount = 0;
+				store.effect(function () {
+					const _ = this.items[0].visible;
+					callCount++;
+				});
+				assert.equal(callCount, 1);
+
+				// Modifying class instance property should trigger the effect
+				store.$.items[0].visible = true;
+				await sleepForReactivity();
+				assert.equal(callCount, 2);
+
+				// Class methods should still work and trigger reactivity
+				store.$.items[0].toggle();
+				await sleepForReactivity();
+				assert.equal(callCount, 3);
+				assert.equal(store.$.items[0].visible, false);
+			});
+
 			it("re-evaluates function with conditional dependency access", async () => {
 				const store = new SignalStore({
 					useA: true,
