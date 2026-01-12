@@ -454,6 +454,12 @@ export namespace RendererPlugins {
 						return Promise.resolve();
 					}
 
+					// Create a temporary container to hold elements during rendering.
+					// This prevents flash of untemplated content by keeping elements
+					// off-screen until fully rendered, while still providing a parentNode
+					// for directives like :if that need it.
+					const fragment = this.createElement("div", node.ownerDocument) as Element;
+
 					// Loop through the container items.
 					const awaiters: Promise<void>[] = [];
 					for (const item of items) {
@@ -463,13 +469,18 @@ export namespace RendererPlugins {
 						// Use local=true to avoid modifying ancestor values.
 						subrenderer.set(loopKey, item, true);
 
-						// Create a new HTML element for each item and add them to parent node.
+						// Create a new HTML element for each item.
 						const copy = node.cloneNode(true);
 
 						// Restore the original style of the node.
 						setAttribute(copy as Element, "style", originalStyle);
 
-						// Also add the new element to the store.
+						// Add to fragment so it has a parentNode during mount.
+						appendChild(fragment, copy);
+
+						// Track the original element for cleanup. This is important because
+						// :if may swap elements with placeholders, and we need to track
+						// the original element to properly clean up when :if toggles back.
 						children.push(copy);
 
 						// Since the element will be handled by a subrenderer, skip it in parent renderer.
@@ -480,13 +491,16 @@ export namespace RendererPlugins {
 						this.log("Rendered list child:\n", nodeToString(copy, 128));
 					}
 
-					// Insert the new children into the parent container.
+					// Wait for all mounts to complete, then insert into DOM.
+					// Using .then() keeps this function synchronous for dependency tracking,
+					// while still preventing flash of untemplated content.
 					const reference = template.nextSibling as ChildNode;
-					for (const child of children) {
-						insertBefore(parent, child, reference);
-					}
-
-					return Promise.all(awaiters);
+					return Promise.all(awaiters).then(() => {
+						const fragmentChildren = Array.from(fragment.childNodes);
+						for (const child of fragmentChildren) {
+							insertBefore(parent, child, reference);
+						}
+					});
 				},
 				{ directive: ":for", element: elem, expression: forAttr },
 			);
