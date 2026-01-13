@@ -1949,10 +1949,10 @@ describe("SignalStore", () => {
 		});
 
 		it("works via proxy assignment", async () => {
-			// Use Record<string, unknown> to allow dynamic property assignment via proxy.
-			const store = new SignalStore<Record<string, unknown>>({ x: 3 });
+			// With $computed returning R, we can use proper typing for computed properties.
+			const store = new SignalStore<{ x: number; squared: number }>({ x: 3, squared: 0 });
 			store.$.squared = store.$computed(function () {
-				return (this.x as number) * (this.x as number);
+				return this.x * this.x;
 			});
 			await sleepForReactivity();
 
