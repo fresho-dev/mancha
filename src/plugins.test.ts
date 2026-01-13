@@ -1282,6 +1282,108 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				// Should complete in reasonable time - definitely less than 5 seconds
 				assert.ok(duration < 5000, `Mount with 64 items took ${duration}ms, expected < 5000ms`);
 			});
+
+			it("does not produce duplicate rows when effect re-triggers during mount (issue #31)", async () => {
+				// Issue #31 Bug 1: When :for + :data is used and state updates rapidly,
+				// the effect may trigger twice before the first Promise resolves,
+				// causing duplicate rows.
+				const renderer = new ctor({ items: [] });
+
+				// First test without :data to verify basic reactivity
+				const html = `<div :for="item in items">{{ item.name }}</div>`;
+				const fragment = renderer.parseHTML(html);
+
+				// Mount first with empty array
+				await renderer.mount(fragment);
+
+				// Helper to count rendered items (excluding template)
+				const getRenderedItems = () =>
+					Array.from(fragment.childNodes).filter(
+						(n) => (n as Element).tagName?.toLowerCase() === "div",
+					);
+
+				// Initially should have no items
+				assert.equal(getRenderedItems().length, 0);
+
+				// Trigger state update
+				renderer.$.items = [{ name: "A" }, { name: "B" }, { name: "C" }];
+
+				// Wait for reactivity to settle
+				await sleepForReactivity();
+
+				// Should have exactly 3 items
+				const items = getRenderedItems();
+				assert.equal(items.length, 3, `Expected 3 items, got ${items.length}`);
+
+				// Verify content
+				const texts = items.map((item) => getTextContent(item as Element));
+				assert.deepEqual(texts, ["A", "B", "C"]);
+			});
+
+			it("does not produce duplicate rows with :for + :data (issue #31)", async () => {
+				// Issue #31 Bug 1: The specific case with :for + :data combination
+				// Note: :for + :data requires extra wait time because :data involves nested
+				// async operations (mount -> :data set -> effects). Two sleepForReactivity
+				// calls are needed: one for the :for effect debounce, one for :data effects.
+				const renderer = new ctor({ items: [] });
+
+				const html = `<div :for="item in items" :data="{ label: item.name }"><span :text="label"></span></div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				const getRenderedItems = () =>
+					Array.from(fragment.childNodes).filter(
+						(n) => (n as Element).tagName?.toLowerCase() === "div",
+					);
+
+				assert.equal(getRenderedItems().length, 0);
+
+				renderer.$.items = [{ name: "A" }, { name: "B" }, { name: "C" }];
+				// Wait for :for effect + nested :data effects
+				await sleepForReactivity();
+				await sleepForReactivity();
+
+				const items = getRenderedItems();
+				assert.equal(
+					items.length,
+					3,
+					`Expected 3 items, got ${items.length} (possible duplicates)`,
+				);
+
+				const texts = items.map((item) => getTextContent(item as Element));
+				assert.deepEqual(texts, ["A", "B", "C"]);
+			});
+
+			it("handles concurrent rapid state updates without duplicates (issue #31)", async () => {
+				// Issue #31 Bug 1: More aggressive test with multiple rapid updates
+				// Tests that debouncing correctly coalesces rapid updates to prevent duplicates.
+				const renderer = new ctor({ items: [{ name: "initial" }] });
+
+				const html = `<div :for="item in items" :data="{ label: item.name }"><span :text="label"></span></div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				const getRenderedItems = () =>
+					Array.from(fragment.childNodes).filter(
+						(n) => (n as Element).tagName?.toLowerCase() === "div",
+					);
+
+				// Fire multiple rapid updates without waiting - debouncing should coalesce
+				renderer.$.items = [{ name: "A" }];
+				renderer.$.items = [{ name: "B" }, { name: "C" }];
+				renderer.$.items = [{ name: "X" }, { name: "Y" }, { name: "Z" }];
+
+				// Wait for :for effect + nested :data effects
+				await sleepForReactivity();
+				await sleepForReactivity();
+
+				// Should have exactly 3 items from the final state
+				const items = getRenderedItems();
+				assert.equal(items.length, 3, `Expected 3 items, got ${items.length}`);
+
+				const texts = items.map((item) => getTextContent(item as Element));
+				assert.deepEqual(texts, ["X", "Y", "Z"]);
+			});
 		});
 
 		describe(":bind", () => {
@@ -1625,6 +1727,85 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			);
 			assert.equal(spans.length, 1);
 			assert.equal(getTextContent(fragment as unknown as Element), "x");
+		});
+
+		it(":for inside :if re-renders when state updates after :if becomes true (issue #31)", async () => {
+			// Issue #31 Bug 2: When :for is inside an :if block, and state is updated
+			// asynchronously after mount, the :for loop should re-render when both
+			// the :if condition becomes true AND the items array changes.
+			const renderer = new ctor({ screen: "loading", items: [] });
+
+			// Use a wrapper div for the :if, with :for inside
+			const html = `<div :if="screen === 'loaded'"><span :for="item in items">{{ item.name }}</span></div>`;
+			const fragment = renderer.parseHTML(html);
+			await renderer.mount(fragment);
+
+			// Helper to get the container and items
+			const getContainer = () =>
+				Array.from(fragment.childNodes).find(
+					(n) => (n as Element).tagName?.toLowerCase() === "div",
+				) as Element | undefined;
+			const getItems = () => {
+				const container = getContainer();
+				if (!container) return [];
+				return Array.from(container.childNodes).filter(
+					(n) => (n as Element).tagName?.toLowerCase() === "span",
+				);
+			};
+
+			// Initially the container is hidden (replaced by placeholder)
+			// The :for hasn't rendered anything yet
+			assert.equal(getItems().length, 0);
+
+			// Simulate async data load: update items AND switch screen
+			renderer.$.items = [{ name: "Item 1" }, { name: "Item 2" }, { name: "Item 3" }];
+			renderer.$.screen = "loaded";
+
+			await sleepForReactivity();
+
+			// The :for loop should have rendered 3 items
+			const items = getItems();
+			assert.equal(items.length, 3, `Expected 3 items, got ${items.length}`);
+
+			// Verify content
+			const texts = items.map((item) => getTextContent(item as Element)?.trim());
+			assert.deepEqual(texts, ["Item 1", "Item 2", "Item 3"]);
+		});
+
+		it(":for inside :if handles state set before :if becomes true (issue #31)", async () => {
+			// Issue #31 Bug 2 variant: Items are set BEFORE the :if condition becomes true
+			const renderer = new ctor({ screen: "loading", items: [] });
+
+			const html = `<div :if="screen === 'loaded'"><span :for="item in items">{{ item.name }}</span></div>`;
+			const fragment = renderer.parseHTML(html);
+			await renderer.mount(fragment);
+
+			const getContainer = () =>
+				Array.from(fragment.childNodes).find(
+					(n) => (n as Element).tagName?.toLowerCase() === "div",
+				) as Element | undefined;
+			const getItems = () => {
+				const container = getContainer();
+				if (!container) return [];
+				return Array.from(container.childNodes).filter(
+					(n) => (n as Element).tagName?.toLowerCase() === "span",
+				);
+			};
+
+			// Set items first, THEN change screen
+			renderer.$.items = [{ name: "A" }, { name: "B" }];
+			await sleepForReactivity();
+
+			// Still loading, no items visible (container hidden)
+			assert.equal(getItems().length, 0);
+
+			// Now switch to loaded
+			renderer.$.screen = "loaded";
+			await sleepForReactivity();
+
+			// Items should now be visible
+			const items = getItems();
+			assert.equal(items.length, 2, `Expected 2 items, got ${items.length}`);
 		});
 	});
 

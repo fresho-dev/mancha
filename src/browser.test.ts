@@ -1,7 +1,7 @@
 import { initMancha, injectCss, Renderer } from "./browser.js";
 import { testSuite as pluginsTestSuite } from "./plugins.test.js";
 import { testSuite as rendererTestSuite } from "./renderer.test.js";
-import { assert } from "./test_utils.js";
+import { assert, setInnerHTML } from "./test_utils.js";
 
 describe("Browser", () => {
 	// Plugins test suite.
@@ -428,5 +428,132 @@ describe("Browser", () => {
 			!document.documentElement.classList.contains("mancha-loading"),
 			"Class should be removed after initialization",
 		);
+	});
+});
+
+describe("Issue #31 Browser Reproduction", () => {
+	afterEach(() => {
+		// Clean up test elements
+		document.querySelectorAll('[id^="issue31-"]').forEach((el) => {
+			el.remove();
+		});
+	});
+
+	it("Bug 2: :for inside :if re-renders after async state update (no await)", async () => {
+		// Create test container
+		const container = document.createElement("div");
+		container.id = "issue31-bug2";
+		setInnerHTML(
+			container,
+			`<div :if="screen === 'loading'">Loading...</div>
+			<div :if="screen === 'loaded'" id="issue31-list">
+				<div class="item" :for="item in getItems()" :data="{ label: item.name }">
+					<span :text="label"></span>
+				</div>
+			</div>`,
+		);
+		document.body.appendChild(container);
+
+		const renderer = new Renderer({
+			screen: "loading",
+			items: [] as Array<{ id: number; name: string }>,
+			getItems() {
+				return this.items || [];
+			},
+			async loadData() {
+				await new Promise((r) => setTimeout(r, 50));
+				this.items = [
+					{ id: 1, name: "Item 1" },
+					{ id: 2, name: "Item 2" },
+					{ id: 3, name: "Item 3" },
+				];
+				this.screen = "loaded";
+			},
+		});
+
+		await renderer.mount(container);
+
+		// Key pattern: async call WITHOUT await (as reported in issue)
+		renderer.$.loadData();
+
+		// Wait for async operation to complete + reactivity
+		await new Promise((r) => setTimeout(r, 200));
+
+		// Check results
+		const list = document.getElementById("issue31-list");
+		assert.ok(list, "List container should be visible");
+
+		const items = list ? list.querySelectorAll(".item") : [];
+		assert.equal(items.length, 3, `Expected 3 items, got ${items.length}`);
+	});
+
+	it("Bug 1: :for + :data does not produce duplicates on initial render", async () => {
+		// Create test container
+		const container = document.createElement("div");
+		container.id = "issue31-bug1";
+		setInnerHTML(
+			container,
+			`<table id="issue31-table">
+				<tbody>
+					<tr :for="move in getMoves()"
+						:data="{
+							annotation: getAnnotation(move)
+						}">
+						<td :text="move.num + '.'"></td>
+						<td :text="move.name + annotation"></td>
+					</tr>
+				</tbody>
+			</table>`,
+		);
+		document.body.appendChild(container);
+
+		const renderer = new Renderer({
+			moves: [
+				{ num: 1, name: "e4" },
+				{ num: 2, name: "Nf3" },
+				{ num: 3, name: "Bb5" },
+			],
+			getMoves() {
+				return this.moves;
+			},
+			getAnnotation() {
+				return "!";
+			},
+		});
+
+		await renderer.mount(container);
+
+		// Check for duplicates
+		const tbody = document.querySelector("#issue31-table tbody");
+		const rows = tbody ? tbody.querySelectorAll("tr") : [];
+
+		// Should have exactly 3 rows, not 6
+		assert.equal(rows.length, 3, `Expected 3 rows, got ${rows.length} (duplicates?)`);
+	});
+
+	it("Bug 1: rapid state updates do not cause duplicates", async () => {
+		const container = document.createElement("div");
+		container.id = "issue31-rapid";
+		setInnerHTML(
+			container,
+			`<div :for="item in items" :data="{ label: item.name }" class="rapid-item">
+				<span :text="label"></span>
+			</div>`,
+		);
+		document.body.appendChild(container);
+
+		const renderer = new Renderer({ items: [] as Array<{ name: string }> });
+		await renderer.mount(container);
+
+		// Rapid updates without waiting
+		renderer.$.items = [{ name: "A" }];
+		renderer.$.items = [{ name: "B" }, { name: "C" }];
+		renderer.$.items = [{ name: "X" }, { name: "Y" }, { name: "Z" }];
+
+		// Wait for all updates to settle
+		await new Promise((r) => setTimeout(r, 100));
+
+		const items = container.querySelectorAll(".rapid-item");
+		assert.equal(items.length, 3, `Expected 3 items from final state, got ${items.length}`);
 	});
 });
