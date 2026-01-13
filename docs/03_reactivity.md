@@ -275,7 +275,24 @@ $.set('doubled', $.$computed(($) => $.count * 2));
 $.set('doubled', $.$computed(function() {
 	return this.count * 2;
 }));
+
+// Direct property assignment (also works)
+$.doubled = $.$computed(($) => $.count * 2);
 ```
+
+#### TypeScript Note
+
+The `$computed` method is typed to return `R` (the computed value type) rather than a marker object. This enables ergonomic property assignment without type casts:
+
+```typescript
+interface State { count: number; doubled: number }
+const renderer = new Renderer<State>({ count: 2, doubled: 0 });
+
+// Works without 'as any' - $computed returns type 'number'
+renderer.$.doubled = renderer.$.$computed(($) => $.count * 2);
+```
+
+**Important:** At runtime, `$computed` returns a marker object that signals to the store to set up reactive tracking. The return value must be assigned to a store property - do not use it directly as a value.
 
 ## URL Query Parameter Binding
 
