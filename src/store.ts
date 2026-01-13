@@ -388,18 +388,30 @@ export class SignalStore<T extends StoreState = StoreState> {
 	}
 
 	/**
-	 * Creates a computed value marker. When passed to set(), the function will be
-	 * evaluated in a reactive effect, and the result stored. When dependencies change,
-	 * the function re-evaluates and updates the stored value.
+	 * Creates a computed property that automatically updates when its dependencies change.
+	 * The function is evaluated in a reactive effect, and the result is stored. When any
+	 * reactive property accessed within the function changes, it re-evaluates and updates.
+	 *
+	 * **Important:** This method returns a marker object at runtime, but is typed as
+	 * returning `R` to enable ergonomic property assignment without type casts. The return
+	 * value must be assigned to a store property (via `set()` or `$.prop =`) - do not use
+	 * it directly as a value.
 	 *
 	 * @example
 	 * // Using function() to access reactive `this`:
 	 * store.set('double', store.$computed(function() { return this.count * 2 }));
+	 *
 	 * // Using arrow function with $ parameter (for templates):
 	 * store.set('double', store.$computed(($) => $.count * 2));
+	 *
+	 * // Direct property assignment (ergonomic typing):
+	 * store.$.doubled = store.$computed(($) => $.count * 2);
 	 */
-	$computed<R>(fn: ComputedFn<T, R>): ComputedMarker<R> {
-		return { [COMPUTED_MARKER]: true, fn: fn as ComputedFn<StoreState, R> };
+	$computed<R>(fn: ComputedFn<T, R>): R {
+		// Returns a marker object that signals to set() this is a computed property.
+		// The return type is R (not ComputedMarker<R>) to allow ergonomic assignment
+		// like `$.prop = $computed(fn)` without requiring type casts.
+		return { [COMPUTED_MARKER]: true, fn: fn as ComputedFn<StoreState, R> } as R;
 	}
 
 	private proxify<T>(observer?: Observer<T>): SignalStoreProxy {
