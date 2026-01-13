@@ -154,11 +154,14 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 		const expression = ellipsize(meta?.expression ?? "", 32);
 		const elem = meta?.element as HTMLElement | undefined;
 
-		const elemId = elem
-			? (elem.dataset?.perfid ?? elem.id ?? elem.dataset?.testid ?? this.getNodePath(elem))
-			: "unknown";
+		// Use explicit id if provided (e.g., for computed properties without DOM elements).
+		const elemId =
+			meta?.id ??
+			(elem
+				? (elem.dataset?.perfid ?? elem.id ?? elem.dataset?.testid ?? this.getNodePath(elem))
+				: "unknown");
 
-		return `${directive}:${elemId}:${expression}`;
+		return expression ? `${directive}:${elemId}:${expression}` : `${directive}:${elemId}`;
 	}
 
 	/**
