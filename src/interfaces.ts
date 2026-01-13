@@ -36,6 +36,8 @@ export type EffectMeta = {
 	element?: Element;
 	/** The expression being evaluated by this effect. */
 	expression?: string;
+	/** Direct identifier for effects without a DOM element (e.g., computed property key). */
+	id?: string;
 };
 
 /** Statistics for a tracked effect. */

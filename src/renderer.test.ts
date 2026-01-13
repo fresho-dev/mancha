@@ -357,5 +357,45 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			assert.ok(id.startsWith("bind:"), "Effect ID should start with directive");
 			assert.ok(id.length > 10, "Effect ID should have meaningful content");
 		});
+
+		it("uses explicit id when provided", () => {
+			const renderer = new ctor();
+			const id = renderer.buildEffectId({
+				directive: "computed",
+				id: "myKey",
+			});
+			assert.equal(id, "computed:myKey");
+		});
+
+		it("computed properties include key in effect id", async () => {
+			const renderer = new ctor({ count: 2 });
+			renderer.debug(true);
+			renderer.set(
+				"double",
+				renderer.$computed(function () {
+					return this.count * 2;
+				}),
+			);
+
+			// Get performance report to see tracked effects.
+			const report = renderer.getPerformanceReport();
+
+			// Should have a computed effect tracked.
+			assert.ok(report.effects.byDirective.computed, "computed directive should be tracked");
+
+			// The effect ID should be "computed:double" (key as identifier, no expression).
+			const computedEffects = report.effects.slowest.filter((e) => e.id.startsWith("computed:"));
+			assert.ok(computedEffects.length > 0, "Should have at least one computed effect");
+			assert.ok(
+				computedEffects.some((e) => e.id === "computed:double"),
+				"Effect ID should be 'computed:double'",
+			);
+
+			// Should NOT contain "unknown" - computed properties use the key as identifier.
+			assert.ok(
+				computedEffects.every((e) => !e.id.includes("unknown")),
+				"Computed effect IDs should not contain 'unknown'",
+			);
+		});
 	});
 }

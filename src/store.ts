@@ -281,23 +281,26 @@ export class SignalStore<T extends StoreState = StoreState> {
 
 	private setupComputed<R>(key: string, computedFn: ComputedFn<StoreState, R>): void {
 		const store = this;
-		this.effect(function (this: ReactiveContext<T>) {
-			// Pass `this` as both the context and first argument, so arrow functions
-			// can receive the reactive proxy as `$` parameter.
-			const result = computedFn.call(this, this);
-			const oldValue = store._store.get(key);
-			// Only update and notify if value actually changed.
-			if (oldValue !== result) {
-				setAncestorValue(store, key, result);
-				// Synchronously invoke observers of the computed key to ensure
-				// cascading computed values update in the same tick.
-				const owner = getAncestorKeyStore(store, key);
-				const entries = Array.from(owner?.observers.get(key) || []);
-				for (const entry of entries) {
-					entry.observer.call(entry.store.proxify(entry.observer));
+		this.effect(
+			function (this: ReactiveContext<T>) {
+				// Pass `this` as both the context and first argument, so arrow functions
+				// can receive the reactive proxy as `$` parameter.
+				const result = computedFn.call(this, this);
+				const oldValue = store._store.get(key);
+				// Only update and notify if value actually changed.
+				if (oldValue !== result) {
+					setAncestorValue(store, key, result);
+					// Synchronously invoke observers of the computed key to ensure
+					// cascading computed values update in the same tick.
+					const owner = getAncestorKeyStore(store, key);
+					const entries = Array.from(owner?.observers.get(key) || []);
+					for (const entry of entries) {
+						entry.observer.call(entry.store.proxify(entry.observer));
+					}
 				}
-			}
-		});
+			},
+			{ directive: "computed", id: key },
+		);
 	}
 
 	/**
