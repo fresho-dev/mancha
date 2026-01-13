@@ -9,7 +9,7 @@ import type {
 import { Iterator } from "./iterator.js";
 import { RendererPlugins } from "./plugins.js";
 import { setupQueryParamBindings } from "./query.js";
-import type { StoreState } from "./store.js";
+import type { ReactiveContext, StoreState } from "./store.js";
 import { SignalStore } from "./store.js";
 
 export type EvalListener = (result: unknown, dependencies: string[]) => unknown;
@@ -209,34 +209,37 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 
 	/**
 	 * Override effect() to add performance tracking.
-	 * Tracks effect execution time and logs slow effects (>16ms).
+	 * Wraps the observer so re-executions via notify() are also tracked.
 	 */
 	override effect<T>(observer: () => T, meta?: EffectMeta): T {
-		// Skip tracking if debugging is off.
-		if (!this.shouldLog("lifecycle")) {
-			return super.effect(observer, meta);
+		// Wrap observer to track every execution (initial and re-executions).
+		const renderer = this;
+		function trackedObserver(this: ReactiveContext): T {
+			// Skip tracking if debugging is off.
+			if (!renderer.shouldLog("lifecycle")) {
+				return observer.call(this);
+			}
+
+			const startTime = performance.now();
+			const result = observer.call(this);
+			const duration = performance.now() - startTime;
+
+			// Record effect execution for performance report.
+			if (meta) renderer.recordEffectExecution(meta, duration);
+
+			// Log slow effects (>16ms = potentially dropped frame).
+			if (duration > 16) {
+				console.warn(`Slow effect (${duration.toFixed(1)}ms):`, renderer.buildEffectId(meta));
+			}
+
+			// Log individual effect timings at 'effects' level.
+			if (renderer.shouldLog("effects")) {
+				console.debug(`Effect (${duration.toFixed(2)}ms):`, renderer.buildEffectId(meta));
+			}
+
+			return result;
 		}
-
-		const startTime = performance.now();
-		const result = super.effect(observer, meta);
-		const duration = performance.now() - startTime;
-
-		// Record effect execution for performance report.
-		if (meta) {
-			this.recordEffectExecution(meta, duration);
-		}
-
-		// Log slow effects (>16ms = potentially dropped frame).
-		if (duration > 16) {
-			console.warn(`Slow effect (${duration.toFixed(1)}ms):`, this.buildEffectId(meta));
-		}
-
-		// Log individual effect timings at 'effects' level.
-		if (this.shouldLog("effects")) {
-			console.debug(`Effect (${duration.toFixed(2)}ms):`, this.buildEffectId(meta));
-		}
-
-		return result;
+		return super.effect(trackedObserver, meta);
 	}
 
 	/**
