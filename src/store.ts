@@ -169,21 +169,13 @@ export class SignalStore<T extends StoreState = StoreState> {
 		// violate JS invariants (get trap must return actual value for non-configurable props).
 		if (Object.isFrozen(obj) || Object.isSealed(obj)) return obj;
 
-		// Skip built-in types that don't work well with proxies (have internal slots).
-		// User-defined class instances are allowed since their properties are just data.
-		if (
-			obj instanceof Date ||
-			obj instanceof RegExp ||
-			obj instanceof Map ||
-			obj instanceof Set ||
-			obj instanceof WeakMap ||
-			obj instanceof WeakSet ||
-			obj instanceof Error ||
-			obj instanceof Promise ||
-			ArrayBuffer.isView(obj) ||
-			obj instanceof ArrayBuffer ||
-			(typeof Node !== "undefined" && obj instanceof Node)
-		) {
+		// Only wrap plain objects and arrays. Custom class instances are skipped because
+		// deep reactivity on arbitrary classes can cause unexpected behavior and performance
+		// issues (e.g., classes that modify internal state when methods are called).
+		const proto = Object.getPrototypeOf(obj);
+		const isPlainObject = proto === Object.prototype || proto === null;
+		const isArray = Array.isArray(obj);
+		if (!isPlainObject && !isArray) {
 			return obj;
 		}
 		return new Proxy(obj, {

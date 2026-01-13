@@ -430,8 +430,9 @@ describe("SignalStore", () => {
 				assert.equal(callCount, 3);
 			});
 
-			it("re-evaluates when class instance property changes", async () => {
-				// Issue #22: Class instances should also support deep reactivity.
+			it("does NOT make class instances deeply reactive", async () => {
+				// Class instances should NOT be proxied for deep reactivity.
+				// Only plain objects and arrays should be deeply reactive.
 				class Item {
 					name: string;
 					visible: boolean;
@@ -455,16 +456,21 @@ describe("SignalStore", () => {
 				});
 				assert.equal(callCount, 1);
 
-				// Modifying class instance property should trigger the effect
+				// Modifying class instance property should NOT trigger the effect
+				// because class instances are not deeply reactive.
 				store.$.items[0].visible = true;
 				await sleepForReactivity();
-				assert.equal(callCount, 2);
+				assert.equal(callCount, 1); // Should still be 1, not 2
 
-				// Class methods should still work and trigger reactivity
+				// Class methods should still work, but NOT trigger reactivity.
 				store.$.items[0].toggle();
 				await sleepForReactivity();
-				assert.equal(callCount, 3);
+				assert.equal(callCount, 1); // Should still be 1
 				assert.equal(store.$.items[0].visible, false);
+
+				// Replacing the entire array DOES trigger reactivity.
+				await store.set("items", [new Item("c", true)]);
+				assert.equal(callCount, 2);
 			});
 
 			it("re-evaluates function with conditional dependency access", async () => {

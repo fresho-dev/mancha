@@ -281,6 +281,10 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			// Clear to start fresh measurement.
 			renderer.clearPerformanceReport();
 
+			// Verify data was cleared.
+			const clearedReport = renderer.getPerformanceReport();
+			assert.equal(clearedReport.effects.total, 0);
+
 			// Simulate a user flow by updating data.
 			await renderer.set("items", [1, 2, 3, 4, 5]);
 
@@ -289,7 +293,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 
 			// Should have effect data from the update, but no lifecycle timing.
 			assert.equal(report.lifecycle.mountTime, undefined);
-			assert.ok(report.effects.total >= 0);
+			assert.ok(report.effects.total > 0, "Effects should be tracked after clearing");
 		});
 	});
 
