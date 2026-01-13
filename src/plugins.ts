@@ -441,9 +441,8 @@ export namespace RendererPlugins {
 
 					// Remove all the previously added children, if any.
 					children.splice(0, children.length).forEach((child) => {
-						// Only remove if child is still part of this parent (may have been moved by :if).
-						if (child.parentNode === parent) {
-							removeChild(parent, child);
+						if (child.parentNode) {
+							removeChild(child.parentNode, child);
 						}
 						this._skipNodes.delete(child);
 					});
@@ -451,16 +450,13 @@ export namespace RendererPlugins {
 					// Validate that the expression returns a list of items.
 					if (!Array.isArray(items)) {
 						console.error(`Expression did not yield a list: \`${itemsExpr}\` => \`${items}\``);
-						return Promise.resolve();
+						return;
 					}
 
-					// Create a temporary container to hold elements during rendering.
-					// This prevents flash of untemplated content by keeping elements
-					// off-screen until fully rendered, while still providing a parentNode
-					// for directives like :if that need it.
-					const fragment = this.createElement("div", node.ownerDocument) as Element;
+					// Insert point for new elements.
+					const reference = template.nextSibling as ChildNode;
 
-					// Loop through the container items.
+					// Loop through the container items synchronously.
 					const awaiters: Promise<void>[] = [];
 					for (const item of items) {
 						// Create a subrenderer that will hold the loop item and all node descendants.
@@ -470,37 +466,29 @@ export namespace RendererPlugins {
 						subrenderer.set(loopKey, item, true);
 
 						// Create a new HTML element for each item.
+						// The copy inherits "display: none" from the template node.
 						const copy = node.cloneNode(true);
 
-						// Restore the original style of the node.
-						setAttribute(copy as Element, "style", originalStyle);
+						// Insert into DOM while hidden to avoid race conditions.
+						insertBefore(parent, copy, reference);
 
-						// Add to fragment so it has a parentNode during mount.
-						appendChild(fragment, copy);
-
-						// Track the original element for cleanup. This is important because
-						// :if may swap elements with placeholders, and we need to track
-						// the original element to properly clean up when :if toggles back.
+						// Track the element for cleanup.
 						children.push(copy);
 
 						// Since the element will be handled by a subrenderer, skip it in parent renderer.
 						this._skipNodes.add(copy);
 
-						// Render the element using the subrenderer.
-						awaiters.push(subrenderer.mount(copy, params));
+						// Mount the element, then reveal it once complete.
+						awaiters.push(
+							subrenderer.mount(copy, params).then(() => {
+								setAttribute(copy as Element, "style", originalStyle);
+							}),
+						);
 						this.log("Rendered list child:\n", nodeToString(copy, 128));
 					}
 
-					// Wait for all mounts to complete, then insert into DOM.
-					// Using .then() keeps this function synchronous for dependency tracking,
-					// while still preventing flash of untemplated content.
-					const reference = template.nextSibling as ChildNode;
-					return Promise.all(awaiters).then(() => {
-						const fragmentChildren = Array.from(fragment.childNodes);
-						for (const child of fragmentChildren) {
-							insertBefore(parent, child, reference);
-						}
-					});
+					// Wait for all mounts to complete.
+					return Promise.all(awaiters).then(() => {});
 				},
 				{ directive: ":for", element: elem, expression: forAttr },
 			);
