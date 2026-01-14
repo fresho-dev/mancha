@@ -149,7 +149,7 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 	/**
 	 * Builds an effect identifier from metadata.
 	 */
-	buildEffectId(meta?: EffectMeta): string {
+	buildObserverId(meta?: EffectMeta): string {
 		const directive = meta?.directive ?? "unknown";
 		const expression = ellipsize(meta?.expression ?? "", 32);
 		const elem = meta?.element as HTMLElement | undefined;
@@ -167,8 +167,8 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 	/**
 	 * Records an effect execution for performance tracking.
 	 */
-	recordEffectExecution(meta: EffectMeta | undefined, duration: number): void {
-		const id = this.buildEffectId(meta);
+	recordObserverExecution(meta: EffectMeta | undefined, duration: number): void {
+		const id = this.buildObserverId(meta);
 		const stats = this._perfData.effects.get(id) ?? { count: 0, totalTime: 0 };
 		stats.count++;
 		stats.totalTime += duration;
@@ -228,16 +228,22 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 			const duration = performance.now() - startTime;
 
 			// Record effect execution for performance report.
-			if (meta) renderer.recordEffectExecution(meta, duration);
+			if (meta) renderer.recordObserverExecution(meta, duration);
 
-			// Log slow effects (>16ms = potentially dropped frame).
+			// Log slow observers (>16ms = potentially dropped frame).
 			if (duration > 16) {
-				console.warn(`Slow effect (${duration.toFixed(1)}ms):`, renderer.buildEffectId(meta));
+				console.warn(
+					`[mancha] Slow observer (${duration.toFixed(1)}ms):`,
+					renderer.buildObserverId(meta),
+				);
 			}
 
-			// Log individual effect timings at 'effects' level.
+			// Log individual observer timings at 'effects' level.
 			if (renderer.shouldLog("effects")) {
-				console.debug(`Effect (${duration.toFixed(2)}ms):`, renderer.buildEffectId(meta));
+				console.debug(
+					`[mancha] Observer (${duration.toFixed(2)}ms):`,
+					renderer.buildObserverId(meta),
+				);
 			}
 
 			return result;
