@@ -2076,6 +2076,140 @@ describe("SignalStore", () => {
 			await sleepForReactivity();
 			assert.equal(store.get("greeting"), "Hello, Bob!");
 		});
+
+		describe("write guards", () => {
+			it("warns when computed writes to reactive property", async () => {
+				const warnings: string[] = [];
+				const originalWarn = console.warn;
+				console.warn = (...args: unknown[]) => warnings.push(args.join(" "));
+
+				try {
+					const store = new SignalStore({ count: 0, sideEffect: 0 });
+					store.set(
+						"double",
+						store.$computed(function () {
+							this.sideEffect = 1; // BUG: writing inside computed
+							return this.count * 2;
+						}),
+					);
+					await sleepForReactivity();
+
+					assert.equal(warnings.length, 1);
+					assert.ok(warnings[0].includes("sideEffect"));
+					assert.ok(warnings[0].toLowerCase().includes("computed"));
+				} finally {
+					console.warn = originalWarn;
+				}
+			});
+
+			it("does not warn when writing outside computed", async () => {
+				const warnings: string[] = [];
+				const originalWarn = console.warn;
+				console.warn = (...args: unknown[]) => warnings.push(args.join(" "));
+
+				try {
+					const store = new SignalStore({ count: 0 });
+					store.set(
+						"double",
+						store.$computed(function () {
+							return this.count * 2;
+						}),
+					);
+					await sleepForReactivity();
+
+					// Writing outside computed should not warn.
+					store.$.count = 5;
+					await sleepForReactivity();
+
+					assert.equal(warnings.length, 0);
+				} finally {
+					console.warn = originalWarn;
+				}
+			});
+
+			it("warns on each write inside computed", async () => {
+				const warnings: string[] = [];
+				const originalWarn = console.warn;
+				console.warn = (...args: unknown[]) => warnings.push(args.join(" "));
+
+				try {
+					const store = new SignalStore({ a: 1, b: 0, c: 0 });
+					store.set(
+						"derived",
+						store.$computed(function () {
+							this.b = this.a + 1; // First write
+							this.c = this.a + 2; // Second write
+							return this.a;
+						}),
+					);
+					await sleepForReactivity();
+
+					assert.equal(warnings.length, 2);
+					assert.ok(warnings[0].includes("b"));
+					assert.ok(warnings[1].includes("c"));
+				} finally {
+					console.warn = originalWarn;
+				}
+			});
+
+			it("tracks depth correctly with nested computeds", async () => {
+				const warnings: string[] = [];
+				const originalWarn = console.warn;
+				console.warn = (...args: unknown[]) => warnings.push(args.join(" "));
+
+				try {
+					const store = new SignalStore({ base: 1, sideEffect: 0 });
+					store.set(
+						"double",
+						store.$computed(function () {
+							return this.base * 2;
+						}),
+					);
+					await sleepForReactivity();
+
+					store.set(
+						"quadruple",
+						store.$computed(function () {
+							this.sideEffect = 1; // Write inside nested computed
+							return (this.double as number) * 2;
+						}),
+					);
+					await sleepForReactivity();
+
+					assert.equal(warnings.length, 1);
+					assert.ok(warnings[0].includes("sideEffect"));
+				} finally {
+					console.warn = originalWarn;
+				}
+			});
+
+			it("isolates write guard tracking per store", async () => {
+				const warnings: string[] = [];
+				const originalWarn = console.warn;
+				console.warn = (...args: unknown[]) => warnings.push(args.join(" "));
+
+				try {
+					const store1 = new SignalStore({ count: 1 });
+					const store2 = new SignalStore({ value: 10 });
+
+					// Computed in store1 should not affect store2's tracking.
+					store1.set(
+						"double",
+						store1.$computed(function () {
+							return this.count * 2;
+						}),
+					);
+
+					// Writing to store2 while store1's computed exists should not warn.
+					store2.$.value = 20;
+					await sleepForReactivity();
+
+					assert.equal(warnings.length, 0);
+				} finally {
+					console.warn = originalWarn;
+				}
+			});
+		});
 	});
 
 	describe("notification debouncing", () => {
