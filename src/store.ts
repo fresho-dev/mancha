@@ -153,6 +153,12 @@ export class SignalStore<T extends StoreState = StoreState> {
 	 */
 	private readonly _notify: Map<string, ReturnType<typeof setTimeout> | "executing"> = new Map();
 
+	/**
+	 * Tracks nested computed evaluation depth. When > 0, we're inside a computed
+	 * function and writes to reactive properties should trigger a warning.
+	 */
+	private _computedDepth: number = 0;
+
 	constructor(data?: T) {
 		for (const [key, value] of Object.entries(data || {})) {
 			// Use our set method to ensure that callbacks and wrappers are appropriately set, but ignore
@@ -283,20 +289,26 @@ export class SignalStore<T extends StoreState = StoreState> {
 		const store = this;
 		this.effect(
 			function (this: ReactiveContext<T>) {
-				// Pass `this` as both the context and first argument, so arrow functions
-				// can receive the reactive proxy as `$` parameter.
-				const result = computedFn.call(this, this);
-				const oldValue = store._store.get(key);
-				// Only update and notify if value actually changed.
-				if (oldValue !== result) {
-					setAncestorValue(store, key, result);
-					// Synchronously invoke observers of the computed key to ensure
-					// cascading computed values update in the same tick.
-					const owner = getAncestorKeyStore(store, key);
-					const entries = Array.from(owner?.observers.get(key) || []);
-					for (const entry of entries) {
-						entry.observer.call(entry.store.proxify(entry.observer));
+				// Track computed depth for write guard warnings.
+				store._computedDepth++;
+				try {
+					// Pass `this` as both the context and first argument, so arrow functions
+					// can receive the reactive proxy as `$` parameter.
+					const result = computedFn.call(this, this);
+					const oldValue = store._store.get(key);
+					// Only update and notify if value actually changed.
+					if (oldValue !== result) {
+						setAncestorValue(store, key, result);
+						// Synchronously invoke observers of the computed key to ensure
+						// cascading computed values update in the same tick.
+						const owner = getAncestorKeyStore(store, key);
+						const entries = Array.from(owner?.observers.get(key) || []);
+						for (const entry of entries) {
+							entry.observer.call(entry.store.proxify(entry.observer));
+						}
 					}
+				} finally {
+					store._computedDepth--;
 				}
 			},
 			{ directive: "computed", id: key },
@@ -475,6 +487,12 @@ export class SignalStore<T extends StoreState = StoreState> {
 				if (typeof prop !== "string" || prop in this) {
 					Reflect.set(this, prop, value, receiver);
 				} else {
+					// Warn if writing to reactive property inside a computed.
+					if (this._computedDepth > 0) {
+						console.warn(
+							`[mancha] Computed wrote to '${prop}'. Computeds should be pure; use $effect for side effects.`,
+						);
+					}
 					this.set(prop, value);
 				}
 				return true;

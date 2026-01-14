@@ -297,10 +297,10 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 		});
 	});
 
-	describe("buildEffectId", () => {
-		it("builds effect id from directive and expression", () => {
+	describe("buildObserverId", () => {
+		it("builds observer id from directive and expression", () => {
 			const renderer = new ctor();
-			const id = renderer.buildEffectId({
+			const id = renderer.buildObserverId({
 				directive: "bind",
 				expression: "user.name",
 			});
@@ -308,38 +308,38 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			assert.ok(id.includes("user.name"));
 		});
 
-		it("returns a valid effect id format", () => {
+		it("returns a valid observer id format", () => {
 			const renderer = new ctor();
 			const html = "<input />";
 			const fragment = renderer.parseHTML(html) as DocumentFragment;
 			const elem = fragment.querySelector("input") as HTMLElement;
 
-			const id = renderer.buildEffectId({
+			const id = renderer.buildObserverId({
 				directive: "bind",
 				element: elem,
 				expression: "value",
 			});
 			// ID should have format "directive:elemId:expression".
 			const parts = id.split(":");
-			assert.ok(parts.length >= 2, "Effect ID should have at least directive and element parts");
+			assert.ok(parts.length >= 2, "Observer ID should have at least directive and element parts");
 			assert.equal(parts[0], "bind");
 		});
 
-		it("includes element identifier in effect id", () => {
+		it("includes element identifier in observer id", () => {
 			const renderer = new ctor();
 			const html = '<input id="test-input" />';
 			const fragment = renderer.parseHTML(html) as DocumentFragment;
 			const elem = fragment.querySelector("input") as HTMLElement;
 
-			const id = renderer.buildEffectId({
+			const id = renderer.buildObserverId({
 				directive: "bind",
 				element: elem,
 				expression: "value",
 			});
 			// The ID should include some element identifier (id, testid, or path).
 			// Different DOM implementations may handle this differently.
-			assert.ok(id.startsWith("bind:"), "Effect ID should start with directive");
-			assert.ok(id.includes("value"), "Effect ID should include expression");
+			assert.ok(id.startsWith("bind:"), "Observer ID should start with directive");
+			assert.ok(id.includes("value"), "Observer ID should include expression");
 		});
 
 		it("handles elements without id attributes", () => {
@@ -348,26 +348,26 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			const fragment = renderer.parseHTML(html) as DocumentFragment;
 			const elem = fragment.querySelector("input") as HTMLElement;
 
-			const id = renderer.buildEffectId({
+			const id = renderer.buildObserverId({
 				directive: "bind",
 				element: elem,
 				expression: "value",
 			});
 			// Should still produce a valid ID with tag name from the path.
-			assert.ok(id.startsWith("bind:"), "Effect ID should start with directive");
-			assert.ok(id.length > 10, "Effect ID should have meaningful content");
+			assert.ok(id.startsWith("bind:"), "Observer ID should start with directive");
+			assert.ok(id.length > 10, "Observer ID should have meaningful content");
 		});
 
 		it("uses explicit id when provided", () => {
 			const renderer = new ctor();
-			const id = renderer.buildEffectId({
+			const id = renderer.buildObserverId({
 				directive: "computed",
 				id: "myKey",
 			});
 			assert.equal(id, "computed:myKey");
 		});
 
-		it("computed properties include key in effect id", async () => {
+		it("computed properties include key in observer id", async () => {
 			const renderer = new ctor({ count: 2 });
 			renderer.debug(true);
 			renderer.set(
@@ -388,7 +388,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			assert.ok(computedEffects.length > 0, "Should have at least one computed effect");
 			assert.ok(
 				computedEffects.some((e) => e.id === "computed:double"),
-				"Effect ID should be 'computed:double'",
+				"Observer ID should be 'computed:double'",
 			);
 
 			// Should NOT contain "unknown" - computed properties use the key as identifier.
