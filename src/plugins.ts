@@ -339,15 +339,33 @@ export namespace RendererPlugins {
 			// Remove the attribute from the node.
 			removeAttributeOrDataset(elem, "html", ":");
 
+			// Track the current subrenderer to dispose on content change.
+			let currentSubrenderer: IRenderer | null = null;
+
 			// Compute the function's result and track dependencies.
 			return this.effect(
 				function (this: IRenderer) {
 					const result = this.eval(htmlAttr, { $elem: node }) as string;
 					return new Promise((resolve) => {
 						(async () => {
-							const fragment = await this.preprocessString(result, params);
-							await this.renderNode(fragment);
+							// Dispose previous subrenderer to clean up its observers.
+							if (currentSubrenderer) {
+								currentSubrenderer.dispose();
+								currentSubrenderer = null;
+							}
+
+							// Create a subrenderer for the new content.
+							const subrenderer = this.subrenderer();
+							currentSubrenderer = subrenderer;
+
+							const fragment = await subrenderer.preprocessString(result, params);
+							await subrenderer.renderNode(fragment);
 							replaceChildren(elem, fragment);
+
+							// Mount the subrenderer on the container element so $rootNode is set.
+							// This enables lazy cleanup if the container itself is later removed.
+							subrenderer._store.set("$rootNode", elem);
+
 							resolve();
 						})();
 					});

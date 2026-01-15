@@ -274,6 +274,21 @@ export class SignalStore<T extends StoreState = StoreState> {
 					} finally {
 						this._notify.delete(key);
 					}
+
+					// Lazy cleanup: remove observers whose store's $rootNode is disconnected.
+					// This handles memory leaks from removed :for items, replaced :html content, etc.
+					// Only applies to subrenderers (stores with $parent) - root renderer observers persist.
+					const observerSet = owner?.observers.get(key);
+					if (observerSet) {
+						for (const entry of entries) {
+							const hasParent = entry.store._store.has("$parent");
+							const rootNode = entry.store._store.get("$rootNode") as Node | undefined;
+							if (hasParent && rootNode && !rootNode.isConnected) {
+								observerSet.delete(entry);
+							}
+						}
+					}
+
 					resolve();
 				}, debounceMillis),
 			);
@@ -364,6 +379,17 @@ export class SignalStore<T extends StoreState = StoreState> {
 		await this.set(key, null);
 		this._store.delete(key);
 		this.observers.delete(key);
+	}
+
+	/**
+	 * Disposes this store by clearing all observers.
+	 * Call this when the store is no longer needed to prevent memory leaks.
+	 */
+	dispose(): void {
+		for (const observerSet of this.observers.values()) {
+			observerSet.clear();
+		}
+		this.observers.clear();
 	}
 
 	keys(): string[] {

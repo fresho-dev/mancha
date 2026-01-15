@@ -2295,4 +2295,227 @@ describe("SignalStore", () => {
 			);
 		});
 	});
+
+	describe("dispose", () => {
+		it("clears all observers", async () => {
+			const store = new SignalStore({ count: 0 });
+			let observerCalls = 0;
+
+			store.effect(function () {
+				observerCalls++;
+				return this.count;
+			});
+
+			assert.equal(observerCalls, 1);
+
+			// Trigger observer.
+			await store.set("count", 1);
+			await sleepForReactivity();
+			assert.equal(observerCalls, 2);
+
+			// Dispose should clear observers.
+			store.dispose();
+
+			// Observer should no longer fire.
+			await store.set("count", 2);
+			await sleepForReactivity();
+			assert.equal(observerCalls, 2, "Observer should not fire after dispose");
+		});
+
+		it("clears observers for multiple keys", async () => {
+			const store = new SignalStore({ a: 0, b: 0 });
+			let aCalls = 0;
+			let bCalls = 0;
+
+			store.effect(function () {
+				aCalls++;
+				return this.a;
+			});
+
+			store.effect(function () {
+				bCalls++;
+				return this.b;
+			});
+
+			assert.equal(aCalls, 1);
+			assert.equal(bCalls, 1);
+
+			store.dispose();
+
+			await store.set("a", 1);
+			await store.set("b", 1);
+			await sleepForReactivity();
+
+			assert.equal(aCalls, 1, "Observer for 'a' should not fire after dispose");
+			assert.equal(bCalls, 1, "Observer for 'b' should not fire after dispose");
+		});
+
+		it("getObserverStats returns zero after dispose", async () => {
+			const store = new SignalStore({ count: 0 });
+
+			store.effect(function () {
+				return this.count;
+			});
+
+			const statsBefore = store.getObserverStats();
+			assert.equal(statsBefore.totalObservers, 1);
+
+			store.dispose();
+
+			const statsAfter = store.getObserverStats();
+			assert.equal(statsAfter.totalObservers, 0);
+			assert.equal(statsAfter.totalKeys, 0);
+		});
+	});
+
+	describe("lazy cleanup", () => {
+		it("removes observers from subrenderers with disconnected $rootNode", async () => {
+			// Simulate a parent-child renderer relationship.
+			const parent = new SignalStore({ count: 0 });
+
+			// Create a mock DOM element.
+			const mockElement = {
+				isConnected: true,
+				parentNode: {},
+			} as unknown as Node;
+
+			// Create child store (subrenderer) with $parent and $rootNode.
+			const child = new SignalStore({
+				$parent: parent,
+				$rootNode: mockElement,
+			});
+
+			let childObserverCalls = 0;
+
+			// Child watches parent's key.
+			child.effect(function () {
+				childObserverCalls++;
+				return this.count;
+			});
+
+			assert.equal(childObserverCalls, 1);
+
+			// Trigger - observer should fire.
+			await parent.set("count", 1);
+			await sleepForReactivity();
+			assert.equal(childObserverCalls, 2);
+
+			// Simulate element removal from DOM.
+			(mockElement as unknown as { isConnected: boolean }).isConnected = false;
+
+			// Trigger again - observer fires one more time, then gets cleaned up.
+			await parent.set("count", 2);
+			await sleepForReactivity();
+			assert.equal(childObserverCalls, 3, "Observer fires once before cleanup");
+
+			// Trigger again - observer should NOT fire (was cleaned up).
+			await parent.set("count", 3);
+			await sleepForReactivity();
+			assert.equal(childObserverCalls, 3, "Observer should not fire after cleanup");
+		});
+
+		it("does not remove observers from root renderer (no $parent)", async () => {
+			// Root renderer has no $parent.
+			const mockElement = {
+				isConnected: false, // Disconnected (like a DocumentFragment).
+			} as unknown as Node;
+
+			const root = new SignalStore({
+				count: 0,
+				$rootNode: mockElement,
+			});
+
+			let observerCalls = 0;
+
+			root.effect(function () {
+				observerCalls++;
+				return this.count;
+			});
+
+			assert.equal(observerCalls, 1);
+
+			// Trigger - observer should still fire even though $rootNode is disconnected.
+			await root.set("count", 1);
+			await sleepForReactivity();
+			assert.equal(observerCalls, 2, "Root renderer observers should persist");
+
+			await root.set("count", 2);
+			await sleepForReactivity();
+			assert.equal(observerCalls, 3, "Root renderer observers should persist");
+		});
+
+		it("cleans up multiple observers from different disconnected subrenderers", async () => {
+			const parent = new SignalStore({ count: 0 });
+
+			// Create multiple children, each with their own $rootNode.
+			const children: SignalStore[] = [];
+			const mockElements: { isConnected: boolean }[] = [];
+			const observerCalls: number[] = [];
+
+			for (let i = 0; i < 3; i++) {
+				const mockElement = { isConnected: true } as unknown as Node;
+				mockElements.push(mockElement as unknown as { isConnected: boolean });
+
+				const child = new SignalStore({
+					$parent: parent,
+					$rootNode: mockElement,
+				});
+				children.push(child);
+				observerCalls.push(0);
+
+				const idx = i;
+				child.effect(function () {
+					observerCalls[idx]++;
+					return this.count;
+				});
+			}
+
+			// All observers called once.
+			assert.deepEqual(observerCalls, [1, 1, 1]);
+
+			// Trigger - all should fire.
+			await parent.set("count", 1);
+			await sleepForReactivity();
+			assert.deepEqual(observerCalls, [2, 2, 2]);
+
+			// Disconnect first two elements.
+			mockElements[0].isConnected = false;
+			mockElements[1].isConnected = false;
+
+			// Trigger - all fire once, then first two get cleaned up.
+			await parent.set("count", 2);
+			await sleepForReactivity();
+			assert.deepEqual(observerCalls, [3, 3, 3]);
+
+			// Trigger again - only third should fire.
+			await parent.set("count", 3);
+			await sleepForReactivity();
+			assert.deepEqual(observerCalls, [3, 3, 4], "Only connected observer should fire");
+		});
+
+		it("preserves observers when $rootNode stays connected", async () => {
+			const parent = new SignalStore({ count: 0 });
+
+			const mockElement = { isConnected: true } as unknown as Node;
+
+			const child = new SignalStore({
+				$parent: parent,
+				$rootNode: mockElement,
+			});
+
+			let observerCalls = 0;
+
+			child.effect(function () {
+				observerCalls++;
+				return this.count;
+			});
+
+			// Multiple triggers - observer should keep firing.
+			for (let i = 1; i <= 5; i++) {
+				await parent.set("count", i);
+				await sleepForReactivity();
+				assert.equal(observerCalls, i + 1, `Observer should fire on update ${i}`);
+			}
+		});
+	});
 });

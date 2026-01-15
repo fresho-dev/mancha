@@ -1869,6 +1869,191 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 		});
 	});
 
+	describe("observer cleanup (memory leak prevention)", () => {
+		it(":for cleans up observers when items are removed", async () => {
+			const renderer = new ctor({
+				items: [{ name: "a" }, { name: "b" }, { name: "c" }],
+			});
+			const html = '<span :for="item in items" :text="item.name"></span>';
+			const fragment = renderer.parseHTML(html);
+			await renderer.mount(fragment);
+
+			// Get initial observer count.
+			const initialStats = renderer.getObserverStats();
+			const initialCount = initialStats.totalObservers;
+
+			// Remove all items.
+			await renderer.set("items", []);
+			await sleepForReactivity();
+
+			// Trigger a notification to activate lazy cleanup.
+			await renderer.set("items", [{ name: "x" }]);
+			await sleepForReactivity();
+
+			// Observer count should not have grown significantly.
+			// The old subrenderers' observers should have been cleaned up.
+			const afterStats = renderer.getObserverStats();
+
+			// We should have roughly the same number of observers (or fewer),
+			// not 3x as many from accumulated stale observers.
+			assert.ok(
+				afterStats.totalObservers <= initialCount + 2,
+				`Expected observers to be cleaned up. Initial: ${initialCount}, After: ${afterStats.totalObservers}`,
+			);
+		});
+
+		it(":for cleans up observers after multiple add/remove cycles", async () => {
+			const renderer = new ctor({ items: [] });
+			const html = '<span :for="item in items" :text="item.name"></span>';
+			const fragment = renderer.parseHTML(html);
+			await renderer.mount(fragment);
+
+			// Perform multiple add/remove cycles.
+			for (let cycle = 0; cycle < 5; cycle++) {
+				// Add items.
+				await renderer.set(
+					"items",
+					Array.from({ length: 10 }, (_, i) => ({ name: `item-${cycle}-${i}` })),
+				);
+				await sleepForReactivity();
+
+				// Remove items.
+				await renderer.set("items", []);
+				await sleepForReactivity();
+			}
+
+			// Trigger cleanup by adding one item.
+			await renderer.set("items", [{ name: "final" }]);
+			await sleepForReactivity();
+
+			// After 5 cycles of 10 items each, without cleanup we'd have 50+ stale observers.
+			// With cleanup, we should have just a few.
+			const stats = renderer.getObserverStats();
+			assert.ok(
+				stats.totalObservers < 20,
+				`Expected cleanup to prevent observer accumulation. Got: ${stats.totalObservers}`,
+			);
+		});
+
+		it(":html cleans up observers when content changes", async () => {
+			const renderer = new ctor({
+				content: '<span :text="value">initial</span>',
+				value: "test1",
+			});
+			const html = '<div :html="content"></div>';
+			const fragment = renderer.parseHTML(html);
+			await renderer.mount(fragment);
+
+			const initialStats = renderer.getObserverStats();
+			const initialCount = initialStats.totalObservers;
+
+			// Change content multiple times.
+			for (let i = 0; i < 5; i++) {
+				await renderer.set("content", `<span :text="value">v${i}</span>`);
+				await sleepForReactivity();
+			}
+
+			// Trigger value change to activate any remaining observers.
+			await renderer.set("value", "final");
+			await sleepForReactivity();
+
+			const afterStats = renderer.getObserverStats();
+
+			// Without cleanup, we'd accumulate observers from each content change.
+			// With cleanup (via dispose), observer count should be stable.
+			assert.ok(
+				afterStats.totalObservers <= initialCount + 5,
+				`Expected :html to clean up old observers. Initial: ${initialCount}, After: ${afterStats.totalObservers}`,
+			);
+		});
+
+		it(":html disposes subrenderer when content is replaced", async () => {
+			const renderer = new ctor({
+				content: "<span>{{ counter }}</span>",
+				counter: "initial",
+			});
+			const html = '<div :html="content"></div>';
+			const fragment = renderer.parseHTML(html);
+			await renderer.mount(fragment);
+
+			// Verify initial content works.
+			const div = fragment.firstChild as HTMLElement;
+			assert.equal(getTextContent(div), "initial");
+
+			// Update counter - should reflect.
+			await renderer.set("counter", "updated");
+			await sleepForReactivity();
+			assert.equal(getTextContent(div), "updated");
+
+			// Replace content entirely.
+			await renderer.set("content", "<span>static</span>");
+			await sleepForReactivity();
+			assert.equal(getTextContent(div), "static");
+
+			// Update counter - old content observer should be disposed,
+			// so this shouldn't affect anything.
+			await renderer.set("counter", "should-not-appear");
+			await sleepForReactivity();
+			assert.equal(
+				getTextContent(div),
+				"static",
+				"Old observer should be disposed and not update removed content",
+			);
+		});
+
+		it("nested :for inside :for cleans up inner observers", async () => {
+			const renderer = new ctor({
+				outer: [{ inner: [{ val: "a" }, { val: "b" }] }, { inner: [{ val: "c" }] }],
+			});
+			const html = '<div :for="o in outer"><span :for="i in o.inner" :text="i.val"></span></div>';
+			const fragment = renderer.parseHTML(html);
+			await renderer.mount(fragment);
+
+			const initialStats = renderer.getObserverStats();
+
+			// Replace outer array completely.
+			await renderer.set("outer", [{ inner: [{ val: "x" }] }]);
+			await sleepForReactivity();
+
+			// Trigger another change to activate cleanup.
+			await renderer.set("outer", [{ inner: [{ val: "y" }, { val: "z" }] }]);
+			await sleepForReactivity();
+
+			const afterStats = renderer.getObserverStats();
+
+			// Should not accumulate observers from removed nested loops.
+			assert.ok(
+				afterStats.totalObservers <= initialStats.totalObservers + 5,
+				`Expected nested cleanup. Initial: ${initialStats.totalObservers}, After: ${afterStats.totalObservers}`,
+			);
+		});
+
+		it(":for with :text inside cleans up text observers", async () => {
+			const renderer = new ctor({ items: ["a", "b", "c"] });
+			const html = '<span :for="item in items" :text="item"></span>';
+			const fragment = renderer.parseHTML(html);
+			await renderer.mount(fragment);
+
+			// Clear and re-add items multiple times.
+			for (let i = 0; i < 3; i++) {
+				await renderer.set("items", []);
+				await sleepForReactivity();
+				await renderer.set("items", ["x", "y"]);
+				await sleepForReactivity();
+			}
+
+			const stats = renderer.getObserverStats();
+
+			// Should have cleaned up observers from removed items.
+			// Without cleanup: 3 initial + (3 cycles * 3 items) = 12+ observers for "item".
+			// With cleanup: should stabilize around the current item count.
+			assert.ok(
+				stats.totalObservers < 15,
+				`Expected text observers to be cleaned up. Got: ${stats.totalObservers}`,
+			);
+		});
+	});
+
 	describe(":attr", () => {
 		it("processes href attribute", async () => {
 			const renderer = new ctor({ foo: "example.com" });
