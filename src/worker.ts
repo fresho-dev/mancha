@@ -25,7 +25,7 @@ export class Renderer extends IRenderer {
 		return new Comment(content) as unknown as Node;
 	}
 	textContent(node: Node, content: string): void {
-		(node as unknown as Element).children = [new Text(content)];
+		(node as unknown as Element).children = [new Text(String(content))];
 	}
 }
 

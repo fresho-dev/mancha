@@ -211,8 +211,11 @@ export namespace RendererPlugins {
 			function (this: IRenderer) {
 				let updatedContent = content;
 				for (const expr of expressions) {
-					const result = this.eval(expr, { $elem: node }) as string;
-					updatedContent = updatedContent.replace(`{{ ${expr} }}`, String(result));
+					const result = this.eval(expr, { $elem: node });
+					updatedContent = updatedContent.replace(
+						`{{ ${expr} }}`,
+						result == null ? "" : String(result),
+					);
 				}
 				node.nodeValue = updatedContent;
 			},
@@ -322,7 +325,8 @@ export namespace RendererPlugins {
 			const setTextContent = (content: string) => this.textContent(node, content);
 			return this.effect(
 				function (this: IRenderer) {
-					setTextContent(this.eval(textAttr, { $elem: node }) as string);
+					const result = this.eval(textAttr, { $elem: node });
+					setTextContent(result == null ? "" : String(result));
 				},
 				{ directive: ":text", element: elem, expression: textAttr },
 			);
