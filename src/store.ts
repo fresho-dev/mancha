@@ -384,12 +384,27 @@ export class SignalStore<T extends StoreState = StoreState> {
 	/**
 	 * Disposes this store by clearing all observers.
 	 * Call this when the store is no longer needed to prevent memory leaks.
+	 * Also removes any observers this store registered on ancestor stores.
 	 */
 	dispose(): void {
+		// Clear local observers.
 		for (const observerSet of this.observers.values()) {
 			observerSet.clear();
 		}
 		this.observers.clear();
+
+		// Remove observers registered on ancestors (for inherited keys).
+		let ancestor = this._store.get("$parent") as SignalStore | undefined;
+		while (ancestor) {
+			for (const observerSet of ancestor.observers.values()) {
+				for (const entry of observerSet) {
+					if (entry.store === this) {
+						observerSet.delete(entry);
+					}
+				}
+			}
+			ancestor = ancestor._store.get("$parent") as SignalStore | undefined;
+		}
 	}
 
 	keys(): string[] {
