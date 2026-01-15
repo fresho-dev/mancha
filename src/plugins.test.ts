@@ -1820,6 +1820,111 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			assert.equal(renderer.get("foo"), "bar");
 			assert.equal(getTextContent(node), "bar");
 		});
+
+		it("render positive number", async () => {
+			const renderer = new ctor({ counter: 42 });
+			const html = `<div :text="counter"></div>`;
+			const fragment = renderer.parseHTML(html);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.equal(getTextContent(node), "42");
+		});
+
+		it("render zero", async () => {
+			const renderer = new ctor({ counter: 0 });
+			const html = `<div :text="counter"></div>`;
+			const fragment = renderer.parseHTML(html);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.equal(getTextContent(node), "0");
+		});
+
+		it("render negative number", async () => {
+			const renderer = new ctor({ value: -123 });
+			const html = `<div :text="value"></div>`;
+			const fragment = renderer.parseHTML(html);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.equal(getTextContent(node), "-123");
+		});
+
+		it("render floating point number", async () => {
+			const renderer = new ctor({ value: 1.5 });
+			const html = `<div :text="value"></div>`;
+			const fragment = renderer.parseHTML(html);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.equal(getTextContent(node), "1.5");
+		});
+
+		it("render boolean true", async () => {
+			const renderer = new ctor({ flag: true });
+			const html = `<div :text="flag"></div>`;
+			const fragment = renderer.parseHTML(html);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.equal(getTextContent(node), "true");
+		});
+
+		it("render boolean false", async () => {
+			const renderer = new ctor({ flag: false });
+			const html = `<div :text="flag"></div>`;
+			const fragment = renderer.parseHTML(html);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.equal(getTextContent(node), "false");
+		});
+
+		it("render null as empty string", async () => {
+			const renderer = new ctor({ value: null });
+			const html = `<div :text="value"></div>`;
+			const fragment = renderer.parseHTML(html);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.equal(getTextContent(node), "");
+		});
+
+		it("render undefined as empty string", async () => {
+			const renderer = new ctor({ value: undefined });
+			const html = `<div :text="value"></div>`;
+			const fragment = renderer.parseHTML(html);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.equal(getTextContent(node), "");
+		});
+
+		it("render empty string", async () => {
+			const renderer = new ctor({ value: "" });
+			const html = `<div :text="value"></div>`;
+			const fragment = renderer.parseHTML(html);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.equal(getTextContent(node), "");
+		});
+
+		it("render expression result as number", async () => {
+			const renderer = new ctor({ a: 10, b: 5 });
+			const html = `<div :text="a + b"></div>`;
+			const fragment = renderer.parseHTML(html);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.equal(getTextContent(node), "15");
+		});
+
+		it("updates reactively when number changes", async () => {
+			const renderer = new ctor({ counter: 1 });
+			const html = `<div :text="counter"></div>`;
+			const fragment = renderer.parseHTML(html);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.equal(getTextContent(node), "1");
+
+			await renderer.set("counter", 2);
+			assert.equal(getTextContent(node), "2");
+
+			await renderer.set("counter", 0);
+			assert.equal(getTextContent(node), "0");
+		});
 	});
 
 	describe(":html", () => {
