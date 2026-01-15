@@ -294,6 +294,40 @@ renderer.$.doubled = renderer.$.$computed(($) => $.count * 2);
 
 **Important:** At runtime, `$computed` returns a marker object that signals to the store to set up reactive tracking. The return value must be assigned to a store property - do not use it directly as a value.
 
+## Observer Cleanup
+
+`mancha` automatically manages observer cleanup to prevent memory leaks. When subrenderers are removed from the DOM (e.g., via `:for` item removal or `:html` content replacement), their observers are lazily cleaned up during the next notification cycle.
+
+### Automatic Cleanup
+
+For most use cases, you don't need to do anything—cleanup happens automatically:
+
+```html
+<ul :for="item in items">
+	<li>{{ item.name }}</li>
+</ul>
+```
+
+When items are removed from the array, the corresponding `<li>` elements are removed from the DOM, and their observers are cleaned up the next time any observer is notified.
+
+### Manual Cleanup with dispose()
+
+For advanced use cases where you're managing renderers programmatically, you can explicitly dispose of a store to clear all its observers:
+
+```js
+const subrenderer = document.querySelector("p").renderer;
+
+// Clear all observers from this store to free memory.
+subrenderer.dispose();
+```
+
+This is useful when:
+- You're replacing large sections of dynamically-generated content
+- You're managing renderer lifecycles manually outside the DOM
+- You want to ensure immediate cleanup rather than waiting for lazy cleanup
+
+**Note:** The root renderer's observers are never automatically cleaned up—only subrenderers (stores with a `$parent`) are subject to lazy cleanup. For the root renderer, use `dispose()` explicitly if needed.
+
 ## URL Query Parameter Binding
 
 `mancha` provides a convenient way to establish a two-way binding between the state of your application and the URL query parameters. This is useful for preserving state across page reloads and for sharing links that restore the application to a specific state.
