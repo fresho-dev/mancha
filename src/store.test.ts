@@ -2366,6 +2366,108 @@ describe("SignalStore", () => {
 			assert.equal(statsAfter.totalObservers, 0);
 			assert.equal(statsAfter.totalKeys, 0);
 		});
+
+		it("clears observers registered on ancestor stores", async () => {
+			// Parent store owns the 'count' key.
+			const parent = new SignalStore({ count: 0 });
+
+			// Child store has $parent reference.
+			const child = new SignalStore({ $parent: parent });
+
+			let childObserverCalls = 0;
+
+			// Child watches parent's key - observer is registered on PARENT.
+			child.effect(function () {
+				childObserverCalls++;
+				return this.count;
+			});
+
+			assert.equal(childObserverCalls, 1);
+
+			// Verify observer is on parent, not child.
+			const parentStats = parent.getObserverStats();
+			const childStats = child.getObserverStats();
+			assert.equal(parentStats.totalObservers, 1, "Observer should be on parent");
+			assert.equal(childStats.totalObservers, 0, "Observer should not be on child");
+
+			// Trigger - observer should fire.
+			await parent.set("count", 1);
+			await sleepForReactivity();
+			assert.equal(childObserverCalls, 2);
+
+			// Dispose CHILD - should clear observer from PARENT.
+			child.dispose();
+
+			// Verify observer was removed from parent.
+			const parentStatsAfter = parent.getObserverStats();
+			assert.equal(
+				parentStatsAfter.totalObservers,
+				0,
+				"Observer should be cleared from parent after child.dispose()",
+			);
+
+			// Observer should no longer fire.
+			await parent.set("count", 2);
+			await sleepForReactivity();
+			assert.equal(childObserverCalls, 2, "Observer should not fire after child.dispose()");
+		});
+
+		it("clears observers from all ancestors in chain", async () => {
+			// Create a 3-level hierarchy: grandparent -> parent -> child.
+			const grandparent = new SignalStore({ a: 1 });
+			const parent = new SignalStore({ $parent: grandparent, b: 2 });
+			const child = new SignalStore({ $parent: parent });
+
+			let aCalls = 0;
+			let bCalls = 0;
+
+			// Child watches keys from different ancestors.
+			child.effect(function () {
+				aCalls++;
+				return this.a; // From grandparent.
+			});
+			child.effect(function () {
+				bCalls++;
+				return this.b; // From parent.
+			});
+
+			assert.equal(aCalls, 1);
+			assert.equal(bCalls, 1);
+
+			// Verify observers are on correct ancestors.
+			assert.equal(
+				grandparent.getObserverStats().totalObservers,
+				1,
+				"Observer for 'a' should be on grandparent",
+			);
+			assert.equal(
+				parent.getObserverStats().totalObservers,
+				1,
+				"Observer for 'b' should be on parent",
+			);
+
+			// Dispose child - should clear observers from ALL ancestors.
+			child.dispose();
+
+			assert.equal(
+				grandparent.getObserverStats().totalObservers,
+				0,
+				"Observer should be cleared from grandparent",
+			);
+			assert.equal(
+				parent.getObserverStats().totalObservers,
+				0,
+				"Observer should be cleared from parent",
+			);
+
+			// Observers should no longer fire.
+			await grandparent.set("a", 10);
+			await parent.set("b", 20);
+			await sleepForReactivity();
+
+			assert.equal(aCalls, 1, "Observer for 'a' should not fire after dispose");
+			assert.equal(bCalls, 1, "Observer for 'b' should not fire after dispose");
+		});
 	});
 
 	describe("lazy cleanup", () => {

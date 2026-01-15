@@ -451,8 +451,9 @@ export namespace RendererPlugins {
 				throw new Error(`Invalid :for format: \`${forAttr}\`. Expected "{key} in {expression}".`);
 			}
 
-			// Keep track of all the child nodes added.
+			// Keep track of all the child nodes and their subrenderers.
 			const children: Node[] = [];
+			const subrenderers: IRenderer[] = [];
 
 			// Compute the container expression and track dependencies.
 			const [loopKey, itemsExpr] = tokens;
@@ -460,6 +461,11 @@ export namespace RendererPlugins {
 				function (this: IRenderer) {
 					const items = this.eval(itemsExpr, { $elem: node });
 					this.log(":for list items:", items);
+
+					// Dispose all previous subrenderers to clean up their observers.
+					subrenderers.splice(0, subrenderers.length).forEach((sub) => {
+						sub.dispose();
+					});
 
 					// Remove all the previously added children, if any.
 					children.splice(0, children.length).forEach((child) => {
@@ -494,8 +500,9 @@ export namespace RendererPlugins {
 						// Insert into DOM while hidden to avoid race conditions.
 						insertBefore(parent, copy, reference);
 
-						// Track the element for cleanup.
+						// Track the element and subrenderer for cleanup.
 						children.push(copy);
+						subrenderers.push(subrenderer);
 
 						// Since the element will be handled by a subrenderer, skip it in parent renderer.
 						this._skipNodes.add(copy);

@@ -1384,6 +1384,59 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				const texts = items.map((item) => getTextContent(item as Element));
 				assert.deepEqual(texts, ["X", "Y", "Z"]);
 			});
+
+			it("cleans up subrenderer observers when items are replaced", async () => {
+				const renderer = new ctor();
+				const html = `<div :for="item in items"><span :text="count"></span></div>`;
+				const fragment = renderer.parseHTML(html);
+
+				// Set initial data: 3 items watching 'count'.
+				renderer.set("count", 0);
+				renderer.set("items", ["a", "b", "c"]);
+				await renderer.mount(fragment);
+
+				// Each :for item creates a subrenderer that watches 'count'.
+				// With 3 items, we should have 3 observers for 'count'.
+				const statsBefore = renderer.getObserverStats();
+				const countObserversBefore = statsBefore.byKey.count || 0;
+				assert.equal(countObserversBefore, 3, "Should have 3 observers for 'count' (one per item)");
+
+				// Replace items with new array - old subrenderers should be disposed.
+				renderer.$.items = ["x", "y"];
+				await sleepForReactivity();
+
+				// Now we should have exactly 2 observers (one per new item).
+				// Old observers should have been cleaned up.
+				const statsAfter = renderer.getObserverStats();
+				const countObserversAfter = statsAfter.byKey.count || 0;
+				assert.equal(
+					countObserversAfter,
+					2,
+					"Should have 2 observers for 'count' after replacing items (old ones cleaned up)",
+				);
+			});
+
+			it("cleans up all subrenderer observers when items are cleared", async () => {
+				const renderer = new ctor();
+				const html = `<div :for="item in items"><span :text="count"></span></div>`;
+				const fragment = renderer.parseHTML(html);
+
+				renderer.set("count", 0);
+				renderer.set("items", ["a", "b", "c"]);
+				await renderer.mount(fragment);
+
+				const statsBefore = renderer.getObserverStats();
+				assert.equal(statsBefore.byKey.count, 3, "Should have 3 observers initially");
+
+				// Clear all items.
+				renderer.$.items = [];
+				await sleepForReactivity();
+
+				// All observers should be cleaned up.
+				const statsAfter = renderer.getObserverStats();
+				const countObserversAfter = statsAfter.byKey.count || 0;
+				assert.equal(countObserversAfter, 0, "Should have 0 observers after clearing items");
+			});
 		});
 
 		describe(":bind", () => {
