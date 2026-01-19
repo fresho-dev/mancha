@@ -185,7 +185,27 @@ for (const [key, count] of Object.entries(report.observers.byKey)) {
 }
 ```
 
-### 4. Reset on Each Mount
+### 4. Use `:key` for List Performance
+
+When rendering lists with `:for`, add the `:key` attribute to enable keyed reconciliation. This reuses existing DOM nodes when items are updated, reordered, or partially changed, instead of recreating all nodes:
+
+```html
+<!-- Without :key - all nodes recreated on every update -->
+<li :for="user in users">{{ user.name }}</li>
+
+<!-- With :key - nodes are reused based on stable identifier -->
+<li :for="user in users" :key="user.id">{{ user.name }}</li>
+```
+
+Benefits of keyed reconciliation:
+- **Faster updates**: Only changed items trigger DOM operations
+- **No visual flicker**: Existing elements stay in place
+- **Preserved state**: Form inputs, scroll position, and animations are maintained
+- **Efficient reordering**: Moving items doesn't require recreation
+
+The key should be a unique primitive value (string or number) that identifies each item. Avoid using array indices as keys if items can be reordered or inserted.
+
+### 5. Reset on Each Mount
 
 Performance data automatically resets when `mount()` is called. This means each mount cycle gives you fresh timing data:
 
@@ -199,7 +219,7 @@ await $.mount(element2);
 console.log($.getPerformanceReport()); // Fresh data for element2 only
 ```
 
-### 5. Disable in Production
+### 6. Disable in Production
 
 Performance tracking adds overhead. Always disable debugging in production:
 

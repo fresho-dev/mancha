@@ -13,6 +13,10 @@
   ```html
   <div :for="item in ['a', 'b', 'c']">{{ item }}</div>
   ```
+- `:key` (used with `:for`) enables keyed reconciliation, which reuses DOM nodes when items have stable identifiers. This prevents unnecessary DOM recreation and preserves element state during updates. The key should be a unique primitive value (string or number).
+  ```html
+  <div :for="user in users" :key="user.id">{{ user.name }}</div>
+  ```
 - `:text` sets the `textContent` value of a node
   ```html
   <div :data="{foo: 'bar'}" :text="foo"></div>
