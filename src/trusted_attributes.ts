@@ -1,6 +1,7 @@
 export const TRUSTED_ATTRIBS = [
 	":data",
 	":for",
+	":key",
 	":text",
 	":html",
 	":show",

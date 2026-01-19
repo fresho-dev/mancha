@@ -1437,6 +1437,199 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				const countObserversAfter = statsAfter.byKey.count || 0;
 				assert.equal(countObserversAfter, 0, "Should have 0 observers after clearing items");
 			});
+
+			describe(":key reconciliation", () => {
+				it("reuses DOM nodes when items have stable :key", async () => {
+					const renderer = new ctor();
+					const html = `<div :for="item in items" :key="item.id">{{ item.name }}</div>`;
+					const fragment = renderer.parseHTML(html);
+
+					renderer.set("items", [
+						{ id: 1, name: "a" },
+						{ id: 2, name: "b" },
+					]);
+					await renderer.mount(fragment);
+
+					// Get references to the actual DOM nodes.
+					const getDivs = () =>
+						Array.from(fragment.childNodes).filter(
+							(n) => (n as Element).tagName?.toLowerCase() === "div",
+						);
+					const divs1 = getDivs();
+					assert.equal(divs1.length, 2);
+
+					// Update names but keep same ids.
+					// Use await set() to wait for cascading effects (parent notify + subrenderer notify).
+					await renderer.set("items", [
+						{ id: 1, name: "updated-a" },
+						{ id: 2, name: "updated-b" },
+					]);
+					await sleepForReactivity();
+
+					// Same DOM nodes should be reused (same object references).
+					const divs2 = getDivs();
+					assert.equal(divs2.length, 2);
+					assert.equal(divs1[0], divs2[0], "First node should be reused");
+					assert.equal(divs1[1], divs2[1], "Second node should be reused");
+
+					// Content should be updated.
+					assert.equal(getTextContent(divs2[0] as Element), "updated-a");
+					assert.equal(getTextContent(divs2[1] as Element), "updated-b");
+				});
+
+				it("reorders DOM nodes when items are reordered with :key", async () => {
+					const renderer = new ctor();
+					const html = `<div :for="item in items" :key="item.id">{{ item.name }}</div>`;
+					const fragment = renderer.parseHTML(html);
+
+					renderer.set("items", [
+						{ id: 1, name: "a" },
+						{ id: 2, name: "b" },
+						{ id: 3, name: "c" },
+					]);
+					await renderer.mount(fragment);
+
+					const getDivs = () =>
+						Array.from(fragment.childNodes).filter(
+							(n) => (n as Element).tagName?.toLowerCase() === "div",
+						);
+					const divs1 = getDivs();
+					assert.equal(divs1.length, 3);
+
+					// Reverse the order.
+					renderer.$.items = [
+						{ id: 3, name: "c" },
+						{ id: 2, name: "b" },
+						{ id: 1, name: "a" },
+					];
+					await sleepForReactivity();
+
+					// Nodes should be the same objects but in different order.
+					const divs2 = getDivs();
+					assert.equal(divs2.length, 3);
+					assert.equal(divs1[0], divs2[2], "First node should now be last");
+					assert.equal(divs1[1], divs2[1], "Second node should stay in middle");
+					assert.equal(divs1[2], divs2[0], "Third node should now be first");
+
+					// Content order should match new order.
+					assert.equal(getTextContent(divs2[0] as Element), "c");
+					assert.equal(getTextContent(divs2[1] as Element), "b");
+					assert.equal(getTextContent(divs2[2] as Element), "a");
+				});
+
+				it("adds new nodes for new keys", async () => {
+					const renderer = new ctor();
+					const html = `<div :for="item in items" :key="item.id">{{ item.name }}</div>`;
+					const fragment = renderer.parseHTML(html);
+
+					renderer.set("items", [{ id: 1, name: "a" }]);
+					await renderer.mount(fragment);
+
+					const getDivs = () =>
+						Array.from(fragment.childNodes).filter(
+							(n) => (n as Element).tagName?.toLowerCase() === "div",
+						);
+					const divs1 = getDivs();
+					assert.equal(divs1.length, 1);
+					const originalNode = divs1[0];
+
+					// Add two more items.
+					renderer.$.items = [
+						{ id: 1, name: "a" },
+						{ id: 2, name: "b" },
+						{ id: 3, name: "c" },
+					];
+					await sleepForReactivity();
+
+					const divs2 = getDivs();
+					assert.equal(divs2.length, 3);
+					assert.equal(divs2[0], originalNode, "Original node should be preserved");
+					assert.equal(getTextContent(divs2[1] as Element), "b");
+					assert.equal(getTextContent(divs2[2] as Element), "c");
+				});
+
+				it("removes nodes for removed keys", async () => {
+					const renderer = new ctor();
+					const html = `<div :for="item in items" :key="item.id">{{ item.name }}</div>`;
+					const fragment = renderer.parseHTML(html);
+
+					renderer.set("items", [
+						{ id: 1, name: "a" },
+						{ id: 2, name: "b" },
+						{ id: 3, name: "c" },
+					]);
+					await renderer.mount(fragment);
+
+					const getDivs = () =>
+						Array.from(fragment.childNodes).filter(
+							(n) => (n as Element).tagName?.toLowerCase() === "div",
+						);
+					const divs1 = getDivs();
+					assert.equal(divs1.length, 3);
+					const keepNode = divs1[0]; // id: 1
+					const removeNode = divs1[1]; // id: 2
+
+					// Remove middle item.
+					renderer.$.items = [
+						{ id: 1, name: "a" },
+						{ id: 3, name: "c" },
+					];
+					await sleepForReactivity();
+
+					const divs2 = getDivs();
+					assert.equal(divs2.length, 2);
+					assert.equal(divs2[0], keepNode, "First node should be preserved");
+					assert.notEqual(divs2[1], removeNode, "Removed node should not be in DOM");
+					assert.equal(getTextContent(divs2[0] as Element), "a");
+					assert.equal(getTextContent(divs2[1] as Element), "c");
+				});
+
+				it("warns about duplicate keys", async () => {
+					const renderer = new ctor();
+					const html = `<div :for="item in items" :key="item.group">{{ item.name }}</div>`;
+					const fragment = renderer.parseHTML(html);
+
+					// Capture console.warn calls.
+					const originalWarn = console.warn;
+					const warnings: string[] = [];
+					console.warn = (msg: string) => warnings.push(msg);
+
+					try {
+						renderer.set("items", [
+							{ group: "A", name: "first" },
+							{ group: "A", name: "second" }, // Duplicate key
+						]);
+						await renderer.mount(fragment);
+
+						assert.ok(
+							warnings.some((w) => w.includes("duplicate key")),
+							"Should warn about duplicate keys",
+						);
+					} finally {
+						console.warn = originalWarn;
+					}
+				});
+
+				it("cleans up observers when keyed items are removed", async () => {
+					const renderer = new ctor();
+					const html = `<div :for="item in items" :key="item.id"><span :text="count"></span></div>`;
+					const fragment = renderer.parseHTML(html);
+
+					renderer.set("count", 0);
+					renderer.set("items", [{ id: 1 }, { id: 2 }, { id: 3 }]);
+					await renderer.mount(fragment);
+
+					const statsBefore = renderer.getObserverStats();
+					assert.equal(statsBefore.byKey.count, 3, "Should have 3 observers initially");
+
+					// Remove two items.
+					renderer.$.items = [{ id: 2 }];
+					await sleepForReactivity();
+
+					const statsAfter = renderer.getObserverStats();
+					assert.equal(statsAfter.byKey.count, 1, "Should have 1 observer after removing 2 items");
+				});
+			});
 		});
 
 		describe(":bind", () => {
