@@ -455,6 +455,10 @@ export namespace RendererPlugins {
 				throw new Error(`Invalid :for format: \`${forAttr}\`. Expected "{key} in {expression}".`);
 			}
 
+			// Extract :data expression from template for keyed re-evaluation.
+			// When :for + :key reuses a node, :data must be re-evaluated with the updated loop variable.
+			const dataExpr = keyExpr ? getAttributeOrDataset(elem, "data", ":") : null;
+
 			// Map for keyed reconciliation (only used when :key is provided).
 			const keyMap = new Map<unknown, { node: Node; subrenderer: IRenderer }>();
 
@@ -505,6 +509,19 @@ export namespace RendererPlugins {
 								// Await set() to ensure observers are notified before continuing.
 								awaiters.push(subrenderer.set(loopKey, item, true));
 								awaiters.push(subrenderer.set("$index", idx, true));
+
+								// Re-evaluate :data expression if present on the template.
+								// The :data subrenderer is attached to the node during initial mount.
+								if (dataExpr && hasProperty(nodeForThisItem, "renderer")) {
+									const dataSubrenderer = (nodeForThisItem as unknown as { renderer: IRenderer })
+										.renderer;
+									const result = dataSubrenderer.eval(dataExpr, {
+										$elem: nodeForThisItem,
+									}) as object;
+									awaiters.push(
+										...Object.entries(result).map(([k, v]) => dataSubrenderer.set(k, v, true)),
+									);
+								}
 
 								// Move node to correct position if needed.
 								// Node is already in position if it equals cursor or its nextSibling is cursor.

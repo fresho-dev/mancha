@@ -1629,6 +1629,49 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 					const statsAfter = renderer.getObserverStats();
 					assert.equal(statsAfter.byKey.count, 1, "Should have 1 observer after removing 2 items");
 				});
+
+				it("updates :data bindings when keyed items are updated", async () => {
+					// When :for + :key + :data is used and a keyed item is reused,
+					// :data must be re-evaluated with the updated loop variable.
+					const renderer = new ctor();
+					const html = `<div :for="item in items" :key="item.id" :data="{ label: item.name }"><span :text="label"></span></div>`;
+					const fragment = renderer.parseHTML(html);
+
+					renderer.set("items", [
+						{ id: 1, name: "a" },
+						{ id: 2, name: "b" },
+					]);
+					await renderer.mount(fragment);
+
+					// Wait for :for effect + nested :data effects.
+					await sleepForReactivity();
+					await sleepForReactivity();
+
+					const getRenderedItems = () =>
+						Array.from(fragment.childNodes).filter(
+							(n) => n.nodeType === 1 && (n as Element).tagName?.toLowerCase() !== "template",
+						);
+
+					const divs1 = getRenderedItems();
+					assert.equal(divs1.length, 2);
+					assert.equal(getTextContent(divs1[0] as Element), "a");
+					assert.equal(getTextContent(divs1[1] as Element), "b");
+
+					// Update items with same keys but different names.
+					renderer.$.items = [
+						{ id: 1, name: "updated-a" },
+						{ id: 2, name: "updated-b" },
+					];
+					// 3 levels of cascading effects: :for -> :data -> :text
+					await sleepForReactivity();
+					await sleepForReactivity();
+					await sleepForReactivity();
+
+					const divs2 = getRenderedItems();
+					assert.equal(divs2.length, 2);
+					assert.equal(getTextContent(divs2[0] as Element), "updated-a");
+					assert.equal(getTextContent(divs2[1] as Element), "updated-b");
+				});
 			});
 		});
 
