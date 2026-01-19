@@ -310,6 +310,23 @@ For most use cases, you don't need to do anything—cleanup happens automaticall
 
 When items are removed from the array, the corresponding `<li>` elements are removed from the DOM, and their observers are cleaned up the next time any observer is notified.
 
+### Keyed Reconciliation and Observer Reuse
+
+When using `:key` with `:for`, subrenderers are reused for items with matching keys rather than being disposed and recreated. This is more efficient because existing observers remain attached:
+
+```html
+<ul :for="user in users" :key="user.id">
+	<li>{{ user.name }}</li>
+</ul>
+```
+
+With `:key`, when the `users` array is updated:
+- Items with the same key keep their subrenderer and observers
+- Only truly removed items have their observers cleaned up
+- New items create new subrenderers with fresh observers
+
+Without `:key`, every update disposes all subrenderers and creates new ones, which triggers more cleanup and setup cycles. See [Performance](./09_performance.md#4-use-key-for-list-performance) for more details.
+
 ### Manual Cleanup with dispose()
 
 For advanced use cases where you're managing renderers programmatically, you can explicitly dispose of a store to clear all its observers:
