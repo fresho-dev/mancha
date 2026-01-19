@@ -422,6 +422,10 @@ export namespace RendererPlugins {
 			// Remove the processed attributes from node.
 			removeAttributeOrDataset(elem, "for", ":");
 
+			// Parse optional :key attribute for keyed reconciliation.
+			const keyExpr = getAttributeOrDataset(elem, "key", ":");
+			if (keyExpr) removeAttributeOrDataset(elem, "key", ":");
+
 			// Ensure the node and its children are not processed by subsequent steps.
 			for (const child of traverse(node, this._skipNodes)) {
 				this._skipNodes.add(child);
@@ -451,7 +455,10 @@ export namespace RendererPlugins {
 				throw new Error(`Invalid :for format: \`${forAttr}\`. Expected "{key} in {expression}".`);
 			}
 
-			// Keep track of all the child nodes and their subrenderers.
+			// Map for keyed reconciliation (only used when :key is provided).
+			const keyMap = new Map<unknown, { node: Node; subrenderer: IRenderer }>();
+
+			// Arrays for non-keyed mode (original behavior).
 			const children: Node[] = [];
 			const subrenderers: IRenderer[] = [];
 
@@ -462,62 +469,122 @@ export namespace RendererPlugins {
 					const items = this.eval(itemsExpr, { $elem: node });
 					this.log(":for list items:", items);
 
-					// Dispose all previous subrenderers to clean up their observers.
-					subrenderers.splice(0, subrenderers.length).forEach((sub) => {
-						sub.dispose();
-					});
-
-					// Remove all the previously added children, if any.
-					children.splice(0, children.length).forEach((child) => {
-						if (child.parentNode) {
-							removeChild(child.parentNode, child);
-						}
-						this._skipNodes.delete(child);
-					});
-
 					// Validate that the expression returns a list of items.
 					if (!Array.isArray(items)) {
 						console.error(`Expression did not yield a list: \`${itemsExpr}\` => \`${items}\``);
 						return;
 					}
 
-					// Insert point for new elements.
-					const reference = template.nextSibling as ChildNode;
+					// If :key is provided, use keyed reconciliation. Otherwise, use original behavior.
+					if (keyExpr) {
+						// KEYED RECONCILIATION: Reuse nodes and subrenderers based on key.
+						const seenKeys = new Set<unknown>();
+						const newKeyMap = new Map<unknown, { node: Node; subrenderer: IRenderer }>();
+						const awaiters: Promise<void>[] = [];
+						let cursor = template.nextSibling as ChildNode | null;
 
-					// Loop through the container items synchronously.
-					const awaiters: Promise<void>[] = [];
-					for (const item of items) {
-						// Create a subrenderer that will hold the loop item and all node descendants.
-						const subrenderer = this.subrenderer();
+						for (let idx = 0; idx < items.length; idx++) {
+							const item = items[idx];
+							const key = this.eval(keyExpr, { [loopKey]: item, $index: idx });
 
-						// Use local=true to avoid modifying ancestor values.
-						subrenderer.set(loopKey, item, true);
+							if (seenKeys.has(key)) {
+								console.warn(`:for duplicate key detected: ${key}. Using last item.`);
+							}
+							seenKeys.add(key);
 
-						// Create a new HTML element for each item.
-						// The copy inherits "display: none" from the template node.
-						const copy = node.cloneNode(true);
+							let nodeForThisItem: Node;
+							let subrenderer: IRenderer;
 
-						// Insert into DOM while hidden to avoid race conditions.
-						insertBefore(parent, copy, reference);
+							const existingEntry = keyMap.get(key);
+							if (existingEntry) {
+								// REUSE existing node and subrenderer.
+								nodeForThisItem = existingEntry.node;
+								subrenderer = existingEntry.subrenderer;
 
-						// Track the element and subrenderer for cleanup.
-						children.push(copy);
-						subrenderers.push(subrenderer);
+								// Update the loop variable if the item object changed.
+								// Await set() to ensure observers are notified before continuing.
+								awaiters.push(subrenderer.set(loopKey, item, true));
+								awaiters.push(subrenderer.set("$index", idx, true));
 
-						// Since the element will be handled by a subrenderer, skip it in parent renderer.
-						this._skipNodes.add(copy);
+								// Move node to correct position if needed.
+								// Node is already in position if it equals cursor or its nextSibling is cursor.
+								const alreadyInPosition =
+									nodeForThisItem === cursor || nodeForThisItem.nextSibling === cursor;
+								if (!alreadyInPosition) {
+									insertBefore(parent, nodeForThisItem, cursor);
+								}
+							} else {
+								// CREATE new node and subrenderer.
+								subrenderer = this.subrenderer();
+								subrenderer.set(loopKey, item, true);
+								subrenderer.set("$index", idx, true);
 
-						// Mount the element, then reveal it once complete.
-						awaiters.push(
-							subrenderer.mount(copy, params).then(() => {
-								setAttribute(copy as Element, "style", originalStyle);
-							}),
-						);
-						this.log("Rendered list child:\n", nodeToString(copy, 128));
+								const copy = node.cloneNode(true);
+								insertBefore(parent, copy, cursor);
+								this._skipNodes.add(copy);
+
+								awaiters.push(
+									subrenderer.mount(copy, params).then(() => {
+										setAttribute(copy as Element, "style", originalStyle);
+									}),
+								);
+								nodeForThisItem = copy;
+								this.log("Rendered list child:\n", nodeToString(copy, 128));
+							}
+
+							newKeyMap.set(key, { node: nodeForThisItem, subrenderer });
+							cursor = nodeForThisItem.nextSibling as ChildNode | null;
+						}
+
+						// Remove nodes for keys that no longer exist.
+						for (const [key, { node: oldNode, subrenderer: sub }] of keyMap) {
+							if (!seenKeys.has(key)) {
+								sub.dispose();
+								if (oldNode.parentNode) removeChild(oldNode.parentNode, oldNode);
+								this._skipNodes.delete(oldNode);
+							}
+						}
+
+						keyMap.clear();
+						for (const [k, v] of newKeyMap) keyMap.set(k, v);
+
+						return Promise.all(awaiters).then(() => {});
+					} else {
+						// ORIGINAL BEHAVIOR: Dispose all and recreate.
+						// This ensures fresh effects are set up with current values.
+						subrenderers.splice(0, subrenderers.length).forEach((sub) => {
+							sub.dispose();
+						});
+						children.splice(0, children.length).forEach((child) => {
+							if (child.parentNode) removeChild(child.parentNode, child);
+							this._skipNodes.delete(child);
+						});
+
+						const reference = template.nextSibling as ChildNode;
+						const awaiters: Promise<void>[] = [];
+
+						for (let idx = 0; idx < items.length; idx++) {
+							const item = items[idx];
+							const subrenderer = this.subrenderer();
+							subrenderer.set(loopKey, item, true);
+							subrenderer.set("$index", idx, true);
+
+							const copy = node.cloneNode(true);
+							insertBefore(parent, copy, reference);
+							children.push(copy);
+							subrenderers.push(subrenderer);
+							this._skipNodes.add(copy);
+
+							awaiters.push(
+								subrenderer.mount(copy, params).then(() => {
+									setAttribute(copy as Element, "style", originalStyle);
+								}),
+							);
+							this.log("Rendered list child:\n", nodeToString(copy, 128));
+						}
+
+						return Promise.all(awaiters).then(() => {});
 					}
-
-					// Wait for all mounts to complete.
-					return Promise.all(awaiters).then(() => {});
 				},
 				{ directive: ":for", element: elem, expression: forAttr },
 			);

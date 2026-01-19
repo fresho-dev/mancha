@@ -10,6 +10,21 @@ export type ElementWithAttribs = Element & {
 interface MutableNode extends Node {
 	parentNode: Node | null;
 	childNodes: ChildNode[];
+	prev: ChildNode | null;
+	next: ChildNode | null;
+}
+
+/**
+ * Updates the prev/next sibling pointers for all children of a parent node.
+ * This is needed for htmlparser2/domhandler which uses prev/next instead of native sibling properties.
+ */
+function updateSiblingPointers(parent: Node): void {
+	const children = parent.childNodes;
+	for (let i = 0; i < children.length; i++) {
+		const child = children[i] as unknown as MutableNode;
+		child.prev = i > 0 ? (children[i - 1] as ChildNode) : null;
+		child.next = i < children.length - 1 ? (children[i + 1] as ChildNode) : null;
+	}
 }
 
 const SAFE_ATTRS = [safeAttrPrefix`:`, safeAttrPrefix`style`, safeAttrPrefix`class`];
@@ -207,6 +222,7 @@ export function replaceWith(original: ChildNode, ...replacement: Node[]): void {
 			.concat(Array.from(parent.childNodes).slice(0, index))
 			.concat(replacement as ChildNode[])
 			.concat(Array.from(parent.childNodes).slice(index + 1));
+		updateSiblingPointers(parent);
 	}
 }
 
@@ -218,6 +234,7 @@ export function replaceChildren(parent: ParentNode, ...nodes: Node[]): void {
 		nodes.forEach((node) => {
 			(node as unknown as MutableNode).parentNode = parent;
 		});
+		updateSiblingPointers(parent as Node);
 	}
 }
 
@@ -227,6 +244,7 @@ export function appendChild(parent: Node, node: Node): Node {
 	} else {
 		(parent as unknown as MutableNode).childNodes.push(node as ChildNode);
 		(node as unknown as MutableNode).parentNode = parent;
+		updateSiblingPointers(parent);
 		return node;
 	}
 }
@@ -246,6 +264,11 @@ export function insertBefore(parent: Node, node: Node, reference: ChildNode | nu
 	} else if (hasFunction(parent, "insertBefore")) {
 		return (parent as Node).insertBefore(node as Node, reference as ChildNode | null);
 	} else {
+		// For environments without native insertBefore (e.g., htmlparser2),
+		// first remove the node from its current position if it's already in the DOM.
+		if (node.parentNode) {
+			removeChild(node.parentNode as ParentNode, node);
+		}
 		replaceWith(reference as ChildNode, node, reference);
 		return node;
 	}
