@@ -30,6 +30,7 @@ type EvalFunction = (thisArg: SignalStoreProxy, args: Record<string, unknown>) =
 type ObserverEntry = {
 	observer: Observer<unknown>;
 	store: SignalStore;
+	computedKey?: string;
 };
 
 /**
@@ -64,6 +65,9 @@ export type ComputedFn<T extends StoreState, R> = (
 export interface ComputedMarker<R> {
 	[COMPUTED_MARKER]: true;
 	fn: ComputedFn<StoreState, R>;
+	value?: R;
+	dirty: boolean;
+	effectFn?: Observer<unknown>;
 }
 
 /** Type guard to check if a value is a computed marker. */
@@ -247,6 +251,57 @@ export class SignalStore<T extends StoreState = StoreState> {
 		this.keyHandlers.get(pattern)?.add(handler);
 	}
 
+	/**
+	 * Tags all observer entries matching the given observer function with a computed key.
+	 * Called after effect runs to mark which observers belong to which computed.
+	 */
+	private tagObserversForComputed(observer: Observer<unknown>, computedKey: string): void {
+		// Check this store's observers.
+		for (const entries of this.observers.values()) {
+			for (const entry of entries) {
+				if (entry.observer === observer && entry.store === this) {
+					entry.computedKey = computedKey;
+				}
+			}
+		}
+
+		// Also check ancestor stores (for inherited dependencies).
+		let ancestor = this._store.get("$parent") as SignalStore | undefined;
+		while (ancestor) {
+			for (const entries of ancestor.observers.values()) {
+				for (const entry of entries) {
+					if (entry.observer === observer && entry.store === this) {
+						entry.computedKey = computedKey;
+					}
+				}
+			}
+			ancestor = ancestor._store.get("$parent") as SignalStore | undefined;
+		}
+	}
+
+	/**
+	 * Synchronously marks all computeds that depend on this key as dirty.
+	 * Uses the computedKey field on observer entries for O(1) key lookup.
+	 * Cascades through computed chains (if A depends on B, and B is marked dirty,
+	 * then A is also marked dirty).
+	 */
+	private markDependentComputedsDirty(key: string): void {
+		const owner = getAncestorKeyStore(this, key);
+		const entries = owner?.observers.get(key);
+		if (!entries) return;
+
+		for (const entry of entries) {
+			if (entry.computedKey) {
+				const stored = entry.store._store.get(entry.computedKey);
+				if (isComputedMarker(stored) && !stored.dirty) {
+					stored.dirty = true;
+					// Cascade: mark computeds that depend on THIS computed.
+					entry.store.markDependentComputedsDirty(entry.computedKey);
+				}
+			}
+		}
+	}
+
 	async notify(key: string, debounceMillis: number = REACTIVE_DEBOUNCE_MILLIS): Promise<void> {
 		// Capture observers NOW (at call time). This ensures constructor calls
 		// don't trigger effects registered later.
@@ -297,37 +352,80 @@ export class SignalStore<T extends StoreState = StoreState> {
 
 	get<T>(key: string, observer?: Observer<T>): unknown {
 		if (observer) this.watch(key, observer);
-		return getAncestorValue(this, key);
+
+		const stored = getAncestorValue(this, key);
+
+		// Handle computed values: recompute if dirty, return the cached value.
+		if (isComputedMarker(stored)) {
+			if (stored.dirty) {
+				this._computedDepth++;
+				try {
+					// Use the effect function as observer to register new dependencies.
+					// This handles conditional dependencies that change based on execution path.
+					const proxy = this.proxify(stored.effectFn) as ReactiveContext<StoreState>;
+					stored.value = stored.fn.call(proxy, proxy);
+					stored.dirty = false;
+					// Tag any new observers with the computed key.
+					if (stored.effectFn) {
+						this.tagObserversForComputed(stored.effectFn, key);
+					}
+					// Mark dependents of this computed as dirty (cascading).
+					this.markDependentComputedsDirty(key);
+				} finally {
+					this._computedDepth--;
+				}
+			}
+			return stored.value;
+		}
+
+		return stored;
 	}
 
 	private setupComputed<R>(key: string, computedFn: ComputedFn<StoreState, R>): void {
 		const store = this;
-		this.effect(
-			function (this: ReactiveContext<T>) {
-				// Track computed depth for write guard warnings.
-				store._computedDepth++;
-				try {
-					// Pass `this` as both the context and first argument, so arrow functions
-					// can receive the reactive proxy as `$` parameter.
-					const result = computedFn.call(this, this);
-					const oldValue = store._store.get(key);
-					// Only update and notify if value actually changed.
-					if (oldValue !== result) {
-						setAncestorValue(store, key, result);
-						// Synchronously invoke observers of the computed key to ensure
-						// cascading computed values update in the same tick.
-						const owner = getAncestorKeyStore(store, key);
-						const entries = Array.from(owner?.observers.get(key) || []);
-						for (const entry of entries) {
-							entry.observer.call(entry.store.proxify(entry.observer));
-						}
+
+		// Create the marker with dirty: true for initial computation.
+		const marker: ComputedMarker<R> = {
+			[COMPUTED_MARKER]: true,
+			fn: computedFn as ComputedFn<StoreState, R>,
+			dirty: true,
+		};
+		this._store.set(key, marker);
+
+		// Define the effect function that will update the marker.
+		const effectFn = function (this: ReactiveContext<T>) {
+			// Track computed depth for write guard warnings.
+			store._computedDepth++;
+			try {
+				// Pass `this` as both the context and first argument, so arrow functions
+				// can receive the reactive proxy as `$` parameter.
+				const result = computedFn.call(this, this);
+				const oldValue = marker.value;
+				// Only notify if value actually changed.
+				if (oldValue !== result) {
+					marker.value = result;
+					// Synchronously invoke observers of the computed key to ensure
+					// cascading computed values update in the same tick.
+					const owner = getAncestorKeyStore(store, key);
+					const entries = Array.from(owner?.observers.get(key) || []);
+					for (const entry of entries) {
+						entry.observer.call(entry.store.proxify(entry.observer));
 					}
-				} finally {
-					store._computedDepth--;
 				}
-			},
-			{ directive: "computed", id: key },
-		);
+				marker.dirty = false;
+			} finally {
+				store._computedDepth--;
+			}
+		};
+
+		// Store the effect function in the marker for use during lazy recomputation.
+		marker.effectFn = effectFn as unknown as Observer<unknown>;
+
+		// Run the effect to register observers and compute initial value.
+		this.effect(effectFn, { directive: "computed", id: key });
+
+		// Tag all observers created by this effect with the computed key.
+		this.tagObserversForComputed(effectFn as unknown as Observer<unknown>, key);
 	}
 
 	/**
@@ -345,7 +443,10 @@ export class SignalStore<T extends StoreState = StoreState> {
 
 		// Early return if the key exists in this store and has the same value.
 		if (this._store.has(key) && value === this._store.get(key)) return;
-		const callback = () => this.notify(key);
+		const callback = () => {
+			this.markDependentComputedsDirty(key);
+			return this.notify(key);
+		};
 		// Note: Functions are NOT wrapped here. They are wrapped dynamically at access
 		// time in proxify() to ensure the correct observer context is used.
 		if (value && typeof value === "object") {
@@ -467,7 +568,7 @@ export class SignalStore<T extends StoreState = StoreState> {
 		// Returns a marker object that signals to set() this is a computed property.
 		// The return type is R (not ComputedMarker<R>) to allow ergonomic assignment
 		// like `$.prop = $computed(fn)` without requiring type casts.
-		return { [COMPUTED_MARKER]: true, fn: fn as ComputedFn<StoreState, R> } as R;
+		return { [COMPUTED_MARKER]: true, fn: fn as ComputedFn<StoreState, R>, dirty: true } as R;
 	}
 
 	private proxify<T>(observer?: Observer<T>): SignalStoreProxy {
