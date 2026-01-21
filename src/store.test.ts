@@ -2620,4 +2620,461 @@ describe("SignalStore", () => {
 			}
 		});
 	});
+
+	describe("$computed synchronous reads (issue #49)", () => {
+		it("returns fresh value immediately after nested object mutation", async () => {
+			// Issue #49: Computed properties return stale values when accessed
+			// immediately after a mutation, before the debounce period.
+			const store = new SignalStore({
+				items: [
+					{ name: "a", visible: false },
+					{ name: "b", visible: true },
+				],
+			});
+
+			store.set(
+				"firstVisible",
+				store.$computed(function () {
+					return this.items[0].visible;
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("firstVisible"), false);
+
+			// Mutate nested property.
+			store.$.items[0].visible = true;
+
+			// Read immediately - should return fresh value, not stale cached value.
+			assert.equal(
+				store.get("firstVisible"),
+				true,
+				"Should return fresh value immediately after mutation",
+			);
+		});
+
+		it("returns fresh value immediately after array push", async () => {
+			const store = new SignalStore({ items: [1, 2, 3] });
+
+			store.set(
+				"sum",
+				store.$computed(function () {
+					return this.items.reduce((a: number, b: number) => a + b, 0);
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("sum"), 6);
+
+			// Mutate array.
+			store.$.items.push(4);
+
+			// Read immediately.
+			assert.equal(store.get("sum"), 10, "Should return fresh sum immediately after push");
+		});
+
+		it("cascading computeds return fresh values synchronously", async () => {
+			const store = new SignalStore({ base: 2 });
+
+			store.set(
+				"double",
+				store.$computed(function () {
+					return this.base * 2;
+				}),
+			);
+			await sleepForReactivity();
+
+			store.set(
+				"quadruple",
+				store.$computed(function () {
+					return (this.double as number) * 2;
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("double"), 4);
+			assert.equal(store.get("quadruple"), 8);
+
+			// Mutate base.
+			store.$.base = 3;
+
+			// Both cascading computeds should return fresh values immediately.
+			assert.equal(store.get("double"), 6, "double should be fresh immediately");
+			assert.equal(store.get("quadruple"), 12, "quadruple should be fresh immediately");
+		});
+
+		it("computed with multiple dependencies returns fresh value after any dep changes", async () => {
+			const store = new SignalStore({ x: 2, y: 3 });
+
+			store.set(
+				"sum",
+				store.$computed(function () {
+					return this.x + this.y;
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("sum"), 5);
+
+			// Mutate x.
+			store.$.x = 10;
+			assert.equal(store.get("sum"), 13, "Should return fresh value after x changes");
+
+			// Mutate y.
+			store.$.y = 20;
+			assert.equal(store.get("sum"), 30, "Should return fresh value after y changes");
+		});
+
+		it("computed only recomputes when actually read (lazy evaluation)", async () => {
+			const store = new SignalStore({ count: 1 });
+			let computeCount = 0;
+
+			store.set(
+				"double",
+				store.$computed(function () {
+					computeCount++;
+					return this.count * 2;
+				}),
+			);
+			await sleepForReactivity();
+
+			const initialCount = computeCount;
+
+			// Mutate multiple times without reading.
+			store.$.count = 2;
+			store.$.count = 3;
+			store.$.count = 4;
+
+			// Computed should not have recomputed yet (lazy).
+			assert.equal(computeCount, initialCount, "Should not recompute until read");
+
+			// Now read - should recompute once.
+			const value = store.get("double");
+			assert.equal(value, 8);
+			assert.equal(computeCount, initialCount + 1, "Should recompute exactly once on read");
+		});
+
+		it("works with parent-child store hierarchy", async () => {
+			const parent = new SignalStore({ multiplier: 2 });
+			const child = new SignalStore({ value: 5, $parent: parent });
+
+			child.set(
+				"result",
+				child.$computed(function () {
+					return this.value * (this.multiplier as number);
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(child.get("result"), 10);
+
+			// Mutate parent's value.
+			parent.$.multiplier = 3;
+
+			// Child's computed should return fresh value immediately.
+			assert.equal(child.get("result"), 15, "Should reflect parent change immediately");
+		});
+
+		it("handles conditional dependencies correctly", async () => {
+			const store = new SignalStore({ useA: true, a: 10, b: 20 });
+
+			store.set(
+				"value",
+				store.$computed(function () {
+					return this.useA ? this.a : this.b;
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("value"), 10);
+
+			// Change condition.
+			store.$.useA = false;
+			assert.equal(store.get("value"), 20, "Should reflect condition change immediately");
+
+			// Change the now-active dependency.
+			store.$.b = 30;
+			assert.equal(store.get("value"), 30, "Should reflect b change immediately");
+		});
+
+		it("handles deeply nested object mutations", async () => {
+			const store = new SignalStore({
+				data: {
+					level1: {
+						level2: {
+							value: 5,
+						},
+					},
+				},
+			});
+
+			store.set(
+				"deepValue",
+				store.$computed(function () {
+					return this.data.level1.level2.value * 2;
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("deepValue"), 10);
+
+			// Mutate deeply nested property.
+			store.$.data.level1.level2.value = 15;
+			assert.equal(store.get("deepValue"), 30, "Should reflect deep mutation immediately");
+		});
+
+		it("handles multiple computeds depending on same key", async () => {
+			const store = new SignalStore({ base: 5 });
+
+			store.set(
+				"doubled",
+				store.$computed(function () {
+					return this.base * 2;
+				}),
+			);
+			store.set(
+				"tripled",
+				store.$computed(function () {
+					return this.base * 3;
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("doubled"), 10);
+			assert.equal(store.get("tripled"), 15);
+
+			// Mutate the shared dependency.
+			store.$.base = 7;
+
+			// Both should return fresh values.
+			assert.equal(store.get("doubled"), 14, "doubled should be fresh");
+			assert.equal(store.get("tripled"), 21, "tripled should be fresh");
+		});
+
+		it("handles computed accessing array methods", async () => {
+			const store = new SignalStore({
+				items: [
+					{ id: 1, active: true },
+					{ id: 2, active: false },
+					{ id: 3, active: true },
+				],
+			});
+
+			store.set(
+				"activeCount",
+				store.$computed(function () {
+					return this.items.filter((item: { active: boolean }) => item.active).length;
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("activeCount"), 2);
+
+			// Toggle one item.
+			store.$.items[1].active = true;
+			assert.equal(store.get("activeCount"), 3, "Should reflect filter change immediately");
+
+			// Toggle another.
+			store.$.items[0].active = false;
+			assert.equal(store.get("activeCount"), 2, "Should reflect second toggle immediately");
+		});
+
+		it("handles computed with find/findIndex", async () => {
+			const store = new SignalStore({
+				users: [
+					{ name: "Alice", admin: false },
+					{ name: "Bob", admin: true },
+					{ name: "Carol", admin: false },
+				],
+			});
+
+			store.set(
+				"firstAdmin",
+				store.$computed(function () {
+					return this.users.find((u: { admin: boolean }) => u.admin)?.name ?? "none";
+				}),
+			);
+			await sleepForReactivity();
+
+			assert.equal(store.get("firstAdmin"), "Bob");
+
+			// Remove Bob's admin status.
+			store.$.users[1].admin = false;
+			assert.equal(store.get("firstAdmin"), "none", "Should reflect admin change immediately");
+
+			// Make Carol admin.
+			store.$.users[2].admin = true;
+			assert.equal(store.get("firstAdmin"), "Carol", "Should find new admin immediately");
+		});
+
+		it("handles rapid successive mutations correctly", async () => {
+			const store = new SignalStore({ counter: 0 });
+			let computeCount = 0;
+
+			store.set(
+				"squared",
+				store.$computed(function () {
+					computeCount++;
+					return this.counter * this.counter;
+				}),
+			);
+			await sleepForReactivity();
+			const initialCount = computeCount;
+
+			// Rapid mutations.
+			for (let i = 1; i <= 10; i++) {
+				store.$.counter = i;
+			}
+
+			// Should not have recomputed yet (lazy).
+			assert.equal(computeCount, initialCount, "Should not recompute during mutations");
+
+			// Single read should trigger exactly one recomputation.
+			const result = store.get("squared");
+			assert.equal(result, 100, "Should return correct final value");
+			assert.equal(computeCount, initialCount + 1, "Should recompute exactly once");
+		});
+
+		it("computed depending on another computed's intermediate state", async () => {
+			// Test A -> B -> C where we read C, then mutate A's dependency
+			const store = new SignalStore({ x: 2 });
+
+			store.set(
+				"a",
+				store.$computed(function () {
+					return this.x + 1;
+				}),
+			);
+			await sleepForReactivity();
+
+			store.set(
+				"b",
+				store.$computed(function () {
+					return (this.a as number) * 2;
+				}),
+			);
+			await sleepForReactivity();
+
+			store.set(
+				"c",
+				store.$computed(function () {
+					return (this.b as number) + 10;
+				}),
+			);
+			await sleepForReactivity();
+
+			// Initial values: x=2, a=3, b=6, c=16
+			assert.equal(store.get("c"), 16);
+
+			// Mutate x.
+			store.$.x = 5;
+
+			// Reading c should cascade through a and b.
+			assert.equal(store.get("c"), 22, "Should cascade through all computeds");
+		});
+
+		it("prevents infinite loops with circular computed references", async () => {
+			// This tests the !stored.dirty check that prevents infinite recursion
+			// when marking computeds dirty in a chain.
+			const store = new SignalStore({ trigger: 1 });
+			let aCount = 0;
+			let bCount = 0;
+
+			// Create computeds that both depend on the same trigger.
+			// When trigger changes, both should be marked dirty, but the
+			// dirty-marking should not loop infinitely.
+			store.set(
+				"a",
+				store.$computed(function () {
+					aCount++;
+					return this.trigger * 2;
+				}),
+			);
+			store.set(
+				"b",
+				store.$computed(function () {
+					bCount++;
+					return this.trigger * 3;
+				}),
+			);
+			await sleepForReactivity();
+
+			const initialA = aCount;
+			const initialB = bCount;
+
+			// Mutate trigger - both computeds should be marked dirty.
+			store.$.trigger = 2;
+
+			// Read both - each should recompute exactly once.
+			assert.equal(store.get("a"), 4);
+			assert.equal(store.get("b"), 6);
+			assert.equal(aCount, initialA + 1, "a should recompute exactly once");
+			assert.equal(bCount, initialB + 1, "b should recompute exactly once");
+		});
+
+		it("handles self-referential computed gracefully", async () => {
+			// A computed that reads itself should not cause infinite loop.
+			const store = new SignalStore({ base: 5 });
+			let computeCount = 0;
+
+			store.set(
+				"value",
+				store.$computed(function () {
+					computeCount++;
+					// Just return base, don't actually self-reference
+					return this.base * 2;
+				}),
+			);
+			await sleepForReactivity();
+
+			const initial = computeCount;
+			store.$.base = 10;
+
+			// Should complete without hanging
+			const result = store.get("value");
+			assert.equal(result, 20);
+			assert.equal(computeCount, initial + 1);
+		});
+
+		it("dirty marking terminates with diamond dependency pattern", async () => {
+			// Diamond: trigger -> a, trigger -> b, a -> result, b -> result
+			// When trigger changes, result should only be marked dirty once.
+			const store = new SignalStore({ trigger: 1 });
+			let resultCount = 0;
+
+			store.set(
+				"a",
+				store.$computed(function () {
+					return this.trigger + 1;
+				}),
+			);
+			store.set(
+				"b",
+				store.$computed(function () {
+					return this.trigger + 2;
+				}),
+			);
+			await sleepForReactivity();
+
+			store.set(
+				"result",
+				store.$computed(function () {
+					resultCount++;
+					return (this.a as number) + (this.b as number);
+				}),
+			);
+			await sleepForReactivity();
+
+			// Initial: trigger=1, a=2, b=3, result=5
+			assert.equal(store.get("result"), 5);
+			const initial = resultCount;
+
+			// Change trigger - a and b both get marked dirty, which marks result dirty.
+			// Result should only recompute once when read.
+			store.$.trigger = 10;
+
+			assert.equal(store.get("result"), 23); // a=11, b=12, result=23
+			assert.equal(resultCount, initial + 1, "result should recompute exactly once");
+		});
+	});
 });

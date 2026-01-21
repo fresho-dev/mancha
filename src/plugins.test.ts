@@ -911,6 +911,154 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			});
 		});
 
+		describe("$computed with :for", () => {
+			it("computed inside :for depends on loop item", async () => {
+				const renderer = new ctor({
+					items: [
+						{ name: "A", score: 10 },
+						{ name: "B", score: 20 },
+						{ name: "C", score: 30 },
+					],
+				});
+
+				const html = `<span :for="item in items" :data="{ doubled: $computed(() => item.score * 2) }">{{ doubled }}</span>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				const getResults = () =>
+					Array.from(fragment.childNodes)
+						.filter((n) => (n as Element).tagName?.toLowerCase() === "span")
+						.map((el) => getTextContent(el as Element));
+
+				assert.deepEqual(getResults(), ["20", "40", "60"]);
+
+				// Mutate an item's score - the computed should update
+				renderer.$.items[1].score = 50;
+				await sleepForReactivity();
+
+				assert.deepEqual(getResults(), ["20", "100", "60"]);
+			});
+
+			it("computed in :for accesses parent scope", async () => {
+				const renderer = new ctor({
+					multiplier: 2,
+					items: [{ value: 5 }, { value: 10 }, { value: 15 }],
+				});
+
+				const html = `<span :for="item in items" :data="{ result: $computed(() => item.value * multiplier) }">{{ result }}</span>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				const getResults = () =>
+					Array.from(fragment.childNodes)
+						.filter((n) => (n as Element).tagName?.toLowerCase() === "span")
+						.map((el) => getTextContent(el as Element));
+
+				assert.deepEqual(getResults(), ["10", "20", "30"]);
+
+				// Change parent scope multiplier - all computeds should update
+				renderer.$.multiplier = 3;
+				await sleepForReactivity();
+
+				assert.deepEqual(getResults(), ["15", "30", "45"]);
+
+				// Change individual item - only that computed should update
+				renderer.$.items[0].value = 100;
+				await sleepForReactivity();
+
+				assert.deepEqual(getResults(), ["300", "30", "45"]);
+			});
+
+			it("computed observers cleaned up when :for items removed", async () => {
+				const renderer = new ctor({
+					items: [{ id: 1 }, { id: 2 }, { id: 3 }],
+					multiplier: 2,
+				});
+
+				const html = `<span :for="item in items" :data="{ result: $computed(() => item.id * multiplier) }">{{ result }}</span>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				const getResults = () =>
+					Array.from(fragment.childNodes)
+						.filter((n) => (n as Element).tagName?.toLowerCase() === "span")
+						.map((el) => getTextContent(el as Element));
+
+				assert.deepEqual(getResults(), ["2", "4", "6"]);
+
+				// Remove items - observers should be cleaned up
+				renderer.$.items = [{ id: 10 }];
+				await sleepForReactivity();
+
+				assert.deepEqual(getResults(), ["20"]);
+
+				// Verify multiplier change only affects remaining item
+				renderer.$.multiplier = 5;
+				await sleepForReactivity();
+
+				assert.deepEqual(getResults(), ["50"]);
+			});
+
+			it("computed with array aggregation in :for", async () => {
+				const renderer = new ctor({
+					groups: [
+						{ name: "A", items: [1, 2, 3] },
+						{ name: "B", items: [4, 5] },
+					],
+				});
+
+				const html = `<span :for="group in groups" :data="{ sum: $computed(() => group.items.reduce((a, b) => a + b, 0)) }">{{ group.name }}: {{ sum }}</span>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				const getGroups = () =>
+					Array.from(fragment.childNodes)
+						.filter((n) => (n as Element).tagName?.toLowerCase() === "span")
+						.map((el) => getTextContent(el as Element));
+
+				assert.deepEqual(getGroups(), ["A: 6", "B: 9"]);
+
+				// Modify an item in one group
+				renderer.$.groups[0].items.push(4);
+				await sleepForReactivity();
+
+				assert.deepEqual(getGroups(), ["A: 10", "B: 9"]);
+			});
+		});
+
+		describe("$computed with :if", () => {
+			it("computed condition controls visibility", async () => {
+				const renderer = new ctor({ threshold: 50, value: 30 });
+
+				const html = `<div :data="{ isAbove: $computed(() => value >= threshold) }"><span :if="isAbove">Above</span><span :if="!isAbove">Below</span></div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+
+				const getVisibleText = () => {
+					const div = fragment.firstChild as Element;
+					const spans = Array.from(div.childNodes).filter(
+						(n) => (n as Element).tagName?.toLowerCase() === "span",
+					);
+					return spans.map((s) => getTextContent(s as Element)).join(",");
+				};
+
+				// Initially below threshold
+				assert.equal(getVisibleText(), "Below");
+
+				// Change value to above threshold
+				renderer.$.value = 60;
+				await sleepForReactivity();
+
+				assert.equal(getVisibleText(), "Above");
+
+				// Change threshold to make it below again
+				renderer.$.threshold = 70;
+				await sleepForReactivity();
+
+				assert.equal(getVisibleText(), "Below");
+			});
+		});
+
 		describe(":class", () => {
 			it("single class", async () => {
 				const renderer = new ctor({ foo: "bar" });
