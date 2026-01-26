@@ -21,6 +21,78 @@ You can mix and match content by processing `<include>` tags:
 </div>
 ```
 
+### Attribute Forwarding
+
+Attributes placed on the `<include>` tag are automatically copied to the root element of the included content. This is useful for styling and accessibility:
+
+```html
+<!-- ./icons/chart.svg -->
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+	<path d="M3 3v18h18" />
+</svg>
+
+<!-- ./index.html -->
+<button>
+	<include src="./icons/chart.svg" class="w-4 h-4 text-blue-500" aria-hidden="true"></include>
+	View Chart
+</button>
+
+<!-- Result after rendering -->
+<button>
+	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-4 h-4 text-blue-500" aria-hidden="true">
+		<path d="M3 3v18h18" />
+	</svg>
+	View Chart
+</button>
+```
+
+This pattern works well for SVG icons that use `stroke="currentColor"` or `fill="currentColor"`, allowing you to control the icon color via CSS utility classes like `text-blue-500`.
+
+### Remote Includes
+
+You can include content from remote URLs:
+
+```html
+<include src="https://unpkg.com/lucide-static/icons/home.svg" class="w-4 h-4"></include>
+```
+
+### Dynamic Icons with SVG Sprites
+
+For reusable icon components where the icon name is determined at usage time, use SVG sprites with a custom component:
+
+```html
+<!-- Register an icon component that references a sprite sheet -->
+<template is="icon">
+	<svg class="w-4 h-4" :class="class">
+		<use :attr:href="'./icons/sprite.svg#' + name"></use>
+	</svg>
+</template>
+
+<!-- Use icons by name, passing the icon name via :data -->
+<icon :data="{ name: 'home' }" class="text-blue-500"></icon>
+<icon :data="{ name: 'settings' }" class="text-gray-400"></icon>
+<icon :data="{ name: 'user' }" class="text-green-500"></icon>
+```
+
+The `:data` attribute passes variables to the component's scope, making `name` available in expressions like `:attr:href`.
+
+SVG sprite sheets bundle multiple icons into a single file, with each icon defined as a `<symbol>`:
+
+```html
+<!-- ./icons/sprite.svg -->
+<svg xmlns="http://www.w3.org/2000/svg">
+	<symbol id="home" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+		<path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3" />
+	</symbol>
+	<symbol id="settings" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+		<circle cx="12" cy="12" r="3" />
+		<path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06..." />
+	</symbol>
+</svg>
+```
+
+This approach loads the sprite sheet once and references individual icons by their `id`, making it efficient for pages with many icons.
+
 ## Custom Components
 
 `mancha` supports custom components, which can be defined using the template tag.

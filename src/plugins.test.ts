@@ -246,6 +246,65 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			});
 		});
 
+		describe("icon sprite pattern", () => {
+			it("icon component with :data for dynamic href", async function () {
+				// SafeBrowser's HTML sanitizer strips SVG elements and custom elements for security.
+				if (["safe_browser"].includes(new ctor().impl)) this.skip();
+
+				const renderer = new ctor();
+				const template = `<template is="icon"><svg class="w-4 h-4"><use :attr:href="'./sprite.svg#' + name"></use></svg></template>`;
+				const html = `<icon :data="{ name: 'home' }"></icon>`;
+				const fragment = renderer.parseHTML(template + html);
+				await renderer.mount(fragment);
+
+				const svg = fragment.firstChild as Element;
+				assert.equal(svg.tagName.toLowerCase(), "svg");
+				const use = svg.firstChild || (svg as unknown as { children: Element[] }).children?.[0];
+				assert.ok(use, "Should have a use element");
+				const href = getAttribute(use as Element, "href");
+				assert.equal(href, "./sprite.svg#home");
+			});
+
+			it("icon component forwards class attribute", async function () {
+				// SafeBrowser's HTML sanitizer strips SVG elements and custom elements for security.
+				if (["safe_browser"].includes(new ctor().impl)) this.skip();
+
+				const renderer = new ctor();
+				const template = `<template is="icon"><svg class="w-4 h-4" :class="class"><use :attr:href="'./sprite.svg#' + name"></use></svg></template>`;
+				const html = `<icon :data="{ name: 'settings' }" :class="'text-blue-500'"></icon>`;
+				const fragment = renderer.parseHTML(template + html);
+				await renderer.mount(fragment);
+
+				const svg = fragment.firstChild as Element;
+				const classes = getAttribute(svg, "class") || "";
+				assert.ok(classes.includes("w-4"), "Should have base class");
+				assert.ok(classes.includes("text-blue-500"), "Should have forwarded class");
+			});
+
+			it("multiple icon instances with different names", async function () {
+				// SafeBrowser's HTML sanitizer strips SVG elements and custom elements for security.
+				if (["safe_browser"].includes(new ctor().impl)) this.skip();
+
+				const renderer = new ctor();
+				const template = `<template is="icon"><svg><use :attr:href="'./sprite.svg#' + name"></use></svg></template>`;
+				const html = `<div><icon :data="{ name: 'home' }"></icon><icon :data="{ name: 'settings' }"></icon></div>`;
+				const fragment = renderer.parseHTML(template + html);
+				await renderer.mount(fragment);
+
+				const container = fragment.firstChild as Element;
+				const children = container.childNodes || (container as unknown as { children: Element[] }).children || [];
+				const icons = Array.from(children).filter(
+					(n) => (n as Element).tagName?.toLowerCase() === "svg",
+				);
+				assert.equal(icons.length, 2, "Should have two SVG icons");
+
+				const use1 = (icons[0] as Element).firstChild || ((icons[0] as unknown as { children: Element[] }).children)?.[0];
+				const use2 = (icons[1] as Element).firstChild || ((icons[1] as unknown as { children: Element[] }).children)?.[0];
+				assert.equal(getAttribute(use1 as Element, "href"), "./sprite.svg#home");
+				assert.equal(getAttribute(use2 as Element, "href"), "./sprite.svg#settings");
+			});
+		});
+
 		describe("{{ expressions }}", () => {
 			it("resolves single variable", async () => {
 				const content = "Hello {{ name }}";
