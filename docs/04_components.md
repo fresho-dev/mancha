@@ -21,6 +21,33 @@ You can mix and match content by processing `<include>` tags:
 </div>
 ```
 
+### Attribute Forwarding
+
+Attributes placed on the `<include>` tag are automatically copied to the root element of the included content. This is particularly useful for styling and accessibility:
+
+```html
+<!-- ./icons/chart.svg -->
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+	<path d="M3 3v18h18" />
+</svg>
+
+<!-- ./index.html -->
+<button>
+	<include src="./icons/chart.svg" class="w-4 h-4 text-blue-500" aria-hidden="true"></include>
+	View Chart
+</button>
+
+<!-- Result after rendering -->
+<button>
+	<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-4 h-4 text-blue-500" aria-hidden="true">
+		<path d="M3 3v18h18" />
+	</svg>
+	View Chart
+</button>
+```
+
+This pattern works well for SVG icons that use `stroke="currentColor"` or `fill="currentColor"`, allowing you to control the icon color via CSS utility classes like `text-white` or `text-red-500`.
+
 ## Custom Components
 
 `mancha` supports custom components, which can be defined using the template tag.
