@@ -830,35 +830,38 @@ function textSizes(): string[] {
 }
 
 function gridPatterns(): string[] {
-	return wrapAll([
-		// Grid template columns
-		// grid-cols-1 to grid-cols-12
-		...Array.from({ length: 12 }, (_, i) => i + 1).map((n) => [
-			`grid-cols-${n}`,
-			`grid-template-columns: repeat(${n}, minmax(0, 1fr))`,
-		]),
-		[`grid-cols-none`, `grid-template-columns: none`],
+	return wrapAll(
+		["column", "row"].flatMap((axis) => {
+			const short = axis.slice(0, 3);
+			return [
+				// Grid template: grid-cols-*, grid-rows-*
+				...Array.from({ length: 12 }, (_, i) => i + 1).map((n) => [
+					`grid-${short}s-${n}`,
+					`grid-template-${axis}s: repeat(${n}, minmax(0, 1fr))`,
+				]),
+				[`grid-${short}s-none`, `grid-template-${axis}s: none`],
 
-		// Grid column span
-		// col-span-1 to col-span-12
-		...Array.from({ length: 12 }, (_, i) => i + 1).map((n) => [
-			`col-span-${n}`,
-			`grid-column: span ${n} / span ${n}`,
-		]),
-		[`col-span-full`, `grid-column: 1 / -1`],
+				// Grid span: col-span-*, row-span-*
+				...Array.from({ length: 12 }, (_, i) => i + 1).map((n) => [
+					`${short}-span-${n}`,
+					`grid-${axis}: span ${n} / span ${n}`,
+				]),
+				[`${short}-span-full`, `grid-${axis}: 1 / -1`],
 
-		// Grid column start/end
-		...Array.from({ length: 13 }, (_, i) => i + 1).map((n) => [
-			`col-start-${n}`,
-			`grid-column-start: ${n}`,
-		]),
-		[`col-start-auto`, `grid-column-start: auto`],
-		...Array.from({ length: 13 }, (_, i) => i + 1).map((n) => [
-			`col-end-${n}`,
-			`grid-column-end: ${n}`,
-		]),
-		[`col-end-auto`, `grid-column-end: auto`],
-	]);
+				// Grid start/end: col-start-*, row-start-*, col-end-*, row-end-*
+				...Array.from({ length: 13 }, (_, i) => i + 1).map((n) => [
+					`${short}-start-${n}`,
+					`grid-${axis}-start: ${n}`,
+				]),
+				[`${short}-start-auto`, `grid-${axis}-start: auto`],
+				...Array.from({ length: 13 }, (_, i) => i + 1).map((n) => [
+					`${short}-end-${n}`,
+					`grid-${axis}-end: ${n}`,
+				]),
+				[`${short}-end-auto`, `grid-${axis}-end: auto`],
+			];
+		}),
+	);
 }
 
 function custom(): string[] {
