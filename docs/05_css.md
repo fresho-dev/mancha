@@ -379,6 +379,13 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | `col-start-{1-13}` | `grid-column-start: n` |
 | `col-end-{1-13}` | `grid-column-end: n` |
 | `col-start/end-auto` | `grid-column-start/end: auto` |
+| `grid-rows-{1-12}` | `grid-template-rows: repeat(n, minmax(0, 1fr))` |
+| `grid-rows-none` | `grid-template-rows: none` |
+| `row-span-{1-12}` | `grid-row: span n / span n` |
+| `row-span-full` | `grid-row: 1 / -1` |
+| `row-start-{1-13}` | `grid-row-start: n` |
+| `row-end-{1-13}` | `grid-row-end: n` |
+| `row-start/end-auto` | `grid-row-start/end: auto` |
 
 ### Position & Inset
 

@@ -59,6 +59,14 @@ describe("CSS Generation Utils", () => {
 				css.includes(".col-span-2 { grid-column: span 2 / span 2 }"),
 				"Should include col-span-2",
 			);
+			assert.ok(
+				css.includes(".grid-rows-3 { grid-template-rows: repeat(3, minmax(0, 1fr)) }"),
+				"Should include grid-rows-3",
+			);
+			assert.ok(
+				css.includes(".row-span-2 { grid-row: span 2 / span 2 }"),
+				"Should include row-span-2",
+			);
 		});
 
 		it("includes pseudo-state variants", () => {

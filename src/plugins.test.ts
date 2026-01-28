@@ -292,14 +292,19 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				await renderer.mount(fragment);
 
 				const container = fragment.firstChild as Element;
-				const children = container.childNodes || (container as unknown as { children: Element[] }).children || [];
+				const children =
+					container.childNodes || (container as unknown as { children: Element[] }).children || [];
 				const icons = Array.from(children).filter(
 					(n) => (n as Element).tagName?.toLowerCase() === "svg",
 				);
 				assert.equal(icons.length, 2, "Should have two SVG icons");
 
-				const use1 = (icons[0] as Element).firstChild || ((icons[0] as unknown as { children: Element[] }).children)?.[0];
-				const use2 = (icons[1] as Element).firstChild || ((icons[1] as unknown as { children: Element[] }).children)?.[0];
+				const use1 =
+					(icons[0] as Element).firstChild ||
+					(icons[0] as unknown as { children: Element[] }).children?.[0];
+				const use2 =
+					(icons[1] as Element).firstChild ||
+					(icons[1] as unknown as { children: Element[] }).children?.[0];
 				assert.equal(getAttribute(use1 as Element, "href"), "./sprite.svg#home");
 				assert.equal(getAttribute(use2 as Element, "href"), "./sprite.svg#settings");
 			});
