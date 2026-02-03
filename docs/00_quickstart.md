@@ -121,7 +121,7 @@ If you want more control over the initialization lifecycle, you can remove the `
 Now that you've seen the basics, explore the full capabilities of `mancha`:
 
 - **[Syntax](./01_syntax.md)**: Learn about all the attributes (`:data`, `:for`, `:if`, etc.) and the expression language.
-- **[Initialization](./02_initialization.md)**: Script tag options, ESM API, cloaking, and callbacks.
+- **[Initialization](./02_initialization.md)**: **Start here if you're unsure which initialization method to use.** Covers Script Tag, ES Module (`initMancha`), and `:render` attribute with a decision guide.
 - **[Reactivity](./03_reactivity.md)**: Dive deep into variable scoping and URL binding.
 - **[Components](./04_components.md)**: Build reusable components with `<include>`, `<template>`, and `:render`.
 - **[CSS](./05_css.md)**: Explore the built-in utility classes.

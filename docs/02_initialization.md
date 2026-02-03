@@ -2,6 +2,57 @@
 
 This document covers the different ways to initialize mancha and configure its behavior.
 
+## Choosing the Right Approach
+
+Mancha offers three initialization methods. Use this decision guide to choose the right one:
+
+| Method | Use When | Complexity |
+|--------|----------|------------|
+| **Script Tag** | Simple projects, prototypes, single-page apps with no build step | Lowest |
+| **ES Module (`initMancha`)** | Projects with bundlers, need for initial state, custom initialization logic | Medium |
+| **`:render` Attribute** | Initializing specific elements (charts, maps, etc.) within an already-mounted page | Element-level |
+
+### Decision Flowchart
+
+```
+START: Do you have a build step (bundler/TypeScript)?
+  │
+  ├─ NO → Use Script Tag with `init` attribute
+  │         <script src="//unpkg.com/mancha" css="utils" init></script>
+  │
+  └─ YES → Are you initializing the whole page or specific elements?
+            │
+            ├─ WHOLE PAGE → Use ES Module with `initMancha`
+            │                 import { initMancha } from "mancha/browser";
+            │                 await initMancha({ target: "#app" });
+            │
+            └─ SPECIFIC ELEMENTS → Use `:render` attribute on those elements
+                                    <canvas :render="./chart-init.js"></canvas>
+```
+
+### Quick Reference
+
+**Script Tag** (simplest, no build step):
+```html
+<script src="//unpkg.com/mancha" css="utils" init></script>
+```
+
+**ES Module** (bundlers, TypeScript, custom init):
+```typescript
+import { initMancha } from "mancha/browser";
+await initMancha({ target: "#app", state: { count: 0 } });
+```
+
+**`:render` Attribute** (element-level initialization):
+```html
+<canvas :render="./chart-init.js"></canvas>
+```
+
+> [!TIP]
+> **For AI agents**: Start with the Script Tag approach for simple tasks. Use ES Module when you need to set initial state programmatically or have a build step. Use `:render` only for third-party library integration on specific elements (charts, maps, video players).
+
+---
+
 ## Script Tag
 
 The simplest way to use mancha is via a script tag with the `init` attribute:
@@ -194,8 +245,77 @@ await initMancha({
 The callback receives:
 - `renderer`: The initialized Renderer instance
 
-The callback receives:
-- `renderer`: The initialized Renderer instance
+## Element-Level Initialization with `:render`
+
+The `:render` attribute provides element-level initialization by linking an HTML element to a JavaScript ES module. This is useful for initializing third-party libraries (charts, maps, video players) on specific elements.
+
+```html
+<canvas :render="./chart-init.js"></canvas>
+```
+
+The module's default export is called with the element and renderer:
+
+```js
+// chart-init.js
+export default function (elem, renderer) {
+  new Chart(elem, { type: "bar", data: { labels: ["A", "B"], datasets: [{ data: [1, 2] }] } });
+}
+```
+
+### When to Use `:render`
+
+| Use `:render` When | Don't Use `:render` When |
+|--------------------|--------------------------|
+| Integrating third-party libraries (Chart.js, Leaflet, etc.) | Initializing the entire page |
+| Element needs imperative JavaScript setup | Simple reactive data binding suffices |
+| Canvas, video, or other media elements | Standard form inputs and displays |
+| You need access to the DOM element directly | Pure declarative templates work |
+
+### Key Characteristics
+
+- **Runs after mount**: The init function executes after mancha has mounted the element
+- **SSR compatible**: During server-side rendering, the path is resolved but the module is not executed
+- **Relative paths**: Paths are resolved relative to the template file, not the HTML page
+- **Reactive access**: The init function receives the renderer instance for reactive state access
+
+For complete documentation on `:render` including reactive state access and custom components, see [Components & Preprocessing](./04_components.md#initialization-with-render).
+
+## Combining Initialization Methods
+
+You can combine the Script Tag or ES Module approach with `:render` attributes:
+
+**Script Tag + `:render`** (most common for simple projects):
+```html
+<head>
+  <script src="//unpkg.com/mancha" css="utils" init></script>
+</head>
+<body>
+  <h1>Dashboard</h1>
+  <!-- :render initializes this specific element after page mount -->
+  <canvas :render="./sales-chart.js"></canvas>
+</body>
+```
+
+**ES Module + `:render`** (for projects with bundlers):
+```typescript
+import { initMancha } from "mancha/browser";
+
+await initMancha({
+  target: "#app",
+  state: { salesData: await fetchSalesData() },
+});
+
+// The :render attributes in #app will execute after mount
+```
+
+```html
+<div id="app">
+  <canvas :render="./chart.js"></canvas>
+</div>
+```
+
+> [!NOTE]
+> `:render` scripts execute after `initMancha` or the script tag has mounted the page. They are not a replacement for page-level initialization, but a complement for element-specific setup.
 
 ## Advanced: Manual Initialization
 
@@ -218,4 +338,71 @@ await renderer.set("name", "World");
 
 // 4. Mount to DOM
 await renderer.mount(document.body);
+```
+
+## Summary: Initialization at a Glance
+
+This table summarizes all initialization methods and when to use them:
+
+| Method | Syntax | Use Case | FOUC Prevention | Build Step Required |
+|--------|--------|----------|-----------------|---------------------|
+| **Script Tag** | `<script src="//unpkg.com/mancha" init>` | Simple projects, prototypes | Automatic | No |
+| **ES Module** | `initMancha({ target: "#app" })` | Bundled projects, custom init logic | Manual (add cloak style) | Yes |
+| **`:render`** | `<canvas :render="./init.js">` | Third-party library integration | N/A (runs after mount) | No |
+| **Manual** | `new Renderer(); renderer.mount(el)` | Full control, advanced use cases | Manual | Yes |
+
+### For AI Agents: Quick Decision Guide
+
+1. **No build step?** → Use Script Tag with `init`
+2. **Have a bundler (Vite, Webpack, etc.)?** → Use ES Module with `initMancha`
+3. **Need to initialize a specific element (chart, map)?** → Use `:render` on that element
+4. **Need both page init AND element init?** → Combine Script Tag or ES Module with `:render`
+
+### Minimal Working Examples
+
+**Simplest possible (Script Tag)**:
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="//unpkg.com/mancha" css="utils" init></script>
+</head>
+<body :data="{ count: 0 }">
+  <button :on:click="count++">Count: {{ count }}</button>
+</body>
+</html>
+```
+
+**With bundler (ES Module)**:
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <style id="mancha-cloak">body { opacity: 0 !important; }</style>
+</head>
+<body>
+  <div id="app" :data="{ count: 0 }">
+    <button :on:click="count++">Count: {{ count }}</button>
+  </div>
+  <script type="module">
+    import { initMancha } from "mancha/browser";
+    await initMancha({ target: "#app", cloak: true });
+  </script>
+</body>
+</html>
+```
+
+**With third-party chart (Script Tag + `:render`)**:
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="//unpkg.com/mancha" css="utils" init></script>
+  <script src="//unpkg.com/chart.js"></script>
+</head>
+<body>
+  <h1>Sales Dashboard</h1>
+  <canvas :render="./sales-chart.js"></canvas>
+</body>
+</html>
 ```

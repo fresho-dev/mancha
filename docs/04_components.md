@@ -154,7 +154,10 @@ Then in `index.html`:
 
 ## Initialization with `:render`
 
-The `:render` attribute links any HTML element to a JavaScript ES module for initialization. This is useful when you need to initialize third-party libraries (like charts, maps, or video players) on specific elements.
+The `:render` attribute provides **element-level initialization** by linking any HTML element to a JavaScript ES module. This is useful when you need to initialize third-party libraries (like charts, maps, or video players) on specific elements.
+
+> [!TIP]
+> `:render` is for **element-level** initialization, not page-level initialization. For page-level initialization, use the Script Tag with `init` or `initMancha()`. See [Initialization](./02_initialization.md) for a complete comparison of all initialization methods.
 
 ```html
 <canvas :render="./chart-init.js"></canvas>
