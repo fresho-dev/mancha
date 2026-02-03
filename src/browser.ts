@@ -1,5 +1,10 @@
 import { safeStyleEl } from "safevalues/dom";
+import { _resetForTesting as resetCustomCss, scanAndInject } from "./css_custom.js";
 import { dirname } from "./dome.js";
+
+// Re-export for testing.
+export { resetCustomCss as _resetCustomCssForTesting };
+
 import type { ParserParams, RenderParams } from "./interfaces.js";
 import { IRenderer } from "./renderer.js";
 import type { StoreState } from "./store.js";
@@ -53,14 +58,20 @@ export class Renderer<T extends StoreState = StoreState> extends IRenderer<T> {
 export const Mancha = new Renderer();
 
 /** Options for CSS injection. */
-export type CssName = "minimal" | "utils" | "basic";
+export type CssName = "minimal" | "utils" | "basic" | "custom";
 
 /**
  * Injects CSS rules into the document head.
- * @param names - Array of CSS names to inject ("minimal", "utils", "basic").
+ * @param names - Array of CSS names to inject ("minimal", "utils", "basic", "custom").
  */
 export function injectCss(names: CssName[]): void {
 	for (const styleName of names) {
+		if (styleName === "custom") {
+			// Scan DOM and inject custom value CSS (browser-only).
+			scanAndInject(document);
+			continue;
+		}
+
 		const style = document.createElement("style");
 		switch (styleName) {
 			case "minimal":

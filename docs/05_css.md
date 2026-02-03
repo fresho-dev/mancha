@@ -511,6 +511,88 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | `text-{0-99}px` | Font size in pixels (e.g., `text-12px`, `text-16px`) |
 | `text-{0-24.75}rem` | Font size in rem units (0.25rem increments) |
 
---- 
+---
+
+## Custom Values
+
+When you need a value outside the design scale, use bracket notation as an escape hatch.
+
+### Enabling Custom Values
+
+Add "custom" to your CSS injection:
+
+```html
+<script src="//unpkg.com/mancha" css="utils+custom" init></script>
+```
+
+Or programmatically:
+
+```javascript
+import { injectCss, initMancha } from "mancha";
+
+injectCss(["utils", "custom"]);
+await initMancha({ target: "body" });
+```
+
+### Syntax
+
+```html
+<div class="w-[133px] mt-[2rem] max-w-[900px]">
+```
+
+### Supported Properties
+
+| Prefix | CSS Property |
+|--------|--------------|
+| `w-` | width |
+| `h-` | height |
+| `min-w-`, `min-h-` | min-width, min-height |
+| `max-w-`, `max-h-` | max-width, max-height |
+| `m-`, `mt-`, `mr-`, `mb-`, `ml-` | margin |
+| `mx-`, `my-` | margin-inline, margin-block |
+| `p-`, `pt-`, `pr-`, `pb-`, `pl-` | padding |
+| `px-`, `py-` | padding-inline, padding-block |
+| `top`, `right`, `bottom`, `left` | positioning |
+| `gap-`, `gap-x-`, `gap-y-` | gap |
+| `text-` | font-size |
+| `z-` | z-index |
+| `bg-` | background-color |
+| `border-` | border-color |
+
+### Variants
+
+Custom values support pseudo-states and responsive breakpoints:
+
+```html
+<div class="hover:w-[200px] md:max-w-[900px]">
+```
+
+### Limitations
+
+**Static classes only**: Custom values work with the `class` attribute, not `:class`:
+
+```html
+<!-- ✓ Works -->
+<div class="w-[133px]">
+
+<!-- ✗ Not supported - use inline styles instead -->
+<div :class="'w-[133px]'">
+<div :attr:style="'width: ' + dynamicWidth">
+```
+
+**Browser only**: Custom values require the CSSStyleSheet API and are not available in Worker or SSR environments.
+
+### When to Use
+
+**Prefer the design scale** for consistency. Use custom values for:
+- Matching external constraints (third-party widgets, embeds)
+- One-off pixel-perfect adjustments
+- Rapid prototyping (replace with scale values later)
+
+### Dynamic Content
+
+For content added after initial load, call `injectCss(["custom"])` again to scan and inject new custom values.
+
+---
 
 *Generated automatically from `src/css_gen_utils.ts`*
