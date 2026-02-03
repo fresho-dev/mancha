@@ -1,4 +1,4 @@
-import { initMancha, injectCss, Renderer } from "./browser.js";
+import { _resetCustomCssForTesting, initMancha, injectCss, Renderer } from "./browser.js";
 import { testSuite as pluginsTestSuite } from "./plugins.test.js";
 import { testSuite as rendererTestSuite } from "./renderer.test.js";
 import { assert, setInnerHTML } from "./test_utils.js";
@@ -63,6 +63,72 @@ describe("Browser", () => {
 
 			// Verify the style has non-empty content.
 			assert.ok(lastStyle.textContent && lastStyle.textContent.length > 0);
+		});
+	});
+
+	describe("Custom CSS Injection", () => {
+		afterEach(() => {
+			_resetCustomCssForTesting();
+			for (const el of document.querySelectorAll('[id^="custom-css-test-"]')) {
+				el.remove();
+			}
+		});
+
+		it("injectCss(['custom']) creates style element for custom values", () => {
+			const container = document.createElement("div");
+			container.id = "custom-css-test-1";
+			container.className = "w-[133px] p-4";
+			document.body.appendChild(container);
+
+			injectCss(["custom"]);
+
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			assert.ok(customStyle, "Should create style element with data-mancha='custom'");
+			assert.ok(customStyle.sheet, "Style element should have a sheet");
+
+			const rulesLength = customStyle.sheet?.cssRules.length ?? 0;
+			assert.ok(rulesLength > 0, "Should have injected rules");
+
+			// Check that the rule contains the expected property.
+			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
+			assert.ok(ruleText.includes("width"), "Rule should contain width property");
+			assert.ok(ruleText.includes("133px"), "Rule should contain 133px value");
+		});
+
+		it("handles variant classes", () => {
+			const container = document.createElement("div");
+			container.id = "custom-css-test-2";
+			container.className = "hover:bg-[#ff0000] md:w-[500px]";
+			document.body.appendChild(container);
+
+			injectCss(["custom"]);
+
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			assert.ok(customStyle, "Should create style element");
+
+			const rulesLength = customStyle.sheet?.cssRules.length ?? 0;
+			assert.ok(rulesLength >= 2, "Should inject multiple rules");
+		});
+
+		it("skips non-custom classes (no style element created)", () => {
+			// First ensure no custom style element exists.
+			for (const el of document.querySelectorAll('[data-mancha="custom"]')) {
+				el.remove();
+			}
+
+			const container = document.createElement("div");
+			container.id = "custom-css-test-3";
+			container.className = "flex w-4 mt-8";
+			document.body.appendChild(container);
+
+			injectCss(["custom"]);
+
+			const customStyle = document.querySelector('style[data-mancha="custom"]');
+			// Style element may be created but should have no rules.
+			if (customStyle) {
+				const sheet = (customStyle as HTMLStyleElement).sheet;
+				assert.equal(sheet?.cssRules.length ?? 0, 0, "Should not inject standard classes");
+			}
 		});
 	});
 
