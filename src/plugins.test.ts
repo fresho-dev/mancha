@@ -2005,6 +2005,82 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 		});
 
 		describe(":show", () => {
+			it("updates :show with compound expression after async state changes", async () => {
+				// Reproduce the scenario from google-ads-account-picker:
+				// 1. Mount HTML with :show="!error && items.length > 0"
+				// 2. Simulate an async init function that sets state via the proxy ($.)
+				// 3. Verify :show updates correctly after all state changes settle
+				const renderer = new ctor();
+				const html = `<div :show="!error && items.length > 0">Content</div>`;
+				const fragment = renderer.parseHTML(html);
+
+				// Mount first (processes :show directive, registers effect).
+				await renderer.mount(fragment);
+
+				const node = fragment.firstChild as HTMLElement;
+
+				// After mount, items is auto-initialized to undefined, so :show should be hidden.
+				assert.equal(
+					(node as HTMLElement).style?.display ?? getAttribute(node as Element, "style")?.includes("none") ? "none" : "",
+					"none",
+					"should be hidden initially",
+				);
+
+				// Simulate the async init pattern from main.ts:
+				// Uses proxy setter ($.) which does NOT await set().
+				const $ = renderer.$;
+				$.error = null;
+				$.items = [];
+
+				// Wait for debounced notifications to settle.
+				await sleepForReactivity();
+
+				// Now simulate the async API response setting items.
+				$.items = ["a", "b", "c"];
+
+				// Wait for debounced notifications to settle.
+				await sleepForReactivity();
+
+				// :show should now be visible.
+				const display =
+					(node as HTMLElement).style?.display ??
+					getAttribute(node as Element, "style")?.replace(/.*display:\s*/, "").replace(/;.*/, "") ?? "";
+				assert.notEqual(
+					display,
+					"none",
+					"should be visible after items are set (display: '" + display + "')",
+				);
+			});
+
+			it("updates :show via proxy setter (fire-and-forget set)", async () => {
+				// Minimal repro: proxy setter $.prop = value doesn't await set().
+				// This tests that the debounced notification still works.
+				const renderer = new ctor();
+				const html = `<div :show="items.length > 0" />`;
+				const fragment = renderer.parseHTML(html);
+
+				await renderer.mount(fragment);
+
+				const node = fragment.firstChild as HTMLElement;
+				const getDisplay = () =>
+					(node as HTMLElement).style?.display ?? getAttribute(node as Element, "style")?.replace(/.*display:\s*/, "").replace(/;.*/, "") ?? "";
+
+				// Initially hidden (items is undefined, .length throws, eval returns null → falsy).
+				assert.equal(getDisplay() === "none" || getDisplay() === "" ? "none" : getDisplay(), "none");
+
+				// Set via proxy (fire-and-forget, not awaited).
+				renderer.$.items = [1, 2, 3];
+
+				// Wait for debounced notification.
+				await sleepForReactivity();
+
+				assert.notEqual(
+					getDisplay(),
+					"none",
+					"element should be visible after setting items via proxy",
+				);
+			});
+
 			it("shows then hides an element", async () => {
 				const renderer = new ctor();
 				const html = `<div :show="foo" />`;

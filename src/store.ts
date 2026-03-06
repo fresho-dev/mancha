@@ -330,15 +330,18 @@ export class SignalStore<T extends StoreState = StoreState> {
 						this._notify.delete(key);
 					}
 
-					// Lazy cleanup: remove observers whose store's $rootNode is disconnected.
+					// Lazy cleanup: remove observers whose store's $rootNode is orphaned.
 					// This handles memory leaks from removed :for items, replaced :html content, etc.
 					// Only applies to subrenderers (stores with $parent) - root renderer observers persist.
+					// A node is considered orphaned if it's both disconnected AND has no parent node.
+					// Nodes inside a DocumentFragment (e.g., during mount before DOM attachment)
+					// have parentNode != null and should NOT be cleaned up.
 					const observerSet = owner?.observers.get(key);
 					if (observerSet) {
 						for (const entry of entries) {
 							const hasParent = entry.store._store.has("$parent");
 							const rootNode = entry.store._store.get("$rootNode") as Node | undefined;
-							if (hasParent && rootNode && !rootNode.isConnected) {
+							if (hasParent && rootNode && !rootNode.isConnected && !rootNode.parentNode) {
 								observerSet.delete(entry);
 							}
 						}

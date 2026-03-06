@@ -2502,8 +2502,9 @@ describe("SignalStore", () => {
 			await sleepForReactivity();
 			assert.equal(childObserverCalls, 2);
 
-			// Simulate element removal from DOM.
+			// Simulate element removal from DOM (disconnected and orphaned).
 			(mockElement as unknown as { isConnected: boolean }).isConnected = false;
+			(mockElement as unknown as { parentNode: unknown }).parentNode = null;
 
 			// Trigger again - observer fires one more time, then gets cleaned up.
 			await parent.set("count", 2);
@@ -2546,17 +2547,53 @@ describe("SignalStore", () => {
 			assert.equal(observerCalls, 3, "Root renderer observers should persist");
 		});
 
+		it("does not remove observers for nodes inside a DocumentFragment", async () => {
+			// Simulate the scenario where a subrenderer's $rootNode is inside a
+			// DocumentFragment (e.g., during mount before DOM attachment).
+			// The node is disconnected but has a parentNode (the fragment).
+			const parent = new SignalStore({ count: 0 });
+
+			const mockElement = {
+				isConnected: false,
+				parentNode: {}, // In a DocumentFragment, parentNode is the fragment.
+			} as unknown as Node;
+
+			const child = new SignalStore({
+				$parent: parent,
+				$rootNode: mockElement,
+			});
+
+			let observerCalls = 0;
+
+			child.effect(function () {
+				observerCalls++;
+				return this.count;
+			});
+
+			assert.equal(observerCalls, 1);
+
+			// Trigger - observer should fire (node is in a fragment, not orphaned).
+			await parent.set("count", 1);
+			await sleepForReactivity();
+			assert.equal(observerCalls, 2, "Observer should fire for nodes in DocumentFragment");
+
+			// Trigger again - observer should still fire.
+			await parent.set("count", 2);
+			await sleepForReactivity();
+			assert.equal(observerCalls, 3, "Observer should persist for nodes in DocumentFragment");
+		});
+
 		it("cleans up multiple observers from different disconnected subrenderers", async () => {
 			const parent = new SignalStore({ count: 0 });
 
 			// Create multiple children, each with their own $rootNode.
 			const children: SignalStore[] = [];
-			const mockElements: { isConnected: boolean }[] = [];
+			const mockElements: { isConnected: boolean; parentNode: unknown }[] = [];
 			const observerCalls: number[] = [];
 
 			for (let i = 0; i < 3; i++) {
-				const mockElement = { isConnected: true } as unknown as Node;
-				mockElements.push(mockElement as unknown as { isConnected: boolean });
+				const mockElement = { isConnected: true, parentNode: {} } as unknown as Node;
+				mockElements.push(mockElement as unknown as { isConnected: boolean; parentNode: unknown });
 
 				const child = new SignalStore({
 					$parent: parent,
@@ -2580,9 +2617,11 @@ describe("SignalStore", () => {
 			await sleepForReactivity();
 			assert.deepEqual(observerCalls, [2, 2, 2]);
 
-			// Disconnect first two elements.
+			// Disconnect and orphan first two elements.
 			mockElements[0].isConnected = false;
+			mockElements[0].parentNode = null;
 			mockElements[1].isConnected = false;
+			mockElements[1].parentNode = null;
 
 			// Trigger - all fire once, then first two get cleaned up.
 			await parent.set("count", 2);
