@@ -2021,7 +2021,10 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 
 				// After mount, items is auto-initialized to undefined, so :show should be hidden.
 				assert.equal(
-					(node as HTMLElement).style?.display ?? getAttribute(node as Element, "style")?.includes("none") ? "none" : "",
+					((node as HTMLElement).style?.display ??
+						getAttribute(node as Element, "style")?.includes("none"))
+						? "none"
+						: "",
 					"none",
 					"should be hidden initially",
 				);
@@ -2044,7 +2047,10 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				// :show should now be visible.
 				const display =
 					(node as HTMLElement).style?.display ??
-					getAttribute(node as Element, "style")?.replace(/.*display:\s*/, "").replace(/;.*/, "") ?? "";
+					getAttribute(node as Element, "style")
+						?.replace(/.*display:\s*/, "")
+						.replace(/;.*/, "") ??
+					"";
 				assert.notEqual(
 					display,
 					"none",
@@ -2063,10 +2069,17 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 
 				const node = fragment.firstChild as HTMLElement;
 				const getDisplay = () =>
-					(node as HTMLElement).style?.display ?? getAttribute(node as Element, "style")?.replace(/.*display:\s*/, "").replace(/;.*/, "") ?? "";
+					(node as HTMLElement).style?.display ??
+					getAttribute(node as Element, "style")
+						?.replace(/.*display:\s*/, "")
+						.replace(/;.*/, "") ??
+					"";
 
 				// Initially hidden (items is undefined, .length throws, eval returns null → falsy).
-				assert.equal(getDisplay() === "none" || getDisplay() === "" ? "none" : getDisplay(), "none");
+				assert.equal(
+					getDisplay() === "none" || getDisplay() === "" ? "none" : getDisplay(),
+					"none",
+				);
 
 				// Set via proxy (fire-and-forget, not awaited).
 				renderer.$.items = [1, 2, 3];
