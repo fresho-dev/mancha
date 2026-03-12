@@ -65,7 +65,8 @@ export type CssName = "minimal" | "utils" | "basic" | "custom";
  * @param names - Array of CSS names to inject ("minimal", "utils", "basic", "custom").
  */
 export function injectCss(names: CssName[]): void {
-	for (const styleName of names) {
+	for (let styleName of names) {
+		styleName = (styleName as string).trim() as CssName;
 		if (styleName === "custom") {
 			// Scan DOM and inject custom value CSS (browser-only).
 			scanAndInject(document);

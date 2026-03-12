@@ -14,8 +14,12 @@ if (currentScript?.hasAttribute("init")) {
 	// Parse all configuration from script tag attributes.
 	const debug = currentScript.hasAttribute("debug");
 	const cachePolicy = (currentScript.getAttribute("cache") as RequestCache) || undefined;
-	const target = currentScript.getAttribute("target")?.split("+") || ["body"];
-	const cssNames = currentScript.getAttribute("css")?.split("+") as CssName[] | undefined;
+	const target = currentScript.getAttribute("target")?.split("+").map((s) => s.trim()) || ["body"];
+	const cssNames = currentScript
+		.getAttribute("css")
+		?.split("+")
+		.map((s) => s.trim() as CssName)
+		.filter((s) => (s as string) !== "");
 
 	// Cloaking is ON by default for script tag init.
 	// - cloak="false" disables cloaking
@@ -45,7 +49,11 @@ if (currentScript?.hasAttribute("init")) {
 	});
 } else if (currentScript?.hasAttribute("css")) {
 	// Legacy behavior: only inject CSS if css attribute is present but init is not.
-	const styleNames = currentScript.getAttribute("css")?.split("+") as CssName[];
+	const styleNames = currentScript
+		.getAttribute("css")
+		?.split("+")
+		.map((s) => s.trim() as CssName)
+		.filter((s) => (s as string) !== "") as CssName[];
 	initMancha({ css: styleNames });
 }
 

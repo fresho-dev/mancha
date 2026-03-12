@@ -92,7 +92,7 @@ const renderer = await initMancha({
 |--------|------|-------------|
 | `renderer` | `Renderer` | Use an existing Renderer instance instead of creating a new one |
 | `target` | `string \| string[]` | CSS selector(s) to mount to |
-| `css` | `CssName[]` | CSS bundles to inject: `"minimal"`, `"basic"`, `"utils"` |
+| `css` | `CssName[]` | CSS bundles to inject: `"minimal"`, `"basic"`, `"utils"`, `"custom"` |
 | `state` | `Record<string, unknown>` | Initial state to set before mounting |
 | `debug` | `boolean` | Enable debug logging |
 | `cache` | `RequestCache` | Fetch cache policy for includes |
