@@ -2054,7 +2054,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.notEqual(
 					display,
 					"none",
-					"should be visible after items are set (display: '" + display + "')",
+					`should be visible after items are set (display: '${display}')`,
 				);
 			});
 

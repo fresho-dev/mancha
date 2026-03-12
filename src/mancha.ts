@@ -14,7 +14,10 @@ if (currentScript?.hasAttribute("init")) {
 	// Parse all configuration from script tag attributes.
 	const debug = currentScript.hasAttribute("debug");
 	const cachePolicy = (currentScript.getAttribute("cache") as RequestCache) || undefined;
-	const target = currentScript.getAttribute("target")?.split("+").map((s) => s.trim()) || ["body"];
+	const target = currentScript
+		.getAttribute("target")
+		?.split("+")
+		.map((s) => s.trim()) || ["body"];
 	const cssNames = currentScript
 		.getAttribute("css")
 		?.split("+")
