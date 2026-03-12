@@ -116,6 +116,57 @@ If you want more control over the initialization lifecycle, you can remove the `
 </script>
 ```
 
+## Dynamic Lists
+
+Creating dynamic lists—where users can add or remove items—is a common requirement. `mancha` handles this efficiently using the `:for` directive and array mutations.
+
+```html
+<body :data="{ tags: ['mancha', 'reactive'], newTag: '' }">
+	<div class="p-4 max-w-md mx-auto">
+		<h1 class="text-xl font-bold mb-4">Tags</h1>
+
+		<!-- Render the list of tags -->
+		<div class="flex flex-wrap gap-2 mb-4">
+			<template :for="tag in tags" :key="tag">
+				<span class="bg-indigo-100 px-3 py-1 rounded-full">
+					{{ tag }}
+					<!-- Use $index to remove the specific item -->
+					<button :on:click="tags.splice($index, 1)" class="ml-2 font-bold">&times;</button>
+				</span>
+			</template>
+			<p :if="tags.length === 0" class="text-gray-500 italic">No tags yet.</p>
+		</div>
+
+		<!-- Form to add new tags -->
+		<form class="flex gap-2" :on:submit.prevent="addTag()">
+			<input
+				type="text"
+				:bind="newTag"
+				placeholder="Add a tag..."
+				class="flex-1 border p-2 rounded"
+			/>
+			<button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded">Add</button>
+		</form>
+	</div>
+
+	<script>
+		const { $ } = Mancha;
+
+		$.addTag = function () {
+			if (this.newTag.trim()) {
+				this.tags.push(this.newTag.trim());
+				this.newTag = "";
+			}
+		};
+	</script>
+</body>
+```
+
+Key concepts for dynamic lists:
+- **`:key`**: Always provide a unique key when using `:for` with dynamic data. This enables "keyed reconciliation", which reuses existing DOM nodes and is significantly faster.
+- **`$index`**: This special variable is automatically available inside any `:for` loop and provides the current iteration index.
+- **Array Mutations**: `mancha` detects when you use standard array methods like `push()`, `pop()`, or `splice()` and automatically updates the UI.
+
 ## Next Steps
 
 Now that you've seen the basics, explore the full capabilities of `mancha`:

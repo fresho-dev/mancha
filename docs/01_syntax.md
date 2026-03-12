@@ -10,8 +10,9 @@
   <div :data="{ count: 1, doubled: $computed(() => count * 2) }"></div>
   ```
 - `:for` clones the node and repeats it. The loop re-renders when the array is mutated (e.g., `push`, `pop`, `splice`, or `items.length = 0` to clear).
+  - Use `$index` inside the loop to access the current iteration index (0-based).
   ```html
-  <div :for="item in ['a', 'b', 'c']">{{ item }}</div>
+  <div :for="item in ['a', 'b', 'c']">{{ $index }}: {{ item }}</div>
   ```
 - `:key` (used with `:for`) enables keyed reconciliation, which reuses DOM nodes when items have stable identifiers. This prevents unnecessary DOM recreation and preserves element state during updates. The key should be a unique primitive value (string or number). When used with `:data`, the `:data` expression is re-evaluated when a keyed node is reused with updated loop variables.
   ```html
@@ -68,7 +69,11 @@
 
 ## Evaluation
 
-To avoid violation of Content Security Policy (CSP) that forbids the use of `eval()`, `mancha` evaluates all expressions using a safe expression parser. This means that only simple expressions are allowed, but it supports many modern JavaScript features, including optional chaining, the spread operator, and arrow functions. For example:
+To avoid violation of Content Security Policy (CSP) that forbids the use of `eval()`, `mancha` evaluates all expressions using a safe expression parser. This means that only simple expressions are allowed, but it supports many modern JavaScript features, including optional chaining, the spread operator, and arrow functions.
+
+**Note**: `mancha` only supports **single-statement** expressions. You cannot use semicolons (`;`) to separate multiple actions. For complex logic, define a function in your script and call it from the template.
+
+For example:
 
 ```html
 <!-- Valid expression: string concatenation -->

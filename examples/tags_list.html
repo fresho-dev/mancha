@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mancha Tags List Example</title>
+    <script src="../dist/mancha.js" css="utils" init></script>
+</head>
+<body :data="{ tags: ['mancha', 'reactive'], newTag: '' }">
+    <div class="p-8 max-w-md mx-auto">
+        <h1 class="text-2xl font-bold mb-4">Tags List</h1>
+        
+        <div class="flex flex-wrap gap-2 mb-6">
+            <template :for="(tag, index) in tags" :key="tag">
+                <span class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full flex items-center">
+                    {{ tag }}
+                    <button 
+                        class="ml-2 text-indigo-600 hover:text-indigo-900 font-bold"
+                        :on:click="tags.splice(index, 1)"
+                    >
+                        &times;
+                    </button>
+                </span>
+            </template>
+            <p :if="tags.length === 0" class="text-gray-500 italic">No tags yet.</p>
+        </div>
+
+        <form class="flex gap-2" :on:submit.prevent="addTag()">
+            <input 
+                type="text" 
+                :bind="newTag" 
+                placeholder="Add a tag..."
+                class="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+            <button 
+                type="submit"
+                class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
+            >
+                Add
+            </button>
+        </form>
+    </div>
+
+    <script>
+        const { $ } = Mancha;
+        $.addTag = function() {
+            const tag = this.newTag.trim();
+            if (tag && !this.tags.includes(tag)) {
+                this.tags.push(tag);
+                this.newTag = '';
+            }
+        };
+    </script>
+</body>
+</html>
