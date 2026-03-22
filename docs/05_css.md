@@ -1,6 +1,6 @@
 # CSS Documentation
 
-Mancha provides a set of CSS utilities and minimal styles to help you build your application.
+Mancha provides two CSS modes: **minimal** for simple prose pages, and **utils** for Tailwind-style utility class development.
 
 ## Minimal CSS
 
@@ -14,21 +14,14 @@ The minimal CSS rules provide a clean, readable default style for standard HTML 
 - **H1-H6 Margin**: 1em 0 0.5em
 - **P, UL, OL Margin Bottom**: 1em
 
-## Basic CSS
-
-The basic CSS rules provide a more comprehensive reset and set of defaults, widely based on Tailwind CSS Preflight. You can inject them using `injectCss(["basic"])` or by adding `css="basic"` to your script tag.
-
-### Key Features
-- **Box Sizing**: `border-box` globally
-- **Typography**: Default sans-serif font stack, consistent line-height
-- **Form Elements**: Inherit font styles, transparent backgrounds, `cursor: pointer` for buttons
-- **Media**: Images/videos max-width 100%
-- **Dialog**: Default backdrop styling
-- **Resets**: Removes default margins/paddings from most block elements
-
 ## Utility CSS
 
 The utility CSS rules are inspired by Tailwind CSS. You can inject them using `injectCss(["utils"])` or by adding `css="utils"` to your script tag.
+
+This automatically includes:
+- **CSS Reset** (Tailwind Preflight): box-sizing, typography, form resets, media defaults
+- **Base utility classes**: spacing, sizing, colors, layout, typography, and more
+- **On-demand scanning**: responsive variants, pseudo-state variants, color opacity, custom bracket values, and dark mode are generated on-the-fly for only the classes actually used in your markup
 
 ### Media Breakpoints
 
@@ -45,6 +38,24 @@ The following pseudo states are supported for all utilities:
 - `hover:`
 - `focus:`
 - `disabled:`
+
+### Dark Mode
+
+Use the `dark:` prefix to apply styles when the user's system prefers dark mode (`prefers-color-scheme: dark`):
+
+```html
+<div class="bg-white text-gray-900 dark:bg-gray-900 dark:text-white">
+  This adapts to the user's color scheme preference.
+</div>
+```
+
+The `dark:` prefix can be used with any utility class, including colors, spacing, and custom bracket values:
+
+```html
+<div class="bg-[#fff] dark:bg-[#1a1a1a] p-4 dark:border-gray-700">
+```
+
+> **Note:** Responsive variants (`sm:`, `md:`, etc.), pseudo-state variants (`hover:`, `focus:`, `disabled:`), color opacity (`/N`), dark mode (`dark:`), and custom bracket values are all generated on-demand. Only the classes actually present in your markup are injected, keeping the CSS bundle small.
 
 ### Spacing (Margin & Padding)
 
@@ -515,24 +526,7 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 
 ## Custom Values
 
-When you need a value outside the design scale, use bracket notation as an escape hatch.
-
-### Enabling Custom Values
-
-Add "custom" to your CSS injection:
-
-```html
-<script src="//unpkg.com/mancha" css="utils+custom" init></script>
-```
-
-Or programmatically:
-
-```javascript
-import { injectCss, initMancha } from "mancha";
-
-injectCss(["utils", "custom"]);
-await initMancha({ target: "body" });
-```
+When you need a value outside the design scale, use bracket notation as an escape hatch. Custom values are automatically supported when using `css="utils"` — no extra configuration needed.
 
 ### Syntax
 
@@ -561,10 +555,10 @@ await initMancha({ target: "body" });
 
 ### Variants
 
-Custom values support pseudo-states and responsive breakpoints:
+Custom values support pseudo-states, responsive breakpoints, and dark mode:
 
 ```html
-<div class="hover:w-[200px] md:max-w-[900px]">
+<div class="hover:w-[200px] md:max-w-[900px] dark:bg-[#333]">
 ```
 
 ### Limitations
@@ -591,7 +585,7 @@ Custom values support pseudo-states and responsive breakpoints:
 
 ### Dynamic Content
 
-For content added after initial load, call `injectCss(["custom"])` again to scan and inject new custom values.
+For content added after initial load, call `injectCss(["custom"])` again to scan and inject new on-demand values.
 
 ---
 
