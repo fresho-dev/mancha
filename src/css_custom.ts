@@ -145,11 +145,18 @@ export function injectCustomClass(
 			const bp = MEDIA_BREAKPOINTS[variant.name as keyof typeof MEDIA_BREAKPOINTS];
 			rule = `@media (min-width: ${bp}px) { .${escapedClass} { ${property}: ${value}; } }`;
 		}
-	} else if (variant?.name === "dark") {
-		// For dark: variant with standard utility classes, look up the existing rule.
+	} else if (variant) {
+		// For variants with standard utility classes, look up the existing rule.
 		const declarations = findRuleDeclarations(className);
 		if (declarations) {
-			rule = `@media (prefers-color-scheme: dark) { .${escapedClass} { ${declarations} } }`;
+			if (variant.type === "pseudo") {
+				rule = `.${escapedClass}:${variant.name} { ${declarations} }`;
+			} else if (variant.name === "dark") {
+				rule = `@media (prefers-color-scheme: dark) { .${escapedClass} { ${declarations} } }`;
+			} else {
+				const bp = MEDIA_BREAKPOINTS[variant.name as keyof typeof MEDIA_BREAKPOINTS];
+				rule = `@media (min-width: ${bp}px) { .${escapedClass} { ${declarations} } }`;
+			}
 		}
 	}
 

@@ -6,6 +6,7 @@ import {
 	isSupported,
 	parseCustomValueClass,
 	processClassString,
+	scanAndInject,
 } from "./css_custom.js";
 import { assert } from "./test_utils.js";
 
@@ -185,6 +186,182 @@ describe("css_custom", () => {
 
 			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
 			assert.equal(customStyle.sheet?.cssRules.length, 1, "Should not duplicate rules");
+		});
+	});
+
+	describe("responsive variants", () => {
+		it("injects sm: variant with correct media query", () => {
+			if (!isSupported()) return;
+
+			injectCustomClass("w-[200px]", { type: "media", name: "sm" });
+
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
+			assert.ok(ruleText.includes("min-width: 640px"), "Should use sm breakpoint (640px)");
+			assert.ok(ruleText.includes("width"), "Should contain width property");
+			assert.ok(ruleText.includes("200px"), "Should contain 200px value");
+		});
+
+		it("injects md: variant with correct media query", () => {
+			if (!isSupported()) return;
+
+			injectCustomClass("p-[1rem]", { type: "media", name: "md" });
+
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
+			assert.ok(ruleText.includes("min-width: 768px"), "Should use md breakpoint (768px)");
+		});
+
+		it("injects lg: and xl: variants with correct breakpoints", () => {
+			if (!isSupported()) return;
+
+			injectCustomClass("h-[50vh]", { type: "media", name: "lg" });
+			injectCustomClass("gap-[2rem]", { type: "media", name: "xl" });
+
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			const rules = Array.from(customStyle.sheet?.cssRules ?? []).map((r) => r.cssText);
+			assert.ok(
+				rules.some((r) => r.includes("min-width: 1024px")),
+				"Should include lg breakpoint",
+			);
+			assert.ok(
+				rules.some((r) => r.includes("min-width: 1280px")),
+				"Should include xl breakpoint",
+			);
+		});
+
+		it("injects responsive variant for standard utility via lookup", () => {
+			if (!isSupported()) return;
+
+			injectCss(["utils"]);
+
+			injectCustomClass("flex", { type: "media", name: "sm" });
+
+			assert.ok(_getInjectedRules().has("sm:flex"), "Should track sm:flex");
+
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
+			assert.ok(ruleText.includes("min-width: 640px"), "Should wrap in sm media query");
+			assert.ok(ruleText.includes("display"), "Should contain the flex display rule");
+		});
+
+		it("processClassString handles responsive prefixed classes", () => {
+			if (!isSupported()) return;
+
+			processClassString("sm:w-[100px] md:bg-[#eee]");
+
+			assert.ok(_getInjectedRules().has("sm:w-[100px]"), "Should inject sm:w-[100px]");
+			assert.ok(_getInjectedRules().has("md:bg-[#eee]"), "Should inject md:bg-[#eee]");
+		});
+	});
+
+	describe("pseudo-state variants", () => {
+		it("injects hover: variant with pseudo selector", () => {
+			if (!isSupported()) return;
+
+			injectCustomClass("bg-[#ff0000]", { type: "pseudo", name: "hover" });
+
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
+			assert.ok(ruleText.includes(":hover"), "Should include :hover pseudo selector");
+			assert.ok(ruleText.includes("background-color"), "Should contain background-color");
+		});
+
+		it("injects focus: variant with pseudo selector", () => {
+			if (!isSupported()) return;
+
+			injectCustomClass("w-[300px]", { type: "pseudo", name: "focus" });
+
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
+			assert.ok(ruleText.includes(":focus"), "Should include :focus pseudo selector");
+		});
+
+		it("injects disabled: variant with pseudo selector", () => {
+			if (!isSupported()) return;
+
+			injectCustomClass("bg-[gray]", { type: "pseudo", name: "disabled" });
+
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
+			assert.ok(ruleText.includes(":disabled"), "Should include :disabled pseudo selector");
+		});
+
+		it("injects pseudo variant for standard utility via lookup", () => {
+			if (!isSupported()) return;
+
+			injectCss(["utils"]);
+
+			injectCustomClass("hidden", { type: "pseudo", name: "hover" });
+
+			assert.ok(_getInjectedRules().has("hover:hidden"), "Should track hover:hidden");
+
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
+			assert.ok(ruleText.includes(":hover"), "Should include :hover pseudo selector");
+			assert.ok(ruleText.includes("display: none"), "Should contain the hidden display rule");
+		});
+	});
+
+	describe("color opacity variants", () => {
+		it("injects color with opacity via lookup", () => {
+			if (!isSupported()) return;
+
+			injectCss(["utils"]);
+
+			injectCustomClass("bg-red-500\\/50", { type: "media", name: "dark" });
+
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			const rules = Array.from(customStyle.sheet?.cssRules ?? []).map((r) => r.cssText);
+			assert.ok(rules.length > 0, "Should have injected at least one rule");
+		});
+	});
+
+	describe("scanAndInject end-to-end", () => {
+		it("scans DOM for bracket values and injects rules", () => {
+			if (!isSupported()) return;
+
+			const container = document.createElement("div");
+			container.className = "w-[250px] mt-[1rem]";
+			document.body.appendChild(container);
+
+			scanAndInject(document);
+
+			assert.ok(_getInjectedRules().has("w-[250px]"), "Should inject w-[250px]");
+			assert.ok(_getInjectedRules().has("mt-[1rem]"), "Should inject mt-[1rem]");
+
+			container.remove();
+		});
+
+		it("scans DOM for dark: prefixed classes and injects rules", () => {
+			if (!isSupported()) return;
+
+			const container = document.createElement("div");
+			container.className = "dark:bg-[#222] dark:p-[2rem]";
+			document.body.appendChild(container);
+
+			scanAndInject(document);
+
+			assert.ok(_getInjectedRules().has("dark:bg-[#222]"), "Should inject dark:bg-[#222]");
+			assert.ok(_getInjectedRules().has("dark:p-[2rem]"), "Should inject dark:p-[2rem]");
+
+			container.remove();
+		});
+
+		it("scans DOM for mixed variant classes", () => {
+			if (!isSupported()) return;
+
+			const container = document.createElement("div");
+			container.className = "hover:bg-[#ccc] sm:w-[500px] dark:mt-[1rem]";
+			document.body.appendChild(container);
+
+			scanAndInject(document);
+
+			assert.ok(_getInjectedRules().has("hover:bg-[#ccc]"), "Should inject hover:bg-[#ccc]");
+			assert.ok(_getInjectedRules().has("sm:w-[500px]"), "Should inject sm:w-[500px]");
+			assert.ok(_getInjectedRules().has("dark:mt-[1rem]"), "Should inject dark:mt-[1rem]");
+
+			container.remove();
 		});
 	});
 
