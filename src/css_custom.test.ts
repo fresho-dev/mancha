@@ -137,7 +137,7 @@ describe("css_custom", () => {
 			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
 			assert.ok(customStyle?.sheet, "Should have created a stylesheet");
 
-			const ruleText = customStyle.sheet?.cssRules[0].cssText;
+			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
 			assert.ok(
 				ruleText.includes("prefers-color-scheme: dark"),
 				"Rule should use dark media query",
@@ -161,7 +161,7 @@ describe("css_custom", () => {
 			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
 			assert.ok(customStyle?.sheet, "Should have created a stylesheet");
 
-			const ruleText = customStyle.sheet?.cssRules[0].cssText;
+			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
 			assert.ok(
 				ruleText.includes("prefers-color-scheme: dark"),
 				"Rule should use dark media query",
