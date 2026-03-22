@@ -19,12 +19,9 @@ describe("CSS Generation Utils", () => {
 			assert.ok(css.includes(".border-green-500 {"), "Should include border-green-500");
 		});
 
-		it("includes responsive variants", () => {
+		it("does not include responsive variants (now on-demand)", () => {
 			const css = rules();
-			assert.ok(css.includes("@media (min-width: 640px)"), "Should include sm breakpoint");
-			assert.ok(css.includes("@media (min-width: 768px)"), "Should include md breakpoint");
-			assert.ok(css.includes("@media (min-width: 1024px)"), "Should include lg breakpoint");
-			assert.ok(css.includes("@media (min-width: 1280px)"), "Should include xl breakpoint");
+			assert.ok(!css.includes("@media (min-width:"), "Should not include media queries");
 		});
 
 		it("support percentage utilities in multiples of 5", () => {
@@ -69,11 +66,11 @@ describe("CSS Generation Utils", () => {
 			);
 		});
 
-		it("includes pseudo-state variants", () => {
+		it("does not include pseudo-state variants (now on-demand)", () => {
 			const css = rules();
-			assert.ok(css.includes(".hover\\:"), "Should include hover variants");
-			assert.ok(css.includes(".focus\\:"), "Should include focus variants");
-			assert.ok(css.includes(".disabled\\:"), "Should include disabled variants");
+			assert.ok(!css.includes(".hover\\:"), "Should not include hover variants");
+			assert.ok(!css.includes(".focus\\:"), "Should not include focus variants");
+			assert.ok(!css.includes(".disabled\\:"), "Should not include disabled variants");
 		});
 
 		it("supports ring-inset", () => {
@@ -86,18 +83,10 @@ describe("CSS Generation Utils", () => {
 			);
 		});
 
-		it("includes color opacity variants", () => {
+		it("does not include color opacity variants (now on-demand)", () => {
 			const css = rules();
-			assert.ok(css.includes(".bg-black\\/50"), "Should include bg-black/50 utility");
-			assert.ok(css.includes(".text-red-500\\/20"), "Should include text-red-500/20 utility");
-			assert.ok(
-				css.includes(".border-blue-500\\/100"),
-				"Should include border-blue-500/100 utility",
-			);
-
-			// Verify content of generated rule
-			const match = css.match(/\.bg-black\\\/50 \{ background-color: rgb\(0 0 0 \/ 0.5\) \}/);
-			assert.ok(match, "bg-black/50 should have correct rgb color with alpha");
+			assert.ok(!css.includes("\\/50"), "Should not include /50 opacity variants");
+			assert.ok(!css.includes("\\/20"), "Should not include /20 opacity variants");
 		});
 
 		it("includes spacing base classes", () => {

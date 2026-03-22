@@ -34,9 +34,11 @@ describe("Browser", () => {
 			const initialCount = document.head.querySelectorAll("style").length;
 			injectCss(["minimal", "utils"]);
 			const styles = document.head.querySelectorAll("style");
-			assert.equal(styles.length, initialCount + 2);
-			addedStyles.push(styles[styles.length - 1]);
-			addedStyles.push(styles[styles.length - 2]);
+			// minimal (1) + utils (basic + utils = 2) + possibly custom sheet
+			assert.ok(styles.length >= initialCount + 3, "Should add at least 3 style elements");
+			for (let i = initialCount; i < styles.length; i++) {
+				addedStyles.push(styles[i]);
+			}
 		});
 
 		it("injectCss(['minimal']) adds a style element", () => {
@@ -47,12 +49,15 @@ describe("Browser", () => {
 			addedStyles.push(styles[styles.length - 1]);
 		});
 
-		it("injectCss(['utils']) adds a style element", () => {
+		it("injectCss(['utils']) adds style elements (basic + utils)", () => {
 			const initialCount = document.head.querySelectorAll("style").length;
 			injectCss(["utils"]);
 			const styles = document.head.querySelectorAll("style");
-			assert.equal(styles.length, initialCount + 1);
-			addedStyles.push(styles[styles.length - 1]);
+			// utils now injects basic reset + utility classes = 2 style elements
+			assert.ok(styles.length >= initialCount + 2, "Should add at least 2 style elements");
+			for (let i = initialCount; i < styles.length; i++) {
+				addedStyles.push(styles[i]);
+			}
 		});
 
 		it("injected style elements contain CSS content", () => {

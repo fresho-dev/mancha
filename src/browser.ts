@@ -62,13 +62,17 @@ export type CssName = "minimal" | "utils" | "basic" | "custom";
 
 /**
  * Injects CSS rules into the document head.
- * @param names - Array of CSS names to inject ("minimal", "utils", "basic", "custom").
+ * @param names - Array of CSS names to inject ("minimal", "utils").
+ *   "basic" and "custom" are accepted for backwards compatibility:
+ *   "basic" is now included automatically with "utils",
+ *   "custom" scanning runs automatically with "utils".
  */
 export function injectCss(names: CssName[]): void {
 	for (let styleName of names) {
 		styleName = (styleName as string).trim() as CssName;
+
+		// "custom" is now automatic with "utils"; standalone is still supported.
 		if (styleName === "custom") {
-			// Scan DOM and inject custom value CSS (browser-only).
 			scanAndInject(document);
 			continue;
 		}
@@ -79,11 +83,19 @@ export function injectCss(names: CssName[]): void {
 				safeStyleEl.setTextContent(style, minimalCssRules());
 				break;
 			case "basic":
+				// Kept for backwards compatibility; included automatically with "utils".
 				safeStyleEl.setTextContent(style, basicCssRules());
 				break;
-			case "utils":
-				style.textContent = utilsCssRules();
-				break;
+			case "utils": {
+				// Inject basic reset + utility classes, then scan for on-demand rules.
+				safeStyleEl.setTextContent(style, basicCssRules());
+				globalThis.document.head.appendChild(style);
+				const utilsStyle = document.createElement("style");
+				utilsStyle.textContent = utilsCssRules();
+				globalThis.document.head.appendChild(utilsStyle);
+				scanAndInject(document);
+				continue;
+			}
 			default:
 				console.error(`Unknown style name: "${styleName}"`);
 				continue;

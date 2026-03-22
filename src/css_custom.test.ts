@@ -4,6 +4,7 @@ import {
 	_resetForTesting,
 	injectCustomClass,
 	isSupported,
+	parseColorOpacityClass,
 	parseCustomValueClass,
 	processClassString,
 	scanAndInject,
@@ -303,17 +304,92 @@ describe("css_custom", () => {
 		});
 	});
 
-	describe("color opacity variants", () => {
-		it("injects color with opacity via lookup", () => {
+	describe("parseColorOpacityClass", () => {
+		it("parses bg-red-500/50", () => {
+			const result = parseColorOpacityClass("bg-red-500/50");
+			assert.ok(result, "Should parse bg-red-500/50");
+			assert.equal(result?.property, "background-color");
+			assert.ok(result?.value.includes("/ 0.5"), "Should have 50% alpha");
+		});
+
+		it("parses text-black/20", () => {
+			const result = parseColorOpacityClass("text-black/20");
+			assert.ok(result, "Should parse text-black/20");
+			assert.equal(result?.property, "color");
+			assert.ok(result?.value.includes("0 0 0"), "Should have black RGB");
+			assert.ok(result?.value.includes("/ 0.2"), "Should have 20% alpha");
+		});
+
+		it("parses border-blue-500/100", () => {
+			const result = parseColorOpacityClass("border-blue-500/100");
+			assert.ok(result, "Should parse border-blue-500/100");
+			assert.equal(result?.property, "border-color");
+			assert.ok(result?.value.includes("/ 1"), "Should have 100% alpha");
+		});
+
+		it("parses fill-gray-500/50", () => {
+			const result = parseColorOpacityClass("fill-gray-500/50");
+			assert.ok(result, "Should parse fill-gray-500/50");
+			assert.equal(result?.property, "fill");
+		});
+
+		it("parses color without shade (defaults to 500)", () => {
+			const result = parseColorOpacityClass("bg-red/50");
+			assert.ok(result, "Should parse bg-red/50");
+			assert.equal(result?.property, "background-color");
+		});
+
+		it("parses white/50", () => {
+			const result = parseColorOpacityClass("bg-white/50");
+			assert.ok(result, "Should parse bg-white/50");
+			assert.ok(result?.value.includes("/ 0.5"), "Should have 50% alpha");
+		});
+
+		it("returns null for unknown color", () => {
+			assert.equal(parseColorOpacityClass("bg-foobar/50"), null);
+		});
+
+		it("returns null for non-color prefix", () => {
+			assert.equal(parseColorOpacityClass("w-red-500/50"), null);
+		});
+
+		it("returns null for no opacity", () => {
+			assert.equal(parseColorOpacityClass("bg-red-500"), null);
+		});
+	});
+
+	describe("color opacity injection", () => {
+		it("injects color opacity class on demand", () => {
 			if (!isSupported()) return;
 
-			injectCss(["utils"]);
+			injectCustomClass("bg-red-500/50");
 
-			injectCustomClass("bg-red-500\\/50", { type: "media", name: "dark" });
+			assert.ok(_getInjectedRules().has("bg-red-500/50"), "Should track the rule");
 
 			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
-			const rules = Array.from(customStyle.sheet?.cssRules ?? []).map((r) => r.cssText);
-			assert.ok(rules.length > 0, "Should have injected at least one rule");
+			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
+			assert.ok(ruleText.includes("background-color"), "Should contain background-color");
+		});
+
+		it("injects color opacity with dark: variant", () => {
+			if (!isSupported()) return;
+
+			injectCustomClass("bg-red-500/50", { type: "media", name: "dark" });
+
+			assert.ok(_getInjectedRules().has("dark:bg-red-500/50"), "Should track dark: rule");
+
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
+			assert.ok(ruleText.includes("prefers-color-scheme: dark"), "Should use dark media query");
+		});
+
+		it("processClassString handles color opacity classes", () => {
+			if (!isSupported()) return;
+
+			processClassString("bg-black/50 text-white/80");
+
+			assert.ok(_getInjectedRules().has("bg-black/50"), "Should inject bg-black/50");
+			assert.ok(_getInjectedRules().has("text-white/80"), "Should inject text-white/80");
 		});
 	});
 

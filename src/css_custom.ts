@@ -1,4 +1,15 @@
-import { MEDIA_BREAKPOINTS } from "./css_gen_utils.js";
+import { hexToRgb, MEDIA_BREAKPOINTS, PROPS_COLORS } from "./css_gen_utils.js";
+
+// Color property prefix to CSS property mapping.
+const COLOR_PROPERTY_MAP: Record<string, string> = {
+	text: "color",
+	bg: "background-color",
+	border: "border-color",
+	fill: "fill",
+};
+
+// Color opacity pattern: (text|bg|border|fill)-(color)(-shade)?/(opacity)
+const COLOR_OPACITY_PATTERN = /^(text|bg|border|fill)-([\w-]+)\/(\d+)$/;
 
 // Property prefix to CSS property mapping.
 const PROPERTY_MAP: Record<string, string> = {
@@ -82,7 +93,7 @@ export function isSupported(): boolean {
 
 /** Escape CSS selector special characters. */
 function escapeSelector(str: string): string {
-	return str.replace(/[[\]#.:>+~()'"]/g, "\\$&");
+	return str.replace(/[[\]#.:>+~()'"/]/g, "\\$&");
 }
 
 /** Get or create the stylesheet. */
@@ -116,6 +127,43 @@ export function parseCustomValueClass(
 	return { property, value };
 }
 
+/** Parse a color opacity class like bg-red-500/50. */
+export function parseColorOpacityClass(
+	className: string,
+): { property: string; value: string } | null {
+	const match = className.match(COLOR_OPACITY_PATTERN);
+	if (!match) return null;
+
+	const [, prefix, colorPart, opacityStr] = match;
+	const property = COLOR_PROPERTY_MAP[prefix];
+	if (!property) return null;
+
+	const opacity = Number.parseInt(opacityStr, 10);
+	if (opacity < 0 || opacity > 100) return null;
+
+	// Resolve color hex value.
+	let hex: string | null = null;
+	if (colorPart === "white") hex = "#fff";
+	else if (colorPart === "black") hex = "#000";
+	else {
+		// Try color-shade (e.g., "red-500") or plain color (e.g., "red" → shade 500).
+		const dashIdx = colorPart.lastIndexOf("-");
+		if (dashIdx > 0) {
+			const colorName = colorPart.substring(0, dashIdx);
+			const shade = Number.parseInt(colorPart.substring(dashIdx + 1), 10);
+			hex = PROPS_COLORS[colorName]?.[shade] ?? null;
+		}
+		if (!hex) {
+			hex = PROPS_COLORS[colorPart]?.[500] ?? null;
+		}
+	}
+	if (!hex) return null;
+
+	const rgb = hexToRgb(hex);
+	const alpha = opacity / 100;
+	return { property, value: `rgb(${rgb} / ${alpha})` };
+}
+
 /** Inject a single custom value class (with optional variant). */
 export function injectCustomClass(
 	className: string,
@@ -130,37 +178,26 @@ export function injectCustomClass(
 	if (!sheet) return false;
 
 	const escapedClass = escapeSelector(fullClassName);
-	let rule: string | null = null;
 
-	const parsed = parseCustomValueClass(className);
-	if (parsed) {
-		const { property, value } = parsed;
-		if (!variant) {
-			rule = `.${escapedClass} { ${property}: ${value}; }`;
-		} else if (variant.type === "pseudo") {
-			rule = `.${escapedClass}:${variant.name} { ${property}: ${value}; }`;
-		} else if (variant.name === "dark") {
-			rule = `@media (prefers-color-scheme: dark) { .${escapedClass} { ${property}: ${value}; } }`;
-		} else {
-			const bp = MEDIA_BREAKPOINTS[variant.name as keyof typeof MEDIA_BREAKPOINTS];
-			rule = `@media (min-width: ${bp}px) { .${escapedClass} { ${property}: ${value}; } }`;
-		}
-	} else if (variant) {
-		// For variants with standard utility classes, look up the existing rule.
-		const declarations = findRuleDeclarations(className);
-		if (declarations) {
-			if (variant.type === "pseudo") {
-				rule = `.${escapedClass}:${variant.name} { ${declarations} }`;
-			} else if (variant.name === "dark") {
-				rule = `@media (prefers-color-scheme: dark) { .${escapedClass} { ${declarations} } }`;
-			} else {
-				const bp = MEDIA_BREAKPOINTS[variant.name as keyof typeof MEDIA_BREAKPOINTS];
-				rule = `@media (min-width: ${bp}px) { .${escapedClass} { ${declarations} } }`;
-			}
-		}
+	// Resolve CSS declarations: try parsers, then fall back to stylesheet lookup.
+	const parsed = parseCustomValueClass(className) ?? parseColorOpacityClass(className);
+	const declarations = parsed
+		? `${parsed.property}: ${parsed.value};`
+		: findRuleDeclarations(className);
+	if (!declarations) return false;
+
+	// Build the rule based on variant type.
+	let rule: string;
+	if (!variant) {
+		rule = `.${escapedClass} { ${declarations} }`;
+	} else if (variant.type === "pseudo") {
+		rule = `.${escapedClass}:${variant.name} { ${declarations} }`;
+	} else if (variant.name === "dark") {
+		rule = `@media (prefers-color-scheme: dark) { .${escapedClass} { ${declarations} } }`;
+	} else {
+		const bp = MEDIA_BREAKPOINTS[variant.name as keyof typeof MEDIA_BREAKPOINTS];
+		rule = `@media (min-width: ${bp}px) { .${escapedClass} { ${declarations} } }`;
 	}
-
-	if (!rule) return false;
 
 	try {
 		sheet.insertRule(rule, sheet.cssRules.length);
@@ -172,10 +209,14 @@ export function injectCustomClass(
 	}
 }
 
+/** Check if a class string contains any patterns that need on-demand injection. */
+function needsProcessing(classString: string): boolean {
+	return classString.includes("[") || classString.includes(":") || classString.includes("/");
+}
+
 /** Process a class string, inject CSS for any custom values. */
 export function processClassString(classString: string): void {
-	if (!classString) return;
-	if (!classString.includes("[") && !classString.includes("dark:")) return;
+	if (!classString || !needsProcessing(classString)) return;
 
 	for (const cls of classString.trim().split(/\s+/)) {
 		// Check for variant prefix.

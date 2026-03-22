@@ -14,7 +14,6 @@ export const UNITS_ALL = [
 export const PERCENTS = Array.from({ length: 20 }, (_, i) => (i + 1) * 5);
 export const COLOR_OPACITY_MODIFIERS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 export const DURATIONS = [25, 50, 75, 100, 150, 200, 300, 500, 700, 1000];
-const PSEUDO_STATES = ["hover", "focus", "disabled"];
 export const PROPS_SPACING = {
 	margin: "m",
 	padding: "p",
@@ -633,43 +632,13 @@ export const PROPS_COLORS: { [key: string]: { [key: number]: string } } = {
 	},
 };
 
-function wrapPseudoStates(klass: string): string[] {
-	return PSEUDO_STATES.map((state) => `.${state}\\:${klass}:${state}`);
-}
-
-function wrapMediaQueries(klass: string, rule: string): string[] {
-	return MEDIA_ENTRIES.map(
-		([bp, width]) => `@media (min-width: ${width}px) { .${bp}\\:${klass} { ${rule} } }`,
-	);
-}
-
-function wrapAll(pairs: string[][]): string[] {
-	return pairs.flatMap(([klass, rule]) => [
-		`.${klass} { ${rule} }`,
-		`${wrapPseudoStates(klass).join(",")} { ${rule} }`,
-		...wrapMediaQueries(klass, rule),
-	]);
-}
-
-// Lighter wrapper without media queries - for utilities like colors that rarely need responsive variants
-function wrapBase(pairs: string[][]): string[] {
-	return pairs.flatMap(([klass, rule]) => [
-		`.${klass} { ${rule} }`,
-		`${wrapPseudoStates(klass).join(",")} { ${rule} }`,
-	]);
-}
-
-function ruleSorter(a: string, b: string): number {
-	// Media queries start with '@', regular rules start with '.'
-	const aMedia = a[0] === "@";
-	const bMedia = b[0] === "@";
-	if (aMedia && !bMedia) return 1;
-	if (!aMedia && bMedia) return -1;
-	return a.localeCompare(b);
+// Pseudo-state and responsive variants are now generated on-demand by css_custom.ts.
+function wrap(pairs: string[][]): string[] {
+	return pairs.map(([klass, rule]) => `.${klass} { ${rule} }`);
 }
 
 function posneg(props: { [key: string]: string }): string[] {
-	return wrapAll(
+	return wrap(
 		Object.entries(props).flatMap(([prop, klass]) => [
 			[`${klass}-0`, `${prop}: 0`],
 			[`${klass}-screen`, `${prop}: 100v${prop.includes("height") ? "h" : "w"}`],
@@ -686,7 +655,7 @@ function posneg(props: { [key: string]: string }): string[] {
 }
 
 function autoxy(props: { [key: string]: string }): string[] {
-	return wrapAll(
+	return wrap(
 		Object.entries(props).flatMap(([prop, klass]) => [
 			[`${klass}-auto`, `${prop}: auto`],
 			[`${klass}x-auto`, `${prop}-left: auto; ${prop}-right: auto;`],
@@ -710,7 +679,7 @@ function autoxy(props: { [key: string]: string }): string[] {
 }
 
 function tblr(props: { [key: string]: string }): string[] {
-	return wrapAll(
+	return wrap(
 		Object.entries(props).flatMap(([prop, klass]) => [
 			[`${klass}t-0`, `${prop}-top: 0`],
 			[`${klass}b-0`, `${prop}-bottom: 0`],
@@ -751,7 +720,7 @@ function tblr(props: { [key: string]: string }): string[] {
 }
 
 function border(): string[] {
-	return wrapAll([
+	return wrap([
 		[`border`, `border: 1px`],
 		[`border-x`, `border-inline-width: 1px`],
 		[`border-y`, `border-block-width: 1px`],
@@ -769,11 +738,11 @@ function border(): string[] {
 }
 
 function zIndex(): string[] {
-	return wrapAll(PERCENTS.map((v) => [`z-${v}`, `z-index: ${v}`]));
+	return wrap(PERCENTS.map((v) => [`z-${v}`, `z-index: ${v}`]));
 }
 
 function transitions(): string[] {
-	return wrapAll(
+	return wrap(
 		DURATIONS.map((v) => [
 			`duration-${v}`,
 			`--transition-duration: ${v}ms; transition-duration: ${v}ms`,
@@ -782,7 +751,7 @@ function transitions(): string[] {
 }
 
 function between(): string[] {
-	return wrapAll([
+	return wrap([
 		[`space-x-0 > *`, `margin-left: 0`],
 		[`space-y-0 > *`, `margin-top: 0`],
 		...UNITS_ALL.map((v) => [
@@ -820,7 +789,7 @@ function between(): string[] {
 }
 
 function textSizes(): string[] {
-	return wrapAll([
+	return wrap([
 		...Array.from({ length: 100 }, (_, i) => [`text-${i}px`, `font-size: ${i}px`]),
 		...Array.from({ length: 100 }, (_, i) => [
 			`text-${i * REM_UNIT}rem`,
@@ -830,7 +799,7 @@ function textSizes(): string[] {
 }
 
 function gridPatterns(): string[] {
-	return wrapAll(
+	return wrap(
 		["column", "row"].flatMap((axis) => {
 			const short = axis.slice(0, 3);
 			return [
@@ -865,19 +834,15 @@ function gridPatterns(): string[] {
 }
 
 function custom(): string[] {
-	return Object.entries(PROPS_CUSTOM).flatMap(([klass, props]) => {
+	return Object.entries(PROPS_CUSTOM).map(([klass, props]) => {
 		const rules = Object.entries(props)
 			.map(([k, v]) => `${k}: ${v}`)
 			.join("; ");
-		return [
-			`.${klass} { ${rules} }`,
-			`${wrapPseudoStates(klass).join(",")} { ${rules} }`,
-			...wrapMediaQueries(klass, rules),
-		];
+		return `.${klass} { ${rules} }`;
 	});
 }
 
-function hexToRgb(hex: string): string {
+export function hexToRgb(hex: string): string {
 	let r = 0,
 		g = 0,
 		b = 0;
@@ -893,28 +858,15 @@ function hexToRgb(hex: string): string {
 	return `${r} ${g} ${b}`;
 }
 
+// Color opacity variants are now generated on-demand by css_custom.ts.
 function colors(): string[] {
-	const colorVariants = (color: string, value: string) => {
-		const variants = [
-			[`text-${color}`, `color: ${value}`],
-			[`fill-${color}`, `fill: ${value}`],
-			[`bg-${color}`, `background-color: ${value}`],
-			[`border-${color}`, `border-color: ${value}`],
-		];
-		if (value.startsWith("#")) {
-			const rgb = hexToRgb(value);
-			for (const opacity of COLOR_OPACITY_MODIFIERS) {
-				const alpha = opacity / 100;
-				variants.push(
-					[`text-${color}\\/${opacity}`, `color: rgb(${rgb} / ${alpha})`],
-					[`bg-${color}\\/${opacity}`, `background-color: rgb(${rgb} / ${alpha})`],
-					[`border-${color}\\/${opacity}`, `border-color: rgb(${rgb} / ${alpha})`],
-				);
-			}
-		}
-		return variants;
-	};
-	return wrapBase([
+	const colorVariants = (color: string, value: string): string[][] => [
+		[`text-${color}`, `color: ${value}`],
+		[`fill-${color}`, `fill: ${value}`],
+		[`bg-${color}`, `background-color: ${value}`],
+		[`border-${color}`, `border-color: ${value}`],
+	];
+	return wrap([
 		...colorVariants("white", "#fff"),
 		...colorVariants("black", "#000"),
 		...colorVariants("transparent", "transparent"),
@@ -926,7 +878,7 @@ function colors(): string[] {
 }
 
 function opacity(): string[] {
-	return wrapAll([
+	return wrap([
 		[`opacity-0`, `opacity: 0`],
 		...PERCENTS.map((v) => [`opacity-${v}`, `opacity: ${v / 100}`]),
 	]);
@@ -967,9 +919,6 @@ export default function rules(): string {
 		...textSizes(),
 		// Grid.
 		...gridPatterns(),
-	]
-		// Sort lexicographical to ensure media queries appear after their base rules.
-		.sort(ruleSorter)
-		.join("\n");
+	].join("\n");
 	return cachedRules;
 }
