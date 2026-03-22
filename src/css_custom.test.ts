@@ -1,3 +1,4 @@
+import { injectCss } from "./browser.js";
 import {
 	_getInjectedRules,
 	_resetForTesting,
@@ -6,7 +7,6 @@ import {
 	parseCustomValueClass,
 	processClassString,
 } from "./css_custom.js";
-import { injectCss } from "./browser.js";
 import { assert } from "./test_utils.js";
 
 describe("css_custom", () => {
@@ -134,12 +134,10 @@ describe("css_custom", () => {
 				"Should track the injected dark: rule",
 			);
 
-			const customStyle = document.querySelector(
-				'style[data-mancha="custom"]',
-			) as HTMLStyleElement;
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
 			assert.ok(customStyle?.sheet, "Should have created a stylesheet");
 
-			const ruleText = customStyle.sheet!.cssRules[0].cssText;
+			const ruleText = customStyle.sheet?.cssRules[0].cssText;
 			assert.ok(
 				ruleText.includes("prefers-color-scheme: dark"),
 				"Rule should use dark media query",
@@ -160,12 +158,10 @@ describe("css_custom", () => {
 				"Should track the injected dark: rule",
 			);
 
-			const customStyle = document.querySelector(
-				'style[data-mancha="custom"]',
-			) as HTMLStyleElement;
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
 			assert.ok(customStyle?.sheet, "Should have created a stylesheet");
 
-			const ruleText = customStyle.sheet!.cssRules[0].cssText;
+			const ruleText = customStyle.sheet?.cssRules[0].cssText;
 			assert.ok(
 				ruleText.includes("prefers-color-scheme: dark"),
 				"Rule should use dark media query",
@@ -187,10 +183,8 @@ describe("css_custom", () => {
 			injectCustomClass("bg-[#111]", { type: "media", name: "dark" });
 			injectCustomClass("bg-[#111]", { type: "media", name: "dark" });
 
-			const customStyle = document.querySelector(
-				'style[data-mancha="custom"]',
-			) as HTMLStyleElement;
-			assert.equal(customStyle.sheet!.cssRules.length, 1, "Should not duplicate rules");
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			assert.equal(customStyle.sheet?.cssRules.length, 1, "Should not duplicate rules");
 		});
 	});
 

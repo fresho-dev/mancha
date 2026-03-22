@@ -60,10 +60,7 @@ function findRuleDeclarations(className: string): string | null {
 	for (const sheet of document.styleSheets) {
 		try {
 			for (const rule of sheet.cssRules) {
-				if (
-					rule instanceof CSSStyleRule &&
-					rule.selectorText === targetSelector
-				) {
+				if (rule instanceof CSSStyleRule && rule.selectorText === targetSelector) {
 					return rule.style.cssText;
 				}
 			}
