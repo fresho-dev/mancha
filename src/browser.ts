@@ -71,21 +71,15 @@ export function injectCss(names: CssName[]): void {
 	for (let styleName of names) {
 		styleName = (styleName as string).trim() as CssName;
 
-		// "custom" is now automatic with "utils"; standalone is still supported.
-		if (styleName === "custom") {
-			scanAndInject(document);
-			continue;
-		}
-
 		const style = document.createElement("style");
 		switch (styleName) {
 			case "minimal":
 				safeStyleEl.setTextContent(style, minimalCssRules());
 				break;
 			case "basic":
-				// Kept for backwards compatibility; included automatically with "utils".
-				safeStyleEl.setTextContent(style, basicCssRules());
-				break;
+			case "custom":
+				console.warn(`css="${styleName}" is deprecated; use css="utils" instead.`);
+				continue;
 			case "utils": {
 				// Inject basic reset + utility classes, then scan for on-demand rules.
 				safeStyleEl.setTextContent(style, basicCssRules());
