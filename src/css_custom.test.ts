@@ -1,11 +1,12 @@
-import { beforeEach, describe, it } from "node:test";
 import {
 	_getInjectedRules,
 	_resetForTesting,
+	injectCustomClass,
 	isSupported,
 	parseCustomValueClass,
 	processClassString,
 } from "./css_custom.js";
+import { injectCss } from "./browser.js";
 import { assert } from "./test_utils.js";
 
 describe("css_custom", () => {
@@ -106,7 +107,7 @@ describe("css_custom", () => {
 	});
 
 	describe("processClassString", () => {
-		it("skips strings without brackets", () => {
+		it("skips strings without brackets or dark prefix", () => {
 			processClassString("flex w-4 mt-8");
 			assert.equal(_getInjectedRules().size, 0);
 		});
@@ -119,6 +120,77 @@ describe("css_custom", () => {
 		it("skips null-like values", () => {
 			processClassString(null as unknown as string);
 			assert.equal(_getInjectedRules().size, 0);
+		});
+	});
+
+	describe("dark variant", () => {
+		it("injects dark: custom bracket value with prefers-color-scheme media query", () => {
+			if (!isSupported()) return;
+
+			injectCustomClass("bg-[#1a1a1a]", { type: "media", name: "dark" });
+
+			assert.ok(
+				_getInjectedRules().has("dark:bg-[#1a1a1a]"),
+				"Should track the injected dark: rule",
+			);
+
+			const customStyle = document.querySelector(
+				'style[data-mancha="custom"]',
+			) as HTMLStyleElement;
+			assert.ok(customStyle?.sheet, "Should have created a stylesheet");
+
+			const ruleText = customStyle.sheet!.cssRules[0].cssText;
+			assert.ok(
+				ruleText.includes("prefers-color-scheme: dark"),
+				"Rule should use dark media query",
+			);
+			assert.ok(ruleText.includes("background-color"), "Rule should contain background-color");
+		});
+
+		it("injects dark: for standard utility classes by looking up existing rules", () => {
+			if (!isSupported()) return;
+
+			// Inject utils so standard classes exist in document stylesheets.
+			injectCss(["utils"]);
+
+			injectCustomClass("bg-gray-900", { type: "media", name: "dark" });
+
+			assert.ok(
+				_getInjectedRules().has("dark:bg-gray-900"),
+				"Should track the injected dark: rule",
+			);
+
+			const customStyle = document.querySelector(
+				'style[data-mancha="custom"]',
+			) as HTMLStyleElement;
+			assert.ok(customStyle?.sheet, "Should have created a stylesheet");
+
+			const ruleText = customStyle.sheet!.cssRules[0].cssText;
+			assert.ok(
+				ruleText.includes("prefers-color-scheme: dark"),
+				"Rule should use dark media query",
+			);
+		});
+
+		it("processClassString handles dark: prefixed classes", () => {
+			if (!isSupported()) return;
+
+			processClassString("dark:bg-[#333] dark:w-[200px]");
+
+			assert.ok(_getInjectedRules().has("dark:bg-[#333]"), "Should inject dark:bg-[#333]");
+			assert.ok(_getInjectedRules().has("dark:w-[200px]"), "Should inject dark:w-[200px]");
+		});
+
+		it("deduplicates dark: rules", () => {
+			if (!isSupported()) return;
+
+			injectCustomClass("bg-[#111]", { type: "media", name: "dark" });
+			injectCustomClass("bg-[#111]", { type: "media", name: "dark" });
+
+			const customStyle = document.querySelector(
+				'style[data-mancha="custom"]',
+			) as HTMLStyleElement;
+			assert.equal(customStyle.sheet!.cssRules.length, 1, "Should not duplicate rules");
 		});
 	});
 

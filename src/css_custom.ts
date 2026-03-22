@@ -46,12 +46,33 @@ const PROPERTY_MAP: Record<string, string> = {
 
 // Pattern: optional-negative + prefix + bracket-value.
 const CUSTOM_VALUE_PATTERN = /^(-?)([\w-]+)-\[(.+)\]$/;
-const VARIANT_PATTERN = /^(hover|focus|disabled|sm|md|lg|xl):(.+)$/;
+const VARIANT_PATTERN = /^(hover|focus|disabled|sm|md|lg|xl|dark):(.+)$/;
 const PSEUDO_STATES = ["hover", "focus", "disabled"];
 
 // Module state.
 const injectedRules = new Set<string>();
 let styleSheet: CSSStyleSheet | null = null;
+
+/** Look up CSS declarations for an existing class from document stylesheets. */
+function findRuleDeclarations(className: string): string | null {
+	if (typeof document === "undefined") return null;
+	const targetSelector = `.${className}`;
+	for (const sheet of document.styleSheets) {
+		try {
+			for (const rule of sheet.cssRules) {
+				if (
+					rule instanceof CSSStyleRule &&
+					rule.selectorText === targetSelector
+				) {
+					return rule.style.cssText;
+				}
+			}
+		} catch {
+			// Cross-origin stylesheets throw SecurityError.
+		}
+	}
+	return null;
+}
 
 /** Check if CSSStyleSheet API is available. */
 export function isSupported(): boolean {
@@ -108,24 +129,34 @@ export function injectCustomClass(
 	// Already injected.
 	if (injectedRules.has(fullClassName)) return true;
 
-	const parsed = parseCustomValueClass(className);
-	if (!parsed) return false;
-
 	const sheet = getStyleSheet();
 	if (!sheet) return false;
 
-	const { property, value } = parsed;
 	const escapedClass = escapeSelector(fullClassName);
+	let rule: string | null = null;
 
-	let rule: string;
-	if (!variant) {
-		rule = `.${escapedClass} { ${property}: ${value}; }`;
-	} else if (variant.type === "pseudo") {
-		rule = `.${escapedClass}:${variant.name} { ${property}: ${value}; }`;
-	} else {
-		const bp = MEDIA_BREAKPOINTS[variant.name as keyof typeof MEDIA_BREAKPOINTS];
-		rule = `@media (min-width: ${bp}px) { .${escapedClass} { ${property}: ${value}; } }`;
+	const parsed = parseCustomValueClass(className);
+	if (parsed) {
+		const { property, value } = parsed;
+		if (!variant) {
+			rule = `.${escapedClass} { ${property}: ${value}; }`;
+		} else if (variant.type === "pseudo") {
+			rule = `.${escapedClass}:${variant.name} { ${property}: ${value}; }`;
+		} else if (variant.name === "dark") {
+			rule = `@media (prefers-color-scheme: dark) { .${escapedClass} { ${property}: ${value}; } }`;
+		} else {
+			const bp = MEDIA_BREAKPOINTS[variant.name as keyof typeof MEDIA_BREAKPOINTS];
+			rule = `@media (min-width: ${bp}px) { .${escapedClass} { ${property}: ${value}; } }`;
+		}
+	} else if (variant?.name === "dark") {
+		// For dark: variant with standard utility classes, look up the existing rule.
+		const declarations = findRuleDeclarations(className);
+		if (declarations) {
+			rule = `@media (prefers-color-scheme: dark) { .${escapedClass} { ${declarations} } }`;
+		}
 	}
+
+	if (!rule) return false;
 
 	try {
 		sheet.insertRule(rule, sheet.cssRules.length);
@@ -139,7 +170,8 @@ export function injectCustomClass(
 
 /** Process a class string, inject CSS for any custom values. */
 export function processClassString(classString: string): void {
-	if (!classString || !classString.includes("[")) return;
+	if (!classString) return;
+	if (!classString.includes("[") && !classString.includes("dark:")) return;
 
 	for (const cls of classString.trim().split(/\s+/)) {
 		// Check for variant prefix.
@@ -148,7 +180,8 @@ export function processClassString(classString: string): void {
 			const [, variantName, baseClass] = variantMatch;
 			const isPseudo = PSEUDO_STATES.includes(variantName);
 			const isMedia = variantName in MEDIA_BREAKPOINTS;
-			if (isPseudo || isMedia) {
+			const isDark = variantName === "dark";
+			if (isPseudo || isMedia || isDark) {
 				injectCustomClass(baseClass, {
 					type: isPseudo ? "pseudo" : "media",
 					name: variantName,
