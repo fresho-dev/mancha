@@ -123,7 +123,8 @@ export function parseCustomValueClass(
 	const property = PROPERTY_MAP[prefix];
 	if (!property) return null;
 
-	const value = negative ? `-${rawValue}` : rawValue;
+	const decoded = rawValue.replace(/_/g, " ");
+	const value = negative ? `-${decoded}` : decoded;
 	return { property, value };
 }
 

@@ -45,6 +45,11 @@ describe("css_custom", () => {
 			assert.deepEqual(result, { property: "width", value: "calc(100%-2rem)" });
 		});
 
+		it("converts underscores to spaces for calc expressions", () => {
+			const result = parseCustomValueClass("max-w-[calc(100%_-_2rem)]");
+			assert.deepEqual(result, { property: "max-width", value: "calc(100% - 2rem)" });
+		});
+
 		it("parses height", () => {
 			const result = parseCustomValueClass("h-[50vh]");
 			assert.deepEqual(result, { property: "height", value: "50vh" });
