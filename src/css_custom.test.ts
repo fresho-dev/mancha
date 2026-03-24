@@ -184,6 +184,15 @@ describe("css_custom", () => {
 			assert.ok(_getInjectedRules().has("dark:w-[200px]"), "Should inject dark:w-[200px]");
 		});
 
+		it("does not re-inject plain utility classes when mixed with dark: variants", () => {
+			if (!isSupported()) return;
+
+			processClassString("bg-white dark:bg-[#1a1a1a]");
+
+			assert.ok(_getInjectedRules().has("dark:bg-[#1a1a1a]"), "Should inject dark variant");
+			assert.ok(!_getInjectedRules().has("bg-white"), "Should NOT inject plain bg-white");
+		});
+
 		it("deduplicates dark: rules", () => {
 			if (!isSupported()) return;
 

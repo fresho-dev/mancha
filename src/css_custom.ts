@@ -236,6 +236,11 @@ export function processClassString(classString: string): void {
 			}
 		}
 
+		// Skip plain tokens that don't need custom injection — they're already
+		// in the static utilities stylesheet and re-injecting them here would
+		// create duplicate rules that break CSS cascade (e.g. dark mode).
+		if (!needsProcessing(cls)) continue;
+
 		// Try as base class.
 		injectCustomClass(cls);
 	}
