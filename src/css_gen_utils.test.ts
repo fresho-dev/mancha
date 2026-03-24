@@ -151,7 +151,7 @@ describe("CSS Generation Utils", () => {
 
 		it("includes border utilities", () => {
 			const css = rules();
-			assert.ok(css.includes(".border { border: 1px }"), "Should include border");
+			assert.ok(css.includes(".border { border-width: 1px }"), "Should include border");
 			assert.ok(css.includes(".border-2 { border-width: 2px }"), "Should include border-2");
 			assert.ok(css.includes(".rounded { border-radius: .25rem }"), "Should include rounded");
 		});

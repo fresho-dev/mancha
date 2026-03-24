@@ -721,14 +721,14 @@ function tblr(props: { [key: string]: string }): string[] {
 
 function border(): string[] {
 	return wrap([
-		[`border`, `border: 1px`],
+		[`border`, `border-width: 1px`],
 		[`border-x`, `border-inline-width: 1px`],
 		[`border-y`, `border-block-width: 1px`],
 		...[0, ...UNITS_SM].map((v) => [`border-${v}`, `border-width: ${v}px`]),
 		...[0, ...UNITS_SM].map((v) => [`border-x-${v}`, `border-inline-width: ${v}px;`]),
 		...[0, ...UNITS_SM].map((v) => [`border-y-${v}`, `border-block-width: ${v}px;`]),
 		...["top", "bottom", "left", "right"].flatMap((dir) => [
-			[`border-${dir.slice(0, 1)}`, `border-${dir}: 1px`],
+			[`border-${dir.slice(0, 1)}`, `border-${dir}-width: 1px`],
 			...[0, ...UNITS_SM].map((v) => [
 				`border-${dir.slice(0, 1)}-${v}`,
 				`border-${dir}-width: ${v}px`,
@@ -865,6 +865,7 @@ function colors(): string[] {
 		[`fill-${color}`, `fill: ${value}`],
 		[`bg-${color}`, `background-color: ${value}`],
 		[`border-${color}`, `border-color: ${value}`],
+		[`divide-${color} > :not(:last-child)`, `border-color: ${value}`],
 	];
 	return wrap([
 		...colorVariants("white", "#fff"),

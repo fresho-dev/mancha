@@ -6,10 +6,11 @@ const COLOR_PROPERTY_MAP: Record<string, string> = {
 	bg: "background-color",
 	border: "border-color",
 	fill: "fill",
+	divide: "border-color",
 };
 
-// Color opacity pattern: (text|bg|border|fill)-(color)(-shade)?/(opacity)
-const COLOR_OPACITY_PATTERN = /^(text|bg|border|fill)-([\w-]+)\/(\d+)$/;
+// Color opacity pattern: (text|bg|border|fill|divide)-(color)(-shade)?/(opacity)
+const COLOR_OPACITY_PATTERN = /^(text|bg|border|fill|divide)-([\w-]+)\/(\d+)$/;
 
 // Property prefix to CSS property mapping.
 const PROPERTY_MAP: Record<string, string> = {
@@ -187,17 +188,20 @@ export function injectCustomClass(
 		: findRuleDeclarations(className);
 	if (!declarations) return false;
 
+	// Divide classes need a child selector suffix.
+	const selectorSuffix = className.startsWith("divide-") ? " > :not(:last-child)" : "";
+
 	// Build the rule based on variant type.
 	let rule: string;
 	if (!variant) {
-		rule = `.${escapedClass} { ${declarations} }`;
+		rule = `.${escapedClass}${selectorSuffix} { ${declarations} }`;
 	} else if (variant.type === "pseudo") {
-		rule = `.${escapedClass}:${variant.name} { ${declarations} }`;
+		rule = `.${escapedClass}${selectorSuffix}:${variant.name} { ${declarations} }`;
 	} else if (variant.name === "dark") {
-		rule = `@media (prefers-color-scheme: dark) { .${escapedClass} { ${declarations} } }`;
+		rule = `@media (prefers-color-scheme: dark) { .${escapedClass}${selectorSuffix} { ${declarations} } }`;
 	} else {
 		const bp = MEDIA_BREAKPOINTS[variant.name as keyof typeof MEDIA_BREAKPOINTS];
-		rule = `@media (min-width: ${bp}px) { .${escapedClass} { ${declarations} } }`;
+		rule = `@media (min-width: ${bp}px) { .${escapedClass}${selectorSuffix} { ${declarations} } }`;
 	}
 
 	try {
