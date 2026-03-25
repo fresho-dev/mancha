@@ -98,6 +98,41 @@ describe("Browser", () => {
 			assert.ok(renderer instanceof Renderer);
 		});
 
+		it("uncloak should wait for requestAnimationFrame to prevent FOUC", async () => {
+			if (typeof globalThis.requestAnimationFrame !== "function") {
+				return;
+			}
+			let rAFCalled = 0;
+			const originalRAF = globalThis.requestAnimationFrame;
+
+			// Mock requestAnimationFrame to count calls.
+			globalThis.requestAnimationFrame = (callback: FrameRequestCallback) => {
+				rAFCalled++;
+				return originalRAF(callback);
+			};
+
+			try {
+				// Manually add the cloak style as a user would.
+				const style = document.createElement("style");
+				style.id = "mancha-cloak";
+				style.textContent = "body { opacity: 0 !important; }";
+				document.head.appendChild(style);
+
+				// Initialize Mancha. This should trigger uncloaking.
+				await initMancha({ cloak: true });
+
+				// Verify that requestAnimationFrame was called twice.
+				assert.ok(
+					rAFCalled === 2,
+					`requestAnimationFrame should be called exactly twice to ensure styles are applied (called ${rAFCalled} times)`,
+				);
+			} finally {
+				// Restore original rAF and cleanup.
+				globalThis.requestAnimationFrame = originalRAF;
+				document.getElementById("mancha-cloak")?.remove();
+			}
+		});
+
 		it("mounts to target element when target option is provided", async () => {
 			// Create a target element using parseHTML to avoid innerHTML security restrictions.
 			const renderer = new Renderer();
@@ -391,6 +426,35 @@ describe("Browser", () => {
 				!document.getElementById("mancha-cloak"),
 				"Cloak style should be removed even without cloak option",
 			);
+		});
+
+		it("uncloak waits for requestAnimationFrame to prevent FOUC", async () => {
+			let rAFCalled = 0;
+			const originalRAF = globalThis.requestAnimationFrame;
+
+			// Mock requestAnimationFrame to count calls.
+			globalThis.requestAnimationFrame = (callback: FrameRequestCallback) => {
+				rAFCalled++;
+				return originalRAF(callback);
+			};
+
+			try {
+				const style = document.createElement("style");
+				style.id = "mancha-cloak";
+				style.textContent = "body { opacity: 0 !important; }";
+				document.head.appendChild(style);
+
+				await initMancha({ cloak: true });
+
+				// Verify that requestAnimationFrame was called twice (for safety).
+				assert.ok(
+					rAFCalled >= 2,
+					`requestAnimationFrame should be called at least twice to ensure styles are applied (called ${rAFCalled} times)`,
+				);
+			} finally {
+				globalThis.requestAnimationFrame = originalRAF;
+				document.getElementById("mancha-cloak")?.remove();
+			}
 		});
 	});
 	it("initMancha waits for DOMContentLoaded if document is loading", async () => {

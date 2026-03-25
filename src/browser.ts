@@ -192,6 +192,14 @@ function createUncloakFn(animate: number | false): () => Promise<void> {
 			await new Promise((resolve) => setTimeout(resolve, animate));
 		}
 
+		// Wait for at least two frames before removing the cloak style
+		// to ensure the browser has processed the newly injected styles and layout.
+		// This prevents a single-frame flash of unstyled content (FOUC).
+		if (typeof globalThis.requestAnimationFrame === "function") {
+			await new Promise((resolve) => globalThis.requestAnimationFrame(resolve));
+			await new Promise((resolve) => globalThis.requestAnimationFrame(resolve));
+		}
+
 		// Remove the style tag (cleanup).
 		style.remove();
 	};
