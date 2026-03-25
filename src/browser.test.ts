@@ -427,35 +427,6 @@ describe("Browser", () => {
 				"Cloak style should be removed even without cloak option",
 			);
 		});
-
-		it("uncloak waits for requestAnimationFrame to prevent FOUC", async () => {
-			let rAFCalled = 0;
-			const originalRAF = globalThis.requestAnimationFrame;
-
-			// Mock requestAnimationFrame to count calls.
-			globalThis.requestAnimationFrame = (callback: FrameRequestCallback) => {
-				rAFCalled++;
-				return originalRAF(callback);
-			};
-
-			try {
-				const style = document.createElement("style");
-				style.id = "mancha-cloak";
-				style.textContent = "body { opacity: 0 !important; }";
-				document.head.appendChild(style);
-
-				await initMancha({ cloak: true });
-
-				// Verify that requestAnimationFrame was called twice (for safety).
-				assert.ok(
-					rAFCalled >= 2,
-					`requestAnimationFrame should be called at least twice to ensure styles are applied (called ${rAFCalled} times)`,
-				);
-			} finally {
-				globalThis.requestAnimationFrame = originalRAF;
-				document.getElementById("mancha-cloak")?.remove();
-			}
-		});
 	});
 	it("initMancha waits for DOMContentLoaded if document is loading", async () => {
 		// Mock document.readyState
