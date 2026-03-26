@@ -15,11 +15,12 @@
 >
 	<div>
 		<span>Here is a collection of fruits:</span>
-		<span :for="item in basket">{{ item.icon }}</span>
+		<span :for="item in basket" :key="$index">{{ item.icon }}</span>
 	</div>
 	<div class="flex flex-row gap-1">
 		<button
 			:for="fruit in fruits"
+			:key="fruit.name"
 			:on:click="basket.push(fruit)"
 			class="p-1 border-solid rounded-sm cursor-pointer bg-transparent hover:bg-gray-200"
 		>
