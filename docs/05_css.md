@@ -221,6 +221,11 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | --- | --- |
 | `transition-none` | `{"transition":"none"}` |
 | `transition` | `{"transition-property":"all","transition-timing-function":"ease-in-out","transition-duration":"var(--transition-duration, 150ms)"}` |
+| `transition-all` | `{"transition-property":"all","transition-timing-function":"ease-in-out","transition-duration":"var(--transition-duration, 150ms)"}` |
+| `transition-opacity` | `{"transition-property":"opacity","transition-timing-function":"ease-in-out","transition-duration":"var(--transition-duration, 150ms)"}` |
+| `transition-transform` | `{"transition-property":"transform","transition-timing-function":"ease-in-out","transition-duration":"var(--transition-duration, 150ms)"}` |
+| `transition-shadow` | `{"transition-property":"box-shadow","transition-timing-function":"ease-in-out","transition-duration":"var(--transition-duration, 150ms)"}` |
+| `transition-colors` | `{"transition-property":"color, background-color, border-color, text-decoration-color, fill, stroke","transition-timing-function":"ease-in-out","transition-duration":"var(--transition-duration, 150ms)"}` |
 | `animate-none` | `{"animation":"none"}` |
 | `animate-spin` | `{"animation":"spin 1s linear infinite"}` |
 | `animate-ping` | `{"animation":"ping 1s cubic-bezier(0, 0, 0.2, 1) infinite"}` |
