@@ -126,6 +126,38 @@ describe("CSS Generation Utils", () => {
 			assert.ok(css.includes(".duration-150 {"), "Should include duration-150");
 		});
 
+		it("includes per-property transition helpers that animate standalone", () => {
+			const css = rules();
+			// Each helper must set transition-property so it animates without `transition`.
+			assert.ok(
+				css.includes(".transition-all { transition-property: all;"),
+				"Should include transition-all",
+			);
+			assert.ok(
+				css.includes(".transition-opacity { transition-property: opacity;"),
+				"Should include transition-opacity",
+			);
+			assert.ok(
+				css.includes(".transition-transform { transition-property: transform;"),
+				"Should include transition-transform",
+			);
+			assert.ok(
+				css.includes(".transition-shadow { transition-property: box-shadow;"),
+				"Should include transition-shadow",
+			);
+			assert.ok(
+				css.includes(".transition-colors { transition-property: color, background-color"),
+				"Should include transition-colors",
+			);
+			// Standalone usage requires an inherited timing-function and duration.
+			assert.ok(
+				css.includes(
+					".transition-opacity { transition-property: opacity; transition-timing-function: ease-in-out; transition-duration: var(--transition-duration, 150ms) }",
+				),
+				"transition-opacity should carry timing-function and duration",
+			);
+		});
+
 		it("includes color base classes without opacity", () => {
 			const css = rules();
 			assert.ok(css.includes(".text-white { color: #fff }"), "Should include text-white");

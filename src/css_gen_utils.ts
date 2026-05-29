@@ -34,6 +34,12 @@ export const PROPS_SIZING_MINMAX = {
 	"max-width": "max-w",
 	"max-height": "max-h",
 };
+// Shared timing-function and duration so every transition helper animates
+// standalone (e.g. `transition-opacity duration-300`) without needing `transition`.
+const TRANSITION_BASE = {
+	"transition-timing-function": "ease-in-out",
+	"transition-duration": "var(--transition-duration, 150ms)",
+};
 export const PROPS_CUSTOM = {
 	// Based on https://tailwindcss.com.
 	// Font family.
@@ -300,10 +306,16 @@ export const PROPS_CUSTOM = {
 	"backdrop-blur-3xl": { "backdrop-filter": "blur(64px)" },
 	// Transitions.
 	"transition-none": { transition: "none" },
-	transition: {
-		"transition-property": "all",
-		"transition-timing-function": "ease-in-out",
-		"transition-duration": "var(--transition-duration, 150ms)",
+	transition: { "transition-property": "all", ...TRANSITION_BASE },
+	// Per-property helpers mirroring Tailwind's transition-property utilities.
+	"transition-all": { "transition-property": "all", ...TRANSITION_BASE },
+	"transition-opacity": { "transition-property": "opacity", ...TRANSITION_BASE },
+	"transition-transform": { "transition-property": "transform", ...TRANSITION_BASE },
+	"transition-shadow": { "transition-property": "box-shadow", ...TRANSITION_BASE },
+	"transition-colors": {
+		"transition-property":
+			"color, background-color, border-color, text-decoration-color, fill, stroke",
+		...TRANSITION_BASE,
 	},
 	// Animations.
 	"animate-none": { animation: "none" },

@@ -1,6 +1,6 @@
 # CSS Documentation
 
-Mancha provides two CSS modes: **minimal** for simple prose pages, and **utils** for Tailwind-style utility class development.
+Mancha provides a set of CSS utilities and minimal styles to help you build your application.
 
 ## Minimal CSS
 
@@ -13,6 +13,18 @@ The minimal CSS rules provide a clean, readable default style for standard HTML 
 - **Font Family**: sans-serif
 - **H1-H6 Margin**: 1em 0 0.5em
 - **P, UL, OL Margin Bottom**: 1em
+
+## Basic CSS
+
+The basic CSS rules provide a more comprehensive reset and set of defaults, widely based on Tailwind CSS Preflight. You can inject them using `injectCss(["basic"])` or by adding `css="basic"` to your script tag.
+
+### Key Features
+- **Box Sizing**: `border-box` globally
+- **Typography**: Default sans-serif font stack, consistent line-height
+- **Form Elements**: Inherit font styles, transparent backgrounds, `cursor: pointer` for buttons
+- **Media**: Images/videos max-width 100%
+- **Dialog**: Default backdrop styling
+- **Resets**: Removes default margins/paddings from most block elements
 
 ## Utility CSS
 
@@ -221,6 +233,11 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | --- | --- |
 | `transition-none` | `{"transition":"none"}` |
 | `transition` | `{"transition-property":"all","transition-timing-function":"ease-in-out","transition-duration":"var(--transition-duration, 150ms)"}` |
+| `transition-all` | `{"transition-property":"all","transition-timing-function":"ease-in-out","transition-duration":"var(--transition-duration, 150ms)"}` |
+| `transition-opacity` | `{"transition-property":"opacity","transition-timing-function":"ease-in-out","transition-duration":"var(--transition-duration, 150ms)"}` |
+| `transition-transform` | `{"transition-property":"transform","transition-timing-function":"ease-in-out","transition-duration":"var(--transition-duration, 150ms)"}` |
+| `transition-shadow` | `{"transition-property":"box-shadow","transition-timing-function":"ease-in-out","transition-duration":"var(--transition-duration, 150ms)"}` |
+| `transition-colors` | `{"transition-property":"color, background-color, border-color, text-decoration-color, fill, stroke","transition-timing-function":"ease-in-out","transition-duration":"var(--transition-duration, 150ms)"}` |
 | `animate-none` | `{"animation":"none"}` |
 | `animate-spin` | `{"animation":"spin 1s linear infinite"}` |
 | `animate-ping` | `{"animation":"ping 1s cubic-bezier(0, 0, 0.2, 1) infinite"}` |
@@ -522,8 +539,6 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | `text-{0-99}px` | Font size in pixels (e.g., `text-12px`, `text-16px`) |
 | `text-{0-24.75}rem` | Font size in rem units (0.25rem increments) |
 
----
-
 ## Custom Values
 
 When you need a value outside the design scale, use bracket notation as an escape hatch. Custom values are automatically supported when using `css="utils"` — no extra configuration needed.
@@ -587,6 +602,6 @@ Custom values support pseudo-states, responsive breakpoints, and dark mode:
 
 For content added after initial load, call `injectCss(["custom"])` again to scan and inject new on-demand values.
 
----
+--- 
 
 *Generated automatically from `src/css_gen_utils.ts`*
