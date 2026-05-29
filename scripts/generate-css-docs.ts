@@ -50,6 +50,12 @@ function generateMarkdown() {
 	md += "## Utility CSS\n\n";
 	md +=
 		'The utility CSS rules are inspired by Tailwind CSS. You can inject them using `injectCss(["utils"])` or by adding `css="utils"` to your script tag.\n\n';
+	md += "This automatically includes:\n";
+	md +=
+		"- **CSS Reset** (Tailwind Preflight): box-sizing, typography, form resets, media defaults\n";
+	md += "- **Base utility classes**: spacing, sizing, colors, layout, typography, and more\n";
+	md +=
+		"- **On-demand scanning**: responsive variants, pseudo-state variants, color opacity, custom bracket values, and dark mode are generated on-the-fly for only the classes actually used in your markup\n\n";
 
 	md += "### Media Breakpoints\n\n";
 	md += "| Prefix | Min Width |\n";
@@ -64,6 +70,19 @@ function generateMarkdown() {
 	md += "- `hover:`\n";
 	md += "- `focus:`\n";
 	md += "- `disabled:`\n\n";
+
+	md += "### Dark Mode\n\n";
+	md += `Use the \`dark:\` prefix to apply styles when the user's system prefers dark mode (\`prefers-color-scheme: dark\`):\n\n`;
+	md += "```html\n";
+	md += '<div class="bg-white text-gray-900 dark:bg-gray-900 dark:text-white">\n';
+	md += "  This adapts to the user's color scheme preference.\n";
+	md += "</div>\n";
+	md += "```\n\n";
+	md += `The \`dark:\` prefix can be used with any utility class, including colors, spacing, and custom bracket values:\n\n`;
+	md += "```html\n";
+	md += '<div class="bg-[#fff] dark:bg-[#1a1a1a] p-4 dark:border-gray-700">\n';
+	md += "```\n\n";
+	md += `> **Note:** Responsive variants (\`sm:\`, \`md:\`, etc.), pseudo-state variants (\`hover:\`, \`focus:\`, \`disabled:\`), color opacity (\`/N\`), dark mode (\`dark:\`), and custom bracket values are all generated on-demand. Only the classes actually present in your markup are injected, keeping the CSS bundle small.\n\n`;
 
 	md += "### Spacing (Margin & Padding)\n\n";
 	md += "Spacing utilities use a 0.25rem (4px) unit by default.\n\n";
@@ -287,6 +306,13 @@ function generateMarkdown() {
 	md += "| `col-start-{1-13}` | `grid-column-start: n` |\n";
 	md += "| `col-end-{1-13}` | `grid-column-end: n` |\n";
 	md += "| `col-start/end-auto` | `grid-column-start/end: auto` |\n";
+	md += "| `grid-rows-{1-12}` | `grid-template-rows: repeat(n, minmax(0, 1fr))` |\n";
+	md += "| `grid-rows-none` | `grid-template-rows: none` |\n";
+	md += "| `row-span-{1-12}` | `grid-row: span n / span n` |\n";
+	md += "| `row-span-full` | `grid-row: 1 / -1` |\n";
+	md += "| `row-start-{1-13}` | `grid-row-start: n` |\n";
+	md += "| `row-end-{1-13}` | `grid-row-end: n` |\n";
+	md += "| `row-start/end-auto` | `grid-row-start/end: auto` |\n";
 	md += "\n";
 
 	md += "### Position & Inset\n\n";
@@ -469,6 +495,55 @@ function generateMarkdown() {
 	md += "| `text-{0-99}px` | Font size in pixels (e.g., `text-12px`, `text-16px`) |\n";
 	md += "| `text-{0-24.75}rem` | Font size in rem units (0.25rem increments) |\n";
 	md += "\n";
+
+	md += "## Custom Values\n\n";
+	md += `When you need a value outside the design scale, use bracket notation as an escape hatch. Custom values are automatically supported when using \`css="utils"\` — no extra configuration needed.\n\n`;
+	md += "### Syntax\n\n";
+	md += "```html\n";
+	md += '<div class="w-[133px] mt-[2rem] max-w-[900px]">\n';
+	md += "```\n\n";
+	md += "### Supported Properties\n\n";
+	md += "| Prefix | CSS Property |\n";
+	md += "|--------|--------------|\n";
+	md += "| `w-` | width |\n";
+	md += "| `h-` | height |\n";
+	md += "| `min-w-`, `min-h-` | min-width, min-height |\n";
+	md += "| `max-w-`, `max-h-` | max-width, max-height |\n";
+	md += "| `m-`, `mt-`, `mr-`, `mb-`, `ml-` | margin |\n";
+	md += "| `mx-`, `my-` | margin-inline, margin-block |\n";
+	md += "| `p-`, `pt-`, `pr-`, `pb-`, `pl-` | padding |\n";
+	md += "| `px-`, `py-` | padding-inline, padding-block |\n";
+	md += "| `top`, `right`, `bottom`, `left` | positioning |\n";
+	md += "| `gap-`, `gap-x-`, `gap-y-` | gap |\n";
+	md += "| `text-` | font-size |\n";
+	md += "| `z-` | z-index |\n";
+	md += "| `bg-` | background-color |\n";
+	md += "| `border-` | border-color |\n";
+	md += "\n";
+	md += "### Variants\n\n";
+	md += "Custom values support pseudo-states, responsive breakpoints, and dark mode:\n\n";
+	md += "```html\n";
+	md += '<div class="hover:w-[200px] md:max-w-[900px] dark:bg-[#333]">\n';
+	md += "```\n\n";
+	md += "### Limitations\n\n";
+	md += "**Static classes only**: Custom values work with the `class` attribute, not `:class`:\n\n";
+	md += "```html\n";
+	md += "<!-- ✓ Works -->\n";
+	md += '<div class="w-[133px]">\n\n';
+	md += "<!-- ✗ Not supported - use inline styles instead -->\n";
+	md += `<div :class="'w-[133px]'">\n`;
+	md += `<div :attr:style="'width: ' + dynamicWidth">\n`;
+	md += "```\n\n";
+	md +=
+		"**Browser only**: Custom values require the CSSStyleSheet API and are not available in Worker or SSR environments.\n\n";
+	md += "### When to Use\n\n";
+	md += "**Prefer the design scale** for consistency. Use custom values for:\n";
+	md += "- Matching external constraints (third-party widgets, embeds)\n";
+	md += "- One-off pixel-perfect adjustments\n";
+	md += "- Rapid prototyping (replace with scale values later)\n\n";
+	md += "### Dynamic Content\n\n";
+	md +=
+		'For content added after initial load, call `injectCss(["custom"])` again to scan and inject new on-demand values.\n\n';
 
 	md += "--- \n\n*Generated automatically from `src/css_gen_utils.ts`*\n";
 
