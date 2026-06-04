@@ -100,6 +100,12 @@ function escapeSelector(str: string): string {
 /** Get or create the stylesheet. */
 function getStyleSheet(): CSSStyleSheet | null {
 	if (!isSupported()) return null;
+
+	// Recreate the stylesheet if its element was removed from the document,
+	// otherwise new rules would be inserted into a detached (invisible) sheet.
+	if (styleSheet && !(styleSheet.ownerNode as Element)?.isConnected) {
+		styleSheet = null;
+	}
 	if (styleSheet) return styleSheet;
 
 	const style = document.createElement("style");
@@ -251,14 +257,50 @@ export function processClassString(classString: string): void {
 }
 
 /** Scan a DOM tree and inject CSS for all custom values found. */
-export function scanAndInject(root: Element | Document = document): void {
+export function scanAndInject(root: Element | Document | DocumentFragment = document): void {
 	if (!isSupported()) return;
+
+	// querySelectorAll only matches descendants; include the root's own classes.
+	if (root instanceof Element) {
+		const rootClass = root.getAttribute("class");
+		if (rootClass) processClassString(rootClass);
+	}
 
 	const elements = root.querySelectorAll("[class]");
 	for (const el of elements) {
 		const classAttr = el.getAttribute("class");
 		if (classAttr) processClassString(classAttr);
 	}
+}
+
+/** Check whether utils CSS is active in the document; gates the render hooks. */
+function utilsCssActive(): boolean {
+	return isSupported() && document.querySelector('style[data-mancha="utils"]') !== null;
+}
+
+/**
+ * Render hook: scan a tree rendered by mount() for on-demand rules.
+ * Content rendered during mount (e.g. includes) postdates the injectCss()
+ * scan, so its variant classes (lg:, hover:, etc.) must be injected here.
+ * No-op unless utils CSS is in use, so apps using their own CSS are left alone.
+ */
+export function scanRenderedTree(root: Node): void {
+	if (!utilsCssActive()) return;
+	const elem = root as Element;
+	if (typeof elem.querySelectorAll !== "function") return;
+	scanAndInject(elem);
+}
+
+/**
+ * Render hook: process a class string written by a directive (e.g. :class).
+ * Expression results may contain variant classes that never appear in any
+ * class attribute until a state change, so no DOM scan can see them.
+ */
+export function processRenderedClasses(classString: string): void {
+	// Cheap string pre-check before touching the DOM.
+	if (!classString || !needsProcessing(classString)) return;
+	if (!utilsCssActive()) return;
+	processClassString(classString);
 }
 
 /** For testing: reset module state. */

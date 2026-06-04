@@ -71,6 +71,100 @@ describe("Browser", () => {
 		});
 	});
 
+	describe("On-demand CSS for rendered content", () => {
+		// Track styles added during tests for cleanup.
+		let addedStyles: Element[] = [];
+
+		// Find an injected on-demand rule containing the given substring.
+		// NOTE: tests use unique CSS values so leftover rules from other tests
+		// can never satisfy an assertion by accident.
+		function findCustomRule(substr: string): string | null {
+			for (const style of document.querySelectorAll('style[data-mancha="custom"]')) {
+				const sheet = (style as HTMLStyleElement).sheet;
+				for (const rule of Array.from(sheet?.cssRules ?? [])) {
+					if (rule.cssText.includes(substr)) return rule.cssText;
+				}
+			}
+			return null;
+		}
+
+		beforeEach(() => {
+			// On-demand scanning is gated on the utils style element; remove any
+			// leftovers so each test controls whether utils CSS is active.
+			for (const el of document.querySelectorAll('style[data-mancha="utils"]')) el.remove();
+		});
+
+		afterEach(() => {
+			for (const style of addedStyles) style.remove();
+			addedStyles = [];
+		});
+
+		it("injects variant rules for content mounted after injectCss", async () => {
+			const initialCount = document.head.querySelectorAll("style").length;
+			injectCss(["utils"]);
+
+			// Simulate content rendered by mount() after injectCss (e.g. an <include>).
+			const renderer = new Renderer();
+			const fragment = renderer.parseHTML(
+				`<div id="postmount" class="lg:block"><span class="xl:w-[100px]"></span></div>`,
+			);
+			const target = fragment.querySelector("#postmount") as Element;
+			document.body.appendChild(target);
+			await renderer.mount(target);
+
+			const lgRule = findCustomRule("min-width: 1024px");
+			assert.ok(lgRule?.includes("display: block"), `Should inject lg:block rule, got: ${lgRule}`);
+			const xlRule = findCustomRule("min-width: 1280px");
+			assert.ok(
+				xlRule?.includes("width: 100px"),
+				`Should inject xl:w-[100px] rule, got: ${xlRule}`,
+			);
+
+			target.remove();
+			const styles = document.head.querySelectorAll("style");
+			for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
+		});
+
+		it("injects variant rules when a :class binding produces them on state change", async () => {
+			const initialCount = document.head.querySelectorAll("style").length;
+			injectCss(["utils"]);
+
+			// The variant class only appears in the expression result, never in markup.
+			const renderer = new Renderer({ expanded: false });
+			const fragment = renderer.parseHTML(
+				`<div id="dynclass" :class="expanded ? 'md:w-[123px]' : 'hidden'"></div>`,
+			);
+			const target = fragment.querySelector("#dynclass") as Element;
+			document.body.appendChild(target);
+			await renderer.mount(target);
+
+			assert.equal(findCustomRule("width: 123px"), null, "Should not inject before toggle");
+
+			await renderer.set("expanded", true);
+
+			const rule = findCustomRule("width: 123px");
+			assert.ok(rule?.includes("min-width: 768px"), `Should inject md:w-[123px], got: ${rule}`);
+
+			target.remove();
+			const styles = document.head.querySelectorAll("style");
+			for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
+		});
+
+		it("does not inject on-demand rules from mount unless utils CSS was injected", async () => {
+			// No injectCss() call: apps using their own CSS should be left alone.
+			const renderer = new Renderer();
+			const fragment = renderer.parseHTML(
+				`<div id="noutils"><span class="lg:w-[321px]"></span></div>`,
+			);
+			const target = fragment.querySelector("#noutils") as Element;
+			document.body.appendChild(target);
+			await renderer.mount(target);
+
+			assert.equal(findCustomRule("width: 321px"), null, "Should not inject without utils CSS");
+			target.remove();
+		});
+	});
+
 	describe("Deprecated CSS names", () => {
 		it("injectCss(['basic']) is a no-op with deprecation warning", () => {
 			const initialCount = document.head.querySelectorAll("style").length;

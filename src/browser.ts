@@ -83,9 +83,12 @@ export function injectCss(names: CssName[]): void {
 			case "utils": {
 				// Inject basic reset + utility classes, then scan for on-demand rules.
 				safeStyleEl.setTextContent(style, basicCssRules());
+				style.setAttribute("data-mancha", "basic");
 				globalThis.document.head.appendChild(style);
 				const utilsStyle = document.createElement("style");
 				utilsStyle.textContent = utilsCssRules();
+				// Render hooks check for this tag to gate on-demand scanning.
+				utilsStyle.setAttribute("data-mancha", "utils");
 				globalThis.document.head.appendChild(utilsStyle);
 				scanAndInject(document);
 				continue;

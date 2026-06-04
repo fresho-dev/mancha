@@ -1,4 +1,5 @@
 import { safeAnchorEl, safeAreaEl } from "safevalues/dom";
+import { processRenderedClasses } from "./css_custom.js";
 import {
 	appendChild,
 	attributeNameToCamelCase,
@@ -300,11 +301,11 @@ export namespace RendererPlugins {
 			return this.effect(
 				function (this: IRenderer) {
 					const result = this.eval(classAttr, { $elem: node });
-					safeSetAttribute(
-						elem,
-						"class",
-						(result ? `${originalClass} ${result}` : originalClass).trim(),
-					);
+					const newClass = (result ? `${originalClass} ${result}` : originalClass).trim();
+					safeSetAttribute(elem, "class", newClass);
+					// Expression results may contain variant classes (e.g. lg:flex)
+					// that no DOM scan can see; inject their on-demand rules here.
+					processRenderedClasses(newClass);
 				},
 				{ directive: "class", element: elem, expression: classAttr },
 			);

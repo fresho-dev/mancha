@@ -1,3 +1,4 @@
+import { scanRenderedTree } from "./css_custom.js";
 import { dirname, ellipsize, nodeToString, setProperty, traverse } from "./dome.js";
 import type {
 	DebugLevel,
@@ -501,6 +502,11 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 
 		// Now that the DOM is complete, render all the nodes.
 		await this.renderNode(root, params);
+
+		// Inject on-demand CSS rules for content rendered during this mount,
+		// which postdates the injectCss() scan. No-op outside the browser or
+		// when utils CSS is not in use.
+		scanRenderedTree(root);
 
 		// Record mount timing.
 		if (startTime) {
