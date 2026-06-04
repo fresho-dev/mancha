@@ -24,6 +24,26 @@ describe("CSS Generation Utils", () => {
 			assert.ok(!css.includes("@media (min-width:"), "Should not include media queries");
 		});
 
+		it("orders spacing rules shorthand -> axis -> sides so sides win the cascade", () => {
+			const css = rules();
+			// Rules share specificity, so source order decides: a later rule wins.
+			// e.g. "p-4 pt-14" must apply pt-14 (padding shorthand sets all sides).
+			const order = [".p-4 {", ".px-4 {", ".pt-14 {"];
+			const positions = order.map((sel) => css.indexOf(sel));
+			for (const [i, pos] of positions.entries()) {
+				assert.ok(pos >= 0, `Missing rule: ${order[i]}`);
+			}
+			assert.ok(positions[0] < positions[1], "Shorthand p-* must come before axis px-*");
+			assert.ok(positions[1] < positions[2], "Axis px-* must come before side pt-*");
+
+			// Same ordering for margin.
+			const mShort = css.indexOf(".m-4 {");
+			const mAxis = css.indexOf(".my-4 {");
+			const mSide = css.indexOf(".mt-2 {");
+			assert.ok(mShort < mAxis, "Shorthand m-* must come before axis my-*");
+			assert.ok(mAxis < mSide, "Axis my-* must come before side mt-*");
+		});
+
 		it("support percentage utilities in multiples of 5", () => {
 			assert.equal(PERCENTS.length, 20);
 			assert.equal(PERCENTS[0], 5);

@@ -919,10 +919,11 @@ export default function rules(): string {
 		// Sizing.
 		...posneg(PROPS_SIZING),
 		...autoxy(PROPS_SIZING),
-		// Spacing.
-		...tblr(PROPS_SPACING),
+		// Spacing. Order matters: shorthand (p-*) -> axis (px-*) -> sides (pt-*),
+		// so the more targeted rule wins the cascade at equal specificity.
 		...posneg(PROPS_SPACING),
 		...autoxy(PROPS_SPACING),
+		...tblr(PROPS_SPACING),
 		...between(),
 		// Minmax.
 		...posneg(PROPS_SIZING_MINMAX),
