@@ -152,6 +152,23 @@ await initMancha({
 | `duration` | `number` | Fade-in animation duration in ms. Defaults to 0 (instant) |
 | `selector` | `string \| string[]` | Element(s) to cloak. Defaults to `target` or `body` |
 
+### Cloaking Individual Elements
+
+For lower-level rendering workflows, a renderer can cloak any element while asynchronous work completes:
+
+```typescript
+const panel = document.querySelector("#panel");
+renderer.cloakElement(panel);
+
+try {
+  await updatePanel(panel);
+} finally {
+  renderer.uncloakElement(panel);
+}
+```
+
+Element cloaking uses the private `data-m-cloak` marker and a shared runtime rule. It does not overwrite the element's inline styles, classes, or directive results.
+
 ### Preventing FOUC with ESM
 
 > [!WARNING]

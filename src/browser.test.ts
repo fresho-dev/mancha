@@ -1,7 +1,7 @@
-import { initMancha, injectCss, Renderer } from "./browser.js";
+import { initMancha, injectCss, Renderer, type RenderParams } from "./browser.js";
 import { testSuite as pluginsTestSuite } from "./plugins.test.js";
 import { testSuite as rendererTestSuite } from "./renderer.test.js";
-import { assert, setInnerHTML } from "./test_utils.js";
+import { assert, setInnerHTML, sleepForReactivity } from "./test_utils.js";
 
 describe("Browser", () => {
 	// Plugins test suite.
@@ -705,5 +705,151 @@ describe("Issue #31 Browser Reproduction", () => {
 
 		const items = container.querySelectorAll(".rapid-item");
 		assert.equal(items.length, 3, `Expected 3 items from final state, got ${items.length}`);
+	});
+});
+
+describe("Issue #65 Browser Reproduction", () => {
+	afterEach(() => {
+		document.querySelectorAll('[id^="issue65-"]').forEach((el) => {
+			el.remove();
+		});
+		document.getElementById("mancha-runtime-cloak")?.remove();
+	});
+
+	for (const [mode, keyAttribute] of [
+		["non-keyed", ""],
+		["keyed", ' :key="item.id"'],
+	]) {
+		it(`${mode} :for preserves style-producing directives`, async () => {
+			const container = document.createElement("div");
+			container.id = `issue65-${mode}`;
+			setInnerHTML(
+				container,
+				`<span class="attr-style" :for="item in items"${keyAttribute}
+					:attr:style="'width: ' + item.width + '; color: ' + item.color"></span>
+				<span class="prop-style" :for="item in items"${keyAttribute}
+					:prop:style="'width: ' + item.width + '; color: ' + item.color"></span>
+				<span class="show-style" style="display: inline-block; color: teal"
+					:for="item in items"${keyAttribute} :show="item.visible"></span>
+				<span class="static-style" style="height: 7px; color: teal"
+					:for="item in items"${keyAttribute}></span>`,
+			);
+			document.body.appendChild(container);
+
+			const renderer = new Renderer({
+				items: [
+					{ id: 1, width: "75%", color: "red", visible: false },
+					{ id: 2, width: "25%", color: "blue", visible: true },
+				],
+			});
+			await renderer.mount(container);
+
+			const elements = (selector: string) =>
+				Array.from(container.querySelectorAll(selector)) as HTMLElement[];
+
+			let attrStyles = elements(".attr-style");
+			let propStyles = elements(".prop-style");
+			let showStyles = elements(".show-style");
+			let staticStyles = elements(".static-style");
+
+			assert.equal(attrStyles[0].style.width, "75%");
+			assert.equal(attrStyles[0].style.color, "red");
+			assert.equal(attrStyles[1].style.width, "25%");
+			assert.equal(propStyles[0].style.width, "75%");
+			assert.equal(propStyles[0].style.color, "red");
+			assert.equal(propStyles[1].style.width, "25%");
+			assert.equal(showStyles[0].style.display, "none");
+			assert.equal(showStyles[1].style.display, "inline-block");
+			assert.equal(showStyles[1].style.color, "teal");
+			assert.equal(staticStyles[0].style.height, "7px");
+			assert.equal(staticStyles[0].style.color, "teal");
+
+			await renderer.set("items", [
+				{ id: 1, width: "60%", color: "green", visible: true },
+				{ id: 2, width: "40%", color: "purple", visible: false },
+				{ id: 3, width: "10%", color: "orange", visible: false },
+			]);
+			await sleepForReactivity();
+
+			attrStyles = elements(".attr-style");
+			propStyles = elements(".prop-style");
+			showStyles = elements(".show-style");
+			staticStyles = elements(".static-style");
+
+			assert.deepEqual(
+				attrStyles.map((el) => [el.style.width, el.style.color]),
+				[
+					["60%", "green"],
+					["40%", "purple"],
+					["10%", "orange"],
+				],
+			);
+			assert.deepEqual(
+				propStyles.map((el) => [el.style.width, el.style.color]),
+				[
+					["60%", "green"],
+					["40%", "purple"],
+					["10%", "orange"],
+				],
+			);
+			assert.deepEqual(
+				showStyles.map((el) => el.style.display),
+				["inline-block", "none", "none"],
+			);
+			assert.equal(staticStyles[2].style.height, "7px");
+			assert.equal(
+				container.querySelectorAll(
+					".attr-style[data-m-cloak], .prop-style[data-m-cloak], .show-style[data-m-cloak], .static-style[data-m-cloak]",
+				).length,
+				0,
+			);
+		});
+	}
+
+	it("cloaks clones until their mounted styles are ready", async () => {
+		let releaseMount = () => {};
+		const mountedGate = new Promise<void>((resolve) => {
+			releaseMount = resolve;
+		});
+
+		class DelayedRenderer extends Renderer {
+			override async mount(
+				root: Document | DocumentFragment | Node,
+				params?: RenderParams,
+			): Promise<void> {
+				await super.mount(root, params);
+				if (this.has("$parent")) await mountedGate;
+			}
+		}
+
+		const container = document.createElement("div");
+		container.id = "issue65-delayed";
+		setInnerHTML(
+			container,
+			`<span class="delayed-item" :for="item in items"
+				:attr:style="'display: block'">{{ item }}</span>`,
+		);
+		document.body.appendChild(container);
+
+		const mounting = new DelayedRenderer({ items: ["ready"] }).mount(container);
+		let clone: HTMLElement | null = null;
+		for (let attempt = 0; attempt < 20 && !clone; attempt++) {
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			clone = container.querySelector(".delayed-item");
+		}
+
+		const hadMarkerWhileMounting = clone?.hasAttribute("data-m-cloak");
+		const inlineDisplayWhileMounting = clone?.style.display;
+		const computedDisplayWhileMounting = clone ? getComputedStyle(clone).display : null;
+		releaseMount();
+		await mounting;
+
+		assert.ok(clone, "Expected the loop clone to be inserted synchronously");
+		assert.equal(hadMarkerWhileMounting, true);
+		assert.equal(inlineDisplayWhileMounting, "block");
+		assert.equal(computedDisplayWhileMounting, "none");
+		assert.equal(clone?.hasAttribute("data-m-cloak"), false);
+		assert.equal(clone ? getComputedStyle(clone).display : null, "block");
+		assert.equal(document.querySelectorAll("#mancha-runtime-cloak").length, 1);
 	});
 });

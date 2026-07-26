@@ -432,14 +432,10 @@ export namespace RendererPlugins {
 				this._skipNodes.add(child);
 			}
 
-			// Save the original node style to restore it later.
-			// NOTE: This is a hack because Chrome is sometimes displaying the contents of <template>.
-			const originalStyle = getAttribute(elem, "style") || "";
-			setAttribute(elem, "style", "display: none;");
-
 			// Place the template node into a template element.
 			const parent = node.parentNode;
 			if (!parent) return; // Should already be skipped but for safety
+			this.cloakElement(elem);
 			const template = this.createElement("template", node.ownerDocument);
 			insertBefore(parent, template as Node, node);
 			removeChild(parent, node);
@@ -538,12 +534,13 @@ export namespace RendererPlugins {
 								subrenderer.set("$index", idx, true);
 
 								const copy = node.cloneNode(true);
+								this.cloakElement(copy as Element);
 								insertBefore(parent, copy, cursor);
 								this._skipNodes.add(copy);
 
 								awaiters.push(
 									subrenderer.mount(copy, params).then(() => {
-										setAttribute(copy as Element, "style", originalStyle);
+										this.uncloakElement(copy as Element);
 									}),
 								);
 								nodeForThisItem = copy;
@@ -588,6 +585,7 @@ export namespace RendererPlugins {
 							subrenderer.set("$index", idx, true);
 
 							const copy = node.cloneNode(true);
+							this.cloakElement(copy as Element);
 							insertBefore(parent, copy, reference);
 							children.push(copy);
 							subrenderers.push(subrenderer);
@@ -595,7 +593,7 @@ export namespace RendererPlugins {
 
 							awaiters.push(
 								subrenderer.mount(copy, params).then(() => {
-									setAttribute(copy as Element, "style", originalStyle);
+									this.uncloakElement(copy as Element);
 								}),
 							);
 							this.log("Rendered list child:\n", nodeToString(copy, 128));

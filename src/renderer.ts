@@ -1,5 +1,15 @@
+import { safeStyleSheet } from "safevalues";
+import { safeStyleEl } from "safevalues/dom";
 import { scanRenderedTree } from "./css_custom.js";
-import { dirname, ellipsize, nodeToString, setProperty, traverse } from "./dome.js";
+import {
+	dirname,
+	ellipsize,
+	nodeToString,
+	removeAttribute,
+	setAttribute,
+	setProperty,
+	traverse,
+} from "./dome.js";
 import type {
 	DebugLevel,
 	EffectMeta,
@@ -14,6 +24,10 @@ import type { ReactiveContext, StoreState } from "./store.js";
 import { SignalStore } from "./store.js";
 
 export type EvalListener = (result: unknown, dependencies: string[]) => unknown;
+
+const CLOAK_ATTRIBUTE = "data-m-cloak";
+const CLOAK_STYLE_ID = "mancha-runtime-cloak";
+const CLOAK_RULE = safeStyleSheet`[data-m-cloak]{display:none!important}`;
 
 /**
  * Represents an abstract class for rendering and manipulating HTML content.
@@ -57,6 +71,23 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 	abstract createElement(tag: string, owner?: Document | null): Element;
 	abstract createComment(content: string, owner?: Document | null): Node;
 	abstract textContent(node: Node, tag: string): void;
+
+	/** Hides an element without touching its application-owned styles. */
+	cloakElement(elem: Element): void {
+		const doc = elem.ownerDocument ?? globalThis.document;
+		if (doc?.head && !doc.getElementById(CLOAK_STYLE_ID)) {
+			const style = doc.createElement("style");
+			style.id = CLOAK_STYLE_ID;
+			safeStyleEl.setTextContent(style, CLOAK_RULE);
+			doc.head.appendChild(style);
+		}
+		setAttribute(elem, CLOAK_ATTRIBUTE, "");
+	}
+
+	/** Reveals a cloaked element by removing only Mancha's private marker. */
+	uncloakElement(elem: Element): void {
+		removeAttribute(elem, CLOAK_ATTRIBUTE);
+	}
 
 	/**
 	 * Sets the debug level for the current instance.

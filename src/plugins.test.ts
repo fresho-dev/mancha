@@ -1433,11 +1433,12 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(tplelem?.tagName?.toLowerCase(), "template");
 				assert.equal(childelem?.tagName?.toLowerCase(), "div");
 
-				// The template element has display none, and the child element has the text.
+				// The template source is cloaked without modifying its application-owned style.
 				// For browser renderers, content is in template.content; for worker it's in template.childNodes
 				const templateChild =
 					(tplelem as HTMLTemplateElement).content?.firstChild || tplelem.childNodes[0];
-				assert.equal(getAttribute(templateChild as Element, "style"), "display: none;");
+				assert.equal(getAttribute(templateChild as Element, "data-m-cloak"), "");
+				assert.equal(getAttribute(templateChild as Element, "style"), null);
 				assert.equal(getTextContent(childelem), "foo");
 			});
 
@@ -3134,9 +3135,8 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				for (const node of traverse(fragment)) {
 					const elem = node as Element;
 					if (elem.tagName?.toLowerCase() === "div") {
-						// Skip the original element (inside template, hidden with display:none).
-						const style = getAttribute(elem, "style") || "";
-						if (style.includes("display: none")) continue;
+						// Skip the cloaked original element inside the template.
+						if (getAttribute(elem, "data-m-cloak") !== null) continue;
 
 						cloneCount++;
 						const resolved = getAttribute(elem, ":render") || getAttribute(elem, "data-render");
@@ -3411,8 +3411,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				for (const node of traverse(fragment)) {
 					const elem = node as Element;
 					if (getAttribute(elem, "class") === "item") {
-						const style = getAttribute(elem, "style") || "";
-						if (!style.includes("display: none")) {
+						if (getAttribute(elem, "data-m-cloak") === null) {
 							visibleItems.push(elem);
 						}
 					}
@@ -3608,8 +3607,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 					for (const node of traverse(fragment)) {
 						const elem = node as Element;
 						if (getAttribute(elem, "class") === "array-item") {
-							const style = getAttribute(elem, "style") || "";
-							if (!style.includes("display: none")) {
+							if (getAttribute(elem, "data-m-cloak") === null) {
 								items.push(elem);
 							}
 						}
@@ -3682,8 +3680,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 					let items = Array.from(traverse(fragment)).filter((node) => {
 						const elem = node as Element;
 						if (getAttribute(elem, "class") !== "late-item") return false;
-						const style = getAttribute(elem, "style") || "";
-						return !style.includes("display: none");
+						return getAttribute(elem, "data-m-cloak") === null;
 					});
 					assert.equal(items.length, 0, "Should have no items initially");
 
@@ -3694,8 +3691,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 					items = Array.from(traverse(fragment)).filter((node) => {
 						const elem = node as Element;
 						if (getAttribute(elem, "class") !== "late-item") return false;
-						const style = getAttribute(elem, "style") || "";
-						return !style.includes("display: none");
+						return getAttribute(elem, "data-m-cloak") === null;
 					});
 					assert.equal(items.length, 2, "Should have 2 items after setting lateArray");
 					assert.equal(getTextContent(items[0] as Element), "x");

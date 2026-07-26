@@ -11,8 +11,13 @@
   ```
 - `:for` clones the node and repeats it. The loop re-renders when the array is mutated (e.g., `push`, `pop`, `splice`, or `items.length = 0` to clear).
   - Use `$index` inside the loop to access the current iteration index (0-based).
+  - Other directives on the same element are evaluated independently for each clone. This includes `:show`, `:attr:style`, and `:prop:style`.
   ```html
   <div :for="item in ['a', 'b', 'c']">{{ $index }}: {{ item }}</div>
+  <div
+    :for="segment in segments"
+    :attr:style="'width: ' + segment.width + '; background-color: ' + segment.color"
+  ></div>
   ```
 - `:key` (used with `:for`) enables keyed reconciliation, which reuses DOM nodes when items have stable identifiers. This prevents unnecessary DOM recreation and preserves element state during updates. The key should be a unique primitive value (string or number). When used with `:data`, the `:data` expression is re-evaluated when a keyed node is reused with updated loop variables.
   ```html
