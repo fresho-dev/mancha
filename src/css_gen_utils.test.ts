@@ -178,6 +178,42 @@ describe("CSS Generation Utils", () => {
 			);
 		});
 
+		it("includes background-position helpers alongside background-size", () => {
+			const css = rules();
+			// bg-cover is most useful paired with a position; without these the image
+			// silently anchors to the default 0% 0% instead.
+			assert.ok(
+				css.includes(".bg-center { background-position: center }"),
+				"Should include bg-center",
+			);
+			assert.ok(css.includes(".bg-top { background-position: top }"), "Should include bg-top");
+			assert.ok(
+				css.includes(".bg-bottom { background-position: bottom }"),
+				"Should include bg-bottom",
+			);
+			assert.ok(css.includes(".bg-left { background-position: left }"), "Should include bg-left");
+			assert.ok(
+				css.includes(".bg-right { background-position: right }"),
+				"Should include bg-right",
+			);
+			assert.ok(
+				css.includes(".bg-left-top { background-position: left top }"),
+				"Should include bg-left-top",
+			);
+			assert.ok(
+				css.includes(".bg-left-bottom { background-position: left bottom }"),
+				"Should include bg-left-bottom",
+			);
+			assert.ok(
+				css.includes(".bg-right-top { background-position: right top }"),
+				"Should include bg-right-top",
+			);
+			assert.ok(
+				css.includes(".bg-right-bottom { background-position: right bottom }"),
+				"Should include bg-right-bottom",
+			);
+		});
+
 		it("includes color base classes without opacity", () => {
 			const css = rules();
 			assert.ok(css.includes(".text-white { color: #fff }"), "Should include text-white");

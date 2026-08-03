@@ -479,6 +479,15 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | `bg-auto` | `{"background-size":"auto"}` |
 | `bg-cover` | `{"background-size":"cover"}` |
 | `bg-contain` | `{"background-size":"contain"}` |
+| `bg-center` | `{"background-position":"center"}` |
+| `bg-top` | `{"background-position":"top"}` |
+| `bg-bottom` | `{"background-position":"bottom"}` |
+| `bg-left` | `{"background-position":"left"}` |
+| `bg-right` | `{"background-position":"right"}` |
+| `bg-left-top` | `{"background-position":"left top"}` |
+| `bg-left-bottom` | `{"background-position":"left bottom"}` |
+| `bg-right-top` | `{"background-position":"right top"}` |
+| `bg-right-bottom` | `{"background-position":"right bottom"}` |
 | `bg-no-repeat` | `{"background-repeat":"no-repeat"}` |
 | `bg-fixed` | `{"background-attachment":"fixed"}` |
 | `bg-local` | `{"background-attachment":"local"}` |
