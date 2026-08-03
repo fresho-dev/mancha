@@ -181,45 +181,28 @@ $.items.length = 0;
 
 ## Notification Scheduling
 
-Observers do not run on the same tick as the write. Notifications for a key are
-debounced, so a burst of writes coalesces into a single observer run:
+Observers do not run on the same tick as the write. Writing a key schedules its
+observers to run once, about 10ms later; any further writes in that window join
+the run already scheduled instead of postponing it:
 
 ```js
-$.view = buildView(); // Called repeatedly...
-$.view = buildView(); // ...but observers run once.
+$.view = buildView(); // Schedules the run...
+$.view = buildView(); // ...joins it. Observers run once, with the latest value.
 ```
 
-The default debounce is 10ms, which suits a view object republished wholesale.
-It is the wrong clock for a value that changes every frame, such as a pointer
-position during a drag. Use `debounce()` to opt a single key out without
-affecting the rest of the store:
+Two things follow from that. Observers see only the final value of a burst, so
+they never run against an intermediate state. And a key written continuously
+still notifies every ~10ms rather than being held back indefinitely, so a value
+updated on every pointer move keeps its observers running throughout the drag.
 
-```js
-const { $ } = Mancha;
-
-// Notify on the next tick instead of waiting out the debounce.
-$.debounce("pointerX", 0);
-
-// Or flush once per animation frame, aligned with when the browser paints.
-// This is the right choice when the observer ends in a DOM write.
-$.debounce("pointerX", "raf");
-```
-
-Where `requestAnimationFrame` is unavailable (server-side rendering, workers),
-`"raf"` falls back to a timer automatically. Note that browsers do not run
-animation frames for a backgrounded tab, so a `"raf"` key stops notifying until
-the tab is visible again; keep it for values that only matter while painting.
-
-A continuously-written key is never starved: no matter how often it is written,
-its observers run at least once per frame rather than having the debounce
-deadline pushed back indefinitely.
+Timing depends only on when a key is first written, not on how often, and is the
+same in the browser, on the server, and in workers.
 
 > **Note:** An observer must not write the key it observes after an `await`.
 > Writes made by an observer's synchronous body are ignored, so the common case
 > of incidental self-writes is safe, but a write from an observer's asynchronous
 > tail is indistinguishable from an outside write and will re-trigger that
-> observer in a loop. Lowering the debounce for such a key makes the loop
-> proportionally faster, so fix the cycle rather than tuning the schedule.
+> observer in a loop.
 
 ## Computed Values
 

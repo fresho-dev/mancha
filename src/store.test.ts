@@ -2370,136 +2370,54 @@ describe("SignalStore", () => {
 			assert.equal(runs, 1, "two writes 2ms apart should produce a single observer run");
 		});
 
-		it("applies a per-key debounce override", async () => {
-			// #67: the debounce is right for a wholesale view object, wrong for a
-			// per-frame scalar, so a key can opt out without affecting the rest.
-			const store = new SignalStore({ hot: 0, cold: 0 });
-			let hotRuns = 0;
-			let coldRuns = 0;
-			store.watch("hot", () => {
-				hotRuns++;
-			});
-			store.watch("cold", () => {
-				coldRuns++;
+		it("does not postpone an already-scheduled run when written again", async () => {
+			// The whole scheduling model: the first write sets the deadline and later
+			// writes join that run instead of pushing it back. This is what makes the
+			// timing independent of how often the key is written.
+			const store = new SignalStore({ value: 0 });
+			const runsAt: number[] = [];
+			const start = Date.now();
+			store.watch("value", () => {
+				runsAt.push(Date.now() - start);
 			});
 
-			store.debounce("hot", 0);
-			void store.set("hot", 1);
-			void store.set("cold", 1);
-			// Wait less than the default debounce: only the opted-out key should have run.
-			await new Promise((resolve) => setTimeout(resolve, 1));
-
-			assert.equal(hotRuns, 1, "key with a 0ms override should notify promptly");
-			assert.equal(coldRuns, 0, "other keys should keep the default debounce");
-
+			// Write continuously for well over one debounce window.
+			const writeUntil = REACTIVE_DEBOUNCE_MILLIS * 3;
+			let writes = 0;
+			while (Date.now() - start < writeUntil) {
+				void store.set("value", ++writes);
+				await new Promise((resolve) => setTimeout(resolve, 1));
+			}
 			await sleepForReactivity();
-			assert.equal(coldRuns, 1, "default-debounce key should notify after the window");
+			await sleepForReactivity();
+
+			assert.ok(
+				runsAt.length >= 2,
+				`Expected repeated runs while writing for ${writeUntil}ms, got ${runsAt.length}. ` +
+					`Writes appear to be postponing the scheduled run. Ran at: ${runsAt.join(", ")}ms`,
+			);
+			// The first run must land on the first write's deadline, not the last write's.
+			assert.ok(
+				runsAt[0] < writeUntil,
+				`First run at ${runsAt[0]}ms should not wait for writes to stop at ${writeUntil}ms`,
+			);
 		});
 
-		it("exposes debounce() through the reactive proxy", async () => {
-			// The documented form is $.debounce(key, policy), so it has to survive proxify.
-			const store = new SignalStore({ hot: 0 });
+		it("returns the pending run's promise to writes that join it", async () => {
+			// set() resolves when observers have run, so a coalesced write must await the
+			// run it joined rather than resolving immediately.
+			const store = new SignalStore({ value: 0 });
 			let runs = 0;
-			store.watch("hot", () => {
+			store.watch("value", () => {
 				runs++;
 			});
 
-			store.$.debounce("hot", 0);
-			void store.set("hot", 1);
-			await new Promise((resolve) => setTimeout(resolve, 1));
+			void store.set("value", 1);
+			// This write joins the scheduled run; awaiting it must wait for that run.
+			await store.set("value", 2);
 
-			assert.equal(runs, 1, "$.debounce should apply the override");
-		});
-
-		it("schedules a raf-configured key through requestAnimationFrame", async () => {
-			const originalRAF = globalThis.requestAnimationFrame;
-			const originalCancel = globalThis.cancelAnimationFrame;
-			let rafCalls = 0;
-			globalThis.requestAnimationFrame = ((callback: FrameRequestCallback) => {
-				rafCalls++;
-				return setTimeout(() => callback(0), 1) as unknown as number;
-			}) as typeof globalThis.requestAnimationFrame;
-			globalThis.cancelAnimationFrame = ((handle: number) =>
-				clearTimeout(
-					handle as unknown as ReturnType<typeof setTimeout>,
-				)) as typeof globalThis.cancelAnimationFrame;
-
-			try {
-				const store = new SignalStore({ frame: 0 });
-				let runs = 0;
-				store.watch("frame", () => {
-					runs++;
-				});
-
-				store.debounce("frame", "raf");
-				void store.set("frame", 1);
-				await sleepForReactivity();
-
-				assert.ok(rafCalls > 0, "should schedule via requestAnimationFrame");
-				assert.equal(runs, 1, "observer should run once per frame");
-			} finally {
-				globalThis.requestAnimationFrame = originalRAF;
-				globalThis.cancelAnimationFrame = originalCancel;
-			}
-		});
-
-		it("falls back to a timer when requestAnimationFrame is unavailable", async () => {
-			const originalRAF = globalThis.requestAnimationFrame;
-			// Simulate SSR / worker contexts where rAF does not exist.
-			(globalThis as { requestAnimationFrame?: unknown }).requestAnimationFrame = undefined;
-
-			try {
-				const store = new SignalStore({ frame: 0 });
-				let runs = 0;
-				store.watch("frame", () => {
-					runs++;
-				});
-
-				store.debounce("frame", "raf");
-				void store.set("frame", 1);
-				await sleepForReactivity();
-
-				assert.equal(runs, 1, "should still notify without requestAnimationFrame");
-			} finally {
-				globalThis.requestAnimationFrame = originalRAF;
-			}
-		});
-
-		it("coalesces a raf-configured key to one flush per frame", async () => {
-			const originalRAF = globalThis.requestAnimationFrame;
-			const originalCancel = globalThis.cancelAnimationFrame;
-			// Drive frames manually so the test does not depend on real frame timing.
-			const frames: FrameRequestCallback[] = [];
-			globalThis.requestAnimationFrame = ((callback: FrameRequestCallback) => {
-				frames.push(callback);
-				return frames.length;
-			}) as typeof globalThis.requestAnimationFrame;
-			globalThis.cancelAnimationFrame = (() => {
-				frames.pop();
-			}) as typeof globalThis.cancelAnimationFrame;
-
-			try {
-				const store = new SignalStore({ frame: 0 });
-				let runs = 0;
-				store.watch("frame", () => {
-					runs++;
-				});
-				store.debounce("frame", "raf");
-
-				// A burst of writes within one frame.
-				for (let i = 1; i <= 10; i++) void store.set("frame", i);
-				assert.equal(runs, 0, "nothing should run before the frame fires");
-				assert.equal(frames.length, 1, "burst should leave exactly one frame pending");
-
-				// Fire the frame.
-				frames.pop()?.(0);
-				await sleepForReactivity();
-
-				assert.equal(runs, 1, "10 writes in one frame should coalesce to a single flush");
-			} finally {
-				globalThis.requestAnimationFrame = originalRAF;
-				globalThis.cancelAnimationFrame = originalCancel;
-			}
+			assert.equal(runs, 1, "awaiting a coalesced write should wait for the observers");
+			assert.equal(store.get("value"), 2);
 		});
 
 		it("does not lose a write recorded during an observer that throws", async () => {

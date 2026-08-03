@@ -80,40 +80,24 @@ function isComputedMarker<T>(value: unknown): value is ComputedMarker<T> {
 	);
 }
 
-/** Default notification debounce time in millis. */
+/**
+ * How long observers wait after a key is written before they run. Writes arriving
+ * during that window are free: they join the already-scheduled run instead of
+ * postponing it, so a key written continuously still notifies every this often.
+ */
 export const REACTIVE_DEBOUNCE_MILLIS = 10;
 
-/**
- * Upper bound on how long a key can be held back by the trailing debounce.
- * A key written more often than the debounce window would otherwise keep pushing
- * its own deadline back and never notify at all. One 60Hz frame, since the
- * observers that care about this rate are the ones that end in a DOM write.
- */
-export const REACTIVE_MAX_WAIT_MILLIS = 16;
-
-/**
- * How a key's notifications are scheduled: a debounce in millis, or "raf" for one
- * flush per animation frame, which is the right clock for observers that end in a
- * DOM write and is cheaper than a timer.
- */
-export type NotifyPolicy = number | "raf";
-
-/** A scheduled notification that can be cancelled, whatever clock scheduled it. */
-interface ScheduledFlush {
-	cancel(): void;
-}
-
-/**
- * Schedules a flush on the clock the policy asks for, falling back to a timer where
- * requestAnimationFrame is unavailable (SSR, workers, Node).
- */
-function scheduleFlush(policy: NotifyPolicy, flush: () => void): ScheduledFlush {
-	if (policy === "raf" && typeof globalThis.requestAnimationFrame === "function") {
-		const handle = globalThis.requestAnimationFrame(() => flush());
-		return { cancel: () => globalThis.cancelAnimationFrame?.(handle) };
-	}
-	const handle = setTimeout(flush, policy === "raf" ? 0 : policy);
-	return { cancel: () => clearTimeout(handle) };
+/** An observer run that has been scheduled but has not started yet. */
+interface PendingRun {
+	/** Resolves once the run has finished, so writes that join it can be awaited. */
+	done: Promise<void>;
+	/**
+	 * Who the run will notify. Writes that join the run add the observers registered
+	 * at their own call time, so a watcher registered after the write that scheduled
+	 * the run still gets notified by the next write, while observers registered after
+	 * the last write are left for a later run.
+	 */
+	entries: ObserverEntry[];
 }
 
 /** Shared AST factory. */
@@ -184,20 +168,14 @@ export class SignalStore<T extends StoreState = StoreState> {
 	readonly _store = new Map<string, unknown>();
 	_lock: Promise<void> = Promise.resolve();
 
-	/**
-	 * Notification state per key. Value is a pending scheduled flush, or "executing"
-	 * when observers are running. Used to debounce and prevent infinite loops.
-	 */
-	private readonly _notify: Map<string, ScheduledFlush | "executing"> = new Map();
+	/** Keys with a scheduled observer run. */
+	private readonly _pending = new Map<string, PendingRun>();
 
-	/** Per-key scheduling overrides, set via debounce(). */
-	private readonly _policy = new Map<string, NotifyPolicy>();
+	/** Keys whose observers are running right now. */
+	private readonly _executing = new Set<string>();
 
-	/** Keys written while their own observers were mid-flush, to notify afterwards. */
+	/** Keys written while their own observers were running, to notify afterwards. */
 	private readonly _dirty = new Set<string>();
-
-	/** When the current pending debounce burst started, per key. Bounds the trailing wait. */
-	private readonly _burstStart = new Map<string, number>();
 
 	/**
 	 * Tracks nested computed evaluation depth. When > 0, we're inside a computed
@@ -344,102 +322,81 @@ export class SignalStore<T extends StoreState = StoreState> {
 		}
 	}
 
-	/**
-	 * Overrides how a key's notifications are scheduled. The default debounce suits a
-	 * view object republished wholesale, where coalescing is the point, but not a
-	 * per-frame scalar; this opts a single key out without affecting the rest.
-	 */
-	debounce(key: string, policy: NotifyPolicy): void {
-		this._policy.set(key, policy);
-	}
-
-	async notify(key: string, debounceMillis?: number): Promise<void> {
+	async notify(key: string, debounceMillis: number = REACTIVE_DEBOUNCE_MILLIS): Promise<void> {
 		// Capture observers NOW (at call time). This ensures constructor calls
 		// don't trigger effects registered later.
 		const owner = getAncestorKeyStore(this, key);
 		const entries = Array.from(owner?.observers.get(key) || []);
 
-		const current = this._notify.get(key);
-
 		// Record writes that arrive while this key's observers are running, rather than
-		// dropping them, and flush them once the in-flight notification finishes. The
-		// observers' own writes are filtered out below, not here.
-		if (current === "executing") {
+		// dropping them, and flush them once the in-flight run finishes. The observers'
+		// own writes are filtered out below, not here.
+		if (this._executing.has(key)) {
 			this._dirty.add(key);
 			return;
 		}
 
-		// An explicit argument wins, then any per-key override, then the default.
-		const policy = debounceMillis ?? this._policy.get(key) ?? REACTIVE_DEBOUNCE_MILLIS;
-
-		// Bound the trailing debounce. Without this, a key written more often than the
-		// debounce clears its own pending timer on every write and never fires. rAF needs
-		// no bound: rescheduling within a frame still lands on the next frame.
-		let scheduleAt: NotifyPolicy = policy;
-		if (policy !== "raf") {
-			const now = Date.now();
-			const burstStart = this._burstStart.get(key) ?? now;
-			this._burstStart.set(key, burstStart);
-			// Never shorten a caller's own debounce: the bound only caps how far a burst of
-			// writes can push an already-pending notification back.
-			const maxWait = Math.max(policy, REACTIVE_MAX_WAIT_MILLIS);
-			scheduleAt = Math.min(policy, Math.max(0, maxWait - (now - burstStart)));
+		// Observers are already scheduled and will read the value this write just set,
+		// so join that run rather than scheduling another. Leaving the existing deadline
+		// alone is what keeps a continuously-written key from postponing itself forever.
+		const scheduled = this._pending.get(key);
+		if (scheduled) {
+			for (const entry of entries) {
+				if (!scheduled.entries.includes(entry)) scheduled.entries.push(entry);
+			}
+			return scheduled.done;
 		}
 
-		// Clear any pending notification (debounce).
-		if (current) current.cancel();
+		const done = new Promise<void>((resolve) => {
+			setTimeout(async () => {
+				this._pending.delete(key);
+				try {
+					this._executing.add(key);
 
-		// Schedule the notification.
-		return new Promise((resolve) => {
-			this._notify.set(
-				key,
-				scheduleFlush(scheduleAt, async () => {
-					this._burstStart.delete(key);
-					try {
-						this._notify.set(key, "executing");
+					// Invoking an observer runs its body up to its first await, so nothing
+					// else can interleave here: any write recorded during this line came
+					// from the observers themselves. Discarding those stops an observer
+					// whose body writes its own key from rescheduling itself forever.
+					// A self-write from an observer's awaited tail is indistinguishable
+					// from an outside one, so that remains a cycle the caller must avoid.
+					const running = entries.map((entry) =>
+						entry.observer.call(entry.store.proxify(entry.observer)),
+					);
+					this._dirty.delete(key);
 
-						// Invoking an observer runs its body up to its first await, so nothing
-						// else can interleave here: any write recorded during this line came
-						// from the observers themselves. Discarding those stops an observer
-						// whose body writes its own key from rescheduling itself forever.
-						// A self-write from an observer's awaited tail is indistinguishable
-						// from an outside one, so that remains a cycle the caller must avoid.
-						const pending = entries.map((entry) =>
-							entry.observer.call(entry.store.proxify(entry.observer)),
-						);
-						this._dirty.delete(key);
+					// Anything recorded from here on arrived from outside, and is honored.
+					await Promise.all(running);
+				} finally {
+					this._executing.delete(key);
 
-						// Anything recorded from here on arrived from outside, and is honored.
-						await Promise.all(pending);
-					} finally {
-						this._notify.delete(key);
+					// Flush any write that arrived while the observers were awaiting. In the
+					// finally block so a throwing observer still can't swallow the write.
+					if (this._dirty.delete(key)) void this.notify(key, debounceMillis);
+				}
 
-						// Flush any write that arrived while the observers were awaiting. In the
-						// finally block so a throwing observer still can't swallow the write.
-						if (this._dirty.delete(key)) void this.notify(key, debounceMillis);
-					}
-
-					// Lazy cleanup: remove observers whose store's $rootNode is orphaned.
-					// This handles memory leaks from removed :for items, replaced :html content, etc.
-					// Only applies to subrenderers (stores with $parent) - root renderer observers persist.
-					// A node is considered orphaned if it's both disconnected AND has no parent node.
-					// Nodes inside a DocumentFragment (e.g., during mount before DOM attachment)
-					// have parentNode != null and should NOT be cleaned up.
-					const observerSet = owner?.observers.get(key);
-					if (observerSet) {
-						for (const entry of entries) {
-							const hasParent = entry.store._store.has("$parent");
-							const rootNode = entry.store._store.get("$rootNode") as Node | undefined;
-							if (hasParent && rootNode && !rootNode.isConnected && !rootNode.parentNode) {
-								observerSet.delete(entry);
-							}
+				// Lazy cleanup: remove observers whose store's $rootNode is orphaned.
+				// This handles memory leaks from removed :for items, replaced :html content, etc.
+				// Only applies to subrenderers (stores with $parent) - root renderer observers persist.
+				// A node is considered orphaned if it's both disconnected AND has no parent node.
+				// Nodes inside a DocumentFragment (e.g., during mount before DOM attachment)
+				// have parentNode != null and should NOT be cleaned up.
+				const observerSet = owner?.observers.get(key);
+				if (observerSet) {
+					for (const entry of entries) {
+						const hasParent = entry.store._store.has("$parent");
+						const rootNode = entry.store._store.get("$rootNode") as Node | undefined;
+						if (hasParent && rootNode && !rootNode.isConnected && !rootNode.parentNode) {
+							observerSet.delete(entry);
 						}
 					}
+				}
 
-					resolve();
-				}),
-			);
+				resolve();
+			}, debounceMillis);
 		});
+
+		this._pending.set(key, { done, entries });
+		return done;
 	}
 
 	get<T>(key: string, observer?: Observer<T>): unknown {
