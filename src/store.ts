@@ -83,6 +83,14 @@ function isComputedMarker<T>(value: unknown): value is ComputedMarker<T> {
 /** Default notification debounce time in millis. */
 export const REACTIVE_DEBOUNCE_MILLIS = 10;
 
+/**
+ * Upper bound on how long a key can be held back by the trailing debounce.
+ * A key written more often than the debounce window would otherwise keep pushing
+ * its own deadline back and never notify at all. One 60Hz frame, since the
+ * observers that care about this rate are the ones that end in a DOM write.
+ */
+export const REACTIVE_MAX_WAIT_MILLIS = 16;
+
 /** Shared AST factory. */
 const AST_FACTORY = new expressions.EvalAstFactory();
 
@@ -156,6 +164,12 @@ export class SignalStore<T extends StoreState = StoreState> {
 	 * when observers are running. Used to debounce and prevent infinite loops.
 	 */
 	private readonly _notify: Map<string, ReturnType<typeof setTimeout> | "executing"> = new Map();
+
+	/** Keys written while their own observers were mid-flush, to notify afterwards. */
+	private readonly _dirty = new Set<string>();
+
+	/** When the current pending debounce burst started, per key. Bounds the trailing wait. */
+	private readonly _burstStart = new Map<string, number>();
 
 	/**
 	 * Tracks nested computed evaluation depth. When > 0, we're inside a computed
@@ -310,8 +324,23 @@ export class SignalStore<T extends StoreState = StoreState> {
 
 		const current = this._notify.get(key);
 
-		// Skip if observers are already executing for this key (prevents infinite loops).
-		if (current === "executing") return;
+		// Record writes that arrive while this key's observers are running, rather than
+		// dropping them, and flush them once the in-flight notification finishes. The
+		// observers' own writes are filtered out below, not here.
+		if (current === "executing") {
+			this._dirty.add(key);
+			return;
+		}
+
+		// Bound the trailing debounce. Without this, a key written more often than
+		// debounceMillis clears its own pending timer on every write and never fires.
+		const now = Date.now();
+		const burstStart = this._burstStart.get(key) ?? now;
+		this._burstStart.set(key, burstStart);
+		// Never shorten a caller's own debounce: the bound only caps how far a burst of
+		// writes can push an already-pending notification back.
+		const maxWait = Math.max(debounceMillis, REACTIVE_MAX_WAIT_MILLIS);
+		const delay = Math.min(debounceMillis, Math.max(0, maxWait - (now - burstStart)));
 
 		// Clear any pending notification (debounce).
 		if (current) clearTimeout(current);
@@ -321,13 +350,29 @@ export class SignalStore<T extends StoreState = StoreState> {
 			this._notify.set(
 				key,
 				setTimeout(async () => {
-					this._notify.set(key, "executing");
+					this._burstStart.delete(key);
 					try {
-						await Promise.all(
-							entries.map((entry) => entry.observer.call(entry.store.proxify(entry.observer))),
+						this._notify.set(key, "executing");
+
+						// Invoking an observer runs its body up to its first await, so nothing
+						// else can interleave here: any write recorded during this line came
+						// from the observers themselves. Discarding those stops an observer
+						// whose body writes its own key from rescheduling itself forever.
+						// A self-write from an observer's awaited tail is indistinguishable
+						// from an outside one, so that remains a cycle the caller must avoid.
+						const pending = entries.map((entry) =>
+							entry.observer.call(entry.store.proxify(entry.observer)),
 						);
+						this._dirty.delete(key);
+
+						// Anything recorded from here on arrived from outside, and is honored.
+						await Promise.all(pending);
 					} finally {
 						this._notify.delete(key);
+
+						// Flush any write that arrived while the observers were awaiting. In the
+						// finally block so a throwing observer still can't swallow the write.
+						if (this._dirty.delete(key)) void this.notify(key, debounceMillis);
 					}
 
 					// Lazy cleanup: remove observers whose store's $rootNode is orphaned.
@@ -348,7 +393,7 @@ export class SignalStore<T extends StoreState = StoreState> {
 					}
 
 					resolve();
-				}, debounceMillis),
+				}, delay),
 			);
 		});
 	}

@@ -1,5 +1,5 @@
-import { SignalStore } from "./store.js";
-import { assert, sleepForReactivity } from "./test_utils.js";
+import { REACTIVE_DEBOUNCE_MILLIS, SignalStore } from "./store.js";
+import { assert, REACTIVE_SLEEP_MS, sleepForReactivity } from "./test_utils.js";
 
 describe("SignalStore", () => {
 	describe("properties", () => {
@@ -2292,6 +2292,116 @@ describe("SignalStore", () => {
 				observerCalls <= MAX_ACCEPTABLE_CALLS,
 				`Expected <= ${MAX_ACCEPTABLE_CALLS} observer calls, got ${observerCalls}. ` +
 					"This suggests notify() calls are not being properly debounced.",
+			);
+		});
+
+		it("does not re-notify indefinitely when observers write their own key", async () => {
+			// Guards the fix for #30 against a re-notify loop: an observer whose own
+			// execution writes the key it watches must not schedule itself forever.
+			// The sibling tests above assert too early to catch an unbounded loop, so
+			// this one keeps watching well past the first few flushes.
+			let observerCalls = 0;
+			const store = new SignalStore({ counter: { hits: 0 } });
+
+			store.effect(function () {
+				observerCalls++;
+				if (observerCalls > 500) return; // Safety valve, asserted on below.
+				this.counter.hits++;
+			});
+
+			for (let i = 0; i < 20; i++) await sleepForReactivity();
+
+			assert.ok(
+				observerCalls <= 5,
+				`Expected observer calls to settle (<= 5), got ${observerCalls}. ` +
+					"Reentrant writes are re-notifying in a loop.",
+			);
+		});
+
+		it("does not drop a write that arrives while observers are executing", async () => {
+			// Issue #66: notify() skipped any key whose observers were mid-flight, so a
+			// write landing during an async observer was lost and the DOM stayed stale.
+			const observed: number[] = [];
+			const store = new SignalStore({ value: 0 });
+
+			store.watch("value", async () => {
+				observed.push(store.get("value") as number);
+				// Any awaited render step leaves this window open.
+				await new Promise((resolve) => setTimeout(resolve, REACTIVE_SLEEP_MS * 2));
+			});
+
+			// Not awaited: set() resolves only once the whole flush is done, which would
+			// close the very window this test needs to open.
+			void store.set("value", 1);
+			// Land the second write while the first observer is still awaiting.
+			await new Promise((resolve) => setTimeout(resolve, REACTIVE_SLEEP_MS * 1.5));
+			void store.set("value", 2);
+			for (let i = 0; i < 10; i++) await sleepForReactivity();
+
+			assert.equal(store.get("value"), 2, "store should hold the latest value");
+			assert.ok(
+				observed.includes(2),
+				`Observers never saw the latest value. Saw ${JSON.stringify(observed)}, expected a 2.`,
+			);
+		});
+
+		it("does not lose a write recorded during an observer that throws", async () => {
+			// The recorded write is consumed in a finally block, so a throwing observer
+			// cannot strand it and leave the next unrelated flush to pick it up.
+			const observed: number[] = [];
+			const store = new SignalStore({ value: 0 });
+			let shouldThrow = true;
+
+			store.watch("value", async () => {
+				observed.push(store.get("value") as number);
+				await new Promise((resolve) => setTimeout(resolve, REACTIVE_SLEEP_MS * 2));
+				if (shouldThrow) {
+					shouldThrow = false;
+					throw new Error("observer failure");
+				}
+			});
+
+			void store.set("value", 1);
+			await new Promise((resolve) => setTimeout(resolve, REACTIVE_SLEEP_MS * 1.5));
+			void store.set("value", 2);
+			for (let i = 0; i < 10; i++) await sleepForReactivity();
+
+			assert.ok(
+				observed.includes(2),
+				`Write was lost when the observer threw. Saw ${JSON.stringify(observed)}.`,
+			);
+		});
+
+		it("still notifies a key written faster than the debounce window", async () => {
+			// Issue #67: every write cleared the pending timer, so a key written more
+			// often than the debounce (e.g. pointermove at ~8ms) pushed its own deadline
+			// back forever and its observers never ran while input continued.
+			let observerCalls = 0;
+			const store = new SignalStore({ pointer: 0 });
+			store.watch("pointer", () => {
+				observerCalls++;
+			});
+
+			const WRITE_INTERVAL_MS = Math.max(1, Math.floor(REACTIVE_DEBOUNCE_MILLIS * 0.8));
+			const DURATION_MS = REACTIVE_DEBOUNCE_MILLIS * 20;
+			const start = Date.now();
+			let writes = 0;
+
+			await new Promise<void>((resolve) => {
+				const timer = setInterval(() => {
+					if (Date.now() - start >= DURATION_MS) {
+						clearInterval(timer);
+						resolve();
+					} else {
+						store.set("pointer", ++writes);
+					}
+				}, WRITE_INTERVAL_MS);
+			});
+
+			assert.ok(
+				observerCalls > 0,
+				`Observer never ran during ${writes} writes over ${DURATION_MS}ms. ` +
+					"A continuously-written key is being starved by its own updates.",
 			);
 		});
 	});
