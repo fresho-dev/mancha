@@ -58,8 +58,9 @@ const PROPERTY_MAP: Record<string, string> = {
 
 // Pattern: optional-negative + prefix + bracket-value.
 const CUSTOM_VALUE_PATTERN = /^(-?)([\w-]+)-\[(.+)\]$/;
-const VARIANT_PATTERN = /^(hover|focus|disabled|sm|md|lg|xl|dark):(.+)$/;
+const VARIANT_PATTERN = /^(hover|focus|disabled|sm|md|lg|xl|dark|landscape|portrait):(.+)$/;
 const PSEUDO_STATES = ["hover", "focus", "disabled"];
+const ORIENTATIONS = ["landscape", "portrait"];
 
 // Module state.
 const injectedRules = new Set<string>();
@@ -205,6 +206,8 @@ export function injectCustomClass(
 		rule = `.${escapedClass}${selectorSuffix}:${variant.name} { ${declarations} }`;
 	} else if (variant.name === "dark") {
 		rule = `@media (prefers-color-scheme: dark) { .${escapedClass}${selectorSuffix} { ${declarations} } }`;
+	} else if (ORIENTATIONS.includes(variant.name)) {
+		rule = `@media (orientation: ${variant.name}) { .${escapedClass}${selectorSuffix} { ${declarations} } }`;
 	} else {
 		const bp = MEDIA_BREAKPOINTS[variant.name as keyof typeof MEDIA_BREAKPOINTS];
 		rule = `@media (min-width: ${bp}px) { .${escapedClass}${selectorSuffix} { ${declarations} } }`;
@@ -237,7 +240,8 @@ export function processClassString(classString: string): void {
 			const isPseudo = PSEUDO_STATES.includes(variantName);
 			const isMedia = variantName in MEDIA_BREAKPOINTS;
 			const isDark = variantName === "dark";
-			if (isPseudo || isMedia || isDark) {
+			const isOrientation = ORIENTATIONS.includes(variantName);
+			if (isPseudo || isMedia || isDark || isOrientation) {
 				injectCustomClass(baseClass, {
 					type: isPseudo ? "pseudo" : "media",
 					name: variantName,

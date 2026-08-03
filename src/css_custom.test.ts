@@ -130,6 +130,70 @@ describe("css_custom", () => {
 		});
 	});
 
+	describe("orientation variants", () => {
+		it("injects landscape: with an orientation media query", () => {
+			if (!isSupported()) return;
+
+			injectCustomClass("w-[200px]", { type: "media", name: "landscape" });
+
+			assert.ok(
+				_getInjectedRules().has("landscape:w-[200px]"),
+				"Should track the injected landscape: rule",
+			);
+
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
+			assert.ok(
+				ruleText.includes("orientation: landscape"),
+				`Rule should use a landscape orientation media query, got: ${ruleText}`,
+			);
+			assert.ok(ruleText.includes("width"), "Rule should contain width");
+		});
+
+		it("injects portrait: with an orientation media query", () => {
+			if (!isSupported()) return;
+
+			injectCustomClass("w-[200px]", { type: "media", name: "portrait" });
+
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
+			assert.ok(
+				ruleText.includes("orientation: portrait"),
+				`Rule should use a portrait orientation media query, got: ${ruleText}`,
+			);
+		});
+
+		it("injects orientation variants for standard utility classes", () => {
+			if (!isSupported()) return;
+
+			// The motivating case from the issue: flex-col with landscape:flex-row.
+			injectCss(["utils"]);
+			processClassString("flex-col landscape:flex-row portrait:hidden");
+
+			assert.ok(
+				_getInjectedRules().has("landscape:flex-row"),
+				"Should inject landscape:flex-row for a standard utility",
+			);
+			assert.ok(
+				_getInjectedRules().has("portrait:hidden"),
+				"Should inject portrait:hidden for a standard utility",
+			);
+		});
+
+		it("does not treat orientation prefixes as pseudo-states", () => {
+			if (!isSupported()) return;
+
+			injectCustomClass("w-[200px]", { type: "media", name: "landscape" });
+
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
+			assert.ok(
+				!ruleText.includes(":landscape"),
+				`Should not emit a :landscape pseudo-selector, got: ${ruleText}`,
+			);
+		});
+	});
+
 	describe("dark variant", () => {
 		it("injects dark: custom bracket value with prefers-color-scheme media query", () => {
 			if (!isSupported()) return;

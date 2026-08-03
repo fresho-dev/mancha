@@ -55,7 +55,7 @@ function generateMarkdown() {
 		"- **CSS Reset** (Tailwind Preflight): box-sizing, typography, form resets, media defaults\n";
 	md += "- **Base utility classes**: spacing, sizing, colors, layout, typography, and more\n";
 	md +=
-		"- **On-demand scanning**: responsive variants, pseudo-state variants, color opacity, custom bracket values, and dark mode are generated on-the-fly for only the classes actually used in your markup\n\n";
+		"- **On-demand scanning**: responsive variants, orientation variants, pseudo-state variants, color opacity, custom bracket values, and dark mode are generated on-the-fly for only the classes actually used in your markup\n\n";
 
 	md += "### Media Breakpoints\n\n";
 	md += "| Prefix | Min Width |\n";
@@ -64,6 +64,17 @@ function generateMarkdown() {
 		md += `| \`${bp}:\` | \`${width}px\` |\n`;
 	}
 	md += "\n";
+
+	md += "### Orientation\n\n";
+	md +=
+		"Use the `landscape:` and `portrait:` prefixes to apply styles based on screen orientation (`@media (orientation: …)`) rather than width, so layouts respond to device rotation without picking an arbitrary breakpoint:\n\n";
+	md += "```html\n";
+	md += "<!-- Stack vertically in portrait, side-by-side in landscape. -->\n";
+	md += '<div class="flex flex-col landscape:flex-row">\n';
+	md += '  <div class="board">...</div>\n';
+	md += '  <div class="moves-panel portrait:hidden">...</div>\n';
+	md += "</div>\n";
+	md += "```\n\n";
 
 	md += "### Pseudo States\n\n";
 	md += "The following pseudo states are supported for all utilities:\n";
@@ -82,7 +93,7 @@ function generateMarkdown() {
 	md += "```html\n";
 	md += '<div class="bg-[#fff] dark:bg-[#1a1a1a] p-4 dark:border-gray-700">\n';
 	md += "```\n\n";
-	md += `> **Note:** Responsive variants (\`sm:\`, \`md:\`, etc.), pseudo-state variants (\`hover:\`, \`focus:\`, \`disabled:\`), color opacity (\`/N\`), dark mode (\`dark:\`), and custom bracket values are all generated on-demand. Only the classes actually present in your markup are injected, keeping the CSS bundle small.\n\n`;
+	md += `> **Note:** Responsive variants (\`sm:\`, \`md:\`, etc.), orientation variants (\`landscape:\`, \`portrait:\`), pseudo-state variants (\`hover:\`, \`focus:\`, \`disabled:\`), color opacity (\`/N\`), dark mode (\`dark:\`), and custom bracket values are all generated on-demand. Only the classes actually present in your markup are injected, keeping the CSS bundle small.\n\n`;
 
 	md += "### Spacing (Margin & Padding)\n\n";
 	md += "Spacing utilities use a 0.25rem (4px) unit by default.\n\n";
