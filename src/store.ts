@@ -91,6 +91,31 @@ export const REACTIVE_DEBOUNCE_MILLIS = 10;
  */
 export const REACTIVE_MAX_WAIT_MILLIS = 16;
 
+/**
+ * How a key's notifications are scheduled: a debounce in millis, or "raf" for one
+ * flush per animation frame, which is the right clock for observers that end in a
+ * DOM write and is cheaper than a timer.
+ */
+export type NotifyPolicy = number | "raf";
+
+/** A scheduled notification that can be cancelled, whatever clock scheduled it. */
+interface ScheduledFlush {
+	cancel(): void;
+}
+
+/**
+ * Schedules a flush on the clock the policy asks for, falling back to a timer where
+ * requestAnimationFrame is unavailable (SSR, workers, Node).
+ */
+function scheduleFlush(policy: NotifyPolicy, flush: () => void): ScheduledFlush {
+	if (policy === "raf" && typeof globalThis.requestAnimationFrame === "function") {
+		const handle = globalThis.requestAnimationFrame(() => flush());
+		return { cancel: () => globalThis.cancelAnimationFrame?.(handle) };
+	}
+	const handle = setTimeout(flush, policy === "raf" ? 0 : policy);
+	return { cancel: () => clearTimeout(handle) };
+}
+
 /** Shared AST factory. */
 const AST_FACTORY = new expressions.EvalAstFactory();
 
@@ -160,10 +185,13 @@ export class SignalStore<T extends StoreState = StoreState> {
 	_lock: Promise<void> = Promise.resolve();
 
 	/**
-	 * Notification state per key. Value is a pending timeout, or "executing"
+	 * Notification state per key. Value is a pending scheduled flush, or "executing"
 	 * when observers are running. Used to debounce and prevent infinite loops.
 	 */
-	private readonly _notify: Map<string, ReturnType<typeof setTimeout> | "executing"> = new Map();
+	private readonly _notify: Map<string, ScheduledFlush | "executing"> = new Map();
+
+	/** Per-key scheduling overrides, set via debounce(). */
+	private readonly _policy = new Map<string, NotifyPolicy>();
 
 	/** Keys written while their own observers were mid-flush, to notify afterwards. */
 	private readonly _dirty = new Set<string>();
@@ -316,7 +344,16 @@ export class SignalStore<T extends StoreState = StoreState> {
 		}
 	}
 
-	async notify(key: string, debounceMillis: number = REACTIVE_DEBOUNCE_MILLIS): Promise<void> {
+	/**
+	 * Overrides how a key's notifications are scheduled. The default debounce suits a
+	 * view object republished wholesale, where coalescing is the point, but not a
+	 * per-frame scalar; this opts a single key out without affecting the rest.
+	 */
+	debounce(key: string, policy: NotifyPolicy): void {
+		this._policy.set(key, policy);
+	}
+
+	async notify(key: string, debounceMillis?: number): Promise<void> {
 		// Capture observers NOW (at call time). This ensures constructor calls
 		// don't trigger effects registered later.
 		const owner = getAncestorKeyStore(this, key);
@@ -332,24 +369,31 @@ export class SignalStore<T extends StoreState = StoreState> {
 			return;
 		}
 
-		// Bound the trailing debounce. Without this, a key written more often than
-		// debounceMillis clears its own pending timer on every write and never fires.
-		const now = Date.now();
-		const burstStart = this._burstStart.get(key) ?? now;
-		this._burstStart.set(key, burstStart);
-		// Never shorten a caller's own debounce: the bound only caps how far a burst of
-		// writes can push an already-pending notification back.
-		const maxWait = Math.max(debounceMillis, REACTIVE_MAX_WAIT_MILLIS);
-		const delay = Math.min(debounceMillis, Math.max(0, maxWait - (now - burstStart)));
+		// An explicit argument wins, then any per-key override, then the default.
+		const policy = debounceMillis ?? this._policy.get(key) ?? REACTIVE_DEBOUNCE_MILLIS;
+
+		// Bound the trailing debounce. Without this, a key written more often than the
+		// debounce clears its own pending timer on every write and never fires. rAF needs
+		// no bound: rescheduling within a frame still lands on the next frame.
+		let scheduleAt: NotifyPolicy = policy;
+		if (policy !== "raf") {
+			const now = Date.now();
+			const burstStart = this._burstStart.get(key) ?? now;
+			this._burstStart.set(key, burstStart);
+			// Never shorten a caller's own debounce: the bound only caps how far a burst of
+			// writes can push an already-pending notification back.
+			const maxWait = Math.max(policy, REACTIVE_MAX_WAIT_MILLIS);
+			scheduleAt = Math.min(policy, Math.max(0, maxWait - (now - burstStart)));
+		}
 
 		// Clear any pending notification (debounce).
-		if (current) clearTimeout(current);
+		if (current) current.cancel();
 
 		// Schedule the notification.
 		return new Promise((resolve) => {
 			this._notify.set(
 				key,
-				setTimeout(async () => {
+				scheduleFlush(scheduleAt, async () => {
 					this._burstStart.delete(key);
 					try {
 						this._notify.set(key, "executing");
@@ -393,7 +437,7 @@ export class SignalStore<T extends StoreState = StoreState> {
 					}
 
 					resolve();
-				}, delay),
+				}),
 			);
 		});
 	}

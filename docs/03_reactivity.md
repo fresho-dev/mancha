@@ -179,6 +179,48 @@ $.items = [];
 $.items.length = 0;
 ```
 
+## Notification Scheduling
+
+Observers do not run on the same tick as the write. Notifications for a key are
+debounced, so a burst of writes coalesces into a single observer run:
+
+```js
+$.view = buildView(); // Called repeatedly...
+$.view = buildView(); // ...but observers run once.
+```
+
+The default debounce is 10ms, which suits a view object republished wholesale.
+It is the wrong clock for a value that changes every frame, such as a pointer
+position during a drag. Use `debounce()` to opt a single key out without
+affecting the rest of the store:
+
+```js
+const { $ } = Mancha;
+
+// Notify on the next tick instead of waiting out the debounce.
+$.debounce("pointerX", 0);
+
+// Or flush once per animation frame, aligned with when the browser paints.
+// This is the right choice when the observer ends in a DOM write.
+$.debounce("pointerX", "raf");
+```
+
+Where `requestAnimationFrame` is unavailable (server-side rendering, workers),
+`"raf"` falls back to a timer automatically. Note that browsers do not run
+animation frames for a backgrounded tab, so a `"raf"` key stops notifying until
+the tab is visible again; keep it for values that only matter while painting.
+
+A continuously-written key is never starved: no matter how often it is written,
+its observers run at least once per frame rather than having the debounce
+deadline pushed back indefinitely.
+
+> **Note:** An observer must not write the key it observes after an `await`.
+> Writes made by an observer's synchronous body are ignored, so the common case
+> of incidental self-writes is safe, but a write from an observer's asynchronous
+> tail is indistinguishable from an outside write and will re-trigger that
+> observer in a loop. Lowering the debounce for such a key makes the loop
+> proportionally faster, so fix the cycle rather than tuning the schedule.
+
 ## Computed Values
 
 Computed values are derived values that automatically update when their dependencies change. Use `$computed` to create a named reactive value that recalculates whenever the values it depends on are modified.

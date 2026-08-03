@@ -2345,6 +2345,138 @@ describe("SignalStore", () => {
 			);
 		});
 
+		it("applies a per-key debounce override", async () => {
+			// #67: the debounce is right for a wholesale view object, wrong for a
+			// per-frame scalar, so a key can opt out without affecting the rest.
+			const store = new SignalStore({ hot: 0, cold: 0 });
+			let hotRuns = 0;
+			let coldRuns = 0;
+			store.watch("hot", () => {
+				hotRuns++;
+			});
+			store.watch("cold", () => {
+				coldRuns++;
+			});
+
+			store.debounce("hot", 0);
+			void store.set("hot", 1);
+			void store.set("cold", 1);
+			// Wait less than the default debounce: only the opted-out key should have run.
+			await new Promise((resolve) => setTimeout(resolve, 1));
+
+			assert.equal(hotRuns, 1, "key with a 0ms override should notify promptly");
+			assert.equal(coldRuns, 0, "other keys should keep the default debounce");
+
+			await sleepForReactivity();
+			assert.equal(coldRuns, 1, "default-debounce key should notify after the window");
+		});
+
+		it("exposes debounce() through the reactive proxy", async () => {
+			// The documented form is $.debounce(key, policy), so it has to survive proxify.
+			const store = new SignalStore({ hot: 0 });
+			let runs = 0;
+			store.watch("hot", () => {
+				runs++;
+			});
+
+			store.$.debounce("hot", 0);
+			void store.set("hot", 1);
+			await new Promise((resolve) => setTimeout(resolve, 1));
+
+			assert.equal(runs, 1, "$.debounce should apply the override");
+		});
+
+		it("schedules a raf-configured key through requestAnimationFrame", async () => {
+			const originalRAF = globalThis.requestAnimationFrame;
+			const originalCancel = globalThis.cancelAnimationFrame;
+			let rafCalls = 0;
+			globalThis.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+				rafCalls++;
+				return setTimeout(() => callback(0), 1) as unknown as number;
+			}) as typeof globalThis.requestAnimationFrame;
+			globalThis.cancelAnimationFrame = ((handle: number) =>
+				clearTimeout(
+					handle as unknown as ReturnType<typeof setTimeout>,
+				)) as typeof globalThis.cancelAnimationFrame;
+
+			try {
+				const store = new SignalStore({ frame: 0 });
+				let runs = 0;
+				store.watch("frame", () => {
+					runs++;
+				});
+
+				store.debounce("frame", "raf");
+				void store.set("frame", 1);
+				await sleepForReactivity();
+
+				assert.ok(rafCalls > 0, "should schedule via requestAnimationFrame");
+				assert.equal(runs, 1, "observer should run once per frame");
+			} finally {
+				globalThis.requestAnimationFrame = originalRAF;
+				globalThis.cancelAnimationFrame = originalCancel;
+			}
+		});
+
+		it("falls back to a timer when requestAnimationFrame is unavailable", async () => {
+			const originalRAF = globalThis.requestAnimationFrame;
+			// Simulate SSR / worker contexts where rAF does not exist.
+			(globalThis as { requestAnimationFrame?: unknown }).requestAnimationFrame = undefined;
+
+			try {
+				const store = new SignalStore({ frame: 0 });
+				let runs = 0;
+				store.watch("frame", () => {
+					runs++;
+				});
+
+				store.debounce("frame", "raf");
+				void store.set("frame", 1);
+				await sleepForReactivity();
+
+				assert.equal(runs, 1, "should still notify without requestAnimationFrame");
+			} finally {
+				globalThis.requestAnimationFrame = originalRAF;
+			}
+		});
+
+		it("coalesces a raf-configured key to one flush per frame", async () => {
+			const originalRAF = globalThis.requestAnimationFrame;
+			const originalCancel = globalThis.cancelAnimationFrame;
+			// Drive frames manually so the test does not depend on real frame timing.
+			const frames: FrameRequestCallback[] = [];
+			globalThis.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+				frames.push(callback);
+				return frames.length;
+			}) as typeof globalThis.requestAnimationFrame;
+			globalThis.cancelAnimationFrame = (() => {
+				frames.pop();
+			}) as typeof globalThis.cancelAnimationFrame;
+
+			try {
+				const store = new SignalStore({ frame: 0 });
+				let runs = 0;
+				store.watch("frame", () => {
+					runs++;
+				});
+				store.debounce("frame", "raf");
+
+				// A burst of writes within one frame.
+				for (let i = 1; i <= 10; i++) void store.set("frame", i);
+				assert.equal(runs, 0, "nothing should run before the frame fires");
+				assert.equal(frames.length, 1, "burst should leave exactly one frame pending");
+
+				// Fire the frame.
+				frames.pop()?.(0);
+				await sleepForReactivity();
+
+				assert.equal(runs, 1, "10 writes in one frame should coalesce to a single flush");
+			} finally {
+				globalThis.requestAnimationFrame = originalRAF;
+				globalThis.cancelAnimationFrame = originalCancel;
+			}
+		});
+
 		it("does not lose a write recorded during an observer that throws", async () => {
 			// The recorded write is consumed in a finally block, so a throwing observer
 			// cannot strand it and leave the next unrelated flush to pick it up.
