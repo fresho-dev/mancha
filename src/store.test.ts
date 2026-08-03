@@ -2345,6 +2345,31 @@ describe("SignalStore", () => {
 			);
 		});
 
+		it("coalesces writes made across separate ticks within the debounce window", async () => {
+			// Pins the contract the default debounce exists for: cross-tick coalescing.
+			// The delays here are deliberately literal rather than derived from
+			// REACTIVE_DEBOUNCE_MILLIS, so that lowering the default fails this test
+			// instead of silently rescaling it and testing nothing.
+			assert.greaterEqual(
+				REACTIVE_DEBOUNCE_MILLIS,
+				5,
+				"this test assumes a default debounce that can span a few ticks",
+			);
+
+			const store = new SignalStore({ view: 0 });
+			let runs = 0;
+			store.watch("view", () => {
+				runs++;
+			});
+
+			void store.set("view", 1);
+			await new Promise((resolve) => setTimeout(resolve, 2));
+			void store.set("view", 2);
+			for (let i = 0; i < 5; i++) await sleepForReactivity();
+
+			assert.equal(runs, 1, "two writes 2ms apart should produce a single observer run");
+		});
+
 		it("applies a per-key debounce override", async () => {
 			// #67: the debounce is right for a wholesale view object, wrong for a
 			// per-frame scalar, so a key can opt out without affecting the rest.
