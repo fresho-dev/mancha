@@ -363,6 +363,12 @@ const subrenderer = document.querySelector("p").renderer;
 subrenderer.dispose();
 ```
 
+Disposal cascades: the subrenderers a renderer created (nested `:for` rows, `:data`, `:html`
+and `:render` subrenderers) are disposed along with it, so disposing the outermost renderer of
+a subtree releases the whole subtree. A disposed store never runs its observers again, so it
+should be treated as spent rather than reused: registering a new `watch()` or `$effect()` on it
+does not bring it back.
+
 This is useful when:
 - You're replacing large sections of dynamically-generated content
 - You're managing renderer lifecycles manually outside the DOM

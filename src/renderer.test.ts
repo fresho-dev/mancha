@@ -1,7 +1,7 @@
 import { getAttributeOrDataset } from "./dome.js";
 import type { IRenderer } from "./renderer.js";
 import type { StoreState } from "./store.js";
-import { assert } from "./test_utils.js";
+import { assert, sleepForReactivity } from "./test_utils.js";
 
 export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 	describe("parseHTML", () => {
@@ -135,6 +135,37 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			});
 			await subrenderer.set("a", 2);
 			assert.equal(notified, true);
+		});
+
+		it("disposing a renderer disposes the subrenderers it created", async () => {
+			const renderer = new ctor({ item: { n: 1 } });
+			const subrenderer = renderer.subrenderer();
+			const nested = subrenderer.subrenderer();
+
+			// The observer lives on `nested`, so only disposing `nested` itself can silence it.
+			await nested.set("row", renderer.get("item"), true);
+			let nestedCalls = 0;
+			nested.watch("row", () => {
+				nestedCalls++;
+			});
+
+			// Disposing the root must reach every generation, not just its direct children.
+			renderer.dispose();
+			(renderer.$.item as { n: number }).n = 2;
+			await sleepForReactivity();
+
+			assert.equal(nestedCalls, 0, "Nested subrenderer should be disposed with its ancestor");
+		});
+
+		it("does not adopt a subrenderer created from a disposed renderer", () => {
+			const renderer = new ctor({ item: { n: 1 } });
+			renderer.dispose();
+			renderer.subrenderer();
+
+			// A disposed renderer never disposes again, so anything it adopted would be
+			// retained for the lifetime of the renderer with nothing left to release it.
+			const adopted = (renderer as unknown as { _children: Set<unknown> })._children;
+			assert.equal(adopted.size, 0, "Disposed renderer should adopt nothing");
 		});
 	});
 
