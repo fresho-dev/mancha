@@ -563,7 +563,19 @@ function generateMarkdown() {
 	md += "- Rapid prototyping (replace with scale values later)\n\n";
 	md += "### Dynamic Content\n\n";
 	md +=
-		'For content added after initial load, call `injectCss(["custom"])` again to scan and inject new on-demand values.\n\n';
+		"Content rendered by Mancha is scanned automatically. Markup produced by anything else (raw `innerHTML`, a third-party widget) is not, so scan it yourself with `scanAndInject(root)`:\n\n";
+	md += "```js\n";
+	md += 'import { scanAndInject } from "mancha/browser";\n\n';
+	md += "widget.mount(container); // Third-party code writes into the container.\n";
+	md += "scanAndInject(container);\n";
+	md += "```\n\n";
+	md +=
+		"Re-scanning an already-scanned tree is safe: each rule is injected once, and rules are re-injected if the stylesheet element is removed from the document.\n\n";
+	md += "Two limitations:\n\n";
+	md +=
+		"- **ESM only**: `scanAndInject` is exported from the module build, not from the global bundle loaded via a `<script>` tag.\n";
+	md +=
+		"- **No shadow DOM**: `querySelectorAll` does not pierce a shadow root, so scanning a host element finds nothing inside it. Scanning the shadow root itself does inject rules, but they land in the main document's stylesheet, where shadow-boundary scoping stops them from applying. Style shadow content with its own stylesheet instead.\n\n";
 
 	md += "--- \n\n*Generated automatically from `src/css_gen_utils.ts`*\n";
 
