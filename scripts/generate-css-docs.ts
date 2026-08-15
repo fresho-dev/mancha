@@ -54,7 +54,7 @@ function generateMarkdown() {
 	md +=
 		"- `*,::before,::after{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}` — padding and border no longer add to an element's width. Default borders are also stripped, including those set through presentational HTML attributes, so `fieldset`, `iframe`, `img`, and `table` render without one until a border utility is applied. `hr` is the exception: the reset gives it back a 1px top border so horizontal rules stay visible.\n";
 	md +=
-		"- `body{margin:0}` and `blockquote,dl,dd,h1,h2,h3,h4,h5,h6,hr,figure,p,pre{margin:0}` — the page loses its default gutter and headings, paragraphs, and other blocks no longer space themselves apart, so plain prose collapses into a single run of text until spacing utilities are applied.\n";
+		"- `body{margin:0;…}` and `blockquote,dl,dd,h1,h2,h3,h4,h5,h6,hr,figure,p,pre{margin:0}` — the page loses its default gutter and headings, paragraphs, and other blocks no longer space themselves apart, so plain prose collapses into a single run of text until spacing utilities are applied.\n";
 	md +=
 		"- `ol,ul,menu{list-style:none;margin:0;padding:0}` — bullets, numbers, and list indentation are gone; restore them with the `list-*` and padding utilities.\n";
 	md +=
@@ -73,7 +73,7 @@ function generateMarkdown() {
 	md += "</div>\n";
 	md += "```\n\n";
 	md +=
-		"The wrapper then keeps its content width, so the image is not shrunk. `max-width:100%` still applies everywhere else, though: an image in a container narrower than itself is scaled down to fit, and only an explicit `max-width: none` overrides that.\n\n";
+		"The wrapper then keeps its content width, so the image is not shrunk. `flex-none` on the image itself is not enough even when the image is the direct flex child, because `max-width:100%` clamps it regardless of how flex sizes it. That clamp applies everywhere, not just in flex rows: an image in a container narrower than itself is scaled down to fit. Undo it with the arbitrary value `max-w-[none]` — there is no `max-w-none` utility.\n\n";
 
 	md += "## Utility CSS\n\n";
 	md +=
