@@ -67,7 +67,7 @@ The simplest way to use mancha is via a script tag with the `init` attribute:
 |-----------|-------------|---------|
 | `init` | Enables automatic initialization on page load | `init` |
 | `target` | CSS selector(s) to mount to (default: `body`). Use `+` to separate multiple targets | `target="main"` or `target="#app+#sidebar"` |
-| `css` | CSS bundles to inject. `"minimal"` for prose styling, `"utils"` for Tailwind-style utilities (includes CSS reset + on-demand scanning) | `css="utils"` |
+| `css` | CSS bundles to inject. `"minimal"` for prose styling, `"utils"` for Tailwind-style utilities (includes CSS reset + on-demand scanning). The reset changes default image, list, and form control layout, see [CSS](./05_css.md#css-reset) | `css="utils"` |
 | `debug` | Enable debug logging | `debug` |
 | `cache` | Fetch cache policy for includes | `cache="no-cache"` |
 | `cloak` | Control FOUC prevention (see below) | `cloak="200"` or `cloak="false"` |
@@ -92,7 +92,7 @@ const renderer = await initMancha({
 |--------|------|-------------|
 | `renderer` | `Renderer` | Use an existing Renderer instance instead of creating a new one |
 | `target` | `string \| string[]` | CSS selector(s) to mount to |
-| `css` | `CssName[]` | CSS bundles to inject: `"minimal"` or `"utils"` (includes CSS reset + on-demand scanning) |
+| `css` | `CssName[]` | CSS bundles to inject: `"minimal"` or `"utils"` (includes CSS reset + on-demand scanning). The reset changes default image, list, and form control layout, see [CSS](./05_css.md#css-reset) |
 | `state` | `Record<string, unknown>` | Initial state to set before mounting |
 | `debug` | `boolean` | Enable debug logging |
 | `cache` | `RequestCache` | Fetch cache policy for includes |
