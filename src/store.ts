@@ -115,6 +115,105 @@ function isProxified<T extends object>(object: T): boolean {
 	return object instanceof SignalStore || (object as unknown as ProxyMarked)[PROXY_MARKER] === true;
 }
 
+/** Something woken when an object, or anything nested inside it, is mutated. */
+type MutationSubscriber = () => void;
+
+/**
+ * Deep-mutation bookkeeping for one proxified object, registered under both the proxy and
+ * its raw target. The same object routinely lives in more than one store under more than
+ * one key (a `:for` row holds the very proxy its parent holds), and every one of those keys
+ * has to hear about a mutation, not just the key that happened to install the proxy first.
+ */
+interface DeepMutationRecord {
+	/**
+	 * Who to wake, held weakly. A store subscribes for as long as it holds the object, but
+	 * the library abandons subrenderers without disposing them (nested `:for`, `:render`), so
+	 * a strong reference here would pin every row ever rendered.
+	 */
+	readonly subscribers: Set<WeakRef<MutationSubscriber>>;
+	/**
+	 * This object's own fan-out, subscribed into the objects nested inside it so a deep
+	 * mutation travels back up. Anchored on the record so it lives exactly as long as the
+	 * object does, which is what lets nested objects hold it weakly.
+	 */
+	readonly fanOut: MutationSubscriber;
+}
+
+const deepMutations = new WeakMap<object, DeepMutationRecord>();
+
+/**
+ * Subscribers already woken by the fan-out in flight. A deep mutation reaches an object from
+ * every object that holds it, and a cyclic graph holds itself, so the fan-out has to skip
+ * subscribers it already woke or it recurses until the stack runs out.
+ *
+ * Lives exactly as long as the synchronous fan-out that created it. A notification that
+ * fan-out schedules is a separate cascade, not a continuation of it, so nothing this set
+ * records can suppress a later render.
+ */
+let notifiedOnPath: Set<MutationSubscriber> | null = null;
+
+/** True for a value that can be mutated in place, and so can carry deep-mutation subscribers. */
+function isMutableObject(value: unknown): value is object {
+	return value !== null && typeof value === "object";
+}
+
+/** Returns the deep-mutation record for `obj`, creating it on first use. */
+function deepMutationRecord(obj: object): DeepMutationRecord {
+	let record = deepMutations.get(obj);
+	if (!record) {
+		const subscribers = new Set<WeakRef<MutationSubscriber>>();
+		record = { subscribers, fanOut: () => fanOutMutation(subscribers) };
+		deepMutations.set(obj, record);
+	}
+	return record;
+}
+
+/** Wakes every live subscriber the notification path in flight has not woken yet. */
+function fanOutMutation(subscribers: Set<WeakRef<MutationSubscriber>>): void {
+	// The outermost fan-out owns the path and clears it, so a later, unrelated mutation
+	// starts fresh.
+	const ownsPath = notifiedOnPath === null;
+	if (ownsPath) notifiedOnPath = new Set();
+	const path = notifiedOnPath as Set<MutationSubscriber>;
+	try {
+		// Snapshotted because a subscriber may subscribe or unsubscribe as it runs.
+		for (const ref of Array.from(subscribers)) {
+			const subscriber = ref.deref();
+			if (!subscriber) subscribers.delete(ref);
+			else if (!path.has(subscriber)) {
+				path.add(subscriber);
+				subscriber();
+			}
+		}
+	} finally {
+		if (ownsPath) notifiedOnPath = null;
+	}
+}
+
+/** Subscribes `subscriber` to deep mutations of `obj` and returns the object's record. */
+function subscribeToMutations(obj: object, subscriber: MutationSubscriber): DeepMutationRecord {
+	const record = deepMutationRecord(obj);
+	let subscribed = false;
+	for (const ref of Array.from(record.subscribers)) {
+		const existing = ref.deref();
+		if (!existing) record.subscribers.delete(ref);
+		else if (existing === subscriber) subscribed = true;
+	}
+	if (!subscribed) record.subscribers.add(new WeakRef(subscriber));
+	return record;
+}
+
+/** Stops `subscriber` from being woken by deep mutations of `obj`. */
+function unsubscribeFromMutations(obj: unknown, subscriber: MutationSubscriber): void {
+	if (!obj || typeof obj !== "object") return;
+	const subscribers = deepMutations.get(obj)?.subscribers;
+	if (!subscribers) return;
+	for (const ref of Array.from(subscribers)) {
+		const existing = ref.deref();
+		if (!existing || existing === subscriber) subscribers.delete(ref);
+	}
+}
+
 export function getAncestorValue(store: SignalStore | null, key: string): unknown {
 	const map = store?._store;
 	if (map?.has(key)) {
@@ -177,6 +276,12 @@ export class SignalStore<T extends StoreState = StoreState> {
 	/** Keys written while their own observers were running, to notify afterwards. */
 	private readonly _dirty = new Set<string>();
 
+	/** Per-key deep-mutation subscribers, kept stable so they can be unsubscribed later. */
+	private readonly _mutationCallbacks = new Map<string, MutationSubscriber>();
+
+	/** Set by dispose(). Observers registered by a disposed store must no longer run. */
+	private _disposed = false;
+
 	/**
 	 * Tracks nested computed evaluation depth. When > 0, we're inside a computed
 	 * function and writes to reactive properties should trigger a warning.
@@ -192,8 +297,17 @@ export class SignalStore<T extends StoreState = StoreState> {
 	}
 
 	private wrapObject<U extends object>(obj: U, callback: () => void): U {
-		// Skip nulls and already-proxified objects.
-		if (obj == null || isProxified(obj)) return obj;
+		// Skip nulls.
+		if (obj == null) return obj;
+
+		// An already-proxified object cannot be wrapped again without losing its identity, so
+		// subscribe to the existing proxy instead. This is how a key that receives an object
+		// already owned by another store still learns about mutations to it. Stores are not
+		// deep-mutation tracked.
+		if (isProxified(obj)) {
+			if (!(obj instanceof SignalStore)) subscribeToMutations(obj, callback);
+			return obj;
+		}
 
 		// Skip frozen/sealed objects - they can't be modified and proxying them would
 		// violate JS invariants (get trap must return actual value for non-configurable props).
@@ -208,11 +322,19 @@ export class SignalStore<T extends StoreState = StoreState> {
 		if (!isPlainObject && !isArray) {
 			return obj;
 		}
-		return new Proxy(obj, {
+
+		// Objects nested in this one report to this object's subscribers, so mutating a nested
+		// object also wakes the keys holding the object that encloses it. Note that the `get`
+		// trap below only wraps a nested object the first time it is reached, so an object that
+		// was already proxified elsewhere reports to whoever wrapped it first, not to this one.
+		const record = subscribeToMutations(obj, callback);
+		const notifyMutation = record.fanOut;
+
+		const proxy = new Proxy(obj, {
 			deleteProperty: (target: U, property: string | symbol): boolean => {
 				if (typeof property === "string" && property in target) {
 					delete (target as Record<string, unknown>)[property];
-					callback();
+					notifyMutation();
 					return true;
 				}
 				return false;
@@ -222,10 +344,10 @@ export class SignalStore<T extends StoreState = StoreState> {
 				if (Reflect.get(target, prop, receiver) === value) return true;
 
 				if (typeof value === "object" && value !== null) {
-					value = this.wrapObject(value as object, callback);
+					value = this.wrapObject(value as object, notifyMutation);
 				}
 				const ret = Reflect.set(target, prop, value, receiver);
-				callback();
+				notifyMutation();
 				return ret;
 			},
 			get: (target: U, prop: string | symbol, receiver: unknown): unknown => {
@@ -235,7 +357,7 @@ export class SignalStore<T extends StoreState = StoreState> {
 				// Lazily wrap nested objects for deep reactivity.
 				// This ensures that modifications like items[0].visible = true trigger notifications.
 				if (result !== null && typeof result === "object" && !isProxified(result)) {
-					const wrapped = this.wrapObject(result as object, callback);
+					const wrapped = this.wrapObject(result as object, notifyMutation);
 					// If wrapObject returned a different object (a proxy), store it back for identity.
 					if (wrapped !== result) {
 						Reflect.set(target, prop, wrapped, receiver);
@@ -245,6 +367,10 @@ export class SignalStore<T extends StoreState = StoreState> {
 				return result;
 			},
 		});
+
+		// Holders only ever see the proxy, so subscriptions must resolve through it too.
+		deepMutations.set(proxy, record);
+		return proxy;
 	}
 
 	watch<T>(key: string, observer: Observer<T>): void {
@@ -322,6 +448,19 @@ export class SignalStore<T extends StoreState = StoreState> {
 		}
 	}
 
+	/**
+	 * Invokes `entries` and returns their pending tails. Stays synchronous from end to end:
+	 * the caller relies on nothing being able to interleave until it returns.
+	 */
+	private runObservers(entries: ObserverEntry[]): unknown[] {
+		// Entries were captured before the deadline, so a store disposed in the meantime
+		// would otherwise still run its effects and, for example, put a removed :for row
+		// back in the DOM.
+		return entries
+			.filter((entry) => !entry.store._disposed)
+			.map((entry) => entry.observer.call(entry.store.proxify(entry.observer)));
+	}
+
 	async notify(key: string, debounceMillis: number = REACTIVE_DEBOUNCE_MILLIS): Promise<void> {
 		// Capture observers NOW (at call time). This ensures constructor calls
 		// don't trigger effects registered later.
@@ -350,6 +489,7 @@ export class SignalStore<T extends StoreState = StoreState> {
 		const done = new Promise<void>((resolve) => {
 			setTimeout(async () => {
 				this._pending.delete(key);
+
 				try {
 					this._executing.add(key);
 
@@ -359,9 +499,7 @@ export class SignalStore<T extends StoreState = StoreState> {
 					// whose body writes its own key from rescheduling itself forever.
 					// A self-write from an observer's awaited tail is indistinguishable
 					// from an outside one, so that remains a cycle the caller must avoid.
-					const running = entries.map((entry) =>
-						entry.observer.call(entry.store.proxify(entry.observer)),
-					);
+					const running = this.runObservers(entries);
 					this._dirty.delete(key);
 
 					// Anything recorded from here on arrived from outside, and is honored.
@@ -376,18 +514,10 @@ export class SignalStore<T extends StoreState = StoreState> {
 
 				// Lazy cleanup: remove observers whose store's $rootNode is orphaned.
 				// This handles memory leaks from removed :for items, replaced :html content, etc.
-				// Only applies to subrenderers (stores with $parent) - root renderer observers persist.
-				// A node is considered orphaned if it's both disconnected AND has no parent node.
-				// Nodes inside a DocumentFragment (e.g., during mount before DOM attachment)
-				// have parentNode != null and should NOT be cleaned up.
 				const observerSet = owner?.observers.get(key);
 				if (observerSet) {
 					for (const entry of entries) {
-						const hasParent = entry.store._store.has("$parent");
-						const rootNode = entry.store._store.get("$rootNode") as Node | undefined;
-						if (hasParent && rootNode && !rootNode.isConnected && !rootNode.parentNode) {
-							observerSet.delete(entry);
-						}
+						if (entry.store.isOrphaned()) observerSet.delete(entry);
 					}
 				}
 
@@ -478,6 +608,53 @@ export class SignalStore<T extends StoreState = StoreState> {
 	}
 
 	/**
+	 * True for a subrenderer that can no longer render anything, because its root node was
+	 * taken out of the document. Nodes inside a DocumentFragment (e.g. during mount, before
+	 * DOM attachment) still have a parent, and are not orphaned. Root renderers never are.
+	 */
+	private isOrphaned(): boolean {
+		const rootNode = this._store.get("$rootNode") as Node | undefined;
+		if (!this._store.has("$parent") || !rootNode) return false;
+		return !rootNode.isConnected && !rootNode.parentNode;
+	}
+
+	/**
+	 * True once this store can no longer render anything. Walks up the store chain because
+	 * only the outermost store taken out of the document looks orphaned: a nested `:for` row
+	 * keeps its node parented to the row that was removed.
+	 */
+	private isAbandoned(): boolean {
+		if (this._disposed || this.isOrphaned()) return true;
+		const parent = this._store.get("$parent") as SignalStore | undefined;
+		return parent ? parent.isAbandoned() : false;
+	}
+
+	/**
+	 * Returns this store's deep-mutation subscriber for `key`. The same key always yields the
+	 * same function, so subscriptions can be matched and removed.
+	 *
+	 * The subscriber drops itself once the store is gone. Weak subscriptions let an abandoned
+	 * store be collected eventually, but the library abandons far more subrenderers than it
+	 * disposes, and until a collection happens every mutation would keep paying for all of
+	 * them.
+	 */
+	private mutationCallback(key: string): MutationSubscriber {
+		const existing = this._mutationCallbacks.get(key);
+		if (existing) return existing;
+
+		const subscriber: MutationSubscriber = () => {
+			if (this.isAbandoned()) {
+				unsubscribeFromMutations(getAncestorValue(this, key), subscriber);
+				return;
+			}
+			this.markDependentComputedsDirty(key);
+			void this.notify(key);
+		};
+		this._mutationCallbacks.set(key, subscriber);
+		return subscriber;
+	}
+
+	/**
 	 * Sets a value in the store.
 	 * @param key - The key to set.
 	 * @param value - The value to set (can be a computed marker).
@@ -492,14 +669,25 @@ export class SignalStore<T extends StoreState = StoreState> {
 
 		// Early return if the key exists in this store and has the same value.
 		if (this._store.has(key) && value === this._store.get(key)) return;
-		const callback = () => {
-			this.markDependentComputedsDirty(key);
-			return this.notify(key);
-		};
-		// Note: Functions are NOT wrapped here. They are wrapped dynamically at access
-		// time in proxify() to ensure the correct observer context is used.
-		if (value && typeof value === "object") {
-			value = this.wrapObject(value, callback);
+
+		// Resolved through the chain even for a local set: a local set can shadow a key this
+		// store only inherits, and the subscription to unwind is the one held on the inherited
+		// value. Reading this store's map alone would leave that subscription behind as a
+		// stale wake-up.
+		const previous = getAncestorValue(this, key);
+
+		// Only an object can be mutated in place, so a key that holds neither an old nor a new
+		// object needs no deep-mutation subscriber. Creating one regardless would retain a
+		// closure for every key ever set, most of which can never fire.
+		if (isMutableObject(value) || isMutableObject(previous)) {
+			const subscriber = this.mutationCallback(key);
+
+			// Stop listening to the value being replaced, so it no longer wakes this key.
+			unsubscribeFromMutations(previous, subscriber);
+
+			// Note: Functions are NOT wrapped here. They are wrapped dynamically at access
+			// time in proxify() to ensure the correct observer context is used.
+			if (isMutableObject(value)) value = this.wrapObject(value, subscriber);
 		}
 
 		if (local) {
@@ -520,8 +708,10 @@ export class SignalStore<T extends StoreState = StoreState> {
 			}
 		}
 
-		// Invoke the callback to notify observers.
-		await callback();
+		// Notify observers directly rather than through the subscriber above, which declines to
+		// run once the store is orphaned; an explicit write is honored either way.
+		this.markDependentComputedsDirty(key);
+		await this.notify(key);
 	}
 
 	async del(key: string): Promise<void> {
@@ -537,6 +727,15 @@ export class SignalStore<T extends StoreState = StoreState> {
 	 * Also removes any observers this store registered on ancestor stores.
 	 */
 	dispose(): void {
+		this._disposed = true;
+
+		// Stop listening to values this store subscribed to, which also drops the references
+		// those values hold to this store.
+		for (const [key, callback] of this._mutationCallbacks) {
+			unsubscribeFromMutations(getAncestorValue(this, key), callback);
+		}
+		this._mutationCallbacks.clear();
+
 		// Clear local observers.
 		for (const observerSet of this.observers.values()) {
 			observerSet.clear();

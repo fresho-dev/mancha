@@ -1477,6 +1477,76 @@ describe("SignalStore", () => {
 			assert.ok(callCount < 10, `Expected < 10 calls, got ${callCount}`);
 		});
 
+		it("notifies every key holding a mutated object, not just the first one", async () => {
+			// A :for row holds the very proxy its parent installed, so both keys must hear the
+			// mutation even though the object is only wrapped once.
+			const parent = new SignalStore({ item: { n: 0 } });
+			const child = new SignalStore({ $parent: parent });
+			await child.set("row", parent.get("item"), true);
+
+			let parentCalls = 0;
+			let childCalls = 0;
+			parent.effect(function () {
+				parentCalls++;
+				return this.item.n;
+			});
+			child.effect(function () {
+				childCalls++;
+				return (this.row as { n: number }).n;
+			});
+			assert.equal(parentCalls, 1);
+			assert.equal(childCalls, 1);
+
+			(parent.$.item as { n: number }).n = 1;
+			await sleepForReactivity();
+
+			assert.equal(parentCalls, 2, "Owning key should be notified");
+			assert.equal(childCalls, 2, "Key holding the same object should be notified");
+		});
+
+		it("notifies a deep mutation in a cyclic object graph", async () => {
+			// Walking a cycle subscribes each object to the other, so the fan-out has to stop
+			// at objects it already visited instead of recursing until the stack runs out.
+			const a: Record<string, unknown> = { name: "a" };
+			const b: Record<string, unknown> = { name: "b", a };
+			a.b = b;
+
+			const store = new SignalStore({ a });
+			let calls = 0;
+			store.effect(function () {
+				calls++;
+				const cycle = this.a as { b: { a: { b: { name: string } } } };
+				return cycle.b.a.b.name;
+			});
+			assert.equal(calls, 1);
+
+			(store.$.a as { b: { name: string } }).b.name = "b2";
+			await sleepForReactivity();
+
+			assert.equal(calls, 2, "Mutation through a cycle should notify once");
+			assert.equal((store.$.a as { b: { name: string } }).b.name, "b2");
+		});
+
+		it("stops notifying a key once it holds a different object", async () => {
+			const store = new SignalStore({ item: { n: 0 } });
+			const replaced = store.get("item") as { n: number };
+
+			let calls = 0;
+			store.effect(function () {
+				calls++;
+				return this.item.n;
+			});
+
+			await store.set("item", { n: 10 });
+			await sleepForReactivity();
+			assert.equal(calls, 2);
+
+			// The old object is no longer on any key, so mutating it must not notify.
+			replaced.n = 99;
+			await sleepForReactivity();
+			assert.equal(calls, 2, "Replaced object should no longer notify");
+		});
+
 		it("handles array mutations inside effects without loops", async () => {
 			let callCount = 0;
 
@@ -2505,6 +2575,25 @@ describe("SignalStore", () => {
 			await store.set("count", 2);
 			await sleepForReactivity();
 			assert.equal(observerCalls, 2, "Observer should not fire after dispose");
+		});
+
+		it("does not run observers of a store disposed before the deadline", async () => {
+			const parent = new SignalStore({ count: 0 });
+			const child = new SignalStore({ $parent: parent });
+
+			let childCalls = 0;
+			child.effect(function () {
+				childCalls++;
+				return this.count;
+			});
+			assert.equal(childCalls, 1);
+
+			// The run is scheduled with this observer already captured, then the store goes away.
+			parent.set("count", 1);
+			child.dispose();
+			await sleepForReactivity();
+
+			assert.equal(childCalls, 1, "Observer of a disposed store should not run");
 		});
 
 		it("clears observers for multiple keys", async () => {
