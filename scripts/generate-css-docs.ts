@@ -35,24 +35,52 @@ function generateMarkdown() {
 	md += "- **H1-H6 Margin**: 1em 0 0.5em\n";
 	md += "- **P, UL, OL Margin Bottom**: 1em\n\n";
 
-	md += "## Basic CSS\n\n";
+	md += "## CSS Reset\n\n";
 	md +=
-		'The basic CSS rules provide a more comprehensive reset and set of defaults, widely based on Tailwind CSS Preflight. You can inject them using `injectCss(["basic"])` or by adding `css="basic"` to your script tag.\n\n';
+		'The reset provides a comprehensive set of defaults, widely based on Tailwind CSS Preflight. It ships with the utility classes: adding `css="utils"` to your script tag, or calling `injectCss(["utils"])`, injects both.\n\n';
 	md += "### Key Features\n";
-	md += "- **Box Sizing**: `border-box` globally\n";
 	md += "- **Typography**: Default sans-serif font stack, consistent line-height\n";
 	md +=
-		"- **Form Elements**: Inherit font styles, transparent backgrounds, `cursor: pointer` for buttons\n";
-	md += "- **Media**: Images/videos max-width 100%\n";
+		"- **Form Elements**: Inherit font styles and color from their container, with margin and padding zeroed; buttons also get a transparent background and `cursor: pointer`\n";
 	md += "- **Dialog**: Default backdrop styling\n";
 	md += "- **Resets**: Removes default margins/paddings from most block elements\n\n";
+	md += "### Layout Effects\n\n";
+	md +=
+		"The reset applies to **all of your markup**, not only to elements carrying utility classes, so plain HTML lays out differently once it is injected. The rules with layout, rather than merely typographic, consequences are:\n\n";
+	md +=
+		"- `img,svg,video,canvas,audio,iframe,embed,object{display:block;vertical-align:middle}` — media is no longer inline. `text-align:center` on a parent stops centering it, the inline baseline gap below images disappears, and images no longer flow alongside adjacent text.\n";
+	md +=
+		'- `img,video{max-width:100%;height:auto}` — media never overflows its container. `height:auto` also overrides the HTML `height` attribute, so `<img width="300" height="100">` renders at the file\'s own aspect ratio instead of the requested one. Inside a flex row the same clamp lets an image shrink below its intrinsic size.\n';
+	md +=
+		"- `*,::before,::after{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}` — padding and border no longer add to an element's width. Default borders are also stripped, including those set through presentational HTML attributes, so `fieldset`, `iframe`, `img`, and `table` render without one until a border utility is applied. `hr` is the exception: the reset gives it back a 1px top border so horizontal rules stay visible.\n";
+	md +=
+		"- `body{margin:0;…}` and `blockquote,dl,dd,h1,h2,h3,h4,h5,h6,hr,figure,p,pre{margin:0}` — the page loses its default gutter and headings, paragraphs, and other blocks no longer space themselves apart, so plain prose collapses into a single run of text until spacing utilities are applied.\n";
+	md +=
+		"- `ol,ul,menu{list-style:none;margin:0;padding:0}` — bullets, numbers, and list indentation are gone; restore them with the `list-*` and padding utilities.\n";
+	md +=
+		"- `button,input,optgroup,select,textarea{…;margin:0;padding:0}` — form controls lose their native margin and padding on top of inheriting the surrounding font and color, so inputs and text areas render flush against their content and need padding utilities to look clickable.\n";
+	md +=
+		"- `button,[type='button'],[type='reset'],[type='submit']{-webkit-appearance:button;background-color:transparent;background-image:none;cursor:pointer}` — buttons lose their native chrome entirely and must be styled explicitly.\n";
+	md +=
+		"- `:disabled{cursor:default;pointer-events:none;opacity:0.75}` — beyond dimming, `pointer-events:none` is a behavioral change: disabled controls stop receiving hover, tooltip, and click handling. Tailwind Preflight only sets `cursor:default` here; the `pointer-events` and `opacity` declarations are mancha additions.\n\n";
+	md +=
+		"Opt out per element with utilities, e.g. to stop a flex item from being shrunk by its siblings. The class belongs on the flex item itself — on a nested image it does nothing, because only direct children of the flex container are flex items:\n\n";
+	md += "```html\n";
+	md += '<div class="flex">\n';
+	md += '  <div class="flex-none">\n';
+	md += '    <img src="logo.svg" />\n';
+	md += "  </div>\n";
+	md += "</div>\n";
+	md += "```\n\n";
+	md +=
+		"The wrapper then keeps its content width, so the image is not shrunk. `flex-none` on the image itself is not enough even when the image is the direct flex child, because `max-width:100%` clamps it regardless of how flex sizes it. That clamp applies everywhere, not just in flex rows: an image in a container narrower than itself is scaled down to fit. Undo it with the arbitrary value `max-w-[none]` — there is no `max-w-none` utility.\n\n";
 
 	md += "## Utility CSS\n\n";
 	md +=
 		'The utility CSS rules are inspired by Tailwind CSS. You can inject them using `injectCss(["utils"])` or by adding `css="utils"` to your script tag.\n\n';
 	md += "This automatically includes:\n";
 	md +=
-		"- **CSS Reset** (Tailwind Preflight): box-sizing, typography, form resets, media defaults\n";
+		"- **CSS Reset**: box-sizing, typography, form and media defaults applied to all of your markup — see [CSS Reset](#css-reset), in particular the layout effects on images, lists, and form controls\n";
 	md += "- **Base utility classes**: spacing, sizing, colors, layout, typography, and more\n";
 	md +=
 		"- **On-demand scanning**: responsive variants, orientation variants, pseudo-state variants, color opacity, custom bracket values, and dark mode are generated on-the-fly for only the classes actually used in your markup\n\n";
