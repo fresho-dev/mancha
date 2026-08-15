@@ -9,7 +9,7 @@ import {
 	processClassString,
 	scanAndInject,
 } from "./css_custom.js";
-import { assert } from "./test_utils.js";
+import { assert, isNode } from "./test_utils.js";
 
 /** Rules currently live in the on-demand stylesheet. */
 function customRules(): CSSRule[] {
@@ -721,6 +721,50 @@ describe("css_custom", () => {
 			assert.ok(
 				ruleText.includes("width: 25%"),
 				`Should inject hover:w-25% as a live rule, got: ${ruleText}`,
+			);
+
+			container.remove();
+		});
+	});
+
+	describe("scanAndInject without a global document", () => {
+		// scanAndInject is public API, so consumers may call it from a module that
+		// also runs on the server (Next.js, Astro, Remix). Node-only: the browser
+		// always has a global document, so there is nothing to simulate there.
+		it("no-ops instead of throwing when called with no arguments", () => {
+			if (!isNode) return;
+
+			const saved = Object.getOwnPropertyDescriptor(globalThis, "document");
+			delete (globalThis as { document?: unknown }).document;
+
+			try {
+				assert.equal(typeof globalThis.document, "undefined", "Precondition: no document");
+				scanAndInject();
+			} finally {
+				if (saved) Object.defineProperty(globalThis, "document", saved);
+			}
+		});
+	});
+
+	describe("stylesheet removal", () => {
+		it("re-injects on re-scan after the stylesheet element was removed", () => {
+			if (!isSupported()) return;
+
+			const container = document.createElement("div");
+			container.className = "w-[617px]";
+			document.body.appendChild(container);
+			scanAndInject(container);
+
+			// An SPA router, hot-reload or head sanitizer wipes the injected sheet.
+			document.querySelector('style[data-mancha="custom"]')?.remove();
+			scanAndInject(container);
+
+			const style = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			assert.ok(style, "Should recreate the stylesheet element");
+			const rules = Array.from(style.sheet?.cssRules ?? []).map((r) => r.cssText);
+			assert.ok(
+				rules.some((r) => r.includes("617px")),
+				`Should re-inject the cached rule, got: ${rules.join(" | ")}`,
 			);
 
 			container.remove();

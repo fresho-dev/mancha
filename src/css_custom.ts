@@ -112,6 +112,9 @@ function getStyleSheet(): CSSStyleSheet | null {
 	// otherwise new rules would be inserted into a detached (invisible) sheet.
 	if (styleSheet && !(styleSheet.ownerNode as Element)?.isConnected) {
 		styleSheet = null;
+		// The rules that lived in the removed sheet went with it, so forget them:
+		// otherwise the dedup cache would suppress re-injecting them forever.
+		injectedRules.clear();
 	}
 	if (styleSheet) return styleSheet;
 
@@ -186,11 +189,14 @@ export function injectCustomClass(
 ): boolean {
 	const fullClassName = variant ? `${variant.name}:${className}` : className;
 
-	// Already injected.
-	if (injectedRules.has(fullClassName)) return true;
-
+	// Resolve the stylesheet before consulting the cache: getStyleSheet() drops
+	// the cache when it has to recreate a removed sheet, and only the rules in
+	// the live sheet count as injected.
 	const sheet = getStyleSheet();
 	if (!sheet) return false;
+
+	// Already injected.
+	if (injectedRules.has(fullClassName)) return true;
 
 	const escapedClass = escapeSelector(fullClassName);
 
@@ -287,17 +293,20 @@ export function processClassString(classString: string): void {
 	}
 }
 
-/** Scan a DOM tree and inject CSS for all custom values found. */
-export function scanAndInject(root: Element | Document | DocumentFragment = document): void {
+/** Scan a DOM tree and inject CSS for all custom values found. Defaults to the whole document. */
+export function scanAndInject(root?: Element | Document | DocumentFragment): void {
+	// Guard first: a default parameter would evaluate `document` before this
+	// runs and throw on the server, where the global does not exist.
 	if (!isSupported()) return;
+	const target = root ?? document;
 
 	// querySelectorAll only matches descendants; include the root's own classes.
-	if (root instanceof Element) {
-		const rootClass = root.getAttribute("class");
+	if (target instanceof Element) {
+		const rootClass = target.getAttribute("class");
 		if (rootClass) processClassString(rootClass);
 	}
 
-	const elements = root.querySelectorAll("[class]");
+	const elements = target.querySelectorAll("[class]");
 	for (const el of elements) {
 		const classAttr = el.getAttribute("class");
 		if (classAttr) processClassString(classAttr);

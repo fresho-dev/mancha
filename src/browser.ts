@@ -9,6 +9,7 @@ import type { ParserParams, RenderParams } from "./interfaces.js";
 import { IRenderer } from "./renderer.js";
 import type { StoreState } from "./store.js";
 
+export { scanAndInject } from "./css_custom.js";
 export { default as basicCssRules } from "./css_gen_basic.js";
 export { default as minimalCssRules } from "./css_gen_minimal.js";
 export { default as utilsCssRules } from "./css_gen_utils.js";

@@ -1,4 +1,4 @@
-import { initMancha, injectCss, Renderer, type RenderParams } from "./browser.js";
+import { initMancha, injectCss, Renderer, type RenderParams, scanAndInject } from "./browser.js";
 import { testSuite as pluginsTestSuite } from "./plugins.test.js";
 import { testSuite as rendererTestSuite } from "./renderer.test.js";
 import { assert, setInnerHTML, sleepForReactivity } from "./test_utils.js";
@@ -162,6 +162,32 @@ describe("Browser", () => {
 
 			assert.equal(findCustomRule("width: 321px"), null, "Should not inject without utils CSS");
 			target.remove();
+		});
+
+		it("scanAndInject injects rules for markup the renderer did not produce", () => {
+			const initialCount = document.head.querySelectorAll("style").length;
+			injectCss(["utils"]);
+
+			// Markup inserted outside the renderer is never scanned automatically.
+			const target = document.createElement("div");
+			setInnerHTML(target, `<div class="w-[137px]"><span class="sm:w-[219px]"></span></div>`);
+			document.body.appendChild(target);
+
+			assert.equal(findCustomRule("width: 137px"), null, "Should not inject before scan");
+
+			scanAndInject(target);
+
+			const child = target.querySelector(".w-\\[137px\\]") as HTMLElement;
+			assert.equal(getComputedStyle(child).width, "137px", "Should apply the injected rule");
+			const variantRule = findCustomRule("width: 219px");
+			assert.ok(
+				variantRule?.includes("min-width: 640px"),
+				`Should inject sm:w-[219px] rule, got: ${variantRule}`,
+			);
+
+			target.remove();
+			const styles = document.head.querySelectorAll("style");
+			for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
 		});
 	});
 

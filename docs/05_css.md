@@ -621,7 +621,21 @@ Custom values support pseudo-states, responsive breakpoints, and dark mode:
 
 ### Dynamic Content
 
-For content added after initial load, call `injectCss(["custom"])` again to scan and inject new on-demand values.
+Content rendered by Mancha is scanned automatically. Markup produced by anything else (raw `innerHTML`, a third-party widget) is not, so scan it yourself with `scanAndInject(root)`:
+
+```js
+import { scanAndInject } from "mancha/browser";
+
+widget.mount(container); // Third-party code writes into the container.
+scanAndInject(container);
+```
+
+Re-scanning an already-scanned tree is safe: each rule is injected once, and rules are re-injected if the stylesheet element is removed from the document.
+
+Two limitations:
+
+- **ESM only**: `scanAndInject` is exported from the module build, not from the global bundle loaded via a `<script>` tag.
+- **No shadow DOM**: `querySelectorAll` does not pierce a shadow root, so scanning a host element finds nothing inside it. Scanning the shadow root itself does inject rules, but they land in the main document's stylesheet, where shadow-boundary scoping stops them from applying. Style shadow content with its own stylesheet instead.
 
 --- 
 
