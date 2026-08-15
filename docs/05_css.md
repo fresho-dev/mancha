@@ -20,7 +20,7 @@ The reset provides a comprehensive set of defaults, widely based on Tailwind CSS
 
 ### Key Features
 - **Typography**: Default sans-serif font stack, consistent line-height
-- **Form Elements**: Inherit font styles from their container
+- **Form Elements**: Inherit font styles and color from their container, with margin and padding zeroed; buttons also get a transparent background and `cursor: pointer`
 - **Dialog**: Default backdrop styling
 - **Resets**: Removes default margins/paddings from most block elements
 
@@ -29,19 +29,25 @@ The reset provides a comprehensive set of defaults, widely based on Tailwind CSS
 The reset applies to **all of your markup**, not only to elements carrying utility classes, so plain HTML lays out differently once it is injected. The rules with layout, rather than merely typographic, consequences are:
 
 - `img,svg,video,canvas,audio,iframe,embed,object{display:block;vertical-align:middle}` — media is no longer inline. `text-align:center` on a parent stops centering it, the inline baseline gap below images disappears, and images no longer flow alongside adjacent text.
-- `img,video{max-width:100%;height:auto}` — media never overflows its container and keeps its aspect ratio. Inside a flex row this lets an image shrink below its intrinsic size.
-- `*,::before,::after{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}` — padding and border no longer add to an element's width. Default borders are also stripped everywhere, including those set through presentational HTML attributes, so `fieldset`, `iframe`, `img`, and `table` render without one until a border utility is applied.
+- `img,video{max-width:100%;height:auto}` — media never overflows its container. `height:auto` also overrides the HTML `height` attribute, so `<img width="300" height="100">` renders at the file's own aspect ratio instead of the requested one. Inside a flex row the same clamp lets an image shrink below its intrinsic size.
+- `*,::before,::after{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}` — padding and border no longer add to an element's width. Default borders are also stripped, including those set through presentational HTML attributes, so `fieldset`, `iframe`, `img`, and `table` render without one until a border utility is applied. `hr` is the exception: the reset gives it back a 1px top border so horizontal rules stay visible.
+- `body{margin:0}` and `blockquote,dl,dd,h1,h2,h3,h4,h5,h6,hr,figure,p,pre{margin:0}` — the page loses its default gutter and headings, paragraphs, and other blocks no longer space themselves apart, so plain prose collapses into a single run of text until spacing utilities are applied.
 - `ol,ul,menu{list-style:none;margin:0;padding:0}` — bullets, numbers, and list indentation are gone; restore them with the `list-*` and padding utilities.
+- `button,input,optgroup,select,textarea{…;margin:0;padding:0}` — form controls lose their native margin and padding on top of inheriting the surrounding font and color, so inputs and text areas render flush against their content and need padding utilities to look clickable.
 - `button,[type='button'],[type='reset'],[type='submit']{-webkit-appearance:button;background-color:transparent;background-image:none;cursor:pointer}` — buttons lose their native chrome entirely and must be styled explicitly.
-- `:disabled{cursor:default;pointer-events:none;opacity:0.75}` — beyond dimming, `pointer-events:none` is a behavioral change: disabled controls stop receiving hover, tooltip, and click handling. This rule is not part of Tailwind Preflight.
+- `:disabled{cursor:default;pointer-events:none;opacity:0.75}` — beyond dimming, `pointer-events:none` is a behavioral change: disabled controls stop receiving hover, tooltip, and click handling. Tailwind Preflight only sets `cursor:default` here; the `pointer-events` and `opacity` declarations are mancha additions.
 
-Opt out per element with utilities, e.g. to keep an image at its intrinsic size:
+Opt out per element with utilities, e.g. to stop a flex item from being shrunk by its siblings. The class belongs on the flex item itself — on a nested image it does nothing, because only direct children of the flex container are flex items:
 
 ```html
 <div class="flex">
-  <img class="flex-none" src="logo.svg" />
+  <div class="flex-none">
+    <img src="logo.svg" />
+  </div>
 </div>
 ```
+
+The wrapper then keeps its content width, so the image is not shrunk. `max-width:100%` still applies everywhere else, though: an image in a container narrower than itself is scaled down to fit, and only an explicit `max-width: none` overrides that.
 
 ## Utility CSS
 
