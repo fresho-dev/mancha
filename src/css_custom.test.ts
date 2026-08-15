@@ -11,6 +11,19 @@ import {
 } from "./css_custom.js";
 import { assert } from "./test_utils.js";
 
+/** Rules currently live in the on-demand stylesheet. */
+function customRules(): CSSRule[] {
+	const style = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement | null;
+	return Array.from(style?.sheet?.cssRules ?? []);
+}
+
+/** Concatenated text of all live on-demand rules. */
+function customRulesText(): string {
+	return customRules()
+		.map((rule) => rule.cssText)
+		.join("\n");
+}
+
 describe("css_custom", () => {
 	beforeEach(() => _resetForTesting());
 
@@ -324,6 +337,36 @@ describe("css_custom", () => {
 			assert.ok(ruleText.includes("display"), "Should contain the flex display rule");
 		});
 
+		it("injects sm: variant for a percentage utility via lookup", () => {
+			if (!isSupported()) return;
+
+			injectCss(["utils"]);
+
+			injectCustomClass("w-50%", { type: "media", name: "sm" });
+
+			const ruleText = customRulesText();
+			assert.ok(ruleText.includes("min-width: 640px"), "Should wrap in sm media query");
+			assert.ok(
+				ruleText.includes("width: 50%"),
+				`Should contain the percentage width rule, got: ${ruleText}`,
+			);
+		});
+
+		it("injects md: variant for a percentage utility via lookup", () => {
+			if (!isSupported()) return;
+
+			injectCss(["utils"]);
+
+			injectCustomClass("w-25%", { type: "media", name: "md" });
+
+			const ruleText = customRulesText();
+			assert.ok(ruleText.includes("min-width: 768px"), "Should wrap in md media query");
+			assert.ok(
+				ruleText.includes("width: 25%"),
+				`Should contain the percentage width rule, got: ${ruleText}`,
+			);
+		});
+
 		it("processClassString handles responsive prefixed classes", () => {
 			if (!isSupported()) return;
 
@@ -379,6 +422,147 @@ describe("css_custom", () => {
 			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
 			assert.ok(ruleText.includes(":hover"), "Should include :hover pseudo selector");
 			assert.ok(ruleText.includes("display: none"), "Should contain the hidden display rule");
+		});
+
+		it("injects hover: variant for a percentage utility via lookup", () => {
+			if (!isSupported()) return;
+
+			injectCss(["utils"]);
+
+			injectCustomClass("w-50%", { type: "pseudo", name: "hover" });
+
+			const ruleText = customRulesText();
+			assert.ok(ruleText.includes(":hover"), "Should include :hover pseudo selector");
+			assert.ok(
+				ruleText.includes("width: 50%"),
+				`Should contain the percentage width rule, got: ${ruleText}`,
+			);
+		});
+	});
+
+	describe("selector escaping", () => {
+		it("injects bracket values containing a percent sign", () => {
+			if (!isSupported()) return;
+
+			assert.ok(injectCustomClass("w-[50%]"), "Should report a successful injection");
+
+			const ruleText = customRulesText();
+			assert.ok(ruleText.includes("width: 50%"), `Should contain the width rule, got: ${ruleText}`);
+		});
+
+		it("injects bracket values containing calc expressions", () => {
+			if (!isSupported()) return;
+
+			// calc() requires spaces around `-`, so calc(100%-2rem) is not a valid
+			// value and the rule must be rejected rather than cached as inert.
+			assert.ok(
+				!injectCustomClass("w-[calc(100%-2rem)]"),
+				"Should reject an unparseable calc value",
+			);
+			assert.ok(
+				injectCustomClass("max-w-[calc(100%_-_2rem)]"),
+				"Should report a successful injection",
+			);
+
+			const ruleText = customRulesText();
+			assert.ok(
+				ruleText.includes("max-width: calc(100% - 2rem)"),
+				`Should contain the max-width rule, got: ${ruleText}`,
+			);
+		});
+
+		it("injects bracket values containing commas", () => {
+			if (!isSupported()) return;
+
+			assert.ok(
+				injectCustomClass("w-[clamp(1rem,2vw,3rem)]"),
+				"Should report a successful injection",
+			);
+
+			const ruleText = customRulesText();
+			assert.ok(ruleText.includes("clamp("), `Should contain the clamp value, got: ${ruleText}`);
+		});
+
+		it("injects bracket values containing exclamation marks", () => {
+			if (!isSupported()) return;
+
+			assert.ok(injectCustomClass("m-[1px!important]"), "Should report a successful injection");
+
+			const ruleText = customRulesText();
+			assert.ok(
+				ruleText.includes("margin: 1px"),
+				`Should contain the margin rule, got: ${ruleText}`,
+			);
+		});
+
+		it("does not leave an empty media block behind for variant bracket values", () => {
+			if (!isSupported()) return;
+
+			processClassString("sm:w-[50%]");
+
+			const rules = customRules();
+			assert.equal(rules.length, 1, "Should have inserted exactly one rule");
+			const media = rules[0] as CSSMediaRule;
+			assert.equal(
+				media.cssRules.length,
+				1,
+				`Media block should hold a live style rule, got: ${media.cssText}`,
+			);
+			assert.ok(
+				media.cssRules[0].cssText.includes("width: 50%"),
+				`Media block should apply the width, got: ${media.cssText}`,
+			);
+		});
+	});
+
+	describe("declaration invariant", () => {
+		it("rejects a rule whose declaration the browser drops", () => {
+			if (!isSupported()) return;
+
+			// url() is not a valid width, so the browser parses the selector but
+			// discards the declaration, leaving an inert rule behind.
+			assert.ok(
+				!injectCustomClass("w-[url('a.png')]"),
+				"Should report a failed injection for a dropped declaration",
+			);
+			assert.ok(
+				!_getInjectedRules().has("w-[url('a.png')]"),
+				"Should not cache a rule that has no declarations",
+			);
+			assert.equal(
+				customRules().length,
+				0,
+				`Should leave no rule behind, got: ${customRulesText()}`,
+			);
+		});
+
+		it("rejects a variant rule whose declaration the browser drops", () => {
+			if (!isSupported()) return;
+
+			assert.ok(
+				!injectCustomClass("w-[url('a.png')]", { type: "media", name: "sm" }),
+				"Should report a failed injection for a dropped declaration",
+			);
+			assert.ok(
+				!_getInjectedRules().has("sm:w-[url('a.png')]"),
+				"Should not cache a media rule that has no declarations",
+			);
+			assert.equal(
+				customRules().length,
+				0,
+				`Should leave no rule behind, got: ${customRulesText()}`,
+			);
+		});
+
+		it("keeps rules that carry a live declaration", () => {
+			if (!isSupported()) return;
+
+			assert.ok(injectCustomClass("w-[50%]"), "Should accept a valid declaration");
+			assert.ok(
+				injectCustomClass("w-[50%]", { type: "media", name: "sm" }),
+				"Should accept a valid declaration inside a media wrapper",
+			);
+			assert.equal(customRules().length, 2, "Should keep both rules");
 		});
 	});
 
@@ -514,6 +698,30 @@ describe("css_custom", () => {
 			assert.ok(_getInjectedRules().has("hover:bg-[#ccc]"), "Should inject hover:bg-[#ccc]");
 			assert.ok(_getInjectedRules().has("sm:w-[500px]"), "Should inject sm:w-[500px]");
 			assert.ok(_getInjectedRules().has("dark:mt-[1rem]"), "Should inject dark:mt-[1rem]");
+
+			container.remove();
+		});
+
+		it("scans DOM for variants of percentage utilities", () => {
+			if (!isSupported()) return;
+
+			injectCss(["utils"]);
+
+			const container = document.createElement("div");
+			container.className = "sm:w-50% hover:w-25%";
+			document.body.appendChild(container);
+
+			scanAndInject(document);
+
+			const ruleText = customRulesText();
+			assert.ok(
+				ruleText.includes("width: 50%"),
+				`Should inject sm:w-50% as a live rule, got: ${ruleText}`,
+			);
+			assert.ok(
+				ruleText.includes("width: 25%"),
+				`Should inject hover:w-25% as a live rule, got: ${ruleText}`,
+			);
 
 			container.remove();
 		});

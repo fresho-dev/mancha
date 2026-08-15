@@ -69,7 +69,8 @@ let styleSheet: CSSStyleSheet | null = null;
 /** Look up CSS declarations for an existing class from document stylesheets. */
 function findRuleDeclarations(className: string): string | null {
 	if (typeof document === "undefined") return null;
-	const targetSelector = `.${className}`;
+	// selectorText is serialized escaped (e.g. ".w-50\%"), so escape before comparing.
+	const targetSelector = `.${escapeSelector(className)}`;
 	for (const sheet of document.styleSheets) {
 		try {
 			for (const rule of sheet.cssRules) {
@@ -95,7 +96,12 @@ export function isSupported(): boolean {
 
 /** Escape CSS selector special characters. */
 function escapeSelector(str: string): string {
-	return str.replace(/[[\]#.:>+~()'"/]/g, "\\$&");
+	// A consumer that installs a fuller set of DOM globals can make isSupported()
+	// true while leaving CSS undefined. The regex fallback is approximate, but it
+	// keeps those environments working.
+	const css = (globalThis as { CSS?: { escape?: (str: string) => string } }).CSS;
+	if (typeof css?.escape === "function") return css.escape(str);
+	return str.replace(/[[\]#.:>+~()'"/%,!]/g, "\\$&");
 }
 
 /** Get or create the stylesheet. */
@@ -214,7 +220,28 @@ export function injectCustomClass(
 	}
 
 	try {
-		sheet.insertRule(rule, sheet.cssRules.length);
+		const index = sheet.insertRule(rule, sheet.cssRules.length);
+
+		// The browser accepts a rule whose selector parses but whose declaration it
+		// cannot use, and an @media wrapper parses even with an invalid inner
+		// selector. Both leave an inert rule behind, so require a surviving
+		// declaration before caching. Which level holds it follows from the rule we
+		// built, not from the rule's shape: CSS Nesting gives plain style rules a
+		// cssRules list too, and `instanceof CSSMediaRule` would throw in a DOM shim
+		// lacking that global.
+		const inserted = sheet.cssRules[index];
+		const styleRule = (
+			variant?.type === "media" ? (inserted as CSSGroupingRule).cssRules[0] : inserted
+		) as CSSStyleRule | undefined;
+		if (!styleRule?.style?.length) {
+			sheet.deleteRule(index);
+			console.warn(`Injected CSS rule had no effect: ${rule}`);
+			// Deliberately left uncached, so every later scan re-inserts, re-detects
+			// and re-warns for this class. That repeats once per scan rather than
+			// being bounded, but it keeps dead classes out of the cache.
+			return false;
+		}
+
 		injectedRules.add(fullClassName);
 		return true;
 	} catch (e) {
