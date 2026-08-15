@@ -370,8 +370,11 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 
 		// NOTE: Using the store object directly to avoid modifying ancestor values.
 
-		// Attach ourselves as the parent of the new instance.
+		// Attach ourselves as the parent of the new instance, and adopt it so that disposing
+		// this renderer also disposes everything it rendered. A disposed renderer never
+		// disposes again, so adopting into one would retain the subrenderer for good.
 		instance._store.set("$parent", this);
+		if (!this._disposed) this._children.add(instance);
 
 		// Add a reference to the root renderer, or assume that we are the root renderer.
 		instance._store.set("$rootRenderer", this.get("$rootRenderer") ?? this);

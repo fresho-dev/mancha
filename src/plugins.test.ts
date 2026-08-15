@@ -1,7 +1,7 @@
 import type { ElementWithAttribs } from "./dome.js";
 import { dirname, firstElementChild, getAttribute, traverse } from "./dome.js";
 import type { IRenderer } from "./renderer.js";
-import type { StoreState } from "./store.js";
+import type { ReactiveContext, StoreState } from "./store.js";
 import {
 	assert,
 	getTextContent,
@@ -1884,6 +1884,429 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 					assert.equal(divs2.length, 2);
 					assert.equal(getTextContent(divs2[0] as Element), "updated-a");
 					assert.equal(getTextContent(divs2[1] as Element), "updated-b");
+				});
+
+				// The rendered rows are the fragment's element children, minus the :for template.
+				const getRows = (fragment: Node): Element[] =>
+					Array.from(fragment.childNodes).filter(
+						(n) => n.nodeType === 1 && (n as Element).tagName?.toLowerCase() !== "template",
+					) as unknown as Element[];
+
+				// A reused row is only correct if every directive inside it re-renders, so the
+				// in-place mutation cases below are exercised against each binding flavor.
+				const bindings = [
+					{
+						name: "{{ }}",
+						markup: `<span>{{ item.n }}</span>`,
+						read: (row: Element) => getTextContent(firstElementChild(row) as Element),
+						expected: (n: number) => String(n),
+					},
+					{
+						name: ":text",
+						markup: `<span :text="item.n"></span>`,
+						read: (row: Element) => getTextContent(firstElementChild(row) as Element),
+						expected: (n: number) => String(n),
+					},
+					{
+						name: ":attr:*",
+						markup: `<span :attr:title="item.n"></span>`,
+						// The htmlparser2 backend keeps the raw value, the DOM one stringifies it.
+						read: (row: Element) =>
+							String(getAttribute(firstElementChild(row) as ElementWithAttribs, "title")),
+						expected: (n: number) => String(n),
+					},
+					{
+						name: ":class",
+						markup: `<span :class="'n-' + item.n"></span>`,
+						read: (row: Element) =>
+							getAttribute(firstElementChild(row) as ElementWithAttribs, "class"),
+						expected: (n: number) => `n-${n}`,
+					},
+					{
+						name: ":show",
+						markup: `<span :show="item.n === 999"></span>`,
+						read: (row: Element) => {
+							const elem = firstElementChild(row) as HTMLElement;
+							const style = elem.style?.display ?? getAttribute(elem, "style") ?? "";
+							return style.includes("none") ? "hidden" : "visible";
+						},
+						expected: (n: number) => (n === 999 ? "visible" : "hidden"),
+					},
+				];
+
+				for (const binding of bindings) {
+					it(`re-renders a reused row when its item is mutated in place (${binding.name})`, async () => {
+						// Issue #68: the row holds the very proxy the parent holds, so setting the loop
+						// variable again is a no-op and only the object's own mutation can wake the row.
+						const renderer = new ctor({ items: [{ id: 1, n: 100 }] });
+						const html = `<div :for="item in items" :key="item.id">${binding.markup}</div>`;
+						const fragment = renderer.parseHTML(html);
+						await renderer.mount(fragment);
+						await sleepForReactivity();
+
+						const row = getRows(fragment)[0];
+						assert.equal(binding.read(row), binding.expected(100));
+
+						// Mutate the item without changing its identity or its key.
+						renderer.$.items[0].n = 999;
+						await sleepForReactivity();
+
+						// Asserted on the row rather than on the fragment, so a row rendered twice
+						// fails here instead of passing on the concatenated text.
+						assert.equal(getRows(fragment).length, 1);
+						assert.equal(getRows(fragment)[0], row, "Row node should be reused");
+						assert.equal(binding.read(row), binding.expected(999));
+					});
+
+					it(`re-renders a reused row when the array is replaced with the same items (${binding.name})`, async () => {
+						// Handing the loop a fresh array of the same objects is the most common update
+						// in a mancha app, and the shape that hides a deep-mutation subscription leak.
+						const renderer = new ctor({ items: [{ id: 1, n: 100 }] });
+						const html = `<div :for="item in items" :key="item.id">${binding.markup}</div>`;
+						const fragment = renderer.parseHTML(html);
+						await renderer.mount(fragment);
+						await sleepForReactivity();
+
+						const row = getRows(fragment)[0];
+						assert.equal(binding.read(row), binding.expected(100));
+
+						// Mutate the item, then hand the loop a new array holding the same item refs.
+						const items = renderer.$.items as { id: number; n: number }[];
+						items[0].n = 999;
+						renderer.$.items = [...items];
+						await sleepForReactivity();
+
+						assert.equal(getRows(fragment).length, 1);
+						assert.equal(getRows(fragment)[0], row, "Row node should be reused");
+						assert.equal(binding.read(row), binding.expected(999));
+					});
+				}
+
+				it("re-renders a nested keyed row when the inner item is mutated in place", async () => {
+					const renderer = new ctor({
+						groups: [{ id: 0, kids: [{ id: 0, n: 1 }] }],
+					});
+					const html = `<div :for="g in groups" :key="g.id"><span :for="k in g.kids" :key="k.id" :text="k.n"></span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+					await sleepForReactivity();
+					await sleepForReactivity();
+
+					const groups = renderer.$.groups as { kids: { n: number }[] }[];
+					groups[0].kids[0].n = 7;
+					await sleepForReactivity();
+					await sleepForReactivity();
+
+					// Asserted on the row, so a duplicated inner row fails instead of passing.
+					const rows = getRows(fragment);
+					assert.equal(rows.length, 1);
+					assert.equal(getTextContent(rows[0])?.trim(), "7");
+				});
+
+				it("re-renders :data bindings when a shared object is mutated in place", async () => {
+					// The :data expression yields the same object reference on every reconciliation,
+					// so the reused row must be notified even though nothing changed identity.
+					const renderer = new ctor({ items: [{ id: 1, meta: { n: 100 } }] });
+					const html = `<div :for="item in items" :key="item.id" :data="{ m: item.meta }"><span :text="m.n"></span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+					await sleepForReactivity();
+
+					const row = getRows(fragment)[0];
+					assert.equal(getTextContent(row), "100");
+
+					renderer.$.items[0].meta.n = 999;
+					await sleepForReactivity();
+
+					assert.equal(getRows(fragment)[0], row, "Row node should be reused");
+					assert.equal(getTextContent(row), "999");
+				});
+
+				// Negative guard. It also holds on a build without the #68 fix, where the row is
+				// never woken at all, so what it documents is that the fix did not turn a dropped
+				// row into one that keeps rendering.
+				it("stops rendering a dropped row when its item is mutated later", async () => {
+					const renderer = new ctor({ items: [{ id: 1, n: 1 }] });
+					const html = `<div :for="item in items" :key="item.id"><span :text="item.n"></span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+					await sleepForReactivity();
+
+					const dropped = (renderer.$.items as { n: number }[])[0];
+					renderer.$.items = [];
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.equal(getTextContent(fragment as unknown as Element)?.trim(), "");
+
+					// The item outlives the row, but the disposed row must not react to it.
+					dropped.n = 99;
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.equal(getTextContent(fragment as unknown as Element)?.trim(), "");
+				});
+
+				it("disposes the subrenderers nested inside a dropped row", async () => {
+					// The inner :for creates a subrenderer per kid from the row's own subrenderer.
+					// Nothing but the row disposal can ever reach those.
+					let renders = 0;
+					const renderer = new ctor({
+						groups: [{ id: 0, kids: [{ id: 0, n: 1 }] }],
+						show: (n: number) => {
+							renders++;
+							return n;
+						},
+					});
+					const html = `<div :for="g in groups" :key="g.id"><span :for="k in g.kids" :key="k.id" :text="show(k.n)"></span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+					await sleepForReactivity();
+					await sleepForReactivity();
+
+					const kids = (renderer.$.groups as { kids: { n: number }[] }[])[0].kids;
+					renderer.$.groups = [];
+					await sleepForReactivity();
+					await sleepForReactivity();
+
+					const before = renders;
+					kids[0].n = 5;
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.equal(
+						renders,
+						before,
+						"Nested subrenderer should not render after its row is dropped",
+					);
+				});
+
+				it("renders a write-back that lands on an object woken earlier in the chain", async () => {
+					// The mutation wakes `obj`, one observer derives a scalar from it, and a second
+					// observer writes back to `obj`. That write is a new cascade, not a continuation
+					// of the one that woke the observer, so the binding has to see it. Suppressing
+					// it leaves the model and the DOM permanently disagreeing.
+					const renderer = new ctor({ obj: { n: 0, tag: "x" }, trigger: 0 });
+					const fragment = renderer.parseHTML(`<span :text="obj.tag"></span>`);
+					await renderer.mount(fragment);
+
+					renderer.effect(function (this: ReactiveContext) {
+						const trigger = this.trigger as number;
+						if (trigger > 0) (this.obj as { tag: string }).tag = `t${trigger}`;
+					});
+					renderer.effect(function (this: ReactiveContext) {
+						const n = (this.obj as { n: number }).n;
+						if (n > 0) this.trigger = n;
+					});
+					const settle = async () => {
+						for (let i = 0; i < 10; i++) await sleepForReactivity();
+					};
+					await settle();
+
+					(renderer.$.obj as { n: number }).n = 5;
+					await settle();
+
+					assert.equal((renderer.$.obj as { tag: string }).tag, "t5");
+					assert.equal(getTextContent(fragment), "t5");
+					renderer.dispose();
+				});
+
+				it("settles when a row expression writes back to its own item", async () => {
+					// Render counters and last-seen stamps write to the item they render. The write
+					// must not wake the row that made it, or the row renders forever.
+					let calls = 0;
+					const bump = (item: { n: number; renders?: number }) => {
+						calls++;
+						item.renders = (item.renders || 0) + 1;
+						return item.n;
+					};
+					const renderer = new ctor({ items: [{ id: 1, n: 100 }], bump });
+					const html = `<div :for="item in items" :key="item.id"><span :text="bump(item)"></span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+
+					// Bounded waits, so a cycle shows up as growth instead of hanging the suite.
+					const settle = async () => {
+						for (let i = 0; i < 10; i++) await sleepForReactivity();
+					};
+					await settle();
+					const settled = calls;
+					await settle();
+
+					// Stop the loop a regression would leave running, so this fails instead of hanging.
+					renderer.dispose();
+					assert.equal(calls, settled, "Row should stop re-rendering itself");
+					// Pinned, so a run that settles only after rendering the row many times fails
+					// here on the value instead of passing on stability alone.
+					assert.equal(settled, 2);
+					assert.equal(getTextContent(getRows(fragment)[0]), "100");
+				});
+
+				it("keeps rendering keyed rows that write to each other's items", async () => {
+					// Documents an accepted limitation. A row that stamps a sibling's item makes the
+					// sibling render, which stamps back: every pass produces a value neither row saw
+					// before, so there is no state this can settle into and no scheduling policy can
+					// make one. Other reactive systems raise a recursion error here; this one keeps
+					// going. Rows like these only looked harmless while #68 meant they never
+					// re-rendered at all.
+					//
+					// What this pins is that the churn stays confined: the rendered text remains
+					// correct throughout, and tearing the renderer down stops it rather than leaving
+					// a loop running. The observation window is a couple of debounce ticks, so a
+					// regression fails here instead of hanging the suite.
+					let calls = 0;
+					const bump = (item: { id: number; n: number }, all: { stamp?: number }[]) => {
+						calls++;
+						const other = all[1 - item.id];
+						other.stamp = (other.stamp || 0) + 1;
+						return item.n;
+					};
+					const items = [
+						{ id: 0, n: 10 },
+						{ id: 1, n: 11 },
+					];
+					const renderer = new ctor({ items, bump });
+					const html = `<div :for="item in items" :key="item.id"><span :text="bump(item, items)"></span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+
+					const settle = async () => {
+						for (let i = 0; i < 10; i++) await sleepForReactivity();
+					};
+					await settle();
+					const spun = calls;
+					await settle();
+					assert.ok(calls > spun, `Expected the rows to keep waking each other, stuck at ${calls}`);
+
+					// Disposing drops the subscriptions the rows hold, so only work already scheduled
+					// still runs. Bounded rather than exact: what matters is that it stops.
+					renderer.dispose();
+					const atDispose = calls;
+					await settle();
+					assert.ok(
+						calls - atDispose <= 10,
+						`Disposing should stop the loop, got ${calls - atDispose} more renders`,
+					);
+
+					assert.equal(getTextContent(getRows(fragment)[0]), "10");
+					assert.equal(getTextContent(getRows(fragment)[1]), "11");
+				});
+
+				it("stops waking rows that were dropped without being disposed", async () => {
+					// Nested :for builds a subrenderer per inner row. A subscription outliving the
+					// row, or a link left behind by an array the loop no longer holds, would make
+					// every later mutation reach further than the last.
+					const all = Array.from({ length: 12 }, (_, i) => ({
+						id: i,
+						kids: [
+							{ id: 0, n: i },
+							{ id: 1, n: i * 2 },
+						],
+					}));
+					// Every store woken by a mutation calls notify() once, so counting those calls
+					// measures how far a single mutation reaches. Counted through own properties on
+					// this renderer and, via subrenderer(), on every row it builds. Patching the
+					// shared prototype instead would leak the counter into every other test.
+					let notifies = 0;
+					let counting = false;
+					const instrument = (target: IRenderer): IRenderer => {
+						const notify = target.notify.bind(target);
+						target.notify = (key: string, ms?: number) => {
+							if (counting) notifies++;
+							return notify(key, ms);
+						};
+						const subrenderer = target.subrenderer.bind(target);
+						target.subrenderer = () => instrument(subrenderer());
+						return target;
+					};
+
+					const renderer = instrument(new ctor({ all, shown: all.slice(0, 3) }));
+					const html = `<div :for="item in shown" :key="item.id"><span :for="kid in item.kids" :key="kid.id" :text="kid.n"></span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+					await sleepForReactivity();
+
+					const costOfOneMutation = async (): Promise<number> => {
+						notifies = 0;
+						counting = true;
+						all[0].kids[0].n += 1;
+						await sleepForReactivity();
+						await sleepForReactivity();
+						counting = false;
+						return notifies;
+					};
+
+					try {
+						const before = await costOfOneMutation();
+						assert.ok(before > 0, "Counter saw no notify at all, so it measures nothing");
+						// Slide the window so every row is built and dropped several times over.
+						for (let cycle = 1; cycle <= 24; cycle++) {
+							renderer.$.shown = all.slice(cycle % 9, (cycle % 9) + 3);
+							await sleepForReactivity();
+						}
+						renderer.$.shown = all.slice(0, 3);
+						await sleepForReactivity();
+
+						// Links left by an array the loop no longer holds are dropped the next time
+						// the object is mutated, so the first mutation after the churn still pays for
+						// clearing them out. Steady-state cost is what has to stay flat, so measure
+						// the mutation after that one.
+						const draining = await costOfOneMutation();
+						const after = await costOfOneMutation();
+						assert.ok(
+							after <= before,
+							`Mutation cost grew from ${before} to ${after} after churn (${draining} while draining)`,
+						);
+					} finally {
+						renderer.dispose();
+					}
+				});
+
+				it("leaves untouched rows alone when another item is replaced", async () => {
+					let runs = 0;
+					const track = (item: { n: number }) => {
+						runs++;
+						return item.n;
+					};
+					const items = Array.from({ length: 20 }, (_, i) => ({ id: i, n: i }));
+					const renderer = new ctor({ items, track });
+					const html = `<div :for="item in items" :key="item.id"><span :text="track(item)"></span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+					await sleepForReactivity();
+
+					// Replacing one item is O(1): the other 19 rows keep their rendered output.
+					runs = 0;
+					renderer.$.items[0] = { id: 0, n: 999 };
+					await sleepForReactivity();
+					await sleepForReactivity();
+
+					assert.equal(runs, 1, "Only the replaced row should re-render");
+					assert.equal(getTextContent(getRows(fragment)[0]), "999");
+				});
+
+				it("preserves an untouched row's :html subtree when another item is replaced", async () => {
+					// :html rebuilds its children on every run, so a needless re-render is visible as
+					// a destroyed subtree: lost focus, lost scroll position, restarted transitions.
+					const renderer = new ctor({
+						items: [
+							{ id: 0, n: 0 },
+							{ id: 1, n: 1 },
+						],
+					});
+					const html = `<div :for="item in items" :key="item.id"><span :html="'<b>' + item.n + '</b>'"></span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+					await sleepForReactivity();
+
+					// :html replaces this child wholesale, so its identity tells us whether it ran.
+					const host = firstElementChild(getRows(fragment)[1]) as Element;
+					const subtree = host.firstChild;
+					assert.equal(getTextContent(host), "1");
+
+					renderer.$.items[0] = { id: 0, n: 999 };
+					await sleepForReactivity();
+					await sleepForReactivity();
+
+					assert.equal(host.firstChild, subtree, "Untouched row's subtree should not be rebuilt");
+					assert.equal(getTextContent(getRows(fragment)[0]), "999");
 				});
 			});
 		});

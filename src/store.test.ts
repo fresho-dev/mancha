@@ -1477,6 +1477,117 @@ describe("SignalStore", () => {
 			assert.ok(callCount < 10, `Expected < 10 calls, got ${callCount}`);
 		});
 
+		it("notifies every key holding a mutated object, not just the first one", async () => {
+			// A :for row holds the very proxy its parent installed, so both keys must hear the
+			// mutation even though the object is only wrapped once.
+			const parent = new SignalStore({ item: { n: 0 } });
+			const child = new SignalStore({ $parent: parent });
+			await child.set("row", parent.get("item"), true);
+
+			let parentCalls = 0;
+			let childCalls = 0;
+			parent.effect(function () {
+				parentCalls++;
+				return this.item.n;
+			});
+			child.effect(function () {
+				childCalls++;
+				return (this.row as { n: number }).n;
+			});
+			assert.equal(parentCalls, 1);
+			assert.equal(childCalls, 1);
+
+			(parent.$.item as { n: number }).n = 1;
+			await sleepForReactivity();
+
+			assert.equal(parentCalls, 2, "Owning key should be notified");
+			assert.equal(childCalls, 2, "Key holding the same object should be notified");
+		});
+
+		it("notifies a deep mutation in a cyclic object graph", async () => {
+			// Walking a cycle links each object to the other, so the fan-out has to stop at
+			// objects it already visited instead of recursing until the stack runs out. This
+			// also holds without the fan-out, where a nested object only ever wakes the key it
+			// was first reached through, so what it guards is the machinery, not the outcome.
+			const a: Record<string, unknown> = { name: "a" };
+			const b: Record<string, unknown> = { name: "b", a };
+			a.b = b;
+
+			const store = new SignalStore({ a });
+			let calls = 0;
+			store.effect(function () {
+				calls++;
+				const cycle = this.a as { b: { a: { b: { name: string } } } };
+				return cycle.b.a.b.name;
+			});
+			assert.equal(calls, 1);
+
+			(store.$.a as { b: { name: string } }).b.name = "b2";
+			await sleepForReactivity();
+
+			assert.equal(calls, 2, "Mutation through a cycle should notify once");
+			assert.equal((store.$.a as { b: { name: string } }).b.name, "b2");
+		});
+
+		it("stops notifying a key once it holds a different object", async () => {
+			const store = new SignalStore({ item: { n: 0 } });
+			const replaced = store.get("item") as { n: number };
+
+			let calls = 0;
+			store.effect(function () {
+				calls++;
+				return this.item.n;
+			});
+
+			await store.set("item", { n: 10 });
+			await sleepForReactivity();
+			assert.equal(calls, 2);
+
+			// The old object is no longer on any key, so mutating it must not notify.
+			replaced.n = 99;
+			await sleepForReactivity();
+			assert.equal(calls, 2, "Replaced object should no longer notify");
+		});
+
+		it("restores a pruned link on the next read of the path", async () => {
+			// Dropping the link to an unreachable enclosing object is what bounds the holder
+			// set, and it is safe because reading the path puts the link back - reading is how
+			// a key comes to hold a nested object at all. `set()` is the one caller that
+			// subscribes a key to a value without reading through it, so re-setting a key to an
+			// object it previously replaced leaves the link missing until something reads the
+			// path. Templates never see this: a binding that wants the notification depends on
+			// the container key, so the re-set re-renders and re-links it first.
+			const store = new SignalStore({ a: { inner: { n: 0 } } });
+			const container = store.get("a") as { inner: { n: number } };
+			const inner = container.inner;
+
+			let notifications = 0;
+			store.watch("a", () => {
+				notifications++;
+			});
+
+			// Replacing `a` leaves the original container unreachable, and the next mutation of
+			// `inner` walks the link to it and drops it.
+			await store.set("a", { inner: { n: 0 } });
+			await sleepForReactivity();
+			inner.n = 1;
+			await sleepForReactivity();
+
+			// `a` holds the original container again, but nothing has re-read `a.inner`.
+			await store.set("a", container);
+			await sleepForReactivity();
+			const beforeReset = notifications;
+			inner.n = 2;
+			await sleepForReactivity();
+			assert.equal(notifications, beforeReset, "Known gap: the pruned link is still gone");
+
+			// One read of the path is enough to restore it.
+			void container.inner;
+			inner.n = 3;
+			await sleepForReactivity();
+			assert.equal(notifications, beforeReset + 1, "Reading the path should re-link");
+		});
+
 		it("handles array mutations inside effects without loops", async () => {
 			let callCount = 0;
 
@@ -2550,6 +2661,44 @@ describe("SignalStore", () => {
 			const statsAfter = store.getObserverStats();
 			assert.equal(statsAfter.totalObservers, 0);
 			assert.equal(statsAfter.totalKeys, 0);
+		});
+
+		it("does not run observers of a store disposed before the deadline", async () => {
+			const parent = new SignalStore({ count: 0 });
+			const child = new SignalStore({ $parent: parent });
+
+			let childCalls = 0;
+			child.effect(function () {
+				childCalls++;
+				return this.count;
+			});
+			assert.equal(childCalls, 1);
+
+			// The run is scheduled with this observer already captured, then the store goes away.
+			parent.set("count", 1);
+			child.dispose();
+			await sleepForReactivity();
+
+			assert.equal(childCalls, 1, "Observer of a disposed store should not run");
+		});
+
+		it("stops notifying a disposed store when its object is mutated", async () => {
+			const parent = new SignalStore({ item: { n: 0 } });
+			const child = new SignalStore({ $parent: parent });
+			await child.set("row", parent.get("item"), true);
+
+			let childCalls = 0;
+			child.effect(function () {
+				childCalls++;
+				return (this.row as { n: number }).n;
+			});
+			assert.equal(childCalls, 1);
+
+			child.dispose();
+			(parent.$.item as { n: number }).n = 1;
+			await sleepForReactivity();
+
+			assert.equal(childCalls, 1, "Disposed store should no longer subscribe to the object");
 		});
 
 		it("clears observers registered on ancestor stores", async () => {
