@@ -620,9 +620,13 @@ Custom values support pseudo-states, responsive breakpoints, and dark mode:
 <div class="hover:w-[200px] md:max-w-[900px] dark:bg-[#333]">
 ```
 
-### Limitations
+### Binding
 
-Rules are injected as classes appear, so custom values work in the `class` attribute and in `:class` alike, including values that only show up after a state change.
+Rules are injected as Mancha renders the classes, so custom values work in the `class` attribute and in `:class` alike, including values that only appear after a state change.
+
+Markup that Mancha did not render is the exception: it is never scanned, so call `scanAndInject(root)` after inserting it yourself.
+
+### Limitations
 
 **Browser only**: Custom values require the CSSStyleSheet API and are not available in Worker or SSR environments.
 

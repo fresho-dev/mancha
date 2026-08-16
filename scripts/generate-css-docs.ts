@@ -573,9 +573,12 @@ function generateMarkdown() {
 	md += "```html\n";
 	md += '<div class="hover:w-[200px] md:max-w-[900px] dark:bg-[#333]">\n';
 	md += "```\n\n";
-	md += "### Limitations\n\n";
+	md += "### Binding\n\n";
 	md +=
-		"Rules are injected as classes appear, so custom values work in the `class` attribute and in `:class` alike, including values that only show up after a state change.\n\n";
+		"Rules are injected as Mancha renders the classes, so custom values work in the `class` attribute and in `:class` alike, including values that only appear after a state change.\n\n";
+	md +=
+		"Markup that Mancha did not render is the exception: it is never scanned, so call `scanAndInject(root)` after inserting it yourself.\n\n";
+	md += "### Limitations\n\n";
 	md +=
 		"**Browser only**: Custom values require the CSSStyleSheet API and are not available in Worker or SSR environments.\n\n";
 	md += "### When to Use\n\n";
