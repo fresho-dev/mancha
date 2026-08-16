@@ -9,6 +9,9 @@ import { SAFE_DATA_ATTRIBS, TRUSTED_ATTRIBS } from "./trusted_attributes.js";
  * directive and custom tag from a template. Directives become `data-*` and
  * custom tags become `div` with a role, both of which survive; the renderer
  * reads either spelling.
+ *
+ * Only the first custom element in a fragment survives the rewrite, and the
+ * substitution is textual, so a literal directive inside text is rewritten too.
  */
 export function prepareForSanitizer(content: string): string {
 	// Directives: :text => data-text, :on:click => data-on-click.
@@ -40,22 +43,27 @@ export function prepareForSanitizer(content: string): string {
 	return content;
 }
 
-/** Build the sanitizer used for untrusted template content. */
-function buildSanitizer() {
-	return new HtmlSanitizerBuilder()
-		.allowDataAttributes(SAFE_DATA_ATTRIBS)
-		.allowClassAttributes()
-		.allowStyleAttributes()
-		.build();
-}
+/**
+ * The sanitizer used for semi-trusted template content. Built once: the
+ * configuration is fixed, and parsing happens on every render.
+ *
+ * Note this deliberately preserves the `data-*` directives the renderer
+ * evaluates, so it strips markup-level script injection but is NOT a
+ * code-execution boundary. See docs/02_initialization.md.
+ */
+const sanitizer = new HtmlSanitizerBuilder()
+	.allowDataAttributes(SAFE_DATA_ATTRIBS)
+	.allowClassAttributes()
+	.allowStyleAttributes()
+	.build();
 
-/** Sanitize untrusted content into a document fragment. */
+/** Sanitize semi-trusted content into a document fragment. */
 export function sanitizeToFragment(content: string): DocumentFragment {
-	return buildSanitizer().sanitizeToFragment(prepareForSanitizer(content));
+	return sanitizer.sanitizeToFragment(prepareForSanitizer(content));
 }
 
-/** Sanitize untrusted content into a full document. */
+/** Sanitize semi-trusted content into a full document. */
 export function sanitizeToDocument(content: string): Document {
-	const sanitized = buildSanitizer().sanitize(prepareForSanitizer(content));
+	const sanitized = sanitizer.sanitize(prepareForSanitizer(content));
 	return safeDomParser.parseFromString(new DOMParser(), sanitized, "text/html");
 }

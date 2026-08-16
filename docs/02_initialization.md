@@ -424,34 +424,53 @@ This table summarizes all initialization methods and when to use them:
 </html>
 ```
 
-## Sanitizing Untrusted Templates
+## Sanitizing Semi-Trusted Templates
 
-Templates are parsed as-is by default. If a template comes from an untrusted
-source, pass `sanitize: true` in the parser params to strip scripts, event
-handler attributes, and anything else the sanitizer does not recognize:
+> **This does not make a hostile template safe.** Sanitizing strips scripts and
+> inline event handlers, but a template you parse is still a *program*: mancha
+> evaluates its directives. A hostile template can run arbitrary JavaScript
+> through `:text`, `{{ }}`, `:data`, `:on:*`, `:html`, `:render`, or
+> `<include>`, all of which survive sanitization by design. Treat this as
+> defense in depth for content you mostly trust — a CMS field, a partner's
+> fragment — never as a boundary against an attacker.
+
+Templates are parsed as-is by default. Passing `sanitize: true` removes script
+tags, inline handler attributes such as `onclick`, and any element or attribute
+outside the allowed set:
 
 ```ts
-const renderer = new Renderer();
-const fragment = renderer.parseHTML(untrustedHtml, { sanitize: true });
+const renderer = new Renderer({ greeting: "hello" });
+const fragment = await renderer.preprocessString(templateHtml, { sanitize: true });
+container.appendChild(fragment);
 await renderer.mount(container);
 ```
 
-Sanitizing is opt-in because it removes markup that ordinary templates depend
-on. Before turning it on, note what changes:
+Prefer `preprocessString` over `parseHTML` here. `sanitize` is a parser param,
+and only `preprocessString` carries it into the content pulled in by
+`<include>`; with `parseHTML` plus `mount`, includes are fetched and parsed
+unsanitized.
+
+### What sanitizing costs
+
+It is opt-in because it is lossy. Verified behavior:
 
 - **`id` attributes are dropped.** Templates that hook elements by id do not
-  survive sanitization. `class`, `title`, and allowed `data-*` attributes do.
+  survive. `class`, `title`, and allowed `data-*` attributes do.
+- **Form and graphic elements are dropped entirely**, including their content:
+  `form`, `input`, `textarea`, `button`, `label`, `svg`, `iframe`, and `style`.
+  Sanitized templates have no form controls, so `:bind` has nothing to bind to.
 - **Directives are rewritten** to their `data-*` form (`:text` becomes
-  `data-text`). The renderer reads either spelling, so this is transparent
-  unless your own code inspects attribute names.
+  `data-text`). The renderer reads either spelling.
 - **`<include>`, `<template is>`, and custom element tags are rewritten** to
-  `link` and `div` equivalents so the sanitizer preserves them.
+  `link` and `div` equivalents. Only the first custom element in a fragment
+  survives this rewrite; templates with several are mangled.
 - **Property and attribute directives are restricted** to the trusted list, so
-  bindings such as `:prop:*` on arbitrary properties are not carried through.
+  `:prop:*` and `:attr:*` on arbitrary names do not survive.
+- **The rewrite is textual**, so a literal `:text="x"` inside a text node,
+  `<pre>`, or an attribute value is rewritten too.
 
-Sanitizing applies to parsing only. Values written later by a binding — for
-example `:html` with untrusted state — are not covered; sanitize that data
-before putting it into the store.
+Sanitizing applies to parsing only. Values written later by a binding are never
+covered, whether they come from the store or from a literal in the template.
 
 > The separate `safe_browser` renderer is deprecated. It now just preselects
 > this flag, so use the standard `Renderer` with `sanitize: true` instead.

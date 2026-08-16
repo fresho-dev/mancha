@@ -76,6 +76,45 @@ describe("Browser", () => {
 			target.remove();
 		});
 
+		it("does NOT stop expression evaluation, which is the documented boundary", async () => {
+			// Sanitizing keeps directives on purpose, and the renderer evaluates
+			// them, so a hostile template still runs code. Pinned so nobody can
+			// mistake this option for a defense against untrusted input.
+			const flag = "__mancha_sanitize_boundary__";
+			(globalThis as Record<string, unknown>)[flag] = undefined;
+
+			const renderer = new Renderer();
+			const fragment = renderer.parseHTML(`<div :text="globalThis['${flag}'] = 'ran'"></div>`, {
+				rootDocument: false,
+				sanitize: true,
+			});
+			const target = document.createElement("div");
+			target.appendChild(fragment);
+			document.body.appendChild(target);
+			await renderer.mount(target);
+			target.remove();
+
+			assert.equal(
+				(globalThis as Record<string, unknown>)[flag],
+				"ran",
+				"Sanitizing is not a code-execution boundary; update the docs if this changes",
+			);
+			delete (globalThis as Record<string, unknown>)[flag];
+		});
+
+		it("carries sanitize through preprocessString, the documented entry point", async () => {
+			// parseHTML alone does not reach include content; preprocessString does.
+			const renderer = new Renderer();
+			const fragment = await renderer.preprocessString(`<div>ok</div><script>noop();</script>`, {
+				rootDocument: false,
+				sanitize: true,
+			});
+			const target = document.createElement("div");
+			target.appendChild(fragment);
+			assert.ok(!target.innerHTML.includes("script"), `Should drop script: ${target.innerHTML}`);
+			assert.ok(target.innerHTML.includes("ok"), `Should keep markup: ${target.innerHTML}`);
+		});
+
 		it("leaves markup untouched when sanitize is not requested", () => {
 			// Sanitizing by default would break existing templates, so it is opt-in.
 			const renderer = new Renderer();
