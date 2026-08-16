@@ -83,7 +83,14 @@ function isComputedMarker<T>(value: unknown): value is ComputedMarker<T> {
 /**
  * How long observers wait after a key is written before they run. Writes arriving
  * during that window are free: they join the already-scheduled run instead of
- * postponing it, so a key written continuously still notifies every this often.
+ * postponing it, so a key written continuously is never starved. Its cadence is the
+ * gap between writes plus this, not this on its own.
+ *
+ * This is a floor on every update, isolated writes included, and that is deliberate.
+ * A shorter window lets a frame boundary fall between a transient value and the write
+ * that corrects it, so the renderer paints states the user was never meant to see;
+ * measured at 15-30% of trials with the window at zero, against none at 10ms. See
+ * https://github.com/fresho-dev/mancha/issues/67 for the measurements.
  */
 export const REACTIVE_DEBOUNCE_MILLIS = 10;
 
