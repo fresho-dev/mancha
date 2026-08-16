@@ -227,6 +227,32 @@ describe("Browser", () => {
 			for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
 		});
 
+		it("injects a plain custom value from :class that no tree scan can see", async () => {
+			const initialCount = document.head.querySelectorAll("style").length;
+			injectCss(["utils"]);
+
+			// The :if placeholder keeps this element out of the document while the
+			// end-of-mount scan runs, so the :class effect is the only thing that
+			// can inject the rule. Asserting it at mount time instead would pass
+			// even with :class injection removed, since the scan sees the class.
+			const renderer = new Renderer({ show: false });
+			const fragment = renderer.parseHTML(
+				`<div id="clsonly"><span :if="show" :class="'w-[501px]'"></span></div>`,
+			);
+			const target = fragment.querySelector("#clsonly") as Element;
+			document.body.appendChild(target);
+			await renderer.mount(target);
+
+			assert.ok(
+				findCustomRule("width: 501px"),
+				"Should inject w-[501px] from the :class effect alone",
+			);
+
+			target.remove();
+			const styles = document.head.querySelectorAll("style");
+			for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
+		});
+
 		it("does not inject on-demand rules from mount unless utils CSS was injected", async () => {
 			// No injectCss() call: apps using their own CSS should be left alone.
 			const renderer = new Renderer();
