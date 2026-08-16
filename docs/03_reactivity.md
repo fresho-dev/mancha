@@ -216,6 +216,18 @@ callback and keep the value out of the store.
 > tail is indistinguishable from an outside write and will re-trigger that
 > observer in a loop.
 
+A chain of observers that never settles — each run producing values that wake the
+next, indefinitely — is reported on the console once, naming the key the chain was
+last on. Nothing is stopped: a chain that is merely long cannot be told apart from
+one that never ends, so cutting it off would leave correct code half-rendered.
+
+The report needs a chain to be both older than half a second and more than twenty
+runs deep, so neither a handful of slow observers nor a wide update reaching many
+keys at once will produce one. Ordinary rendering is nowhere near either bound —
+replacing a list of 240 rows settles in about 60ms and six passes — but a chain
+that genuinely needs hundreds of sequential passes will be reported even though it
+terminates. Restructure it, or ignore the line.
+
 ## Computed Values
 
 Computed values are derived values that automatically update when their dependencies change. Use `$computed` to create a named reactive value that recalculates whenever the values it depends on are modified.

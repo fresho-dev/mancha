@@ -1,4 +1,4 @@
-import { REACTIVE_DEBOUNCE_MILLIS, SignalStore } from "./store.js";
+import { REACTIVE_CASCADE_BUDGET_MILLIS, REACTIVE_DEBOUNCE_MILLIS, SignalStore } from "./store.js";
 import { assert, REACTIVE_SLEEP_MS, sleepForReactivity } from "./test_utils.js";
 
 describe("SignalStore", () => {
@@ -1368,6 +1368,10 @@ describe("SignalStore", () => {
 			// Multiple notifications may fire due to a and b being different keys,
 			// but it should be bounded, not infinite.
 			assert.ok(callCount < 20, `Expected < 20 calls, got ${callCount}`);
+
+			// `a` and `b` wake each other, so the cascade outlives the assertion and would
+			// otherwise keep running through the tests that follow.
+			store.dispose();
 		});
 
 		it("prevents infinite loop when variable updates itself inside observer", async () => {
@@ -2744,6 +2748,146 @@ describe("SignalStore", () => {
 				observerCalls > 0,
 				`Observer never ran during ${writes} writes over ${DURATION_MS}ms. ` +
 					"A continuously-written key is being starved by its own updates.",
+			);
+		});
+	});
+
+	describe("non-convergent cascade diagnostic", () => {
+		// Chains here always terminate. A real runaway never stops, and the suite runs without
+		// `--exit`, so a test that spun one would hang CI rather than fail it. Two things make
+		// a chain sequential rather than collapsing into one debounce window: distinct keys per
+		// hop, because a write an observer makes to the key it observes is discarded; and
+		// letting the keys' own initial runs land first, because a hop that joins a run already
+		// pending for its key rides that window instead of opening one. Measured at ~11ms per
+		// hop, so `hops` converts directly into how long the chain runs for.
+		const HOP_MILLIS = REACTIVE_DEBOUNCE_MILLIS;
+
+		const runChain = async (hops: number, noiseMillis?: number): Promise<string[]> => {
+			const state: Record<string, number> = { noise: 0 };
+			for (let hop = 0; hop <= hops; hop++) state[`step${hop}`] = 0;
+			const store = new SignalStore(state);
+			for (let i = 0; i < 3; i++) await sleepForReactivity();
+
+			const warnings: string[] = [];
+			const original = console.warn;
+			console.warn = (...args: unknown[]) => warnings.push(args.join(" "));
+
+			// An unrelated key written throughout, which is what defeated the per-key counter
+			// removed in #74: chain identity established at the point a write arrived meant any
+			// clock tick or poll result minted a fresh one and reset the counters.
+			const noise = noiseMillis
+				? setInterval(() => void store.set("noise", Math.random()), noiseMillis)
+				: undefined;
+
+			try {
+				let settled: () => void = () => {};
+				const finished = new Promise<void>((resolve) => {
+					settled = resolve;
+				});
+				for (let hop = 0; hop < hops; hop++) {
+					store.watch(`step${hop}`, () => {
+						if (hop === hops - 1) settled();
+						else void store.set(`step${hop + 1}`, hop + 1);
+					});
+				}
+				void store.set("step0", 1);
+				await finished;
+				for (let i = 0; i < 3; i++) await sleepForReactivity();
+			} finally {
+				if (noise) clearInterval(noise);
+				console.warn = original;
+				store.dispose();
+			}
+			return warnings.filter((warning) => warning.includes("cascade"));
+		};
+
+		it("reports a chain that outlives the budget, once, naming the key", async () => {
+			// Two and a half budgets' worth of hops, so a machine slower than the one this was
+			// written on reports sooner rather than not at all.
+			const reports = await runChain(
+				Math.ceil((REACTIVE_CASCADE_BUDGET_MILLIS * 2.5) / HOP_MILLIS),
+			);
+
+			assert.equal(reports.length, 1, `Expected one report, got ${reports.length}`);
+			assert.ok(
+				/'step\d+'/.test(reports[0]),
+				`The report should name the key the chain was on: ${reports[0]}`,
+			);
+		});
+
+		it("is not hidden by unrelated writes arriving throughout", async () => {
+			const reports = await runChain(
+				Math.ceil((REACTIVE_CASCADE_BUDGET_MILLIS * 2.5) / HOP_MILLIS),
+				REACTIVE_DEBOUNCE_MILLIS * 2,
+			);
+
+			assert.equal(
+				reports.length,
+				1,
+				"A write to an unrelated key hid the cascade, or split it into several reports",
+			);
+		});
+
+		it("stays quiet on a chain that settles inside the budget", async () => {
+			// The other half of #74's evidence: a correct chain that legitimately needs several
+			// sequential passes must not be reported. A quarter of the budget, so this does not
+			// turn into a false failure on a loaded machine.
+			const hops = Math.floor(REACTIVE_CASCADE_BUDGET_MILLIS / 4 / HOP_MILLIS);
+
+			assert.deepEqual(
+				await runChain(hops),
+				[],
+				`A chain of ${hops} passes that terminated was reported`,
+			);
+		});
+
+		it("stays quiet on a few slow runs, however long they take on the clock", async () => {
+			// Age alone is not evidence. A handful of expensive observers, or a background tab
+			// where timers are clamped to the second, puts a short chain well past the budget
+			// on wall clock without it being a runaway.
+			// Four hops at half a budget each, so two of the runs are reached with the chain
+			// already past the budget on the clock. Three would settle before any check saw it,
+			// and the test would pass whether the guard was there or not.
+			const SLOW_HOPS = 4;
+			const BLOCK_MILLIS = Math.ceil(REACTIVE_CASCADE_BUDGET_MILLIS / 2);
+			const state: Record<string, number> = {};
+			for (let hop = 0; hop <= SLOW_HOPS; hop++) state[`slow${hop}`] = 0;
+			const store = new SignalStore(state);
+			for (let i = 0; i < 3; i++) await sleepForReactivity();
+
+			const warnings: string[] = [];
+			const original = console.warn;
+			console.warn = (...args: unknown[]) => warnings.push(args.join(" "));
+
+			try {
+				let settled: () => void = () => {};
+				const finished = new Promise<void>((resolve) => {
+					settled = resolve;
+				});
+				for (let hop = 0; hop < SLOW_HOPS; hop++) {
+					store.watch(`slow${hop}`, () => {
+						// Blocking rather than awaiting: the clock has to advance inside the run,
+						// where a chain that is genuinely working would spend it.
+						const until = Date.now() + BLOCK_MILLIS;
+						while (Date.now() < until) {
+							// Deliberately empty: burning wall clock is the point.
+						}
+						if (hop === SLOW_HOPS - 1) settled();
+						else void store.set(`slow${hop + 1}`, hop + 1);
+					});
+				}
+				void store.set("slow0", 1);
+				await finished;
+				for (let i = 0; i < 3; i++) await sleepForReactivity();
+			} finally {
+				console.warn = original;
+				store.dispose();
+			}
+
+			assert.deepEqual(
+				warnings.filter((warning) => warning.includes("cascade")),
+				[],
+				`${SLOW_HOPS} runs spanning over ${REACTIVE_CASCADE_BUDGET_MILLIS}ms were reported`,
 			);
 		});
 	});

@@ -94,6 +94,95 @@ function isComputedMarker<T>(value: unknown): value is ComputedMarker<T> {
  */
 export const REACTIVE_DEBOUNCE_MILLIS = 10;
 
+/**
+ * How long one causal chain of observer runs may keep producing runs before it is reported
+ * as non-convergent. Ordinary rendering settles in a fraction of this: a deep mutation is
+ * 13ms, a whole list replaced is 45ms, and growing a list to 240 rows is 62ms, all measured
+ * to the last DOM mutation. Nothing legitimate is anywhere near it, and a runaway is
+ * unbounded, so the exact value mostly decides how quickly the report arrives.
+ *
+ * The one thing it does trade: a chain that genuinely needs hundreds of sequential passes
+ * terminates, but not inside this, so it is reported. That shape was measured at 1.65s in
+ * #74. Reporting it is a stray console line, which is the cost of the report arriving in
+ * half a second rather than five.
+ */
+export const REACTIVE_CASCADE_BUDGET_MILLIS = 500;
+
+/** `performance.now()` where it exists, so an NTP step backwards cannot stall a report. */
+function monotonicNow(): number {
+	return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+
+/**
+ * How many runs a chain must have produced before its age counts against it. Wall clock
+ * alone would misread a short chain in a background tab, where timers are clamped to a
+ * second or more and six legitimate waves can span a minute. Ordinary rendering settles in
+ * a handful of waves, so a chain this deep is already anomalous whatever the clock says.
+ */
+const REACTIVE_CASCADE_MIN_RUNS = 20;
+
+/** One causal chain of observer runs: an outside write, and everything it wakes. */
+interface Cascade {
+	readonly startedAt: number;
+	runs: number;
+	reported: boolean;
+}
+
+/**
+ * The chain whose observers are running, for exactly as long as they are running. Set
+ * around a synchronous call and restored after it, so it is a dynamic scope rather than
+ * state two stores could see each other through.
+ */
+let runningCascade: Cascade | null = null;
+
+/**
+ * The chain a run scheduled at this moment belongs to: the one whose observer is doing the
+ * scheduling, or a new one if the write came from outside. Carrying identity this way,
+ * rather than counting passes against a key, is what stops an unrelated write -- a clock
+ * tick, a poll result, a bound input -- from minting a fresh chain over the top of a
+ * runaway and hiding it.
+ */
+function currentCascade(): Cascade {
+	return runningCascade ?? { startedAt: monotonicNow(), runs: 0, reported: false };
+}
+
+/**
+ * Runs `body` as part of `cascade`, so anything it schedules joins that chain, and reports
+ * the chain if it has now outlived its budget. `body` must be synchronous: an awaited tail
+ * would let another chain's runs interleave and be attributed here.
+ *
+ * Reporting never truncates. A chain that is merely long cannot be told apart from one that
+ * never ends, so cutting one off would leave correct programs silently half-rendered, which
+ * is worse than the loop.
+ */
+function runInCascade<T>(cascade: Cascade, key: string, body: () => T): T {
+	// Checked before the body rather than after, so the chain is reported the moment it is
+	// known to have outlived its budget and still be going.
+	cascade.runs++;
+	if (
+		!cascade.reported &&
+		cascade.runs > REACTIVE_CASCADE_MIN_RUNS &&
+		monotonicNow() - cascade.startedAt > REACTIVE_CASCADE_BUDGET_MILLIS
+	) {
+		cascade.reported = true;
+		console.warn(
+			`[mancha] A reactive cascade has been running for over ` +
+				`${REACTIVE_CASCADE_BUDGET_MILLIS}ms without settling, and is now running the ` +
+				`observers of '${key}'. Something they write wakes them again, so this will not ` +
+				"stop on its own. Rendering continues; see " +
+				"https://github.com/fresho-dev/mancha/issues/75",
+		);
+	}
+
+	const enclosing = runningCascade;
+	runningCascade = cascade;
+	try {
+		return body();
+	} finally {
+		runningCascade = enclosing;
+	}
+}
+
 /** An observer run that has been scheduled but has not started yet. */
 interface PendingRun {
 	/** Resolves once the run has finished, so writes that join it can be awaited. */
@@ -500,6 +589,12 @@ export class SignalStore<T extends StoreState = StoreState> {
 			return scheduled.done;
 		}
 
+		// Captured here, in the writer's own synchronous context, so a write made by an
+		// observer joins the chain that observer belongs to and an outside write starts a
+		// new one. Read at run time it would always be a new one, the timer having put a
+		// task boundary in between.
+		const cascade = currentCascade();
+
 		const done = new Promise<void>((resolve) => {
 			setTimeout(async () => {
 				this._pending.delete(key);
@@ -512,7 +607,7 @@ export class SignalStore<T extends StoreState = StoreState> {
 					// whose body writes its own key from rescheduling itself forever.
 					// A self-write from an observer's awaited tail is indistinguishable
 					// from an outside one, so that remains a cycle the caller must avoid.
-					const running = this.runObservers(entries);
+					const running = runInCascade(cascade, key, () => this.runObservers(entries));
 					this._dirty.delete(key);
 
 					// Anything recorded from here on arrived from outside, and is honored.
@@ -522,6 +617,16 @@ export class SignalStore<T extends StoreState = StoreState> {
 
 					// Flush any write that arrived while the observers were awaiting. In the
 					// finally block so a throwing observer still can't swallow the write.
+					//
+					// Deliberately outside the cascade: a write recorded here is as likely to
+					// be a click or a poll result as an observer's own awaited tail, and the
+					// two are indistinguishable. Following it would let an outside write
+					// arriving mid-run extend a chain that is behaving, so a self-write loop
+					// through an observer's asynchronous tail goes unreported rather than
+					// risk reporting correct code. That loop is the one `docs/03_reactivity.md`
+					// already tells callers to avoid; the chain that is followed only ever
+					// grows through writes an observer's synchronous body made, which are
+					// unambiguous.
 					if (this._dirty.delete(key)) void this.notify(key, debounceMillis);
 				}
 
