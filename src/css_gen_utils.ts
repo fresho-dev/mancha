@@ -14,10 +14,11 @@ export const UNITS_ALL = [
 export const PERCENTS = Array.from({ length: 20 }, (_, i) => (i + 1) * 5);
 export const COLOR_OPACITY_MODIFIERS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 export const DURATIONS = [25, 50, 75, 100, 150, 200, 300, 500, 700, 1000];
-export const PROPS_SPACING = {
-	margin: "m",
-	padding: "p",
-};
+// Margin and padding share a shape but not a value grammar: margin takes
+// negatives and `auto`, padding takes neither.
+export const PROPS_MARGIN = { margin: "m" };
+export const PROPS_PADDING = { padding: "p" };
+export const PROPS_SPACING = { ...PROPS_MARGIN, ...PROPS_PADDING };
 export const PROPS_SIZING = {
 	width: "w",
 	height: "h",
@@ -658,29 +659,55 @@ function wrap(pairs: string[][]): string[] {
 	return pairs.map(([klass, rule]) => `.${klass} { ${rule} }`);
 }
 
-function posneg(props: { [key: string]: string }): string[] {
+// Which value forms a property actually accepts. Negative lengths are legal for
+// margins and positional offsets only; `auto` is legal everywhere except
+// padding. Generating the rest anyway left rules the browser parsed and then
+// discarded, so they cost bytes and matched nothing.
+const SIGNS_ANY = ["", "-"];
+const SIGNS_POSITIVE = [""];
+
+function posneg(props: { [key: string]: string }, signs: string[] = SIGNS_ANY): string[] {
 	return wrap(
 		Object.entries(props).flatMap(([prop, klass]) => [
 			[`${klass}-0`, `${prop}: 0`],
 			[`${klass}-screen`, `${prop}: 100v${prop.includes("height") ? "h" : "w"}`],
 			[`${klass}-full`, `${prop}: 100%`],
-			...UNITS_ALL.map((v) => [`${klass}-${v}`, `${prop}: ${v * REM_UNIT}rem`]),
-			...UNITS_ALL.map((v) => [`-${klass}-${v}`, `${prop}: -${v * REM_UNIT}rem`]),
-			...UNITS_ALL.map((v) => [`${klass}-${v}px`, `${prop}: ${v}px`]),
-			...UNITS_ALL.map((v) => [`-${klass}-${v}px`, `${prop}: -${v}px`]),
-			...PERCENTS.map((v) => [`${klass}-${v}\\%`, `${prop}: ${v}%`]),
-			...PERCENTS.map((v) => [`-${klass}-${v}\\%`, `${prop}: -${v}%`]),
+			...signs.flatMap((sign) => [
+				...UNITS_ALL.map((v) => [`${sign}${klass}-${v}`, `${prop}: ${sign}${v * REM_UNIT}rem`]),
+				...UNITS_ALL.map((v) => [`${sign}${klass}-${v}px`, `${prop}: ${sign}${v}px`]),
+				...PERCENTS.map((v) => [`${sign}${klass}-${v}\\%`, `${prop}: ${sign}${v}%`]),
+			]),
 			...MEDIA_ENTRIES.map(([bp, width]) => [`${klass}-${bp}`, `${prop}: ${width}px`]),
 		]),
 	);
 }
 
-function autoxy(props: { [key: string]: string }): string[] {
+/** `auto` shorthand, for properties that accept it. */
+function autoShorthand(props: { [key: string]: string }): string[] {
+	return wrap(Object.entries(props).map(([prop, klass]) => [`${klass}-auto`, `${prop}: auto`]));
+}
+
+/** `auto` on each axis and side, for properties with longhands that accept it. */
+function autoSides(props: { [key: string]: string }): string[] {
 	return wrap(
 		Object.entries(props).flatMap(([prop, klass]) => [
-			[`${klass}-auto`, `${prop}: auto`],
 			[`${klass}x-auto`, `${prop}-left: auto; ${prop}-right: auto;`],
 			[`${klass}y-auto`, `${prop}-top: auto; ${prop}-bottom: auto;`],
+			[`${klass}t-auto`, `${prop}-top: auto`],
+			[`${klass}b-auto`, `${prop}-bottom: auto`],
+			[`${klass}l-auto`, `${prop}-left: auto`],
+			[`${klass}r-auto`, `${prop}-right: auto`],
+		]),
+	);
+}
+
+/**
+ * Axis (x/y) split, for properties with -left/-right/-top/-bottom longhands.
+ * Width and height have none, so they are not eligible.
+ */
+function axis(props: { [key: string]: string }): string[] {
+	return wrap(
+		Object.entries(props).flatMap(([prop, klass]) => [
 			[`${klass}x-0`, `${prop}-left: 0; ${prop}-right: 0;`],
 			[`${klass}y-0`, `${prop}-top: 0; ${prop}-bottom: 0;`],
 			...UNITS_ALL.map((v) => [
@@ -699,18 +726,14 @@ function autoxy(props: { [key: string]: string }): string[] {
 	);
 }
 
-function tblr(props: { [key: string]: string }): string[] {
+function tblr(props: { [key: string]: string }, signs: string[] = SIGNS_ANY): string[] {
 	return wrap(
 		Object.entries(props).flatMap(([prop, klass]) => [
 			[`${klass}t-0`, `${prop}-top: 0`],
 			[`${klass}b-0`, `${prop}-bottom: 0`],
 			[`${klass}l-0`, `${prop}-left: 0`],
 			[`${klass}r-0`, `${prop}-right: 0`],
-			[`${klass}t-auto`, `${prop}-top: auto`],
-			[`${klass}b-auto`, `${prop}-bottom: auto`],
-			[`${klass}l-auto`, `${prop}-left: auto`],
-			[`${klass}r-auto`, `${prop}-right: auto`],
-			...["", "-"].flatMap((sign) => [
+			...signs.flatMap((sign) => [
 				...UNITS_ALL.map((v) => [
 					`${sign}${klass}t-${v}`,
 					`${prop}-top: ${sign}${v * REM_UNIT}rem`,
@@ -927,17 +950,21 @@ export default function rules(): string {
 		...transitions(),
 		// Position.
 		...posneg(PROPS_POSITION),
-		// Sizing.
-		...posneg(PROPS_SIZING),
-		...autoxy(PROPS_SIZING),
+		// Sizing. Width and height take neither negatives nor an axis split.
+		...posneg(PROPS_SIZING, SIGNS_POSITIVE),
+		...autoShorthand(PROPS_SIZING),
 		// Spacing. Order matters: shorthand (p-*) -> axis (px-*) -> sides (pt-*),
 		// so the more targeted rule wins the cascade at equal specificity.
-		...posneg(PROPS_SPACING),
-		...autoxy(PROPS_SPACING),
-		...tblr(PROPS_SPACING),
+		...posneg(PROPS_MARGIN),
+		...posneg(PROPS_PADDING, SIGNS_POSITIVE),
+		...autoShorthand(PROPS_MARGIN),
+		...autoSides(PROPS_MARGIN),
+		...axis(PROPS_SPACING),
+		...tblr(PROPS_MARGIN),
+		...tblr(PROPS_PADDING, SIGNS_POSITIVE),
 		...between(),
 		// Minmax.
-		...posneg(PROPS_SIZING_MINMAX),
+		...posneg(PROPS_SIZING_MINMAX, SIGNS_POSITIVE),
 		// Border.
 		...border(),
 		// Text sizes.
