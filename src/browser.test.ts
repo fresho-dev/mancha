@@ -150,6 +150,33 @@ describe("Browser", () => {
 			for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
 		});
 
+		it("injects variant rules when an :attr:class binding produces them on state change", async () => {
+			const initialCount = document.head.querySelectorAll("style").length;
+			injectCss(["utils"]);
+
+			// Same as the :class case, but written through the generic attribute path.
+			const renderer = new Renderer({ expanded: false });
+			const fragment = renderer.parseHTML(
+				`<div id="dynattrclass" :attr:class="expanded ? 'md:w-[124px]' : 'hidden'"></div>`,
+			);
+			const target = fragment.querySelector("#dynattrclass") as Element;
+			document.body.appendChild(target);
+			await renderer.mount(target);
+
+			assert.equal(findCustomRule("width: 124px"), null, "Should not inject before toggle");
+
+			await renderer.set("expanded", true);
+
+			// The binding itself always worked; only the rule injection was missing.
+			assert.equal(target.getAttribute("class"), "md:w-[124px]");
+			const rule = findCustomRule("width: 124px");
+			assert.ok(rule?.includes("min-width: 768px"), `Should inject md:w-[124px], got: ${rule}`);
+
+			target.remove();
+			const styles = document.head.querySelectorAll("style");
+			for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
+		});
+
 		it("does not inject on-demand rules from mount unless utils CSS was injected", async () => {
 			// No injectCss() call: apps using their own CSS should be left alone.
 			const renderer = new Renderer();

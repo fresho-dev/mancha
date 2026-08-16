@@ -758,6 +758,9 @@ export namespace RendererPlugins {
 					function (this: IRenderer) {
 						const attrValue = this.eval(attr.value, { $elem: node });
 						setAttribute(elem, attrName, attrValue as string);
+						// A class written here is invisible to any DOM scan, exactly like a
+						// :class result, so it needs the same on-demand rule injection.
+						if (attrName === "class") processRenderedClasses(String(attrValue ?? ""));
 					},
 					{ directive: `:attr:${attrName}`, element: elem, expression: attr.value },
 				);
