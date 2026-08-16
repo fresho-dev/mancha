@@ -622,16 +622,7 @@ Custom values support pseudo-states, responsive breakpoints, and dark mode:
 
 ### Limitations
 
-**Static classes only**: Custom values work with the `class` attribute, not `:class`:
-
-```html
-<!-- ✓ Works -->
-<div class="w-[133px]">
-
-<!-- ✗ Not supported - use inline styles instead -->
-<div :class="'w-[133px]'">
-<div :attr:style="'width: ' + dynamicWidth">
-```
+Rules are injected as classes appear, so custom values work in the `class` attribute and in `:class` alike, including values that only show up after a state change.
 
 **Browser only**: Custom values require the CSSStyleSheet API and are not available in Worker or SSR environments.
 

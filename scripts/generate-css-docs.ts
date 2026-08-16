@@ -574,14 +574,8 @@ function generateMarkdown() {
 	md += '<div class="hover:w-[200px] md:max-w-[900px] dark:bg-[#333]">\n';
 	md += "```\n\n";
 	md += "### Limitations\n\n";
-	md += "**Static classes only**: Custom values work with the `class` attribute, not `:class`:\n\n";
-	md += "```html\n";
-	md += "<!-- ✓ Works -->\n";
-	md += '<div class="w-[133px]">\n\n';
-	md += "<!-- ✗ Not supported - use inline styles instead -->\n";
-	md += `<div :class="'w-[133px]'">\n`;
-	md += `<div :attr:style="'width: ' + dynamicWidth">\n`;
-	md += "```\n\n";
+	md +=
+		"Rules are injected as classes appear, so custom values work in the `class` attribute and in `:class` alike, including values that only show up after a state change.\n\n";
 	md +=
 		"**Browser only**: Custom values require the CSSStyleSheet API and are not available in Worker or SSR environments.\n\n";
 	md += "### When to Use\n\n";

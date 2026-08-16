@@ -227,6 +227,29 @@ describe("Browser", () => {
 			for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
 		});
 
+		it("injects a plain custom value produced by a :class binding at mount time", async () => {
+			const initialCount = document.head.querySelectorAll("style").length;
+			injectCss(["utils"]);
+
+			// Non-variant custom value, present from the very first effect run.
+			const renderer = new Renderer();
+			const fragment = renderer.parseHTML(`<div id="mountclass" :class="'w-[133px]'"></div>`);
+			const target = fragment.querySelector("#mountclass") as Element;
+			document.body.appendChild(target);
+			await renderer.mount(target);
+
+			assert.ok(findCustomRule("width: 133px"), "Should inject w-[133px] at mount");
+			assert.equal(
+				getComputedStyle(target as HTMLElement).width,
+				"133px",
+				"Should apply the injected rule",
+			);
+
+			target.remove();
+			const styles = document.head.querySelectorAll("style");
+			for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
+		});
+
 		it("does not inject on-demand rules from mount unless utils CSS was injected", async () => {
 			// No injectCss() call: apps using their own CSS should be left alone.
 			const renderer = new Renderer();
