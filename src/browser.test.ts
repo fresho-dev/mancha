@@ -10,6 +10,81 @@ describe("Browser", () => {
 	// Apply the test suites to the `Renderer` class.
 	rendererTestSuite(Renderer);
 
+	describe("Sanitized parsing", () => {
+		it("strips script tags when sanitize is enabled", () => {
+			const renderer = new Renderer();
+			const doc = renderer.parseHTML(`<div>ok</div><script>alert('x');</script>`, {
+				rootDocument: false,
+				sanitize: true,
+			});
+			const serialized = renderer.serializeHTML(doc);
+			assert.ok(!serialized.includes("script"), `Should drop script, got: ${serialized}`);
+			assert.ok(serialized.includes("ok"), `Should keep safe markup, got: ${serialized}`);
+		});
+
+		it("strips event handler attributes when sanitize is enabled", () => {
+			const renderer = new Renderer();
+			const doc = renderer.parseHTML(`<div onclick="alert('x')">ok</div>`, {
+				rootDocument: false,
+				sanitize: true,
+			});
+			const serialized = renderer.serializeHTML(doc);
+			assert.ok(!serialized.includes("onclick"), `Should drop onclick, got: ${serialized}`);
+		});
+
+		it("preserves mancha directives through sanitization", () => {
+			// The sanitizer drops unknown attributes, so directives are rewritten
+			// to their data-* form before it runs.
+			const renderer = new Renderer();
+			const doc = renderer.parseHTML(`<div :text="greeting"></div>`, {
+				rootDocument: false,
+				sanitize: true,
+			});
+			const serialized = renderer.serializeHTML(doc);
+			assert.ok(
+				serialized.includes("data-text"),
+				`Should keep the :text directive, got: ${serialized}`,
+			);
+		});
+
+		it("drops the id attribute, which the sanitizer does not allow", () => {
+			// Worth pinning: templates that hook elements by id cannot be sanitized
+			// as written. class and allowed data-* attributes do survive.
+			const renderer = new Renderer();
+			const doc = renderer.parseHTML(`<div id="gone" class="kept" data-testid="kept"></div>`, {
+				rootDocument: false,
+				sanitize: true,
+			});
+			const serialized = renderer.serializeHTML(doc);
+			assert.ok(!serialized.includes("gone"), `id should be dropped, got: ${serialized}`);
+			assert.ok(serialized.includes("kept"), `class should survive, got: ${serialized}`);
+			assert.ok(serialized.includes("data-testid"), `data-* should survive: ${serialized}`);
+		});
+
+		it("renders a sanitized template end to end", async () => {
+			const renderer = new Renderer({ greeting: "hello" });
+			const fragment = renderer.parseHTML(`<div :text="greeting"></div>`, {
+				rootDocument: false,
+				sanitize: true,
+			});
+			const target = document.createElement("div");
+			target.appendChild(fragment);
+			document.body.appendChild(target);
+			await renderer.mount(target);
+
+			assert.equal(target.textContent, "hello");
+			target.remove();
+		});
+
+		it("leaves markup untouched when sanitize is not requested", () => {
+			// Sanitizing by default would break existing templates, so it is opt-in.
+			const renderer = new Renderer();
+			const doc = renderer.parseHTML(`<div onclick="noop()">ok</div>`);
+			const serialized = renderer.serializeHTML(doc);
+			assert.ok(serialized.includes("onclick"), `Should not sanitize by default: ${serialized}`);
+		});
+	});
+
 	describe("CSS Injection", () => {
 		// Track styles added during tests for cleanup.
 		let addedStyles: Element[] = [];

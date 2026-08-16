@@ -423,3 +423,35 @@ This table summarizes all initialization methods and when to use them:
 </body>
 </html>
 ```
+
+## Sanitizing Untrusted Templates
+
+Templates are parsed as-is by default. If a template comes from an untrusted
+source, pass `sanitize: true` in the parser params to strip scripts, event
+handler attributes, and anything else the sanitizer does not recognize:
+
+```ts
+const renderer = new Renderer();
+const fragment = renderer.parseHTML(untrustedHtml, { sanitize: true });
+await renderer.mount(container);
+```
+
+Sanitizing is opt-in because it removes markup that ordinary templates depend
+on. Before turning it on, note what changes:
+
+- **`id` attributes are dropped.** Templates that hook elements by id do not
+  survive sanitization. `class`, `title`, and allowed `data-*` attributes do.
+- **Directives are rewritten** to their `data-*` form (`:text` becomes
+  `data-text`). The renderer reads either spelling, so this is transparent
+  unless your own code inspects attribute names.
+- **`<include>`, `<template is>`, and custom element tags are rewritten** to
+  `link` and `div` equivalents so the sanitizer preserves them.
+- **Property and attribute directives are restricted** to the trusted list, so
+  bindings such as `:prop:*` on arbitrary properties are not carried through.
+
+Sanitizing applies to parsing only. Values written later by a binding — for
+example `:html` with untrusted state — are not covered; sanitize that data
+before putting it into the store.
+
+> The separate `safe_browser` renderer is deprecated. It now just preselects
+> this flag, so use the standard `Renderer` with `sanitize: true` instead.

@@ -5,6 +5,12 @@ export interface ParserParams {
 	rootDocument?: boolean;
 	/** Encoding to use when processing local files. */
 	encoding?: "ascii" | "utf8";
+	/**
+	 * Sanitize the content before parsing, for templates from an untrusted
+	 * source. Off by default: sanitizing drops attributes and elements that
+	 * ordinary templates rely on. Browser only.
+	 */
+	sanitize?: boolean;
 }
 
 /** The RendererParams interface defines the parameters that can be passed to the renderer. */

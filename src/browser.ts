@@ -1,6 +1,7 @@
 import { safeStyleEl } from "safevalues/dom";
 import { _resetForTesting as resetCustomCss, scanAndInject } from "./css_custom.js";
 import { dirname } from "./dome.js";
+import { sanitizeToDocument, sanitizeToFragment } from "./sanitize.js";
 
 // Re-export for testing.
 export { resetCustomCss as _resetCustomCssForTesting };
@@ -21,13 +22,18 @@ import minimalCssRules from "./css_gen_minimal.js";
 import utilsCssRules from "./css_gen_utils.js";
 
 export class Renderer<T extends StoreState = StoreState> extends IRenderer<T> {
-	readonly impl = "browser";
+	readonly impl: string = "browser";
 	protected readonly dirpath: string = dirname(globalThis.location?.href ?? "http://localhost/");
 	parseHTML(
 		content: string,
 		params: ParserParams = { rootDocument: false },
 	): Document | DocumentFragment {
+		if (params.sanitize) {
+			return params.rootDocument ? sanitizeToDocument(content) : sanitizeToFragment(content);
+		}
 		if (params.rootDocument) {
+			// Unsanitized input has no TrustedHTML to hand safeDomParser; callers
+			// opt into `sanitize` for that. See tsec_exemptions.json.
 			return new DOMParser().parseFromString(content, "text/html");
 		} else {
 			const range = document.createRange();
