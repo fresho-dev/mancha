@@ -1,4 +1,4 @@
-export const TRUSTED_ATTRIBS = [
+const TRUSTED_ATTRIBS = [
 	":data",
 	":for",
 	":key",
@@ -31,7 +31,3 @@ export const TRUSTED_ATTRIBS = [
 const colonToData = (attr: string) => `data-${attr.slice(1).replace(":", "-")}`;
 
 export const TRUSTED_DATA_ATTRIBS = TRUSTED_ATTRIBS.map((attr) => colonToData(attr));
-
-export const ADDITIONAL_DATA_ATTRIBS = ["data-testid", "data-perfid"];
-
-export const SAFE_DATA_ATTRIBS = [...TRUSTED_DATA_ATTRIBS, ...ADDITIONAL_DATA_ATTRIBS];

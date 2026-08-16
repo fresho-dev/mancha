@@ -248,8 +248,6 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 
 		describe("icon sprite pattern", () => {
 			it("icon component with :data for dynamic href", async () => {
-				// SafeBrowser's HTML sanitizer strips SVG elements and custom elements for security.
-
 				const renderer = new ctor();
 				const template = `<template is="icon"><svg class="w-4 h-4"><use :attr:href="'./sprite.svg#' + name"></use></svg></template>`;
 				const html = `<icon :data="{ name: 'home' }"></icon>`;
@@ -265,8 +263,6 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			});
 
 			it("icon component forwards class attribute", async () => {
-				// SafeBrowser's HTML sanitizer strips SVG elements and custom elements for security.
-
 				const renderer = new ctor();
 				const template = `<template is="icon"><svg class="w-4 h-4" :class="class"><use :attr:href="'./sprite.svg#' + name"></use></svg></template>`;
 				const html = `<icon :data="{ name: 'settings' }" :class="'text-blue-500'"></icon>`;
@@ -280,8 +276,6 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			});
 
 			it("multiple icon instances with different names", async () => {
-				// SafeBrowser's HTML sanitizer strips SVG elements and custom elements for security.
-
 				const renderer = new ctor();
 				const template = `<template is="icon"><svg><use :attr:href="'./sprite.svg#' + name"></use></svg></template>`;
 				const html = `<div><icon :data="{ name: 'home' }"></icon><icon :data="{ name: 'settings' }"></icon></div>`;
@@ -3181,7 +3175,6 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			assert.equal(getAttribute(node, "href"), "example.com");
 		});
 		it("processes custom attribute", async () => {
-			// Skip test if renderer does not support unsafe attributes.
 			const renderer = new ctor({ foo: "example.com" });
 			const html = `<a :attr:custom-attr="foo"></a>`;
 			const fragment = renderer.parseHTML(html);
@@ -3203,7 +3196,6 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			assert.equal(elem.disabled, true);
 		});
 		it("processes href property", async () => {
-			// Skip test if renderer does not support unsafe properties.
 			const renderer = new ctor({ foo: "https://example.com/" });
 			const html = `<a :prop:href="foo"></a>`;
 			const fragment = renderer.parseHTML(html);
@@ -3213,7 +3205,6 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			assert.equal(elem.href, "https://example.com/");
 		});
 		it("processes custom property", async () => {
-			// Skip test if renderer does not support unsafe properties.
 			const renderer = new ctor({ foo: "example.com" });
 			const html = `<a :prop:custom-prop="foo"></a>`;
 			const fragment = renderer.parseHTML(html);
