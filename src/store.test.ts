@@ -2324,6 +2324,13 @@ describe("SignalStore", () => {
 	});
 
 	describe("notification debouncing", () => {
+		// Runs are paced against a cooldown shared by every store in the process, so whatever
+		// ran just before one of these tests decides what it measures. Without this, adding an
+		// unrelated test above that merely ends on an observer run flips the ones below it.
+		beforeEach(async () => {
+			await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 3));
+		});
+
 		it("debounces multiple notify calls for the same key", async () => {
 			// When a class instance modifies internal state during method calls,
 			// each modification triggers notify(). These should be debounced to a single
@@ -2457,10 +2464,15 @@ describe("SignalStore", () => {
 		});
 
 		it("coalesces writes made across separate ticks within the debounce window", async () => {
-			// Pins the contract the default debounce exists for: cross-tick coalescing.
-			// The delays here are deliberately literal rather than derived from
-			// REACTIVE_DEBOUNCE_MILLIS, so that lowering the default fails this test
-			// instead of silently rescaling it and testing nothing.
+			// Writes that arrive after a run, in separate ticks but inside its window,
+			// collapse into one run at the end of the window rather than running once each.
+			// This pins the collapsing; that the window is honoured at all is pinned by
+			// "paces a key written again" and "holds the cooldown notify was given".
+			//
+			// The ticks here are microtasks rather than timers. A timer gap short enough to
+			// stay inside the window is not available in a browser -- Chromium takes about
+			// 5ms to honour `setTimeout(..., 2)` -- and a gap measured against the clock
+			// would be pinning the host's timer resolution rather than this scheduler.
 			assert.greaterEqual(
 				REACTIVE_DEBOUNCE_MILLIS,
 				5,
@@ -2468,17 +2480,83 @@ describe("SignalStore", () => {
 			);
 
 			const store = new SignalStore({ view: 0 });
-			let runs = 0;
+			const seen: number[] = [];
 			store.watch("view", () => {
-				runs++;
+				seen.push(store.get("view") as number);
 			});
 
 			void store.set("view", 1);
-			await new Promise((resolve) => setTimeout(resolve, 2));
+			// The leading run is queued ahead of this continuation, so it has already happened
+			// by the time the next write is made, and that write lands inside its window.
+			await Promise.resolve();
 			void store.set("view", 2);
+			await Promise.resolve();
+			void store.set("view", 3);
 			for (let i = 0; i < 5; i++) await sleepForReactivity();
 
-			assert.equal(runs, 1, "two writes 2ms apart should produce a single observer run");
+			assert.deepEqual(
+				seen,
+				[1, 3],
+				"writes after the leading one should have coalesced into a single run",
+			);
+		});
+
+		it("notifies an idle key without waiting out the debounce window", async () => {
+			// Issue #67: the debounce was an unconditional floor, so a single write to a
+			// quiet key cost a full window before anything could paint. A key nothing has
+			// notified recently has nothing to coalesce with, so it should flush at the end
+			// of the writing tick instead.
+			const store = new SignalStore({ x: 0 });
+			const latencies: number[] = [];
+			let writtenAt = 0;
+			store.watch("x", () => {
+				latencies.push(Date.now() - writtenAt);
+			});
+
+			for (let i = 0; i < 5; i++) {
+				// Well clear of the cooldown left by the previous iteration's run.
+				await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS * 4));
+				writtenAt = Date.now();
+				void store.set("x", i + 1);
+				for (let drain = 0; drain < 3; drain++) await sleepForReactivity();
+			}
+
+			assert.equal(latencies.length, 5, "every isolated write should have notified");
+			const worst = Math.max(...latencies);
+			assert.ok(
+				worst < REACTIVE_DEBOUNCE_MILLIS,
+				`An isolated write waited ${worst}ms, the debounce window is ` +
+					`${REACTIVE_DEBOUNCE_MILLIS}ms. Saw: ${latencies.join(", ")}ms`,
+			);
+		});
+
+		it("flushes an idle key ahead of macrotasks already queued", async () => {
+			// The test above only bounds the wait, and a `setTimeout(0)` flush would come in
+			// under that bound too. What makes an isolated write cheap is running at the end
+			// of the writing tick, so pin the queue: a macrotask queued before the write must
+			// not get there first.
+			const store = new SignalStore({ x: 0 });
+			const order: string[] = [];
+			store.watch("x", () => {
+				order.push("observer");
+			});
+			// Constructing the store schedules a run of its own. Let it land, or the race
+			// below is decided by that run's schedule rather than by the write's.
+			for (let i = 0; i < 3; i++) await sleepForReactivity();
+
+			await new Promise<void>((resolve) => {
+				setTimeout(() => {
+					order.push("macrotask");
+					resolve();
+				}, 0);
+				void store.set("x", 1);
+			});
+
+			assert.equal(
+				order[0],
+				"observer",
+				`A write to an idle key was flushed behind an already-queued macrotask: ${order.join(", ")}`,
+			);
 		});
 
 		it("coalesces writes to several keys made in one tick into one state", async () => {
@@ -2577,6 +2655,39 @@ describe("SignalStore", () => {
 			);
 		});
 
+		it("schedules a store on its own terms while an unrelated one is busy", async () => {
+			// Scheduling state belongs to a store tree, not to the process. A store nothing
+			// else holds a reference to is paced only by its own activity, so a write to it
+			// runs at the end of its tick however hot an unrelated store happens to be.
+			const busy = new SignalStore({ v: 0 });
+			const other = new SignalStore({ v: 0 });
+			let otherRanAt = 0;
+			busy.watch("v", () => {});
+			other.watch("v", () => {
+				otherRanAt ||= Date.now();
+			});
+
+			// Put `busy` inside a cooldown: let a run of its own land, so the window it
+			// starts is still open when the unrelated store below is written.
+			void busy.set("v", 1);
+			for (let i = 0; i < 3; i++) await sleepForReactivity();
+			void busy.set("v", 2);
+			// Long enough for that run to finish and start its cooldown, short enough that
+			// most of the window is still ahead.
+			await new Promise((resolve) => setTimeout(resolve, 1));
+
+			const start = Date.now();
+			void other.set("v", 1);
+			for (let i = 0; i < 5; i++) await sleepForReactivity();
+
+			assert.ok(otherRanAt > 0, "the unrelated store's observers never ran");
+			const waited = otherRanAt - start;
+			assert.ok(
+				waited < REACTIVE_DEBOUNCE_MILLIS / 2,
+				`An idle store waited ${waited}ms because an unrelated store was mid-cooldown`,
+			);
+		});
+
 		it("does not let one store's cooldown decide when an unrelated store runs", async () => {
 			// Independent stores must not be able to reschedule each other. Whatever pacing
 			// one store asks for applies to that store; a write to a store nobody else holds
@@ -2634,6 +2745,32 @@ describe("SignalStore", () => {
 			assert.ok(
 				runsAt[1] - runsAt[0] >= longCooldown - 2,
 				`Runs were ${runsAt[1] - runsAt[0]}ms apart, the cooldown asked for ${longCooldown}ms`,
+			);
+		});
+
+		it("paces a key written again while its cooldown is still running", async () => {
+			// The cooldown is what keeps the microtask flush from becoming a microtask-paced
+			// runaway: only the first run of a quiet period is immediate, and anything
+			// following within the window is put back on a timer.
+			const store = new SignalStore({ v: 0 });
+			const runsAt: number[] = [];
+			const start = Date.now();
+			store.watch("v", () => {
+				runsAt.push(Date.now() - start);
+			});
+
+			void store.set("v", 1);
+			await new Promise((resolve) => setTimeout(resolve, 2));
+			void store.set("v", 2);
+			for (let i = 0; i < 5; i++) await sleepForReactivity();
+
+			assert.equal(runsAt.length, 2, `Expected two runs, got at ${runsAt.join(", ")}ms`);
+			// A millisecond of slack: `setTimeout` arms against the event loop's cached time,
+			// so a delay issued late in a tick elapses slightly less wall clock than it asks
+			// for. The point is that the second run was paced rather than immediate.
+			assert.ok(
+				runsAt[1] >= REACTIVE_DEBOUNCE_MILLIS - 2,
+				`Second run at ${runsAt[1]}ms did not wait out the ${REACTIVE_DEBOUNCE_MILLIS}ms cooldown`,
 			);
 		});
 

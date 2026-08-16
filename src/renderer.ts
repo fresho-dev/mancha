@@ -374,6 +374,11 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 		// this renderer also disposes everything it rendered. A disposed renderer never
 		// disposes again, so adopting into one would retain the subrenderer for good.
 		instance._store.set("$parent", this);
+
+		// Share this tree's scheduling state, so keys woken across the tree by one mutation
+		// are paced and ordered together. Assigned onto the new instance rather than reached
+		// through `$parent`, which holds a proxified view a field assignment would not stick to.
+		instance._scheduler = this._scheduler;
 		if (!this._disposed) this._children.add(instance);
 
 		// Add a reference to the root renderer, or assume that we are the root renderer.

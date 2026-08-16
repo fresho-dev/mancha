@@ -181,22 +181,52 @@ $.items.length = 0;
 
 ## Notification Scheduling
 
-Observers do not run on the same tick as the write. Writing a key schedules its
-observers to run once, about 10ms later; any further writes in that window join
-the run already scheduled instead of postponing it:
+Observers never run in the middle of the code that writes to the store. Whatever
+a tick writes is applied in full before any of it is observed:
 
 ```js
-$.view = buildView(); // Schedules the run...
-$.view = buildView(); // ...joins it. Observers run once, with the latest value.
+$.first = "Ada"; // Schedules a run...
+$.last = "Lovelace"; // ...and so does this. Both see "Ada Lovelace".
 ```
 
-Two things follow from that. Observers see only the final value of a burst, so
-they never run against an intermediate state. And a key written continuously
-still notifies every ~10ms rather than being held back indefinitely, so a value
-updated on every pointer move keeps its observers running throughout the drag.
+Each key notifies its own observers, so the two writes above are two runs, not
+one. What they cannot do is run in between, however many keys a tick writes and
+in whatever order: no observer ever runs against a half-applied update.
 
-Timing depends only on when a key is first written, not on how often, and is the
-same in the browser, on the server, and in workers.
+When those runs happen depends on how recently anything last ran. If the store
+has been quiet, they happen at the end of the writing tick. Otherwise they wait
+out the rest of a window of about 10ms measured from the end of the last run. A
+write arriving inside that window does not postpone the run already scheduled for
+the end of it, it joins that run, so a burst of writes spread over several ticks
+still notifies once at the end of the window rather than once per write:
+
+```js
+$.view = buildView(); // Runs at the end of this tick.
+
+// Written from later ticks, still inside that run's 10ms window:
+$.view = buildView(); // Schedules the run at the end of the window...
+$.view = buildView(); // ...joins it. One more run, with the latest value.
+```
+
+A key written continuously therefore notifies about every 10ms rather than being
+held back indefinitely, so a value updated on every pointer move keeps its
+observers running throughout the drag, and the drag's first frame is not delayed
+waiting for a burst that has not happened yet.
+
+The leading write of such a burst is not folded into the run at the end of the
+window, which is what makes it immediate. Code that sets a key to one value and
+then to another a few milliseconds later will see observers run for both, where
+a single trailing run would have shown only the second. It matters most for a
+list that is cleared and repopulated across a gap: the empty state is rendered,
+and `:key` cannot reuse rows across it, so anything the DOM was holding for those
+rows is discarded. Write the replacement in one go, rather than clearing first,
+if that matters.
+
+Timing depends only on when observers last ran, not on how often a key is
+written. That clock is shared: it is when observers last ran anywhere, not just
+for this key or this renderer, so a busy part of a page can delay an unrelated
+one by up to one window. Scheduling is otherwise the same in the browser, on the
+server, and in workers.
 
 > **Note:** An observer must not write the key it observes after an `await`.
 > Writes made by an observer's synchronous body are ignored, so the common case

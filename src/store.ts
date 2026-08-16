@@ -81,11 +81,121 @@ function isComputedMarker<T>(value: unknown): value is ComputedMarker<T> {
 }
 
 /**
- * How long observers wait after a key is written before they run. Writes arriving
- * during that window are free: they join the already-scheduled run instead of
- * postponing it, so a key written continuously still notifies every this often.
+ * The shortest gap between two observer runs. A write arriving inside that window does not
+ * postpone the scheduled run, it joins it, so a key written continuously still notifies
+ * about this often instead of being starved.
+ *
+ * It is a cooldown after a run rather than a delay before one: a write that arrives after
+ * things have been quiet this long is flushed on a microtask, at the end of its own tick.
+ * That is what keeps a single write off a 10ms critical path while still coalescing
+ * everything a burst writes.
+ *
+ * It does not on its own bound how fast an observer that writes can go round: a run lasting
+ * longer than the cooldown would find the window already expired by the time it wrote. What
+ * bounds that is stamping the cooldown when a run ends, and letting at most one run per turn
+ * of the event loop skip the timer. See `scheduleFlush`.
  */
 export const REACTIVE_DEBOUNCE_MILLIS = 10;
+
+/**
+ * Reads a clock that cannot go backwards where one is available. The scheduler compares
+ * timestamps taken at different moments, so a wall clock stepped back by an NTP correction
+ * or a suspended VM would otherwise stall every run for the length of the step.
+ */
+const monotonicNow: () => number =
+	typeof performance === "object" && typeof performance?.now === "function"
+		? () => performance.now()
+		: () => Date.now();
+
+/**
+ * Scheduling state, shared by every store in one tree and by nothing else. A single deep
+ * mutation wakes keys across a whole renderer tree, so those keys have to be paced and
+ * ordered together; stores from different trees have no such relationship and must not be
+ * able to reschedule each other.
+ *
+ * Held as a plain object that stores point at, rather than as fields on a store the others
+ * reach through `$parent`. `$parent` holds a proxified view whose writes land in the store's
+ * key map instead of on the instance, so a field assigned through it silently does nothing.
+ */
+interface FlushScheduler {
+	/** When observers last finished running in this tree. */
+	lastRunEndedAt: number;
+	/** Whether a run in this tree has skipped the timer since the event loop last turned. */
+	ranWithoutYielding: boolean;
+	/** Runs waiting to start, in the order their keys were woken. */
+	readonly waiting: Array<() => void>;
+	/** Whether a drain is already on its way to take them. */
+	drainScheduled: boolean;
+}
+
+function createFlushScheduler(): FlushScheduler {
+	return {
+		lastRunEndedAt: Number.NEGATIVE_INFINITY,
+		ranWithoutYielding: false,
+		waiting: [],
+		drainScheduled: false,
+	};
+}
+
+/** How long a run scheduled right now has to wait out the previous run's cooldown. */
+function flushDelay(scheduler: FlushScheduler, cooldownMillis: number): number {
+	return Math.max(0, scheduler.lastRunEndedAt + cooldownMillis - monotonicNow());
+}
+
+/**
+ * Runs `flush` after `delayMillis`. A zero delay goes on the microtask queue rather than
+ * through `setTimeout(0)`, which is clamped to about a millisecond and would put the flush
+ * behind whatever tasks are already queued.
+ *
+ * At most one run per turn of the event loop takes that shortcut. Without the limit a chain
+ * of observers each slower than the cooldown would find the cooldown already expired by the
+ * time it wrote, take the microtask queue for every hop, and never hand control back: the
+ * tree keeps rendering but no timer, no I/O completion and no event handler ever runs again,
+ * which also puts `dispose()` out of reach.
+ *
+ * Runs paced by the shared cooldown go in one queue rather than taking a timer each, because
+ * a run must never overtake one already waiting: `:key` alongside `:if` on one element
+ * depends on the row's `:for` reconciling before the row's own directives react, and timers
+ * registered a fraction of a millisecond apart get different delays for the same instant and
+ * do not reliably fire in registration order. A run asking for some other cooldown has a
+ * deadline nothing else shares, so it takes a timer of its own: joining the queue would mean
+ * silently adopting the pending drain's deadline instead of the one it asked for.
+ */
+function scheduleFlush(
+	scheduler: FlushScheduler,
+	flush: () => void,
+	delayMillis: number,
+	sharesTheCooldown: boolean,
+): void {
+	if (!sharesTheCooldown) {
+		setTimeout(flush, Math.max(0, delayMillis));
+		return;
+	}
+
+	scheduler.waiting.push(flush);
+	if (scheduler.drainScheduled) return;
+	scheduler.drainScheduled = true;
+
+	const drain = () => {
+		scheduler.drainScheduled = false;
+		// Taken all at once, so a run added by one of these is left for the next drain and
+		// cannot extend this one indefinitely.
+		for (const waiting of scheduler.waiting.splice(0)) waiting();
+	};
+
+	if (delayMillis > 0 || scheduler.ranWithoutYielding) {
+		setTimeout(drain, Math.max(0, delayMillis));
+		return;
+	}
+	queueMicrotask(() => {
+		scheduler.ranWithoutYielding = true;
+		// Cleared from a macrotask, which cannot run until the loop has turned.
+		setTimeout(() => {
+			scheduler.ranWithoutYielding = false;
+		}, 0);
+		drain();
+	});
+}
 
 /** An observer run that has been scheduled but has not started yet. */
 interface PendingRun {
@@ -189,10 +299,10 @@ function fanOutMutation(record: DeepMutationRecord, notified: Set<DeepMutationRe
 	// Enclosing objects first, so keys are notified from the outside in: a `:for` over a list
 	// has to reconcile its rows before the directives on a row react to the row's own item,
 	// or the reconciliation undoes what they did. Waking the keys in that order only decides
-	// the order their observers run in because `notify()` schedules every key on the same
-	// `REACTIVE_DEBOUNCE_MILLIS` timer, so registration order is execution order. Scheduling
-	// keys with different delays would decouple the two and break `:key` alongside `:if` on
-	// one element again.
+	// the order their observers run in because `scheduleFlush` keeps runs in a queue in wake
+	// order. Going back to a timer per key would decouple the two and break `:key` alongside
+	// `:if` on one element again, since timers registered a fraction of a millisecond apart
+	// get different delays for the same instant and do not reliably fire in registration order.
 	//
 	// Links to enclosing objects are added when an object is reached through one and are never
 	// removed by the reverse operation, because replacing an object is not something the object
@@ -284,6 +394,13 @@ export class SignalStore<T extends StoreState = StoreState> {
 
 	/** Keys written while their own observers were running, to notify afterwards. */
 	private readonly _dirty = new Set<string>();
+
+	/**
+	 * Scheduling state for this store's tree. Subrenderers are handed their parent's, so a
+	 * whole renderer shares one; a store created on its own gets one to itself and cannot
+	 * be paced or reordered by any other.
+	 */
+	protected _scheduler: FlushScheduler = createFlushScheduler();
 
 	/**
 	 * Stores created from this one, disposed along with it. A subrenderer is only reachable
@@ -468,6 +585,11 @@ export class SignalStore<T extends StoreState = StoreState> {
 			.map((entry) => entry.observer.call(entry.store.proxify(entry.observer)));
 	}
 
+	/**
+	 * Schedules `key`'s observers. `debounceMillis` is the cooldown to hold after the previous
+	 * run, not a delay to wait from here: passing a larger value spaces this run further from
+	 * the last one, and does nothing at all if that much time has already passed.
+	 */
 	async notify(key: string, debounceMillis: number = REACTIVE_DEBOUNCE_MILLIS): Promise<void> {
 		// Capture observers NOW (at call time). This ensures constructor calls
 		// don't trigger effects registered later.
@@ -493,50 +615,74 @@ export class SignalStore<T extends StoreState = StoreState> {
 			return scheduled.done;
 		}
 
+		// Zero once things have been quiet for a window, so an isolated write runs at the end
+		// of its own tick instead of waiting one out.
+		const delay = flushDelay(this._scheduler, debounceMillis);
+
 		const done = new Promise<void>((resolve) => {
-			setTimeout(async () => {
-				this._pending.delete(key);
-				try {
-					this._executing.add(key);
+			const sharesTheCooldown = debounceMillis === REACTIVE_DEBOUNCE_MILLIS;
+			scheduleFlush(
+				this._scheduler,
+				async () => {
+					this._pending.delete(key);
+					let ranAnything = false;
+					try {
+						this._executing.add(key);
 
-					// Invoking an observer runs its body up to its first await, so nothing
-					// else can interleave here: any write recorded during this line came
-					// from the observers themselves. Discarding those stops an observer
-					// whose body writes its own key from rescheduling itself forever.
-					// A self-write from an observer's awaited tail is indistinguishable
-					// from an outside one, so that remains a cycle the caller must avoid.
-					const running = this.runObservers(entries);
-					this._dirty.delete(key);
+						// Invoking an observer runs its body up to its first await, so nothing
+						// else can interleave here: any write recorded during this line came
+						// from the observers themselves. Discarding those stops an observer
+						// whose body writes its own key from rescheduling itself forever.
+						// A self-write from an observer's awaited tail is indistinguishable
+						// from an outside one, so that remains a cycle the caller must avoid.
+						const running = this.runObservers(entries);
+						ranAnything = running.length > 0;
+						this._dirty.delete(key);
 
-					// Anything recorded from here on arrived from outside, and is honored.
-					await Promise.all(running);
-				} finally {
-					this._executing.delete(key);
+						// Anything recorded from here on arrived from outside, and is honored.
+						await Promise.all(running);
+					} finally {
+						this._executing.delete(key);
 
-					// Flush any write that arrived while the observers were awaiting. In the
-					// finally block so a throwing observer still can't swallow the write.
-					if (this._dirty.delete(key)) void this.notify(key, debounceMillis);
-				}
+						// Stamped on the way out rather than on the way in, so that a run lasting
+						// longer than the cooldown does not spend its own: measured from the start,
+						// anything such a run woke would find the window already expired and be
+						// scheduled immediately, and a cascade of them would never be paced at all.
+						// In the finally block, so a throwing observer cannot skip it.
+						//
+						// A run with nothing left to invoke -- every observer belonged to a store
+						// disposed since it was scheduled -- did no work, so it does not start a
+						// cooldown. A `:for` churning through rows produces these continuously, and
+						// each one would otherwise put an unrelated write back on a timer.
+						if (ranAnything) this._scheduler.lastRunEndedAt = monotonicNow();
 
-				// Lazy cleanup: remove observers whose store's $rootNode is orphaned.
-				// This handles memory leaks from removed :for items, replaced :html content, etc.
-				// Only applies to subrenderers (stores with $parent) - root renderer observers persist.
-				// A node is considered orphaned if it's both disconnected AND has no parent node.
-				// Nodes inside a DocumentFragment (e.g., during mount before DOM attachment)
-				// have parentNode != null and should NOT be cleaned up.
-				const observerSet = owner?.observers.get(key);
-				if (observerSet) {
-					for (const entry of entries) {
-						const hasParent = entry.store._store.has("$parent");
-						const rootNode = entry.store._store.get("$rootNode") as Node | undefined;
-						if (hasParent && rootNode && !rootNode.isConnected && !rootNode.parentNode) {
-							observerSet.delete(entry);
+						// Flush any write that arrived while the observers were awaiting. In the
+						// finally block so a throwing observer still can't swallow the write.
+						if (this._dirty.delete(key)) void this.notify(key, debounceMillis);
+					}
+
+					// Lazy cleanup: remove observers whose store's $rootNode is orphaned.
+					// This handles memory leaks from removed :for items, replaced :html content, etc.
+					// Only applies to subrenderers (stores with $parent) - root renderer observers persist.
+					// A node is considered orphaned if it's both disconnected AND has no parent node.
+					// Nodes inside a DocumentFragment (e.g., during mount before DOM attachment)
+					// have parentNode != null and should NOT be cleaned up.
+					const observerSet = owner?.observers.get(key);
+					if (observerSet) {
+						for (const entry of entries) {
+							const hasParent = entry.store._store.has("$parent");
+							const rootNode = entry.store._store.get("$rootNode") as Node | undefined;
+							if (hasParent && rootNode && !rootNode.isConnected && !rootNode.parentNode) {
+								observerSet.delete(entry);
+							}
 						}
 					}
-				}
 
-				resolve();
-			}, debounceMillis);
+					resolve();
+				},
+				delay,
+				sharesTheCooldown,
+			);
 		});
 
 		this._pending.set(key, { done, entries });
