@@ -55,6 +55,32 @@ describe("CSS Generation Utils", () => {
 			assert.ok(css.includes(".opacity-100"), "Should include opacity-100");
 		});
 
+		it("escapes the decimal point in rem text size utilities", () => {
+			const css = rules();
+			assert.ok(
+				css.includes(".text-0\\.25rem { font-size: 0.25rem }"),
+				"Should include text-0.25rem with an escaped decimal point",
+			);
+			assert.ok(
+				css.includes(".text-24\\.75rem { font-size: 24.75rem }"),
+				"Should include text-24.75rem with an escaped decimal point",
+			);
+		});
+
+		it("never emits an unescaped decimal point in a selector", () => {
+			// A bare "." starts a new compound selector, so an unescaped decimal
+			// point inside a class name makes the browser drop the whole rule.
+			const offenders = rules()
+				.split("\n")
+				.map((line) => line.slice(0, line.indexOf(" {")))
+				.filter((selector) => /[^\\]\./.test(selector.slice(1)));
+			assert.equal(
+				offenders.length,
+				0,
+				`Selectors must escape decimal points, got: ${offenders.slice(0, 5).join(", ")}`,
+			);
+		});
+
 		it("includes size utilities matching media breakpoints", () => {
 			const css = rules();
 			assert.ok(css.includes(".w-sm { width: 640px }"), "Should include w-sm utility");
