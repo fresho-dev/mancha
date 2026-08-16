@@ -1,6 +1,28 @@
 import rules, { PERCENTS } from "./css_gen_utils.js";
 import { assert } from "./test_utils.js";
 
+/** Count every block in the source, at any nesting depth. */
+function countBlocks(css: string): number {
+	let count = 0;
+	for (const char of css) {
+		if (char === "{") count++;
+	}
+	return count;
+}
+
+/**
+ * Count parsed rules, descending into grouping rules (@media, @keyframes).
+ * A dropped selector inside an @media block leaves the wrapper intact, so
+ * only a recursive count notices it.
+ */
+function countParsedRules(rules: CSSRuleList | undefined): number {
+	let count = 0;
+	for (const rule of Array.from(rules ?? [])) {
+		count += 1 + countParsedRules((rule as CSSGroupingRule).cssRules);
+	}
+	return count;
+}
+
 describe("CSS Generation Utils", () => {
 	describe("rules", () => {
 		it("generates CSS rules", () => {
@@ -53,6 +75,38 @@ describe("CSS Generation Utils", () => {
 			assert.ok(css.includes(".w-35\\%"), "Should include w-35%");
 			assert.ok(css.includes(".opacity-5"), "Should include opacity-5");
 			assert.ok(css.includes(".opacity-100"), "Should include opacity-100");
+		});
+
+		it("escapes the decimal point in rem text size utilities", () => {
+			const css = rules();
+			assert.ok(
+				css.includes(".text-0\\.25rem { font-size: 0.25rem }"),
+				"Should include text-0.25rem with an escaped decimal point",
+			);
+			assert.ok(
+				css.includes(".text-24\\.75rem { font-size: 24.75rem }"),
+				"Should include text-24.75rem with an escaped decimal point",
+			);
+		});
+
+		it("emits a stylesheet the browser parses without dropping rules", () => {
+			// Only meaningful where there is a real CSS parser; skipped under Node.
+			if (typeof document === "undefined") return;
+
+			// A selector the parser cannot read is dropped silently rather than
+			// raising, so the only way to catch one is to count what survives.
+			const css = rules();
+			const style = document.createElement("style");
+			style.textContent = css;
+			document.head.appendChild(style);
+
+			try {
+				const parsed = countParsedRules(style.sheet?.cssRules);
+				const expected = countBlocks(css);
+				assert.equal(parsed, expected, `Browser dropped ${expected - parsed} generated rule(s)`);
+			} finally {
+				style.remove();
+			}
 		});
 
 		it("includes size utilities matching media breakpoints", () => {

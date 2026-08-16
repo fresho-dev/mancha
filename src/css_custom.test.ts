@@ -495,6 +495,21 @@ describe("css_custom", () => {
 			);
 		});
 
+		it("injects sm: variant for a rem text size utility via lookup", () => {
+			if (!isSupported()) return;
+
+			injectCss(["utils"]);
+
+			injectCustomClass("text-1.5rem", { type: "media", name: "sm" });
+
+			const ruleText = customRulesText();
+			assert.ok(ruleText.includes("min-width: 640px"), "Should wrap in sm media query");
+			assert.ok(
+				ruleText.includes("font-size: 1.5rem"),
+				`Should contain the rem font-size rule, got: ${ruleText}`,
+			);
+		});
+
 		it("does not leave an empty media block behind for variant bracket values", () => {
 			if (!isSupported()) return;
 

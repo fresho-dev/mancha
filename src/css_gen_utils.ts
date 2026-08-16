@@ -812,8 +812,10 @@ function between(): string[] {
 function textSizes(): string[] {
 	return wrap([
 		...Array.from({ length: 100 }, (_, i) => [`text-${i}px`, `font-size: ${i}px`]),
+		// Sizes are fractional, and a bare "." in a selector starts a new compound
+		// selector, so escape it here. Markup keeps class="text-1.25rem" unescaped.
 		...Array.from({ length: 100 }, (_, i) => [
-			`text-${i * REM_UNIT}rem`,
+			`text-${String(i * REM_UNIT).replace(".", "\\.")}rem`,
 			`font-size: ${i * REM_UNIT}rem`,
 		]),
 	]);
