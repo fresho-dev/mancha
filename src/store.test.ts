@@ -1368,6 +1368,11 @@ describe("SignalStore", () => {
 			// Multiple notifications may fire due to a and b being different keys,
 			// but it should be bounded, not infinite.
 			assert.ok(callCount < 20, `Expected < 20 calls, got ${callCount}`);
+
+			// `a` and `b` wake each other, so this cascade has no fixed point and outlives the
+			// assertion above, bounded only by the safety limit in the observer. Without this it
+			// keeps running for about a second through whichever tests happen to follow.
+			store.dispose();
 		});
 
 		it("prevents infinite loop when variable updates itself inside observer", async () => {

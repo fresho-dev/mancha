@@ -216,6 +216,11 @@ callback and keep the value out of the store.
 > tail is indistinguishable from an outside write and will re-trigger that
 > observer in a loop.
 
+The same goes for observers that wake each other in a loop, which renders for as
+long as the page is open without ever being slow enough to notice. A settled page
+fires no timers at rest, so a steady run of them in the Performance panel is the
+giveaway, and its bottom-up view names the expression.
+
 ## Computed Values
 
 Computed values are derived values that automatically update when their dependencies change. Use `$computed` to create a named reactive value that recalculates whenever the values it depends on are modified.
