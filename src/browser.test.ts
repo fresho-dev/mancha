@@ -177,6 +177,56 @@ describe("Browser", () => {
 			for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
 		});
 
+		it("injects rules for a static class revealed by :if after mount", async () => {
+			const initialCount = document.head.querySelectorAll("style").length;
+			injectCss(["utils"]);
+
+			// The element is swapped for a placeholder during render, so the
+			// end-of-mount scan never sees it; only the reveal can inject.
+			const renderer = new Renderer({ show: false });
+			const fragment = renderer.parseHTML(
+				`<div id="ifhidden"><span :if="show" class="md:w-[302px]"></span></div>`,
+			);
+			const target = fragment.querySelector("#ifhidden") as Element;
+			document.body.appendChild(target);
+			await renderer.mount(target);
+
+			assert.equal(findCustomRule("width: 302px"), null, "Should not inject while hidden");
+
+			await renderer.set("show", true);
+
+			const rule = findCustomRule("width: 302px");
+			assert.ok(rule?.includes("min-width: 768px"), `Should inject md:w-[302px], got: ${rule}`);
+
+			target.remove();
+			const styles = document.head.querySelectorAll("style");
+			for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
+		});
+
+		it("injects rules for a static class in :html content rendered after mount", async () => {
+			const initialCount = document.head.querySelectorAll("style").length;
+			injectCss(["utils"]);
+
+			// :html renders through a subrenderer that never calls mount(), so
+			// its content postdates every tree scan.
+			const renderer = new Renderer({ content: "" });
+			const fragment = renderer.parseHTML(`<div id="dynhtml" :html="content"></div>`);
+			const target = fragment.querySelector("#dynhtml") as Element;
+			document.body.appendChild(target);
+			await renderer.mount(target);
+
+			assert.equal(findCustomRule("width: 305px"), null, "Should not inject before content");
+
+			await renderer.set("content", `<span class="md:w-[305px]"></span>`);
+
+			const rule = findCustomRule("width: 305px");
+			assert.ok(rule?.includes("min-width: 768px"), `Should inject md:w-[305px], got: ${rule}`);
+
+			target.remove();
+			const styles = document.head.querySelectorAll("style");
+			for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
+		});
+
 		it("does not inject on-demand rules from mount unless utils CSS was injected", async () => {
 			// No injectCss() call: apps using their own CSS should be left alone.
 			const renderer = new Renderer();

@@ -1,5 +1,5 @@
 import { safeAnchorEl, safeAreaEl } from "safevalues/dom";
-import { processRenderedClasses } from "./css_custom.js";
+import { processRenderedClasses, scanRenderedTree } from "./css_custom.js";
 import {
 	appendChild,
 	attributeNameToCamelCase,
@@ -367,6 +367,10 @@ export namespace RendererPlugins {
 							await subrenderer.renderNode(fragment);
 							replaceChildren(elem, fragment);
 
+							// renderNode() alone never triggers the end-of-mount scan, so
+							// classes in this content would otherwise go unseen.
+							scanRenderedTree(elem);
+
 							// Mount the subrenderer on the container element so $rootNode is set.
 							// This enables lazy cleanup if the container itself is later removed.
 							subrenderer._store.set("$rootNode", elem);
@@ -690,6 +694,9 @@ export namespace RendererPlugins {
 						// Toggle ON: element should be visible.
 						if (!elem.parentNode && placeholder.parentNode) {
 							replaceWith(placeholder as ChildNode, elem);
+							// The element sat detached while the tree was scanned, so its
+							// own classes have never been seen; scan it on the way in.
+							scanRenderedTree(elem);
 						}
 					} else {
 						// Toggle OFF: element should be hidden.
