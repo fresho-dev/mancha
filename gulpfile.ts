@@ -42,6 +42,15 @@ GulpClient.task("fixtures", () =>
 	GulpClient.src("src/fixtures/**/*").pipe(GulpClient.dest("dist/fixtures")),
 );
 
-GulpClient.task("bundle", GulpClient.series("tsdown", "rename:iife"));
+// tsdown overwrites the tsc output for its two entries with bundles that carry
+// no sourceMappingURL, so the maps tsc left behind describe code that is no
+// longer in the file. Drop them rather than ship a misleading map.
+GulpClient.task("clean:stale-maps", (done) =>
+	Promise.all(
+		["dist/mancha.js.map", "dist/browser.js.map"].map((file) => fs.rm(file, { force: true })),
+	).then(() => done()),
+);
+
+GulpClient.task("bundle", GulpClient.series("tsdown", "rename:iife", "clean:stale-maps"));
 GulpClient.task("build", GulpClient.series("ts", "chmod", "css", "bundle", "fixtures"));
 GulpClient.task("default", GulpClient.series("build"));
