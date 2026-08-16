@@ -423,3 +423,24 @@ This table summarizes all initialization methods and when to use them:
 </body>
 </html>
 ```
+
+## Templates Are Code
+
+A mancha template is a program, not markup. Directives such as `:text`,
+`:data`, `:on:click`, and `{{ }}` are expressions the renderer evaluates;
+`:render` imports a module and calls it; `<include>` fetches and renders
+another document. Rendering a template therefore grants it the same power as
+a `<script>` tag on the page.
+
+**Only render templates from sources you trust.** There is no sanitizing mode
+that makes a hostile template safe, because stripping the parts that execute
+would strip the parts that make it a template. A sanitizer that keeps
+directives working keeps arbitrary expression evaluation working with them.
+
+For genuinely untrusted content:
+
+- Render it in a cross-origin `<iframe>` with a restrictive `sandbox`
+  attribute, so it cannot reach your page, storage, or cookies.
+- Or treat it as data rather than as a template: put it in the store and bind
+  it with `:text`, which escapes rather than parses. Avoid `:html`, which does
+  not.

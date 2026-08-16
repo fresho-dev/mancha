@@ -247,9 +247,8 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 		});
 
 		describe("icon sprite pattern", () => {
-			it("icon component with :data for dynamic href", async function () {
+			it("icon component with :data for dynamic href", async () => {
 				// SafeBrowser's HTML sanitizer strips SVG elements and custom elements for security.
-				if (["safe_browser"].includes(new ctor().impl)) this.skip();
 
 				const renderer = new ctor();
 				const template = `<template is="icon"><svg class="w-4 h-4"><use :attr:href="'./sprite.svg#' + name"></use></svg></template>`;
@@ -265,9 +264,8 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(href, "./sprite.svg#home");
 			});
 
-			it("icon component forwards class attribute", async function () {
+			it("icon component forwards class attribute", async () => {
 				// SafeBrowser's HTML sanitizer strips SVG elements and custom elements for security.
-				if (["safe_browser"].includes(new ctor().impl)) this.skip();
 
 				const renderer = new ctor();
 				const template = `<template is="icon"><svg class="w-4 h-4" :class="class"><use :attr:href="'./sprite.svg#' + name"></use></svg></template>`;
@@ -281,9 +279,8 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.ok(classes.includes("text-blue-500"), "Should have forwarded class");
 			});
 
-			it("multiple icon instances with different names", async function () {
+			it("multiple icon instances with different names", async () => {
 				// SafeBrowser's HTML sanitizer strips SVG elements and custom elements for security.
-				if (["safe_browser"].includes(new ctor().impl)) this.skip();
 
 				const renderer = new ctor();
 				const template = `<template is="icon"><svg><use :attr:href="'./sprite.svg#' + name"></use></svg></template>`;
@@ -1224,7 +1221,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(children0.length, 1);
 				const template0 = children0[0] as HTMLTemplateElement;
 				assert.equal(template0.tagName.toLowerCase(), "template");
-				// template.content exists for browser/safe_browser but not worker
+				// template.content exists in the browser but not worker
 				const templateFirstChild = template0.content?.firstChild || template0.firstChild;
 				assert.equal(templateFirstChild, node);
 
@@ -1326,7 +1323,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(children.length, 1);
 				const template = children[0] as HTMLTemplateElement;
 				assert.equal(template.tagName.toLowerCase(), "template");
-				// template.content exists for browser/safe_browser but not worker
+				// template.content exists in the browser but not worker
 				const templateFirstChild = template.content?.firstChild || template.firstChild;
 				assert.equal(templateFirstChild, node);
 			});
@@ -3183,9 +3180,8 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			assert.equal(getAttribute(node, ":attr:href"), null);
 			assert.equal(getAttribute(node, "href"), "example.com");
 		});
-		it("processes custom attribute", async function () {
+		it("processes custom attribute", async () => {
 			// Skip test if renderer does not support unsafe attributes.
-			if (["safe_browser"].includes(new ctor().impl)) this.skip();
 			const renderer = new ctor({ foo: "example.com" });
 			const html = `<a :attr:custom-attr="foo"></a>`;
 			const fragment = renderer.parseHTML(html);
@@ -3206,9 +3202,8 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			assert.equal(getAttribute(elem, ":prop:disabled"), null);
 			assert.equal(elem.disabled, true);
 		});
-		it("processes href property", async function () {
+		it("processes href property", async () => {
 			// Skip test if renderer does not support unsafe properties.
-			if (["safe_browser"].includes(new ctor().impl)) this.skip();
 			const renderer = new ctor({ foo: "https://example.com/" });
 			const html = `<a :prop:href="foo"></a>`;
 			const fragment = renderer.parseHTML(html);
@@ -3217,9 +3212,8 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			assert.equal(getAttribute(elem, ":prop:href"), null);
 			assert.equal(elem.href, "https://example.com/");
 		});
-		it("processes custom property", async function () {
+		it("processes custom property", async () => {
 			// Skip test if renderer does not support unsafe properties.
-			if (["safe_browser"].includes(new ctor().impl)) this.skip();
 			const renderer = new ctor({ foo: "example.com" });
 			const html = `<a :prop:custom-prop="foo"></a>`;
 			const fragment = renderer.parseHTML(html);
@@ -3390,7 +3384,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				await renderer.preprocessNode(fragment, { dirpath: "/components" });
 
 				const elem = fragment.firstChild as Element;
-				// Check for either :render or data-render (safe_browser converts).
+				// Directives are readable in both :render and data-render spellings.
 				const resolved = getAttribute(elem, ":render") || getAttribute(elem, "data-render");
 				assert.equal(resolved, "/components/./init.js");
 			});

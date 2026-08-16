@@ -18,7 +18,6 @@ export default defineConfig([
 	{
 		entry: {
 			browser: "src/browser.ts",
-			safe_browser: "src/safe_browser.ts",
 		},
 		format: "esm",
 		clean: false,
