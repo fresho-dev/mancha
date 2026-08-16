@@ -20,12 +20,20 @@
 			"default": "./dist/*.js"
 		}
 	},
+	"files": [
+		"dist",
+		"docs",
+		"!dist/fixtures",
+		"!dist/test_types",
+		"!dist/test_utils.*",
+		"!dist/**/*.test.*"
+	],
 	"scripts": {
 		"clean": "rm -rf dist/",
 		"build": "gulp build",
 		"pretest": "npm run build",
 		"test:node": "mocha 'dist/**/*.test.js' --ignore 'dist/browser.test.js'",
-		"test:browser": "web-test-runner 'dist/**/*.test.js' '!dist/cli.test.js' '!dist/ssr.test.js' '!dist/index.test.js' '!dist/worker.test.js' '!dist/type_checker.test.js' --node-resolve --compatibility all --playwright --browsers chromium --no-sandbox",
+		"test:browser": "web-test-runner 'dist/**/*.test.js' '!dist/cli.test.js' '!dist/ssr.test.js' '!dist/index.test.js' '!dist/worker.test.js' '!dist/type_checker.test.js' '!dist/package.test.js' --node-resolve --compatibility all --playwright --browsers chromium --no-sandbox",
 		"test": "npm run test:node && npm run test:browser",
 		"check:size": "brotli -c dist/mancha.js | wc -c",
 		"cli": "node dist/cli.js",
