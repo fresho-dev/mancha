@@ -191,12 +191,24 @@ $.view = buildView(); // ...joins it. Observers run once, with the latest value.
 ```
 
 Two things follow from that. Observers see only the final value of a burst, so
-they never run against an intermediate state. And a key written continuously
-still notifies every ~10ms rather than being held back indefinitely, so a value
-updated on every pointer move keeps its observers running throughout the drag.
+they never run against an intermediate state. And a key written continuously is
+never held back indefinitely: each burst is anchored to its own first write, so
+a value updated on every pointer move keeps its observers running throughout the
+drag. The cadence there is the gap between writes plus the window, so a key
+written every 8ms notifies about every 20ms, not every 10ms.
 
 Timing depends only on when a key is first written, not on how often, and is the
 same in the browser, on the server, and in workers.
+
+The window is also a floor: an isolated write waits it out like any other, which
+in a browser is about 12ms from the write to the DOM change, often enough to
+miss the next frame and paint one frame later than it otherwise would. That is
+the cost of the guarantee above, and it is deliberate — every scheduler quick
+enough to remove the floor is also quick enough to let a frame boundary fall
+between a transient value and the write that corrects it, which paints states
+the user was never meant to see. For a value that changes every frame and ends
+in one element's style, write the element directly from a `requestAnimationFrame`
+callback and keep the value out of the store.
 
 > **Note:** An observer must not write the key it observes after an `await`.
 > Writes made by an observer's synchronous body are ignored, so the common case
