@@ -2481,6 +2481,162 @@ describe("SignalStore", () => {
 			assert.equal(runs, 1, "two writes 2ms apart should produce a single observer run");
 		});
 
+		it("coalesces writes to several keys made in one tick into one state", async () => {
+			// The guarantee worth keeping while removing the floor above: no observer ever
+			// runs against a partially applied update. Every observer of a multi-key write
+			// must see all of it, whatever order the keys were written in.
+			const store = new SignalStore({ a: 0, b: 0, c: 0 });
+			const snapshots: string[] = [];
+			const snapshot = () => {
+				snapshots.push(`${store.get("a")}${store.get("b")}${store.get("c")}`);
+			};
+			store.watch("a", snapshot);
+			store.watch("b", snapshot);
+			store.watch("c", snapshot);
+
+			void store.set("a", 1);
+			void store.set("b", 1);
+			void store.set("c", 1);
+			for (let i = 0; i < 5; i++) await sleepForReactivity();
+
+			assert.deepEqual(snapshots, ["111", "111", "111"], "an observer saw the write half applied");
+		});
+
+		it("runs keys in the order they were woken, whatever delay each one resolved to", async () => {
+			// `:key` alongside `:if` on one element depends on the enclosing key's observers
+			// running before the row's own. Keys woken a fraction of a millisecond apart
+			// resolve to different delays, and timers with different delays do not reliably
+			// fire in the order they were registered, so wake order has to be kept explicitly.
+			const store = new SignalStore({ outer: 0, inner: 0, pump: 0 });
+			const order: string[] = [];
+			store.watch("outer", () => order.push("outer"));
+			store.watch("inner", () => order.push("inner"));
+			store.watch("pump", () => order.push("pump"));
+
+			// Start a cooldown and let its run land, so the writes below resolve to delays
+			// that shrink as the window expires rather than all being zero.
+			for (let i = 0; i < 5; i++) await sleepForReactivity();
+			order.length = 0;
+			void store.set("pump", 1);
+			await new Promise((resolve) => setTimeout(resolve, 3));
+
+			// `outer` is woken first; the gap before `inner` is long enough for the window to
+			// expire in between, which is what used to let `inner` overtake it.
+			void store.set("outer", 1);
+			const until = Date.now() + REACTIVE_DEBOUNCE_MILLIS + 5;
+			while (Date.now() < until);
+			void store.set("inner", 1);
+			for (let i = 0; i < 6; i++) await sleepForReactivity();
+
+			const woken = order.filter((key) => key !== "pump");
+			assert.deepEqual(woken, ["outer", "inner"], `Keys ran out of order: ${order.join(", ")}`);
+		});
+
+		it("hands control back to the event loop between runs slower than the cooldown", async () => {
+			// A run stamps the cooldown when it ends rather than when it starts, and at most
+			// one run per turn skips the timer. Without both, a cascade of observers each
+			// slower than the cooldown chains microtasks: rendering continues but no timer,
+			// no I/O completion and no event handler ever runs again, which also puts
+			// `dispose()` out of reach.
+			const store = new SignalStore({ ping: 0, pong: 0 });
+			const spin = (millis: number) => {
+				const until = Date.now() + millis;
+				while (Date.now() < until);
+			};
+
+			let runs = 0;
+			let stopped = false;
+			const cascade = (writeTo: string) => () => {
+				runs++;
+				spin(REACTIVE_DEBOUNCE_MILLIS + 2);
+				// Bounded, so a regression fails here instead of hanging the suite.
+				if (!stopped && runs < 12) void store.set(writeTo, runs);
+			};
+			store.watch("ping", cascade("pong"));
+			store.watch("pong", cascade("ping"));
+
+			// A turn taken only after the cascade has run itself out proves nothing, since the
+			// cascade is bounded here so it cannot hang the suite. What has to be shown is a
+			// turn taken while it was still going.
+			let runsAtFirstTurn = -1;
+			const ticker = setInterval(() => {
+				if (runsAtFirstTurn < 0 && runs > 0) runsAtFirstTurn = runs;
+			}, 1);
+			void store.set("ping", 1);
+			await new Promise((resolve) => setTimeout(resolve, 300));
+			stopped = true;
+			clearInterval(ticker);
+			for (let i = 0; i < 5; i++) await sleepForReactivity();
+
+			assert.ok(runs > 1, `The cascade never got going, only ${runs} run(s)`);
+			assert.ok(
+				runsAtFirstTurn > 0 && runsAtFirstTurn < runs,
+				`The event loop first got a turn after ${runsAtFirstTurn} of ${runs} runs: the ` +
+					`cascade held it for the whole time, so no timer, no I/O and no event ` +
+					"handler could run and dispose() would be unreachable",
+			);
+		});
+
+		it("does not let one store's cooldown decide when an unrelated store runs", async () => {
+			// Independent stores must not be able to reschedule each other. Whatever pacing
+			// one store asks for applies to that store; a write to a store nobody else holds
+			// a reference to has to be scheduled on its own terms.
+			const busy = new SignalStore({ warm: 0, slow: 0 });
+			const other = new SignalStore({ v: 0 });
+			const ranAt: Record<string, number> = {};
+			busy.watch("warm", () => {});
+			busy.watch("slow", () => {
+				ranAt.busy ??= Date.now();
+			});
+			other.watch("v", () => {
+				ranAt.other ??= Date.now();
+			});
+
+			// Land a run first, so a cooldown measured from it is at its full length.
+			void busy.set("warm", 1);
+			for (let i = 0; i < 3; i++) await sleepForReactivity();
+
+			const longCooldown = REACTIVE_DEBOUNCE_MILLIS * 20;
+			void busy.notify("slow", longCooldown);
+			const start = Date.now();
+			void other.set("v", 1);
+			for (let i = 0; i < 6; i++) await sleepForReactivity();
+
+			assert.ok(ranAt.other !== undefined, "the unrelated store's observers never ran");
+			const waited = ranAt.other - start;
+			assert.ok(
+				waited < longCooldown / 2,
+				`An unrelated store waited ${waited}ms because another store asked for a ` +
+					`${longCooldown}ms cooldown`,
+			);
+		});
+
+		it("holds the cooldown notify was given rather than the default", async () => {
+			// `notify(key, ms)` is public and nothing covered it. It is a cooldown to hold
+			// since the last run, so a longer one has to push this run further out.
+			const store = new SignalStore({ v: 0 });
+			const runsAt: number[] = [];
+			const start = Date.now();
+			store.watch("v", () => runsAt.push(Date.now() - start));
+
+			// Establish a cooldown by letting one ordinary run land.
+			void store.set("v", 1);
+			for (let i = 0; i < 3; i++) await sleepForReactivity();
+			assert.equal(runsAt.length, 1, "setup write should have notified once");
+
+			const longCooldown = REACTIVE_DEBOUNCE_MILLIS * 8;
+			void store.notify("v", longCooldown);
+			for (let i = 0; i < 3; i++) await sleepForReactivity();
+			assert.equal(runsAt.length, 1, `A ${longCooldown}ms cooldown ran early, at ${runsAt[1]}ms`);
+
+			await new Promise((resolve) => setTimeout(resolve, longCooldown));
+			assert.equal(runsAt.length, 2, "the run never happened");
+			assert.ok(
+				runsAt[1] - runsAt[0] >= longCooldown - 2,
+				`Runs were ${runsAt[1] - runsAt[0]}ms apart, the cooldown asked for ${longCooldown}ms`,
+			);
+		});
+
 		it("does not postpone an already-scheduled run when written again", async () => {
 			// The whole scheduling model: the first write sets the deadline and later
 			// writes join that run instead of pushing it back. This is what makes the
