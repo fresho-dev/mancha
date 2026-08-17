@@ -88,15 +88,14 @@ value of `<img src=x onerror="...">`:
 subrenderer, so directives inside it execute, and in the browser a `<script>` element in that string
 runs when it is inserted.
 
-`:text` escapes markup, but it has one edge worth knowing: the text it writes **during mount** is
-still visited by the text-node plugin afterwards, so a value that itself contains `{{ ... }}` is
-evaluated as an expression. Values written by `:text` after mount are not rescanned, and neither is
-the result of a `{{ ... }}` substitution. Prefer `{{ ... }}` for values whose content you do not
-control. This is a bug rather than intended behavior, tracked as
-[#104](https://github.com/fresho-dev/mancha/issues/104); this paragraph goes away when it is fixed.
+`:text` escapes markup, and the text it writes is data: the renderer does not visit it again, so a
+value that itself contains `{{ ... }}` renders those braces verbatim instead of being evaluated. The
+same holds for the result of a `{{ ... }}` substitution. What `:text` does evaluate is its
+**attribute** — `:text="expr"` is an expression like every other directive — so the template still
+has to be one you trust; only the value flowing through it is data.
 
-So a value is safe in `{{ ... }}` and, with that caveat, in `:text`; it is unsafe everywhere else.
-This matters most for the values you do not choose yourself:
+So a value is safe in `{{ ... }}` and in `:text`; it is unsafe everywhere else. This matters most
+for the values you do not choose yourself:
 
 ```html
 <!-- Safe: URL query parameters, form input and API responses are escaped here,
@@ -110,9 +109,8 @@ This matters most for the values you do not choose yourself:
 <a :attr:href="$$next">Continue</a>
 ```
 
-The rule of thumb: untrusted values may only reach `{{ ... }}`, and `:text` subject to the note
-above. If you need untrusted markup, see
-[Isolating Untrusted Content](#isolating-untrusted-content).
+The rule of thumb: untrusted values may only reach `{{ ... }}` or `:text`. If you need untrusted
+markup, see [Isolating Untrusted Content](#isolating-untrusted-content).
 
 ## Whatever You Mount Is A Template
 

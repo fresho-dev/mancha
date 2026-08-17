@@ -2932,6 +2932,84 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 		});
 	});
 
+	describe(":text output re-entry (#104)", () => {
+		// Flips a global flag if the value it lives in is ever evaluated rather than printed.
+		const flag = "__mancha104Ran";
+		const payload = `{{ (0).constructor.constructor("globalThis.${flag} = true; return 1")() }}`;
+		const globals = globalThis as unknown as Record<string, boolean>;
+
+		beforeEach(() => {
+			globals[flag] = false;
+		});
+
+		it(":text does not evaluate the value it just wrote", async () => {
+			const renderer = new ctor();
+			await renderer.set("c", payload);
+			const fragment = renderer.parseHTML(`<p :text="c"></p>`);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+
+			assert.equal(globals[flag], false, "store value must not be executed");
+			assert.equal(getTextContent(node), payload);
+		});
+
+		it("{{ }} substitution still treats the value as data", async () => {
+			const renderer = new ctor();
+			await renderer.set("c", payload);
+			const fragment = renderer.parseHTML(`<p>{{ c }}</p>`);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+
+			assert.equal(globals[flag], false, "store value must not be executed");
+			assert.equal(getTextContent(node), payload);
+		});
+
+		it(":text renders literal {{ }} verbatim", async () => {
+			const renderer = new ctor({ c: "hello {{ world }}" });
+			const fragment = renderer.parseHTML(`<p :text="c"></p>`);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+
+			assert.equal(getTextContent(node), "hello {{ world }}");
+		});
+
+		it(":text still updates when its dependency changes after mount", async () => {
+			const renderer = new ctor({ c: "before" });
+			const fragment = renderer.parseHTML(`<p :text="c"></p>`);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.equal(getTextContent(node), "before");
+
+			await renderer.set("c", "after");
+			assert.equal(getTextContent(node), "after");
+
+			// A value assigned after mount is data too, braces included.
+			await renderer.set("c", "{{ world }}");
+			assert.equal(getTextContent(node), "{{ world }}");
+			assert.equal(globals[flag], false);
+		});
+
+		it("{{ }} interpolation is still reactive after mount", async () => {
+			const renderer = new ctor({ c: "before" });
+			const fragment = renderer.parseHTML(`<p>{{ c }}</p>`);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.equal(getTextContent(node), "before");
+
+			await renderer.set("c", "after");
+			assert.equal(getTextContent(node), "after");
+		});
+
+		it("a sibling text node next to a :text element is still interpolated", async () => {
+			const renderer = new ctor({ a: "A", b: "B" });
+			const fragment = renderer.parseHTML(`<div><span :text="a"></span>{{ b }}</div>`);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+
+			assert.equal(getTextContent(node), "AB");
+		});
+	});
+
 	describe(":html", () => {
 		it("render simple HTML", async () => {
 			const renderer = new ctor();
