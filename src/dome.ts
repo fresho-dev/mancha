@@ -192,7 +192,7 @@ export function cloneAttribute(
 		}
 	} else {
 		const attr = (elemFrom as Element)?.getAttribute?.(name);
-		safeSetAttribute(elemDest as Element, name, attr || "");
+		setAttribute(elemDest as Element, name, attr || "");
 	}
 }
 

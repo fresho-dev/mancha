@@ -247,11 +247,20 @@ describe("Dome", async () => {
 			assert.equal(getAttribute(clone, "data-foo"), "bar");
 		});
 
-		it('fails to clone unsafe "foo" attribute', () => {
-			const fragment = createFragment('<div foo="bar"></div><div></div>');
+		// A backend that refuses plain attributes renders the same template differently.
+		testHtmlParsers("clones plain attributes on every backend", htmlParsers, async (htmlParser) => {
+			const fragment = htmlParser(
+				'<div id="a" title="t" foo="bar" aria-label="l"></div><div></div>',
+			);
 			const node = fragment.childNodes[0] as Element;
 			const clone = fragment.childNodes[1] as Element;
-			assert.throws(() => cloneAttribute(node, clone, "foo"));
+			for (const name of ["id", "title", "foo", "aria-label"]) {
+				cloneAttribute(node, clone, name);
+			}
+			assert.equal(getAttribute(clone, "id"), "a");
+			assert.equal(getAttribute(clone, "title"), "t");
+			assert.equal(getAttribute(clone, "foo"), "bar");
+			assert.equal(getAttribute(clone, "aria-label"), "l");
 		});
 	});
 
