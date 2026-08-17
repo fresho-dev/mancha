@@ -980,8 +980,8 @@ export class SignalStore<T extends StoreState = StoreState> {
 			try {
 				return fn(thisArg, args);
 			} catch (exc) {
-				console.error(`Failed to evaluate expression: ${expr}`);
-				console.error(exc);
+				// One entry, so the expression and its stack stay together in the log.
+				console.error(`Failed to evaluate expression: ${expr}`, exc);
 				return null;
 			}
 		}

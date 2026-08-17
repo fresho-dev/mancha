@@ -77,9 +77,11 @@ export function injectCss(names: CssName[]): void {
 			case "minimal":
 				safeStyleEl.setTextContent(style, minimalCssRules());
 				break;
+			// Both are folded into "utils" and accepted only so old markup keeps
+			// working. Nothing is wrong at the call site, so there is nothing to
+			// report: the deprecation belongs in the docs, not in every console.
 			case "basic":
 			case "custom":
-				console.warn(`css="${styleName}" is deprecated; use css="utils" instead.`);
 				continue;
 			case "utils": {
 				// Inject basic reset + utility classes, then scan for on-demand rules.
