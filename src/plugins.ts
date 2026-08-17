@@ -324,13 +324,18 @@ export namespace RendererPlugins {
 
 			// Compute the function's result and track dependencies.
 			const setTextContent = (content: string) => this.textContent(node, content);
-			return this.effect(
+			const effectResult = this.effect(
 				function (this: IRenderer) {
 					const result = this.eval(textAttr, { $elem: node });
 					setTextContent(result == null ? "" : String(result));
 				},
 				{ directive: ":text", element: elem, expression: textAttr },
 			);
+
+			// What :text wrote is data, so keep the traversal from evaluating {{ }} inside it.
+			for (const child of Array.from(elem.childNodes || [])) this._skipNodes.add(child);
+
+			return effectResult;
 		}
 	};
 
