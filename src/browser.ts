@@ -1,9 +1,6 @@
 import { safeStyleEl } from "safevalues/dom";
-import { _resetForTesting as resetCustomCss, scanAndInject } from "./css_custom.js";
+import { scanAndInject } from "./css_custom.js";
 import { dirname } from "./dome.js";
-
-// Re-export for testing.
-export { resetCustomCss as _resetCustomCssForTesting };
 
 import type { ParserParams, RenderParams } from "./interfaces.js";
 import { IRenderer } from "./renderer.js";

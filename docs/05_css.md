@@ -655,6 +655,25 @@ Two limitations:
 - **ESM only**: `scanAndInject` is exported from the module build, not from the global bundle loaded via a `<script>` tag.
 - **No shadow DOM**: `querySelectorAll` does not pierce a shadow root, so scanning a host element finds nothing inside it. Scanning the shadow root itself does inject rules, but they land in the main document's stylesheet, where shadow-boundary scoping stops them from applying. Style shadow content with its own stylesheet instead.
 
+## Getting the Rules as Text
+
+`injectCss` appends the stylesheets to `document.head`, which is the right thing almost always. When you need the CSS itself rather than a style tag in the head, each stylesheet is also exported as a function returning its text:
+
+```js
+import { basicCssRules, minimalCssRules, utilsCssRules } from "mancha/browser";
+
+minimalCssRules(); // Same rules as injectCss(["minimal"]).
+basicCssRules(); // The reset half of injectCss(["utils"]).
+utilsCssRules(); // The utility-class half of injectCss(["utils"]).
+```
+
+They take no arguments, touch no DOM, and return the same text on every call, so they can also run at build time or on the server. The two cases that need them:
+
+- **Shadow DOM**: rules in `document.head` do not cross a shadow boundary, so give the shadow root its own stylesheet built from these.
+- **Serving the CSS yourself**: write the text to a file at build time and link it, rather than shipping the rules inside the JavaScript bundle.
+
+Note that these are the full stylesheets. Rules for custom values like `w-[200px]` are injected on demand as Mancha renders them and are not part of this text.
+
 --- 
 
 *Generated automatically from `src/css_gen_utils.ts`*
