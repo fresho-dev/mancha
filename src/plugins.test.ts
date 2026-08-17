@@ -4193,5 +4193,36 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				});
 			});
 		});
+
+		describe("plain attribute cloning onto custom elements and includes", () => {
+			it("clones plain attributes from a custom element onto its first child", async () => {
+				const renderer = new ctor();
+				const template = `<template is="widget"><p>hi</p></template>`;
+				const html = `<widget id="g" title="t" aria-label="l"></widget>`;
+				const fragment = renderer.parseHTML(template + html);
+
+				await renderer.mount(fragment);
+
+				const node = fragment.firstChild as Element;
+				assert.equal(node.tagName.toLowerCase(), "p");
+				assert.equal(getAttribute(node, "id"), "g");
+				assert.equal(getAttribute(node, "title"), "t");
+				assert.equal(getAttribute(node, "aria-label"), "l");
+			});
+
+			it("clones plain attributes from an <include> onto its first child", async () => {
+				const renderer = new ctor();
+				const fragment = renderer.parseHTML(`<include src="foo.html" id="g" title="t"></include>`);
+				renderer.preprocessLocal = async () => renderer.parseHTML(`<p>hi</p>`);
+
+				await renderer.mount(fragment, { dirpath: "." });
+
+				const node = fragment.firstChild as Element;
+				assert.equal(node.tagName.toLowerCase(), "p");
+				assert.equal(getAttribute(node, "id"), "g");
+				assert.equal(getAttribute(node, "title"), "t");
+				assert.equal(getAttribute(node, "src"), null);
+			});
+		});
 	});
 }
