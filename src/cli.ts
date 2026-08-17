@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +11,7 @@ import { hideBin } from "yargs/helpers";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, "..");
+const packageJson = JSON.parse(readFileSync(path.join(packageRoot, "package.json"), "utf-8"));
 
 import { Mancha } from "./index.js";
 import { typeCheck } from "./type_checker.js";
@@ -147,8 +149,6 @@ const _args = yargs(hideBin(process.argv))
 		() => {},
 		async () => {
 			// Output the current version of mancha for reference.
-			const packageJsonPath = path.join(packageRoot, "package.json");
-			const packageJson = JSON.parse(await fs.readFile(packageJsonPath, "utf-8"));
 			console.log(`mancha version ${packageJson.version}\n`);
 
 			// List README.md first, then all docs/*.md files in lexicographical order.
@@ -173,4 +173,6 @@ const _args = yargs(hideBin(process.argv))
 	// Without this, a misspelled or made-up flag is silently ignored instead of
 	// telling the caller that whatever they asked for did not happen.
 	.strict()
+	// Without this, yargs guesses, and guesses the consumer's project once mancha is installed.
+	.version(packageJson.version)
 	.help().argv;
