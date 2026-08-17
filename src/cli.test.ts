@@ -82,6 +82,54 @@ describe("CLI", function () {
 		});
 	});
 
+	describe("render command", () => {
+		const testDir = path.join(__dirname, "temp_cli_render_tests");
+
+		before(async () => {
+			await fs.rm(testDir, { recursive: true, force: true });
+			await fs.mkdir(testDir, { recursive: true });
+			await fs.writeFile(
+				path.join(testDir, "types.html"),
+				`<div :types='{"name": "string"}' data-types='{}'>hi</div>`,
+			);
+		});
+
+		after(async () => {
+			await fs.rm(testDir, { recursive: true, force: true });
+		});
+
+		it("should render a template to stdout", async () => {
+			const filePath = path.join(testDir, "types.html");
+			const { stdout } = await execAsync(`node ${cliPath} render ${filePath}`);
+			assert.ok(stdout.includes("<div>hi</div>"), "Should render the template");
+		});
+
+		it("should write to the file given by --output", async () => {
+			const filePath = path.join(testDir, "types.html");
+			const outPath = path.join(testDir, "out.html");
+			await execAsync(`node ${cliPath} render ${filePath} --output ${outPath}`);
+			const output = await fs.readFile(outPath, "utf-8");
+			assert.ok(output.includes("<div>hi</div>"), "Should write the rendered template");
+		});
+
+		it("should strip type attributes without any flag", async () => {
+			const filePath = path.join(testDir, "types.html");
+			const { stdout } = await execAsync(`node ${cliPath} render ${filePath}`);
+			assert.ok(!stdout.includes(":types"), "Should strip :types");
+			assert.ok(!stdout.includes("data-types"), "Should strip data-types");
+		});
+
+		it("should reject unknown flags instead of ignoring them", async () => {
+			const filePath = path.join(testDir, "types.html");
+			const result = await execAsync(`node ${cliPath} render ${filePath} --strip-types`).then(
+				() => ({ failed: false, stderr: "" }),
+				(err: { stderr: string }) => ({ failed: true, stderr: err.stderr }),
+			);
+			assert.ok(result.failed, "Should exit with a non-zero code");
+			assert.ok(result.stderr.includes("Unknown argument"), "Should name the unknown argument");
+		});
+	});
+
 	describe("docs command", () => {
 		it("should output documentation", async () => {
 			const { stdout } = await execAsync(`node ${cliPath} docs`);

@@ -62,16 +62,16 @@ npx mancha check src/index.html
 npx mancha check src/index.html --strict
 ```
 
-### Stripping Types in Production
+### Types Never Reach the Output
 
-The `:types` attributes are only used for static analysis and have no runtime behavior. However, you may want to remove them from your production HTML to reduce file size and avoid exposing type information:
+The `:types` attributes are only used for static analysis and have no runtime behavior, so rendering always removes them. There is no flag to opt in or out:
 
 ```bash
-# Render with types stripped
-npx mancha render src/index.html --output public/index.html --strip-types
+# :types and data-types are stripped from the rendered output
+npx mancha render src/index.html --output public/index.html
 ```
 
-The `--strip-types` flag removes all `:types` and `data-types` attributes from the rendered output.
+This holds for every render, in the browser as well as on the server: `:types` and `data-types` are dropped from each node as it is rendered.
 
 ### Type Checking with For-Loops
 

@@ -170,4 +170,7 @@ const _args = yargs(hideBin(process.argv))
 		},
 	)
 	.demandCommand(1, "You need at least one command before moving on")
+	// Without this, a misspelled or made-up flag is silently ignored instead of
+	// telling the caller that whatever they asked for did not happen.
+	.strict()
 	.help().argv;

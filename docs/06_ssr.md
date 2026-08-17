@@ -18,7 +18,8 @@ src/
 You can run the following command to compile the site into a `public` folder:
 
 ```bash
-npx mancha --input="./src/index.html" --vars="$(cat vars.json)" --output="./public"
+mkdir -p ./public
+npx mancha render ./src/index.html --vars="$(cat ./src/vars.json)" --output="./public/index.html"
 ```
 
 For a more complete example, see [examples/compiled](../examples/compiled).
@@ -57,7 +58,7 @@ For a more complete example, see [examples/express](../examples/express).
 For servers hosted as worker runtimes, such as `Cloudflare Workers`, you will need to import a stripped down version of `mancha` that does not have the ability to read local files.
 
 ```js
-import { Renderer } from "mancha/dist/worker";
+import { Renderer } from "mancha/dist/worker.js";
 import htmlIndex from "./index.html";
 import vars from "./vars.json";
 
