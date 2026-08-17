@@ -3057,6 +3057,97 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 		});
 	});
 
+	describe(":html content double evaluation (#109)", () => {
+		it("evaluates the inserted content exactly once", async () => {
+			const renderer = new ctor();
+			await renderer.set("c", "<span>{{ x }}</span>");
+			await renderer.set("x", "{{ y }}");
+			await renderer.set("y", "boom");
+			const fragment = renderer.parseHTML(`<p :html="c"></p>`);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+
+			// One pass turns {{ x }} into the string "{{ y }}"; a second pass would reach "boom".
+			assert.equal(getTextContent(node), "{{ y }}");
+		});
+
+		it("evaluates content nested deep in the subtree exactly once", async () => {
+			const renderer = new ctor();
+			await renderer.set("c", "<div><section><span>{{ x }}</span></section></div>");
+			await renderer.set("x", "{{ y }}");
+			await renderer.set("y", "boom");
+			const fragment = renderer.parseHTML(`<p :html="c"></p>`);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+
+			assert.equal(getTextContent(node), "{{ y }}");
+		});
+
+		it("still evaluates content once after the dependency changes twice", async () => {
+			const renderer = new ctor();
+			await renderer.set("c", "<span>{{ x }}</span>");
+			await renderer.set("x", "first");
+			await renderer.set("y", "boom");
+			const fragment = renderer.parseHTML(`<p :html="c"></p>`);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.equal(getTextContent(node), "first");
+
+			// First update: the content expression itself changes.
+			await renderer.set("c", "<span>second: {{ x }}</span>");
+			assert.equal(getTextContent(node), "second: first");
+
+			// Second update: the result legitimately contains braces, which must survive.
+			await renderer.set("x", "{{ y }}");
+			assert.equal(getTextContent(node), "second: {{ y }}");
+		});
+
+		it("keeps a nested :text inside the content working and reactive", async () => {
+			const renderer = new ctor();
+			await renderer.set("label", "one");
+			await renderer.set("y", "boom");
+			await renderer.set("c", `<em :text="label"></em>`);
+			const fragment = renderer.parseHTML(`<p :html="c"></p>`);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.equal(getTextContent(node), "one");
+
+			await renderer.set("label", "two");
+			assert.equal(getTextContent(node), "two");
+
+			// The nested :text writes data, so braces in the value stay verbatim.
+			await renderer.set("label", "{{ y }}");
+			assert.equal(getTextContent(node), "{{ y }}");
+		});
+
+		it("still runs a nested :for inside the content", async () => {
+			const renderer = new ctor();
+			await renderer.set("items", ["a", "b"]);
+			await renderer.set("c", `<span :for="item in items" :text="item"></span>`);
+			const fragment = renderer.parseHTML(`<p :html="c"></p>`);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+
+			assert.equal(getTextContent(node), "ab");
+		});
+
+		it("does not accumulate skipped nodes as the content is replaced", async () => {
+			const renderer = new ctor();
+			await renderer.set("c", "<span>0</span>");
+			const fragment = renderer.parseHTML(`<p :html="c"></p>`);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+
+			const afterMount = renderer._skipNodes.size;
+			for (let i = 1; i <= 10; i++) await renderer.set("c", `<span>${i}</span>`);
+			await sleepForReactivity();
+
+			// Each run replaces the previous content, so the bookkeeping must not grow with it.
+			assert.equal(getTextContent(node), "10");
+			assert.equal(renderer._skipNodes.size, afterMount);
+		});
+	});
+
 	describe("observer cleanup (memory leak prevention)", () => {
 		it(":for cleans up observers when items are removed", async () => {
 			const renderer = new ctor({

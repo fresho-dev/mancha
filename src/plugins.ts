@@ -352,6 +352,9 @@ export namespace RendererPlugins {
 			// Track the current subrenderer to dispose on content change.
 			let currentSubrenderer: IRenderer | null = null;
 
+			// Remembered because a nested :for can swap these out, leaving the marks unreachable.
+			let skipped: Node[] = [];
+
 			// Compute the function's result and track dependencies.
 			return this.effect(
 				function (this: IRenderer) {
@@ -370,7 +373,15 @@ export namespace RendererPlugins {
 
 							const fragment = await subrenderer.preprocessString(result, params);
 							await subrenderer.renderNode(fragment);
+
+							for (const child of skipped) this._skipNodes.delete(child);
+
 							replaceChildren(elem, fragment);
+
+							// The subrenderer already rendered this; traverse() stops at a skipped node,
+							// so marking the immediate children prunes the whole inserted subtree.
+							skipped = Array.from(elem.childNodes || []);
+							for (const child of skipped) this._skipNodes.add(child);
 
 							// renderNode() alone never triggers the end-of-mount scan, so
 							// classes in this content would otherwise go unseen.
