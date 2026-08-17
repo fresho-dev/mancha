@@ -38,6 +38,7 @@
 		"check:size": "brotli -c dist/mancha.js | wc -c",
 		"cli": "node dist/cli.js",
 		"gen:docs": "tsx scripts/generate-css-docs.ts",
+		"compare:sizes": "tsx scripts/compare-sizes.ts",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write ."
 	},

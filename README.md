@@ -40,13 +40,31 @@ Here's a small sample of the things that you can do with `mancha`:
 - **testing**, individual components can be rendered and tested outside the browser
 - **progressive enhancement**, from simple templating and basic reactivity to a full-blown app
 
-| Feature               | mancha | Svelte | React.js | Vue.js | petite-vue | Alpine.js |
-| --------------------- | ------ | ------ | -------- | ------ | ---------- | --------- |
-| Simple to learn       | ✔️     | ❌     | ❌       | ❌     | ✔️         | ✔️        |
-| < 18kb compressed     | ✔️     | ✔️     | ❌       | ❌     | ✔️         | ❌        |
-| Custom web components | ✔️     | ✔️     | ✔️       | ✔️     | ❌         | ❌        |
-| Client-side rendering | ✔️     | ❌     | ❌       | ✔️     | ✔️         | ✔️        |
-| Server-side rendering | ✔️     | ✔️     | ✔️       | ✔️     | ❌         | ❌        |
+`mancha` is not the smallest option. It is the one that does all of it in a
+single file: drop it in a script tag to prototype, then keep the same templates
+when you move to a bundler or render them on the server.
+
+| Library                | Size (brotli) | Script tag | Custom tags | Server rendering | CSS utilities |
+| ---------------------- | ------------: | ---------- | ----------- | ---------------- | ------------- |
+| [petite-vue][pv] 0.4.1 |       6,513 B | ✔️         | ❌          | ❌               | ❌            |
+| [htmx][hx] 2.0.10      |      14,996 B | ✔️         | ❌          | ❌               | ❌            |
+| [Svelte][sv] 5.56.9    |      15,106 B | ❌         | ✔️          | ✔️               | ❌            |
+| [Alpine.js][al] 3.16.1 |      15,400 B | ✔️         | ❌          | ❌               | ❌            |
+| **mancha 0.24.0**      |  **19,852 B** | ✔️         | ✔️          | ✔️               | ✔️            |
+| [React][re] 19.2.8     |      52,002 B | ❌         | ✔️          | ✔️               | ❌            |
+| [Vue][vu] 3.5.41       |      54,171 B | ✔️         | ✔️          | ✔️               | ❌            |
+
+Sizes are the brotli-compressed bytes of the file you download, at the version
+shown. Run `npm run compare:sizes` to re-measure them. Svelte and React ship no
+drop-in build — React 19 dropped its UMD build entirely — so their sizes come
+from bundling a minimal app instead.
+
+[al]: https://alpinejs.dev
+[hx]: https://htmx.org
+[pv]: https://github.com/vuejs/petite-vue
+[re]: https://react.dev
+[sv]: https://svelte.dev
+[vu]: https://vuejs.org
 
 ## Documentation
 
