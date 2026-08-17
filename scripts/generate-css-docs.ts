@@ -173,9 +173,9 @@ function generateMarkdown() {
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
 	const borderProps = ["border", "rounded"];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (borderProps.some((p) => klass.startsWith(p))) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	// Document dynamic border widths
@@ -190,9 +190,9 @@ function generateMarkdown() {
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
 	const effectProps = ["shadow", "ring", "mix-blend-"];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (effectProps.some((p) => klass.startsWith(p))) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	// Document opacity
@@ -204,9 +204,9 @@ function generateMarkdown() {
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
 	const outlineProps = ["outline"];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (outlineProps.some((p) => klass.startsWith(p))) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	md += "\n";
@@ -215,9 +215,9 @@ function generateMarkdown() {
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
 	const aspectProps = ["aspect-"];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (aspectProps.some((p) => klass.startsWith(p))) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	md += "\n";
@@ -226,9 +226,9 @@ function generateMarkdown() {
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
 	const backdropProps = ["backdrop-"];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (backdropProps.some((p) => klass.startsWith(p))) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	md += "\n";
@@ -237,9 +237,9 @@ function generateMarkdown() {
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
 	const animProps = ["transition", "animate-"];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (animProps.some((p) => klass.startsWith(p))) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	// Document durations
@@ -250,9 +250,9 @@ function generateMarkdown() {
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
 	const interProps = ["cursor-", "select-", "pointer-events-", "resize", "user-select"];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (interProps.some((p) => klass.startsWith(p))) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	md += "\n";
@@ -276,9 +276,9 @@ function generateMarkdown() {
 		"underline",
 		"line-through",
 	];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (typoProps.some((p) => klass.startsWith(p)) && !handledBySize(klass)) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	md += "\n";
@@ -298,9 +298,9 @@ function generateMarkdown() {
 		"order-",
 		"grid-",
 	];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (flexProps.some((p) => klass.startsWith(p))) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	// Document gap utilities
@@ -332,9 +332,9 @@ function generateMarkdown() {
 
 	// Static grid properties from PROPS_CUSTOM if any (like 'grid')
 	const gridProps = ["grid"];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (gridProps.some((p) => klass === p)) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 
@@ -358,9 +358,9 @@ function generateMarkdown() {
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
 	const posProps = ["relative", "absolute", "fixed", "sticky", "inset-", "object-"];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (posProps.some((p) => klass.startsWith(p))) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	// Document position values
@@ -387,9 +387,9 @@ function generateMarkdown() {
 		"invisible",
 		"collapse",
 	];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (displayProps.some((p) => klass === p)) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	md += "\n";
@@ -398,9 +398,9 @@ function generateMarkdown() {
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
 	const overflowProps = ["overflow-", "overscroll-"];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (overflowProps.some((p) => klass.startsWith(p))) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	md += "\n";
@@ -426,9 +426,9 @@ function generateMarkdown() {
 		"bg-local",
 		"bg-scroll",
 	];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (bgProps.some((p) => klass === p)) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	md += "\n";
@@ -437,9 +437,9 @@ function generateMarkdown() {
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
 	const listProps = ["list-"];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (listProps.some((p) => klass.startsWith(p))) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	md += "\n";
@@ -448,9 +448,9 @@ function generateMarkdown() {
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
 	const alignProps = ["align-"];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (alignProps.some((p) => klass.startsWith(p))) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	md += "\n";
@@ -472,9 +472,9 @@ function generateMarkdown() {
 		"min-h-svh",
 		"min-h-lvh",
 	];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (viewportProps.some((p) => klass === p)) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	md += "\n";
@@ -483,9 +483,9 @@ function generateMarkdown() {
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
 	const a11yProps = ["sr-only", "not-sr-only"];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (a11yProps.some((p) => klass === p)) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	md += "\n";
@@ -534,9 +534,9 @@ function generateMarkdown() {
 		"grid-",
 		"col-",
 	];
-	for (const [klass, props] of Object.entries(PROPS_CUSTOM)) {
+	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
 		if (!allHandledPrefixes.some((p) => klass.startsWith(p) || klass === p)) {
-			md += `| \`${klass}\` | \`${JSON.stringify(props)}\` |\n`;
+			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	// Document text sizes

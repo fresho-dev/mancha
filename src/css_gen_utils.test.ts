@@ -1,4 +1,4 @@
-import rules, { PERCENTS } from "./css_gen_utils.js";
+import rules, { PERCENTS, PROPS_COLORS } from "./css_gen_utils.js";
 import { assert } from "./test_utils.js";
 
 /** Count every block in the source, at any nesting depth. */
@@ -333,6 +333,46 @@ describe("CSS Generation Utils", () => {
 			// Second call should be significantly faster (at least 10x)
 			// We use a generous threshold since first call might also be cached
 			assert.ok(time2 < 10, `Second call should be fast (was ${time2.toFixed(2)}ms)`);
+		});
+	});
+
+	// The palette ships packed, so a mis-typed character no longer shows up as an
+	// obviously malformed entry in review. These pin its shape and enough anchor
+	// values that an off-by-one in the packing cannot pass.
+	describe("Color palette", () => {
+		const SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900];
+
+		it("decodes to one ten-shade ramp per hue", () => {
+			const names = Object.keys(PROPS_COLORS);
+			assert.equal(names.length, 19, "expected 19 palettes");
+			for (const name of names) {
+				assert.deepEqual(
+					Object.keys(PROPS_COLORS[name]).map(Number),
+					SHADES,
+					`${name} should carry every shade in order`,
+				);
+			}
+		});
+
+		it("decodes every entry to a six-digit hex color", () => {
+			const malformed = Object.entries(PROPS_COLORS).flatMap(([name, ramp]) =>
+				Object.entries(ramp)
+					.filter(([, hex]) => !/^#[0-9a-f]{6}$/.test(hex))
+					.map(([shade, hex]) => `${name}-${shade}: ${hex}`),
+			);
+			assert.deepEqual(malformed, [], "every shade should be a #rrggbb literal");
+		});
+
+		it("keeps the first, middle and last ramps aligned", () => {
+			// First palette, last palette, and one either side of a boundary: an
+			// off-by-one in the packing shifts at least one of these.
+			assert.equal(PROPS_COLORS.red[50], "#ffebee");
+			assert.equal(PROPS_COLORS.red[900], "#b71c1c");
+			assert.equal(PROPS_COLORS.blue[500], "#2196f3");
+			assert.equal(PROPS_COLORS.gray[500], "#9e9e9e");
+			assert.equal(PROPS_COLORS["deep-orange"][500], "#ff5722");
+			assert.equal(PROPS_COLORS["blue-gray"][50], "#eceff1");
+			assert.equal(PROPS_COLORS["blue-gray"][900], "#263238");
 		});
 	});
 });
