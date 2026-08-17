@@ -295,14 +295,14 @@ describe("Browser", () => {
 	});
 
 	describe("Deprecated CSS names", () => {
-		it("injectCss(['basic']) is a no-op with deprecation warning", () => {
+		it("injectCss(['basic']) is a silent no-op", () => {
 			const initialCount = document.head.querySelectorAll("style").length;
 			injectCss(["basic"]);
 			const styles = document.head.querySelectorAll("style");
 			assert.equal(styles.length, initialCount, "Should not add any style elements");
 		});
 
-		it("injectCss(['custom']) is a no-op with deprecation warning", () => {
+		it("injectCss(['custom']) is a silent no-op", () => {
 			const initialCount = document.head.querySelectorAll("style").length;
 			injectCss(["custom"]);
 			const styles = document.head.querySelectorAll("style");
