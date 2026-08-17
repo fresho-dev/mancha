@@ -1,7 +1,9 @@
 import { exec } from "node:child_process";
+import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { brotliCompressSync } from "node:zlib";
 import { assert } from "./test_utils.js";
 
 const execAsync = promisify(exec);
@@ -60,4 +62,26 @@ describe("Published package", function () {
 			assert.ok(files.includes(required), `${required} missing from tarball`);
 		});
 	}
+});
+
+/**
+ * A budget, not a target. Growth here is a product decision — every added
+ * utility class lands in this bundle — so it should be made deliberately by
+ * raising this number, rather than discovered later by a user on a slow link.
+ * Matches `npm run check:size`; node's brotli defaults agree with the CLI.
+ */
+const BUNDLE_BUDGET_BYTES = 20_000;
+
+describe("Bundle size", function () {
+	this.timeout(20000); // Brotli at maximum quality is not fast.
+
+	it(`compresses to under ${BUNDLE_BUDGET_BYTES} bytes`, async () => {
+		const bundle = await fs.readFile(path.join(packageRoot, "dist/mancha.js"));
+		const compressed = brotliCompressSync(bundle).length;
+		assert.ok(
+			compressed <= BUNDLE_BUDGET_BYTES,
+			`dist/mancha.js is ${compressed} bytes brotli, over the ${BUNDLE_BUDGET_BYTES} budget ` +
+				`by ${compressed - BUNDLE_BUDGET_BYTES}`,
+		);
+	});
 });
