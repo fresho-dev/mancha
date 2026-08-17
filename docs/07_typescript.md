@@ -28,6 +28,30 @@ renderer.$.user = { name: "Alice", email: "alice@example.com" };
 
 The `$` proxy provides typed access to store values. Without a type parameter, the store accepts any properties.
 
+## The Shared Renderer Type
+
+Each entry point exports its own `Renderer`: `mancha` parses with jsdom, `mancha/browser` with the DOM, and `mancha/worker` with htmlparser2. All three extend `IRenderer`, which every entry point exports alongside them. It is the type to reach for when code has to work against whichever renderer it is handed — typically logic shared between the server and the client:
+
+```typescript
+import type { IRenderer } from "mancha";
+
+// Accepts the jsdom, browser and worker renderers alike.
+async function renderPage(renderer: IRenderer, html: string): Promise<string> {
+	const fragment = renderer.parseHTML(html);
+	return renderer.serializeHTML(await renderer.renderNode(fragment));
+}
+```
+
+`IRenderer` is also the `this` type of `RendererPlugin`, so it is needed to annotate a plugin written as a standalone function:
+
+```typescript
+import type { IRenderer, RendererPlugin } from "mancha";
+
+const logNodes: RendererPlugin = function (this: IRenderer, node) {
+	console.log(this.impl, node.nodeName);
+};
+```
+
 ## Type Checking (Experimental)
 
 **⚠️ This feature is experimental and may change in future versions.**

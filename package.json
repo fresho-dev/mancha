@@ -15,10 +15,11 @@
 			"types": "./dist/browser.d.ts",
 			"default": "./dist/browser.js"
 		},
-		"./dist/*.js": {
-			"types": "./dist/*.d.ts",
-			"default": "./dist/*.js"
-		}
+		"./worker": {
+			"types": "./dist/worker.d.ts",
+			"default": "./dist/worker.js"
+		},
+		"./package.json": "./package.json"
 	},
 	"files": [
 		"dist",

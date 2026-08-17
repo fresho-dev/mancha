@@ -602,6 +602,24 @@ function generateMarkdown() {
 	md +=
 		"- **No shadow DOM**: `querySelectorAll` does not pierce a shadow root, so scanning a host element finds nothing inside it. Scanning the shadow root itself does inject rules, but they land in the main document's stylesheet, where shadow-boundary scoping stops them from applying. Style shadow content with its own stylesheet instead.\n\n";
 
+	md += "## Getting the Rules as Text\n\n";
+	md +=
+		"`injectCss` appends the stylesheets to `document.head`, which is the right thing almost always. When you need the CSS itself rather than a style tag in the head, each stylesheet is also exported as a function returning its text:\n\n";
+	md += "```js\n";
+	md += 'import { basicCssRules, minimalCssRules, utilsCssRules } from "mancha/browser";\n\n';
+	md += 'minimalCssRules(); // Same rules as injectCss(["minimal"]).\n';
+	md += 'basicCssRules(); // The reset half of injectCss(["utils"]).\n';
+	md += 'utilsCssRules(); // The utility-class half of injectCss(["utils"]).\n';
+	md += "```\n\n";
+	md +=
+		"They take no arguments, touch no DOM, and return the same text on every call, so they can also run at build time or on the server. The two cases that need them:\n\n";
+	md +=
+		"- **Shadow DOM**: rules in `document.head` do not cross a shadow boundary, so give the shadow root its own stylesheet built from these.\n";
+	md +=
+		"- **Serving the CSS yourself**: write the text to a file at build time and link it, rather than shipping the rules inside the JavaScript bundle.\n\n";
+	md +=
+		"Note that these are the full stylesheets. Rules for custom values like `w-[200px]` are injected on demand as Mancha renders them and are not part of this text.\n\n";
+
 	md += "--- \n\n*Generated automatically from `src/css_gen_utils.ts`*\n";
 
 	return md;

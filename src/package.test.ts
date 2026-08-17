@@ -1,5 +1,7 @@
 import { exec } from "node:child_process";
+import { readFileSync } from "node:fs";
 import * as fs from "node:fs/promises";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -9,6 +11,9 @@ import { assert } from "./test_utils.js";
 const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
 const packageRoot = path.join(path.dirname(__filename), "..");
+const pkg = JSON.parse(readFileSync(path.join(packageRoot, "package.json"), "utf8")) as {
+	exports: Record<string, unknown>;
+};
 
 /** Paths that must never reach consumers, keyed by what makes them unwanted. */
 const FORBIDDEN: Array<[label: string, pattern: RegExp]> = [
@@ -31,7 +36,11 @@ const REQUIRED = [
 	"package.json",
 	"README.md",
 	"dist/index.js",
+	"dist/index.d.ts",
 	"dist/browser.js",
+	"dist/browser.d.ts",
+	"dist/worker.js",
+	"dist/worker.d.ts",
 	"dist/mancha.js",
 	"dist/cli.js",
 	"docs/00_quickstart.md",
@@ -62,6 +71,105 @@ describe("Published package", function () {
 			assert.ok(files.includes(required), `${required} missing from tarball`);
 		});
 	}
+});
+
+/** Entry points a consumer is told to import, and the docs that say so. */
+const PUBLIC_ENTRY_POINTS = [
+	["mancha", "docs/06_ssr.md"],
+	["mancha/browser", "docs/02_initialization.md"],
+	["mancha/worker", "docs/06_ssr.md"],
+	// Not documented, but bundlers and tooling read the manifest, and narrowing
+	// `exports` blocks that unless it is listed explicitly.
+	["mancha/package.json", "tooling"],
+];
+
+/**
+ * Deep paths into dist/. These were importable while `exports` carried a
+ * `./dist/*.js` wildcard, which made every emitted module public API and left
+ * no way to change one without a breaking release.
+ */
+const PRIVATE_DEEP_PATHS = [
+	"mancha/dist/dome.js",
+	"mancha/dist/store.js",
+	"mancha/dist/css_gen_utils.js",
+	"mancha/dist/type_checker.js",
+	"mancha/dist/renderer.js",
+	// The supported spelling of these two is `mancha` and `mancha/worker`.
+	"mancha/dist/index.js",
+	"mancha/dist/worker.js",
+];
+
+/**
+ * Resolves each specifier the way a consumer's Node would, in a throwaway
+ * package whose node_modules/mancha symlinks back here. A symlink rather than
+ * an installed tarball keeps this to one subprocess; what is under test is the
+ * `exports` map, and Node applies it identically either way.
+ * @param specs - Package specifiers to resolve.
+ * @returns Each specifier mapped to "ok" or the Node error code it raised.
+ */
+async function resolveAsConsumer(specs: string[]): Promise<Record<string, string>> {
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mancha-exports-"));
+	try {
+		// A bare consumer package, with mancha resolvable by name.
+		await fs.writeFile(
+			path.join(dir, "package.json"),
+			JSON.stringify({ name: "consumer", type: "module", version: "1.0.0" }),
+		);
+		await fs.mkdir(path.join(dir, "node_modules"), { recursive: true });
+		await fs.symlink(packageRoot, path.join(dir, "node_modules", "mancha"), "dir");
+
+		// import.meta.resolve applies `exports` without executing the module.
+		const probe = `const out = {};
+for (const spec of ${JSON.stringify(specs)}) {
+	try {
+		import.meta.resolve(spec);
+		out[spec] = "ok";
+	} catch (err) {
+		out[spec] = err.code ?? err.name;
+	}
+}
+console.log(JSON.stringify(out));`;
+		await fs.writeFile(path.join(dir, "probe.mjs"), probe);
+
+		const { stdout } = await execAsync("node probe.mjs", { cwd: dir });
+		return JSON.parse(stdout);
+	} finally {
+		await fs.rm(dir, { recursive: true, force: true });
+	}
+}
+
+describe("Package exports", function () {
+	this.timeout(30000); // Spawns a node subprocess.
+
+	let resolved: Record<string, string>;
+
+	before(async () => {
+		resolved = await resolveAsConsumer([
+			...PUBLIC_ENTRY_POINTS.map(([spec]) => spec),
+			...PRIVATE_DEEP_PATHS,
+		]);
+	});
+
+	for (const [spec, source] of PUBLIC_ENTRY_POINTS) {
+		it(`should resolve ${spec}, used by ${source}`, () => {
+			assert.equal(resolved[spec], "ok", `${spec} does not resolve for consumers`);
+		});
+	}
+
+	for (const spec of PRIVATE_DEEP_PATHS) {
+		it(`should not expose ${spec}`, () => {
+			assert.equal(
+				resolved[spec],
+				"ERR_PACKAGE_PATH_NOT_EXPORTED",
+				`${spec} is reachable, making an internal module public API`,
+			);
+		});
+	}
+
+	it("should declare no wildcard subpath", () => {
+		const wildcards = Object.keys(pkg.exports).filter((key) => key.includes("*"));
+		assert.deepEqual(wildcards, [], "a wildcard subpath re-exposes every emitted module");
+	});
 });
 
 /**

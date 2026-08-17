@@ -58,7 +58,7 @@ For a more complete example, see [examples/express](../examples/express).
 For servers hosted as worker runtimes, such as `Cloudflare Workers`, you will need to import a stripped down version of `mancha` that does not have the ability to read local files.
 
 ```js
-import { Renderer } from "mancha/dist/worker.js";
+import { Renderer } from "mancha/worker";
 import htmlIndex from "./index.html";
 import vars from "./vars.json";
 
