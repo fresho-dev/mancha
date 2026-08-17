@@ -76,6 +76,8 @@
 
 To avoid violation of Content Security Policy (CSP) that forbids the use of `eval()`, `mancha` evaluates all expressions using a safe expression parser. This means that only simple expressions are allowed, but it supports many modern JavaScript features, including optional chaining, the spread operator, and arrow functions.
 
+The parser exists to satisfy CSP, not to sandbox the expression: names resolve against the globals, so a template can reach anything a script tag could. See [Security](./10_security.md) for what that means for the templates you render.
+
 **Note**: `mancha` only supports **single-statement** expressions. You cannot use semicolons (`;`) to separate multiple actions. For complex logic, define a function in your script and call it from the template.
 
 For example:

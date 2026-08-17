@@ -78,6 +78,7 @@ from bundling a minimal app instead.
 - **[TypeScript](./docs/07_typescript.md)**: Type safety and checking.
 - **[Testing](./docs/08_testing.md)**: Testing your UI.
 - **[Performance](./docs/09_performance.md)**: Performance monitoring and optimization.
+- **[Security](./docs/10_security.md)**: What rendering a template grants it, and where the trust boundary is.
 
 ## AI Agents
 
