@@ -496,6 +496,10 @@ export namespace RendererPlugins {
 						return;
 					}
 
+					// Rows go wherever the template is now: :html can move the whole subtree elsewhere.
+					const listParent = template.parentNode;
+					if (!listParent) return;
+
 					// If :key is provided, use keyed reconciliation. Otherwise, use original behavior.
 					if (keyExpr) {
 						// KEYED RECONCILIATION: Reuse nodes and subrenderers based on key.
@@ -545,7 +549,7 @@ export namespace RendererPlugins {
 								const alreadyInPosition =
 									nodeForThisItem === cursor || nodeForThisItem.nextSibling === cursor;
 								if (!alreadyInPosition) {
-									insertBefore(parent, nodeForThisItem, cursor);
+									insertBefore(listParent, nodeForThisItem, cursor);
 								}
 							} else {
 								// CREATE new node and subrenderer.
@@ -555,7 +559,7 @@ export namespace RendererPlugins {
 
 								const copy = node.cloneNode(true);
 								this.cloakElement(copy as Element);
-								insertBefore(parent, copy, cursor);
+								insertBefore(listParent, copy, cursor);
 								this._skipNodes.add(copy);
 
 								awaiters.push(
@@ -606,7 +610,7 @@ export namespace RendererPlugins {
 
 							const copy = node.cloneNode(true);
 							this.cloakElement(copy as Element);
-							insertBefore(parent, copy, reference);
+							insertBefore(listParent, copy, reference);
 							children.push(copy);
 							subrenderers.push(subrenderer);
 							this._skipNodes.add(copy);

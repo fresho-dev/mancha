@@ -3146,6 +3146,88 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			assert.equal(getTextContent(node), "10");
 			assert.equal(renderer._skipNodes.size, afterMount);
 		});
+
+		it("does not accumulate skipped nodes when a nested :for swaps its rows", async () => {
+			const renderer = new ctor();
+			await renderer.set("items", ["a", "b"]);
+			await renderer.set("c", '<span :for="i in items" :text="i"></span><b>0</b>');
+			const fragment = renderer.parseHTML(`<p :html="c"></p>`);
+			await renderer.mount(fragment);
+
+			// :for detaches the rows :html marked, so unmarking whatever is live at the time of
+			// the next replacement leaves the originals behind for good.
+			const afterMount = renderer._skipNodes.size;
+			for (let i = 1; i <= 6; i++) {
+				await renderer.set("items", ["a", "b", `x${i}`]);
+				await sleepForReactivity();
+				await renderer.set("items", ["a", "b"]);
+				await sleepForReactivity();
+				await renderer.set("c", `<span :for="i in items" :text="i"></span><b>${i}</b>`);
+				await sleepForReactivity();
+			}
+
+			assert.equal(renderer._skipNodes.size, afterMount);
+		});
+	});
+
+	describe(":for inside :html content (#109)", () => {
+		// The rows sit next to the :for template, whose parent differs per implementation.
+		function rowTexts(root: Node): (string | null)[] {
+			const template = Array.from(traverse(root)).find(
+				(found) => (found as Element).tagName?.toLowerCase() === "template",
+			);
+			assert.ok(template, ":for template not found");
+			const siblings = Array.from((template as Node).parentNode?.childNodes || []);
+			return siblings.filter((n) => n !== template).map((n) => getTextContent(n as Element));
+		}
+
+		it("keeps the rows when items grow after mount", async () => {
+			const renderer = new ctor();
+			await renderer.set("items", ["a", "b"]);
+			await renderer.set("c", `<span :for="i in items" :text="i"></span>`);
+			const fragment = renderer.parseHTML(`<p :html="c"></p>`);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.deepEqual(rowTexts(node), ["a", "b"]);
+
+			await renderer.set("items", ["a", "b", "z"]);
+			await sleepForReactivity();
+
+			assert.deepEqual(rowTexts(node), ["a", "b", "z"]);
+			assert.equal(getTextContent(node), "abz");
+		});
+
+		it("keeps the rows when items shrink after mount", async () => {
+			const renderer = new ctor();
+			await renderer.set("items", ["a", "b", "z"]);
+			await renderer.set("c", `<span :for="i in items" :text="i"></span>`);
+			const fragment = renderer.parseHTML(`<p :html="c"></p>`);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.deepEqual(rowTexts(node), ["a", "b", "z"]);
+
+			await renderer.set("items", ["a"]);
+			await sleepForReactivity();
+
+			assert.deepEqual(rowTexts(node), ["a"]);
+			assert.equal(getTextContent(node), "a");
+		});
+
+		it("keeps the rows when a keyed :for changes after mount", async () => {
+			const renderer = new ctor();
+			await renderer.set("items", ["a", "b"]);
+			await renderer.set("c", `<span :for="i in items" :key="i" :text="i"></span>`);
+			const fragment = renderer.parseHTML(`<p :html="c"></p>`);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.deepEqual(rowTexts(node), ["a", "b"]);
+
+			await renderer.set("items", ["a", "b", "z"]);
+			await sleepForReactivity();
+
+			assert.deepEqual(rowTexts(node), ["a", "b", "z"]);
+			assert.equal(getTextContent(node), "abz");
+		});
 	});
 
 	describe("observer cleanup (memory leak prevention)", () => {
