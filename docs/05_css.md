@@ -145,7 +145,10 @@ Spacing utilities use a 0.25rem (4px) unit by default.
 
 ### Colors
 
-Supported prefixes: `text-`, `bg-`, `border-`, `fill-`.
+Supported prefixes: `text-`, `bg-`, `border-`, `fill-`, `divide-`, `ring-`.
+
+`ring-{color}` sets the ring color through the `--ring-color` custom property, so it
+needs a ring width utility (`ring`, `ring-2`, ...) alongside it to be visible.
 
 | Color | Shades |
 | --- | --- |
@@ -211,13 +214,14 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | `shadow-2xl` | `box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25)` |
 | `shadow-inner` | `box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05)` |
 | `shadow-none` | `box-shadow: 0 0 #0000` |
-| `ring` | `box-shadow: var(--ring-inset, ) 0 0 0 3px rgb(59 130 246 / 0.5)` |
-| `ring-0` | `box-shadow: var(--ring-inset, ) 0 0 0 0px rgb(59 130 246 / 0.5)` |
-| `ring-1` | `box-shadow: var(--ring-inset, ) 0 0 0 1px rgb(59 130 246 / 0.5)` |
-| `ring-2` | `box-shadow: var(--ring-inset, ) 0 0 0 2px rgb(59 130 246 / 0.5)` |
-| `ring-4` | `box-shadow: var(--ring-inset, ) 0 0 0 4px rgb(59 130 246 / 0.5)` |
-| `ring-8` | `box-shadow: var(--ring-inset, ) 0 0 0 8px rgb(59 130 246 / 0.5)` |
+| `ring` | `box-shadow: var(--ring-inset, ) 0 0 0 3px var(--ring-color, rgb(59 130 246 / 0.5))` |
+| `ring-0` | `box-shadow: var(--ring-inset, ) 0 0 0 0px var(--ring-color, rgb(59 130 246 / 0.5))` |
+| `ring-1` | `box-shadow: var(--ring-inset, ) 0 0 0 1px var(--ring-color, rgb(59 130 246 / 0.5))` |
+| `ring-2` | `box-shadow: var(--ring-inset, ) 0 0 0 2px var(--ring-color, rgb(59 130 246 / 0.5))` |
+| `ring-4` | `box-shadow: var(--ring-inset, ) 0 0 0 4px var(--ring-color, rgb(59 130 246 / 0.5))` |
+| `ring-8` | `box-shadow: var(--ring-inset, ) 0 0 0 8px var(--ring-color, rgb(59 130 246 / 0.5))` |
 | `ring-inset` | `--ring-inset: inset` |
+| `ring-{color}` | `--ring-color: {value}` |
 | `opacity-0` | Fully transparent |
 | `opacity-{5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100}` | Opacity values (multiples of 5) |
 

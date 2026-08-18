@@ -39,6 +39,8 @@ export const PROPS_SIZING_MINMAX = {
 // standalone (e.g. `transition-opacity duration-300`) without needing `transition`.
 const TRANSITION_BASE =
 	"transition-timing-function: ease-in-out; transition-duration: var(--transition-duration, 150ms)";
+const RING_COLOR = "var(--ring-color, rgb(59 130 246 / 0.5))";
+
 export const PROPS_CUSTOM: { [key: string]: string } = {
 	// Based on https://tailwindcss.com.
 	// Font family.
@@ -256,13 +258,14 @@ export const PROPS_CUSTOM: { [key: string]: string } = {
 	"shadow-2xl": "box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25)",
 	"shadow-inner": "box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05)",
 	"shadow-none": "box-shadow: 0 0 #0000",
-	// Ring utilities for focus states.
-	ring: "box-shadow: var(--ring-inset, ) 0 0 0 3px rgb(59 130 246 / 0.5)",
-	"ring-0": "box-shadow: var(--ring-inset, ) 0 0 0 0px rgb(59 130 246 / 0.5)",
-	"ring-1": "box-shadow: var(--ring-inset, ) 0 0 0 1px rgb(59 130 246 / 0.5)",
-	"ring-2": "box-shadow: var(--ring-inset, ) 0 0 0 2px rgb(59 130 246 / 0.5)",
-	"ring-4": "box-shadow: var(--ring-inset, ) 0 0 0 4px rgb(59 130 246 / 0.5)",
-	"ring-8": "box-shadow: var(--ring-inset, ) 0 0 0 8px rgb(59 130 246 / 0.5)",
+	// Ring utilities for focus states. The color goes through --ring-color so the
+	// generated ring-<color> classes can override it; the fallback is the default.
+	ring: `box-shadow: var(--ring-inset, ) 0 0 0 3px ${RING_COLOR}`,
+	"ring-0": `box-shadow: var(--ring-inset, ) 0 0 0 0px ${RING_COLOR}`,
+	"ring-1": `box-shadow: var(--ring-inset, ) 0 0 0 1px ${RING_COLOR}`,
+	"ring-2": `box-shadow: var(--ring-inset, ) 0 0 0 2px ${RING_COLOR}`,
+	"ring-4": `box-shadow: var(--ring-inset, ) 0 0 0 4px ${RING_COLOR}`,
+	"ring-8": `box-shadow: var(--ring-inset, ) 0 0 0 8px ${RING_COLOR}`,
 	"ring-inset": "--ring-inset: inset",
 	// Outline utilities.
 	outline: "outline-style: solid",
@@ -668,6 +671,7 @@ function colors(): string[] {
 		[`bg-${color}`, `background-color: ${value}`],
 		[`border-${color}`, `border-color: ${value}`],
 		[`divide-${color} > :not(:last-child)`, `border-color: ${value}`],
+		[`ring-${color}`, `--ring-color: ${value}`],
 	];
 	return wrap([
 		...colorVariants("white", "#fff"),
