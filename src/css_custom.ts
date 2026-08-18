@@ -7,10 +7,12 @@ const COLOR_PROPERTY_MAP: Record<string, string> = {
 	border: "border-color",
 	fill: "fill",
 	divide: "border-color",
+	// Rings take their color from a custom property the width utilities read.
+	ring: "--ring-color",
 };
 
-// Color opacity pattern: (text|bg|border|fill|divide)-(color)(-shade)?/(opacity)
-const COLOR_OPACITY_PATTERN = /^(text|bg|border|fill|divide)-([\w-]+)\/(\d+)$/;
+// Color opacity pattern: (text|bg|border|fill|divide|ring)-(color)(-shade)?/(opacity)
+const COLOR_OPACITY_PATTERN = /^(text|bg|border|fill|divide|ring)-([\w-]+)\/(\d+)$/;
 
 // Property prefix to CSS property mapping.
 const PROPERTY_MAP: Record<string, string> = {

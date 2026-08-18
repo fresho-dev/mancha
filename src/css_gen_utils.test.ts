@@ -157,6 +157,19 @@ describe("CSS Generation Utils", () => {
 			);
 		});
 
+		it("supports ring colors", () => {
+			const css = rules();
+			assert.ok(
+				css.includes("var(--ring-color, rgb(59 130 246 / 0.5))"),
+				"Ring width utilities should read --ring-color with the default as fallback",
+			);
+			assert.ok(
+				css.includes(".ring-red-500 { --ring-color: #f44336 }"),
+				"Should include ring-red-500",
+			);
+			assert.ok(css.includes(".ring-white { --ring-color: #fff }"), "Should include ring-white");
+		});
+
 		it("does not include color opacity variants (now on-demand)", () => {
 			const css = rules();
 			assert.ok(!css.includes("\\/50"), "Should not include /50 opacity variants");

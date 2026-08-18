@@ -604,6 +604,13 @@ describe("css_custom", () => {
 			assert.ok(result?.value.includes("/ 1"), "Should have 100% alpha");
 		});
 
+		it("parses ring-red-500/50", () => {
+			const result = parseColorOpacityClass("ring-red-500/50");
+			assert.ok(result, "Should parse ring-red-500/50");
+			assert.equal(result?.property, "--ring-color");
+			assert.ok(result?.value.includes("/ 0.5"), "Should have 50% alpha");
+		});
+
 		it("parses fill-gray-500/50", () => {
 			const result = parseColorOpacityClass("fill-gray-500/50");
 			assert.ok(result, "Should parse fill-gray-500/50");
