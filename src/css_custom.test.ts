@@ -1,5 +1,6 @@
 import { injectCss } from "./browser.js";
 import {
+	_getFailedLookups,
 	_getInjectedRules,
 	_resetForTesting,
 	injectCustomClass,
@@ -739,6 +740,96 @@ describe("css_custom", () => {
 			);
 
 			container.remove();
+		});
+	});
+
+	describe("unresolvable classes", () => {
+		/**
+		 * Count how many sheets get their rules walked. Reading cssRules is the
+		 * expensive half of a lookup, and the only part that scales with sheet size.
+		 */
+		function countRuleWalks(fn: () => void): number {
+			const saved = Object.getOwnPropertyDescriptor(CSSStyleSheet.prototype, "cssRules");
+			if (!saved?.get) return -1;
+			let walks = 0;
+			Object.defineProperty(CSSStyleSheet.prototype, "cssRules", {
+				...saved,
+				get(this: CSSStyleSheet) {
+					walks++;
+					return saved.get?.call(this);
+				},
+			});
+			try {
+				fn();
+			} finally {
+				Object.defineProperty(CSSStyleSheet.prototype, "cssRules", saved);
+			}
+			return walks;
+		}
+
+		it("caches a class that resolves to nothing", () => {
+			if (!isSupported()) return;
+			processClassString("hover:bg-nosuchcolor-500");
+			assert.ok(
+				_getFailedLookups().has("bg-nosuchcolor-500"),
+				"Unresolvable class should be recorded under its base name",
+			);
+		});
+
+		it("does not re-walk the stylesheets on later attempts", () => {
+			if (!isSupported()) return;
+			processClassString("hover:bg-nosuchcolor-500");
+			const walks = countRuleWalks(() => {
+				processClassString("hover:bg-nosuchcolor-500");
+				processClassString("lg:bg-nosuchcolor-500");
+			});
+			if (walks < 0) return; // cssRules is not an interceptable accessor here.
+			assert.equal(walks, 0, "A cached failure should not walk any stylesheet");
+		});
+
+		it("warns once, not on every scan", () => {
+			if (!isSupported()) return;
+			const originalWarn = console.warn;
+			const warnings: string[] = [];
+			console.warn = (msg: string) => warnings.push(msg);
+			try {
+				processClassString("hover:bg-nosuchcolor-500");
+				processClassString("hover:bg-nosuchcolor-500");
+				processClassString("hover:bg-nosuchcolor-500");
+			} finally {
+				console.warn = originalWarn;
+			}
+			const matching = warnings.filter((w) => w.includes("nosuchcolor"));
+			assert.equal(matching.length, 1, "Should warn exactly once");
+		});
+
+		it("retries after a new stylesheet appears", () => {
+			if (!isSupported()) return;
+			processClassString("hover:bg-latecolor");
+			assert.ok(_getFailedLookups().has("bg-latecolor"), "Precondition: cached as failed");
+
+			// A stylesheet that loads after the first scan can define the class.
+			const late = document.createElement("style");
+			late.textContent = ".bg-latecolor { background-color: #abc }";
+			document.head.appendChild(late);
+
+			try {
+				processClassString("hover:bg-latecolor");
+				assert.ok(
+					_getInjectedRules().has("hover:bg-latecolor"),
+					"Should resolve once the defining sheet exists",
+				);
+			} finally {
+				late.remove();
+			}
+		});
+
+		it("is cleared by _resetForTesting", () => {
+			if (!isSupported()) return;
+			processClassString("hover:bg-nosuchcolor-500");
+			assert.ok(_getFailedLookups().size > 0, "Precondition: something cached");
+			_resetForTesting();
+			assert.equal(_getFailedLookups().size, 0, "Reset should clear failed lookups");
 		});
 	});
 
