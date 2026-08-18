@@ -630,6 +630,8 @@ Markup that Mancha did not render is the exception: it is never scanned, so call
 
 **Browser only**: Custom values require the CSSStyleSheet API and are not available in Worker or SSR environments.
 
+**Unknown classes warn**: A class that looks like a utility but matches no rule — a typo, or a color outside the palette such as `hover:bg-brand-500` — logs `No CSS rule for class: ...` once and is then ignored. Stylesheets loading after the first scan are picked up, so a late-loading sheet that defines the class still works.
+
 ### When to Use
 
 **Prefer the design scale** for consistency. Use custom values for:

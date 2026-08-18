@@ -64,7 +64,30 @@ const ORIENTATIONS = ["landscape", "portrait"];
 
 // Module state.
 const injectedRules = new Set<string>();
+// Classes that resolved to no declarations, keyed by base class name since
+// resolution does not depend on the variant. Without this a class that matches
+// nothing re-walks every rule of every sheet on each scan, forever.
+const failedLookups = new Set<string>();
+// document.styleSheets.length when failedLookups was last known good. A sheet
+// loading after the first scan can define a class that did not resolve before,
+// so any change to the sheet list drops the negative cache. Rules added to an
+// existing sheet in place are not detected, which no cheap check would catch.
+let failedLookupsSheetCount = -1;
 let styleSheet: CSSStyleSheet | null = null;
+
+/** Drop the negative cache when the set of stylesheets has changed. */
+function syncFailedLookups(): void {
+	const count = document.styleSheets.length;
+	if (count === failedLookupsSheetCount) return;
+	failedLookups.clear();
+	failedLookupsSheetCount = count;
+}
+
+/** Forget every cached failure, so the next lookup resolves from scratch. */
+function clearFailedLookups(): void {
+	failedLookups.clear();
+	failedLookupsSheetCount = -1;
+}
 
 /** Look up CSS declarations for an existing class from document stylesheets. */
 function findRuleDeclarations(className: string): string | null {
@@ -115,6 +138,7 @@ function getStyleSheet(): CSSStyleSheet | null {
 		// The rules that lived in the removed sheet went with it, so forget them:
 		// otherwise the dedup cache would suppress re-injecting them forever.
 		injectedRules.clear();
+		clearFailedLookups();
 	}
 	if (styleSheet) return styleSheet;
 
@@ -198,6 +222,11 @@ export function injectCustomClass(
 	// Already injected.
 	if (injectedRules.has(fullClassName)) return true;
 
+	// Known not to resolve. Checked after the injected cache so a class that was
+	// once unresolvable still short-circuits on the cheaper path once it exists.
+	syncFailedLookups();
+	if (failedLookups.has(className)) return false;
+
 	const escapedClass = escapeSelector(fullClassName);
 
 	// Resolve CSS declarations: try parsers, then fall back to stylesheet lookup.
@@ -205,7 +234,11 @@ export function injectCustomClass(
 	const declarations = parsed
 		? `${parsed.property}: ${parsed.value};`
 		: findRuleDeclarations(className);
-	if (!declarations) return false;
+	if (!declarations) {
+		failedLookups.add(className);
+		console.warn(`No CSS rule for class: ${className}`);
+		return false;
+	}
 
 	// Divide classes need a child selector suffix.
 	const selectorSuffix = className.startsWith("divide-") ? " > :not(:last-child)" : "";
@@ -346,6 +379,7 @@ export function processRenderedClasses(classString: string): void {
 /** For testing: reset module state. */
 export function _resetForTesting(): void {
 	injectedRules.clear();
+	clearFailedLookups();
 	if (styleSheet?.ownerNode) {
 		(styleSheet.ownerNode as Element).remove();
 	}
@@ -355,4 +389,9 @@ export function _resetForTesting(): void {
 /** For testing: get injected rules. */
 export function _getInjectedRules(): Set<string> {
 	return injectedRules;
+}
+
+/** For testing: get classes cached as unresolvable. */
+export function _getFailedLookups(): Set<string> {
+	return failedLookups;
 }
