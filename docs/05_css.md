@@ -145,10 +145,11 @@ Spacing utilities use a 0.25rem (4px) unit by default.
 
 ### Colors
 
-Supported prefixes: `text-`, `bg-`, `border-`, `fill-`, `divide-`, `ring-`.
+Supported prefixes: `text-`, `fill-`, `bg-`, `border-`, `divide-`, `ring-`.
 
 `ring-{color}` sets the ring color through the `--ring-color` custom property, so it
-needs a ring width utility (`ring`, `ring-2`, ...) alongside it to be visible.
+needs a ring width utility (`ring`, `ring-2`, ...) alongside it to be visible. The
+default is declared on every element, so a ring color does not reach descendants.
 
 | Color | Shades |
 | --- | --- |
@@ -634,7 +635,7 @@ Markup that Mancha did not render is the exception: it is never scanned, so call
 
 **Browser only**: Custom values require the CSSStyleSheet API and are not available in Worker or SSR environments.
 
-**Unknown classes warn**: A class that looks like a utility but matches no rule — a typo, or a color outside the palette such as `hover:bg-brand-500` — logs `No CSS rule for class: ...` once and is then ignored. Stylesheets loading after the first scan are picked up, so a late-loading sheet that defines the class still works.
+**Unresolvable classes are reported**: a class that reaches on-demand injection and matches no rule logs `No CSS rule for class: ...` once for the life of the page. That covers a typo or a color outside the palette (`hover:bg-brand-500`), and also anything Mancha does not implement — a variant it does not know (`active:`, `group-hover:`), or a bracket value on a property it does not map (`rounded-[12px]`). Each of those does nothing, which is what the message is for. Sheets that arrive later are picked up, so a late-loading sheet defining the class still works.
 
 ### When to Use
 
