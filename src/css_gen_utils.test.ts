@@ -1,5 +1,5 @@
 import rules, { PERCENTS, PROPS_COLORS } from "./css_gen_utils.js";
-import { assert } from "./test_utils.js";
+import { assert, setInnerHTML } from "./test_utils.js";
 
 /** Count every block in the source, at any nesting depth. */
 function countBlocks(css: string): number {
@@ -159,15 +159,64 @@ describe("CSS Generation Utils", () => {
 
 		it("supports ring colors", () => {
 			const css = rules();
-			assert.ok(
-				css.includes("var(--ring-color, rgb(59 130 246 / 0.5))"),
-				"Ring width utilities should read --ring-color with the default as fallback",
-			);
+			// Every width utility, not just one: a substring match is satisfied by a single
+			// converted declaration while the rest keep a baked-in color.
+			const widths: Array<[klass: string, px: string]> = [
+				["ring", "3px"],
+				["ring-0", "0px"],
+				["ring-1", "1px"],
+				["ring-2", "2px"],
+				["ring-4", "4px"],
+				["ring-8", "8px"],
+			];
+			for (const [klass, px] of widths) {
+				const declaration =
+					`.${klass} { box-shadow: var(--ring-inset, ) 0 0 0 ${px} ` +
+					"var(--ring-color, rgb(59 130 246 / 0.5)) }";
+				assert.ok(css.includes(declaration), `${klass} should read --ring-color: ${declaration}`);
+			}
 			assert.ok(
 				css.includes(".ring-red-500 { --ring-color: #f44336 }"),
 				"Should include ring-red-500",
 			);
 			assert.ok(css.includes(".ring-white { --ring-color: #fff }"), "Should include ring-white");
+		});
+
+		it("declares the default ring color on every element", () => {
+			// Custom properties inherit, so without this a ring color set on an ancestor reaches
+			// every descendant's ring, and a page's own --ring-color reaches all of them.
+			assert.ok(
+				rules().includes("*,::before,::after{--ring-color:rgb(59 130 246 / 0.5)}"),
+				"The utils sheet should declare the default --ring-color universally",
+			);
+		});
+
+		it("keeps a ring color out of a descendant's ring", () => {
+			// Only meaningful where there is a real cascade; skipped under Node.
+			if (typeof document === "undefined" || typeof getComputedStyle !== "function") return;
+
+			const style = document.createElement("style");
+			style.textContent = rules();
+			document.head.appendChild(style);
+			const host = document.createElement("div");
+			setInnerHTML(host, `<div class="ring ring-red-500"><span class="ring-2"></span></div>`);
+			document.body.appendChild(host);
+
+			try {
+				const parent = host.firstElementChild as HTMLElement;
+				const child = parent.firstElementChild as HTMLElement;
+				assert.ok(
+					getComputedStyle(parent).boxShadow.includes("244, 67, 54"),
+					`The element carrying ring-red-500 should be red, got ${getComputedStyle(parent).boxShadow}`,
+				);
+				assert.ok(
+					getComputedStyle(child).boxShadow.includes("59, 130, 246"),
+					`A descendant should keep the default ring color, got ${getComputedStyle(child).boxShadow}`,
+				);
+			} finally {
+				host.remove();
+				style.remove();
+			}
 		});
 
 		it("does not include color opacity variants (now on-demand)", () => {

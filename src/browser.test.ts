@@ -1,6 +1,7 @@
 import { initMancha, injectCss, Renderer, type RenderParams, scanAndInject } from "./browser.js";
 import { testSuite as pluginsTestSuite } from "./plugins.test.js";
 import { testSuite as rendererTestSuite } from "./renderer.test.js";
+import { REACTIVE_DEBOUNCE_MILLIS } from "./store.js";
 import { assert, setInnerHTML, sleepForReactivity } from "./test_utils.js";
 
 describe("Browser", () => {
@@ -520,28 +521,56 @@ describe("Browser", () => {
 		});
 
 		it("cloak: true reveals instantly without animation", async () => {
-			// Measured against an animated reveal rather than against the clock: both pay the
-			// same parse, mount and two-frame cost, so only the animation wait separates them.
-			// An absolute budget here measures the machine more than it measures the reveal.
-			const animation = 200;
-			const timeInit = async (id: string, cloak: boolean | { duration: number }) => {
+			// Deterministic rather than timed. A reveal's wall clock is dominated by parse, mount
+			// and two animation frames — measured at 112ms here against the 50ms this test used to
+			// budget — so a duration compares machines, not reveals. What "instant" has to mean is
+			// that nothing waits out a duration: no transition in the cloak rule, and no timer
+			// longer than the reactive debounce mancha's own writes schedule.
+			const revealOf = async (id: string, cloak: boolean | { duration: number }) => {
 				const target = createTestElement(id);
-				const startTime = Date.now();
-				await initMancha({ target: `#${id}`, cloak, state: { msg: "Instant" } });
-				const duration = Date.now() - startTime;
-				assert.ok(!document.getElementById("mancha-cloak"));
-				target.remove();
-				return duration;
+				const originalSetTimeout = globalThis.setTimeout;
+				const delays: number[] = [];
+				let cloakRule = "";
+				try {
+					globalThis.setTimeout = ((fn: () => void, delay?: number) => {
+						delays.push(delay ?? 0);
+						return originalSetTimeout(fn, delay);
+					}) as typeof globalThis.setTimeout;
+					await initMancha({
+						target: `#${id}`,
+						cloak,
+						state: { msg: "Instant" },
+						callback: async () => {
+							// The cloak rule is removed once this resolves, so read it here.
+							cloakRule = document.getElementById("mancha-cloak")?.textContent ?? "";
+						},
+					});
+				} finally {
+					globalThis.setTimeout = originalSetTimeout;
+					target.remove();
+				}
+				assert.ok(!document.getElementById("mancha-cloak"), "Should end up revealed");
+				return { cloakRule, longestDelay: Math.max(0, ...delays) };
 			};
 
-			const instant = await timeInit("cloak-test-6", true);
-			const animated = await timeInit("cloak-test-6b", { duration: animation });
-
+			const instant = await revealOf("cloak-test-6", true);
+			assert.ok(instant.cloakRule.includes("opacity: 0"), "Should have cloaked to begin with");
 			assert.ok(
-				animated - instant > animation / 2,
-				`cloak: true took ${instant}ms against ${animated}ms for a ${animation}ms fade, ` +
-					"so it appears to be waiting out an animation",
+				!instant.cloakRule.includes("transition"),
+				`cloak: true should set up no transition, got: ${instant.cloakRule}`,
 			);
+			assert.ok(
+				instant.longestDelay <= REACTIVE_DEBOUNCE_MILLIS,
+				`cloak: true waited on a ${instant.longestDelay}ms timer, so it is animating`,
+			);
+
+			// The control: the same path with a duration does both of the above.
+			const animated = await revealOf("cloak-test-6b", { duration: 400 });
+			assert.ok(
+				animated.cloakRule.includes("transition: opacity 400ms"),
+				`A fade should set up a transition, got: ${animated.cloakRule}`,
+			);
+			assert.equal(animated.longestDelay, 400, "A fade should wait out its duration");
 		});
 
 		it("defaults cloak selector to body when no target specified", async () => {
