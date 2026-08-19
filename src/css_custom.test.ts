@@ -253,6 +253,39 @@ describe("css_custom", () => {
 			);
 		});
 
+		it("injects ring colors, whose declaration is only a custom property", () => {
+			if (!isSupported()) return;
+
+			// Every other injected class declares a real CSS property. A block holding nothing but
+			// `--ring-color` has to survive the "did the browser keep this declaration" check,
+			// which reads style.length — so this is the one class shape that check could reject.
+			injectCss(["utils"]);
+			const warnings: string[] = [];
+			const originalWarn = console.warn;
+			console.warn = (msg: string) => warnings.push(msg);
+			try {
+				assert.ok(
+					injectCustomClass("ring-indigo-500", { type: "pseudo", name: "focus" }),
+					"focus:ring-indigo-500 should inject",
+				);
+				assert.ok(injectCustomClass("ring-red-500/50"), "ring-red-500/50 should inject");
+			} finally {
+				console.warn = originalWarn;
+			}
+
+			assert.equal(warnings.length, 0, `Injection should be silent, got: ${warnings.join(" | ")}`);
+			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
+			const rules = Array.from(customStyle?.sheet?.cssRules ?? []).map((r) => r.cssText);
+			assert.ok(
+				rules.some((r) => r.includes("focus") && r.includes("--ring-color")),
+				`focus:ring-indigo-500 should leave a live rule, got: ${rules.join(" | ")}`,
+			);
+			assert.ok(
+				rules.some((r) => r.includes("0.5") && r.includes("--ring-color")),
+				`ring-red-500/50 should leave a live rule, got: ${rules.join(" | ")}`,
+			);
+		});
+
 		it("processClassString handles dark: prefixed classes", () => {
 			if (!isSupported()) return;
 
@@ -609,6 +642,7 @@ describe("css_custom", () => {
 			const result = parseColorOpacityClass("ring-red-500/50");
 			assert.ok(result, "Should parse ring-red-500/50");
 			assert.equal(result?.property, "--ring-color");
+			assert.ok(result?.value.includes("244 67 54"), "Should have red-500 RGB");
 			assert.ok(result?.value.includes("/ 0.5"), "Should have 50% alpha");
 		});
 

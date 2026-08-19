@@ -177,8 +177,13 @@ describe("Package exports", function () {
  * utility class lands in this bundle — so it should be made deliberately by
  * raising this number, rather than discovered later by a user on a slow link.
  * Matches `npm run check:size`; node's brotli defaults agree with the CLI.
+ *
+ * Raised from 20,000 for the ring-color and failed-lookup fixes. The headroom is
+ * deliberate: at 11 bytes, three branches that each fit under the old number
+ * individually went over it once merged, which is a budget failure rather than a
+ * size problem.
  */
-const BUNDLE_BUDGET_BYTES = 20_000;
+const BUNDLE_BUDGET_BYTES = 20_500;
 
 describe("Bundle size", function () {
 	this.timeout(20000); // Brotli at maximum quality is not fast.

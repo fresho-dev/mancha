@@ -39,6 +39,13 @@ jobs:
       - name: Run lint/format check
         run: npm run lint
 
+      # Two PRs in a row hand-edited docs/05_css.md, which scripts/generate-css-docs.ts
+      # overwrites wholesale, so the edits would have vanished on the next regeneration.
+      - name: Check generated docs match their generator
+        run: |
+          npm run gen:docs
+          git diff --exit-code docs/
+
       - name: Install Playwright browsers
         run: npx playwright install
 

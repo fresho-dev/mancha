@@ -39,7 +39,8 @@ export const PROPS_SIZING_MINMAX = {
 // standalone (e.g. `transition-opacity duration-300`) without needing `transition`.
 const TRANSITION_BASE =
 	"transition-timing-function: ease-in-out; transition-duration: var(--transition-duration, 150ms)";
-const RING_COLOR = "var(--ring-color, rgb(59 130 246 / 0.5))";
+const RING_COLOR_DEFAULT = "rgb(59 130 246 / 0.5)";
+const RING_COLOR = `var(--ring-color, ${RING_COLOR_DEFAULT})`;
 
 export const PROPS_CUSTOM: { [key: string]: string } = {
 	// Based on https://tailwindcss.com.
@@ -379,6 +380,14 @@ export const PROPS_CUSTOM: { [key: string]: string } = {
 // Emitted verbatim, so they carry no indentation: every other rule this module
 // produces is minified, and these ship in the same stylesheet.
 const PROPS_AS_IS = [
+	// --ring-color is a custom property, so without this it would inherit: `ring-red-500` on an
+	// element would colour every descendant's ring too, and a page using `--ring-color` for its
+	// own purposes would recolour every ring on it — or erase them, since an invalid custom
+	// property makes the whole box-shadow compute to `none` rather than falling back. Declaring
+	// the default on every element stops inheritance from ever reaching one, while the ring-<color>
+	// classes still win on specificity. The `var()` fallback stays for anyone using the ring
+	// declarations without this sheet.
+	`*,::before,::after{--ring-color:${RING_COLOR_DEFAULT}}`,
 	"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}",
 	"@keyframes ping{75%,100%{transform:scale(2);opacity:0}}",
 	"@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}",
@@ -663,16 +672,27 @@ export function hexToRgb(hex: string): string {
 	return `${r} ${g} ${b}`;
 }
 
+/**
+ * Every class prefix that takes a color, with the property it writes and any selector it has to
+ * append. A table rather than a line each, so the docs generator can name the prefixes from here
+ * instead of keeping its own copy — which drifted twice, most recently by omitting `ring-`.
+ */
+export const COLOR_PROPS: Array<[prefix: string, property: string, suffix: string]> = [
+	["text", "color", ""],
+	["fill", "fill", ""],
+	["bg", "background-color", ""],
+	["border", "border-color", ""],
+	["divide", "border-color", " > :not(:last-child)"],
+	["ring", "--ring-color", ""],
+];
+
 // Color opacity variants are now generated on-demand by css_custom.ts.
 function colors(): string[] {
-	const colorVariants = (color: string, value: string): string[][] => [
-		[`text-${color}`, `color: ${value}`],
-		[`fill-${color}`, `fill: ${value}`],
-		[`bg-${color}`, `background-color: ${value}`],
-		[`border-${color}`, `border-color: ${value}`],
-		[`divide-${color} > :not(:last-child)`, `border-color: ${value}`],
-		[`ring-${color}`, `--ring-color: ${value}`],
-	];
+	const colorVariants = (color: string, value: string): string[][] =>
+		COLOR_PROPS.map(([prefix, property, suffix]) => [
+			`${prefix}-${color}${suffix}`,
+			`${property}: ${value}`,
+		]);
 	return wrap([
 		...colorVariants("white", "#fff"),
 		...colorVariants("black", "#000"),
