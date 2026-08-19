@@ -752,6 +752,14 @@ describe("css_custom", () => {
 
 	describe("unresolvable classes", () => {
 		/**
+		 * Outlive the window during which the negative cache is trusted without re-checking the
+		 * page's rules. Anything that adds rules after a failed lookup has to clear it.
+		 */
+		function sleepPastFingerprint(): Promise<void> {
+			return new Promise((resolve) => setTimeout(resolve, 60));
+		}
+
+		/**
 		 * Count how many sheets get their rules walked. Reading cssRules is the
 		 * expensive half of a lookup, and the only part that scales with sheet size.
 		 */
@@ -810,7 +818,7 @@ describe("css_custom", () => {
 			assert.equal(matching.length, 1, "Should warn exactly once");
 		});
 
-		it("retries after a new stylesheet appears", () => {
+		it("retries after a new stylesheet appears", async () => {
 			if (!isSupported()) return;
 			processClassString("hover:bg-latecolor");
 			assert.ok(_getFailedLookups().has("bg-latecolor"), "Precondition: cached as failed");
@@ -819,6 +827,7 @@ describe("css_custom", () => {
 			const late = document.createElement("style");
 			late.textContent = ".bg-latecolor { background-color: #abc }";
 			document.head.appendChild(late);
+			await sleepPastFingerprint();
 
 			try {
 				processClassString("hover:bg-latecolor");
@@ -829,6 +838,111 @@ describe("css_custom", () => {
 			} finally {
 				late.remove();
 			}
+		});
+
+		it("names the class as it was written, not its base name", () => {
+			if (!isSupported()) return;
+			const originalWarn = console.warn;
+			const warnings: string[] = [];
+			console.warn = (msg: string) => warnings.push(msg);
+			try {
+				processClassString("hover:bg-nosuchcolor-500");
+			} finally {
+				console.warn = originalWarn;
+			}
+			assert.ok(
+				warnings.some((w) => w.includes("hover:bg-nosuchcolor-500")),
+				`The warning should name the class as written, got: ${warnings.join(" | ")}`,
+			);
+		});
+
+		it("reports a class once even after the page's rules change", () => {
+			if (!isSupported()) return;
+			const originalWarn = console.warn;
+			const warnings: string[] = [];
+			console.warn = (msg: string) => warnings.push(msg);
+			const late = document.createElement("style");
+			try {
+				processClassString("hover:bg-nosuchcolor-500");
+
+				// Dropping the negative cache makes the next attempt re-resolve, but the class
+				// has not changed, so a theme switch or a lazy chunk must not re-report it.
+				late.textContent = ".unrelated-late { color: red }";
+				document.head.appendChild(late);
+				processClassString("hover:bg-nosuchcolor-500");
+			} finally {
+				console.warn = originalWarn;
+				late.remove();
+			}
+			const matching = warnings.filter((w) => w.includes("nosuchcolor"));
+			assert.equal(matching.length, 1, `Should report once, got: ${matching.join(" | ")}`);
+		});
+
+		it("stays silent for classes it can resolve", () => {
+			if (!isSupported()) return;
+			const originalWarn = console.warn;
+			const warnings: string[] = [];
+			console.warn = (msg: string) => warnings.push(msg);
+			try {
+				processClassString("md:p-[2rem] bg-red-500/50 hover:w-[50px] disabled:text-blue-700/25");
+			} finally {
+				console.warn = originalWarn;
+			}
+			assert.equal(warnings.length, 0, `Resolvable classes must not warn: ${warnings.join(" | ")}`);
+		});
+
+		it("retries after a rule is added to a stylesheet that was already there", async () => {
+			if (!isSupported()) return;
+			// A count of stylesheets cannot see this: the sheet was present for both attempts.
+			const existing = document.createElement("style");
+			existing.textContent = ".unrelated-anchor { color: red }";
+			document.head.appendChild(existing);
+			try {
+				processClassString("hover:bg-insertedcolor");
+				assert.ok(_getFailedLookups().has("bg-insertedcolor"), "Precondition: cached as failed");
+
+				existing.sheet?.insertRule(".bg-insertedcolor { background-color: #abc }", 0);
+				await sleepPastFingerprint();
+				processClassString("hover:bg-insertedcolor");
+				assert.ok(
+					_getInjectedRules().has("hover:bg-insertedcolor"),
+					"Should resolve once an existing sheet defines the class",
+				);
+			} finally {
+				existing.remove();
+			}
+		});
+
+		it("keeps cached failures when its own stylesheet is recreated", () => {
+			if (!isSupported()) return;
+			processClassString("hover:bg-nosuchcolor-500");
+			assert.ok(_getFailedLookups().has("bg-nosuchcolor-500"), "Precondition: cached as failed");
+
+			// Losing our own sheet says nothing about what the page's other sheets define, so the
+			// negative cache stays: a class that resolved to nothing still does.
+			document.querySelector('style[data-mancha="custom"]')?.remove();
+			processClassString("hover:bg-nosuchcolor-500");
+			assert.ok(
+				_getFailedLookups().has("bg-nosuchcolor-500"),
+				"A recreated sheet should not cost a re-walk of every other sheet",
+			);
+		});
+
+		it("bounds how many failures it caches", () => {
+			if (!isSupported()) return;
+			// A dynamic class expression can produce an unbounded number of distinct classes,
+			// none of which will ever be a cache hit.
+			const originalWarn = console.warn;
+			console.warn = () => {};
+			try {
+				for (let i = 0; i < 300; i++) processClassString(`hover:bg-nocolor-${i}`);
+			} finally {
+				console.warn = originalWarn;
+			}
+			assert.ok(
+				_getFailedLookups().size < 300,
+				`The negative cache should be bounded, holds ${_getFailedLookups().size}`,
+			);
 		});
 
 		it("is cleared by _resetForTesting", () => {
