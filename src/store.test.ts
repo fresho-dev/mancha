@@ -2653,25 +2653,26 @@ describe("SignalStore", () => {
 				runsAt.push(Date.now() - start);
 			});
 
-			// Write continuously for well over one debounce window.
-			const writeUntil = REACTIVE_DEBOUNCE_MILLIS * 3;
+			// Write in same-tick bursts, so a burst lands inside one debounce window however
+			// coarse the environment's timers are, and keep writing until the observers have
+			// run twice. A write that pushed the deadline back would starve them for as long
+			// as the writing continues, leaving this loop to run out its deadline instead.
+			const deadline = REACTIVE_DEBOUNCE_MILLIS * 50;
 			let writes = 0;
-			while (Date.now() - start < writeUntil) {
-				void store.set("value", ++writes);
+			while (runsAt.length < 2 && Date.now() - start < deadline) {
+				for (let i = 0; i < 5; i++) void store.set("value", ++writes);
 				await new Promise((resolve) => setTimeout(resolve, 1));
 			}
-			await sleepForReactivity();
-			await sleepForReactivity();
 
 			assert.ok(
 				runsAt.length >= 2,
-				`Expected repeated runs while writing for ${writeUntil}ms, got ${runsAt.length}. ` +
+				`Expected repeated runs while writing, got ${runsAt.length} in ${deadline}ms. ` +
 					`Writes appear to be postponing the scheduled run. Ran at: ${runsAt.join(", ")}ms`,
 			);
-			// The first run must land on the first write's deadline, not the last write's.
+			// Each burst joins one run rather than scheduling a run per write.
 			assert.ok(
-				runsAt[0] < writeUntil,
-				`First run at ${runsAt[0]}ms should not wait for writes to stop at ${writeUntil}ms`,
+				runsAt.length < writes,
+				`${writes} writes produced ${runsAt.length} runs, so writes are not coalescing`,
 			);
 		});
 
