@@ -962,7 +962,11 @@ describe("css_custom", () => {
 			);
 		});
 
-		it("bounds how many failures it caches", () => {
+		it("bounds how many failures it caches", function () {
+			// Every miss walks the stylesheets, and it takes more misses than the cap to show the
+			// cap working, so this one test costs a few hundred walks. Enough headroom for that to
+			// hold while the rest of the suite competes for the machine.
+			this.timeout(10_000);
 			if (!isSupported()) return;
 			// A dynamic class expression can produce an unbounded number of distinct classes,
 			// none of which will ever be a cache hit.
