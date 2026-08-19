@@ -64,31 +64,78 @@ const VARIANT_PATTERN = /^(hover|focus|disabled|sm|md|lg|xl|dark|landscape|portr
 const PSEUDO_STATES = ["hover", "focus", "disabled"];
 const ORIENTATIONS = ["landscape", "portrait"];
 
+// A class per distinct dynamic value (`:class="'p-[' + px + 'px]'"`) can reach the negative
+// cache, so it needs a ceiling. Past it the cache is dropped whole rather than evicted one
+// entry at a time: the cost of being wrong is one re-walk, which is what the cache saves.
+const MAX_FAILED_LOOKUPS = 256;
+
+// How long the negative cache is trusted without re-checking whether the page's rules changed.
+// Re-checking costs one read per stylesheet, which is cheap but not free, and paying it for
+// every class on every scan would put a cost back on the path this cache exists to make free.
+// The consequence is bounded: a sheet that starts defining a class is picked up a frame or two
+// later rather than immediately.
+const FINGERPRINT_MAX_AGE_MILLIS = 50;
+
 // Module state.
 const injectedRules = new Set<string>();
 // Classes that resolved to no declarations, keyed by base class name since
 // resolution does not depend on the variant. Without this a class that matches
 // nothing re-walks every rule of every sheet on each scan, forever.
 const failedLookups = new Set<string>();
-// document.styleSheets.length when failedLookups was last known good. A sheet
-// loading after the first scan can define a class that did not resolve before,
-// so any change to the sheet list drops the negative cache. Rules added to an
-// existing sheet in place are not detected, which no cheap check would catch.
-let failedLookupsSheetCount = -1;
+// Classes already reported. Separate from failedLookups because that one is dropped whenever
+// the page's rules change, and re-reporting the same dead class on every theme switch or lazy
+// chunk is noise: the warning is about the class, which has not changed.
+const warnedLookups = new Set<string>();
+// Fingerprint of the page's rules when failedLookups was last known good, as a sheet loading
+// after the first scan can define a class that did not resolve before.
+let failedLookupsFingerprint = "";
+let failedLookupsCheckedAt = 0;
 let styleSheet: CSSStyleSheet | null = null;
 
-/** Drop the negative cache when the set of stylesheets has changed. */
+/**
+ * Cheap summary of the rules a lookup would search. Counting each sheet's rules as well as the
+ * sheets themselves catches a `<link href>` swapped in place and rules inserted into a sheet
+ * that was already there, which a count of sheets alone misses. Our own sheet is excluded so
+ * that injecting a rule does not invalidate the cache that injection just consulted.
+ *
+ * Not detected: an edit that leaves every count identical, such as replacing a `<style>`
+ * element's text with the same number of different rules. Catching that would mean reading
+ * every selector on every call, which is the walk this cache exists to avoid.
+ */
+function ruleFingerprint(): string {
+	const counts: number[] = [];
+	for (const sheet of document.styleSheets) {
+		if (sheet === styleSheet) continue;
+		try {
+			counts.push(sheet.cssRules.length);
+		} catch {
+			// Cross-origin stylesheets throw SecurityError; their rules are unreadable anyway.
+			counts.push(-1);
+		}
+	}
+	return counts.join(",");
+}
+
+/** Drop the negative cache when the rules a lookup would search have changed. */
 function syncFailedLookups(): void {
-	const count = document.styleSheets.length;
-	if (count === failedLookupsSheetCount) return;
+	if (failedLookups.size === 0) return;
+
+	// Throttled, so a scan of a thousand elements re-checks once rather than a thousand times.
+	const now = Date.now();
+	if (now - failedLookupsCheckedAt < FINGERPRINT_MAX_AGE_MILLIS) return;
+	failedLookupsCheckedAt = now;
+
+	const fingerprint = ruleFingerprint();
+	if (fingerprint === failedLookupsFingerprint) return;
 	failedLookups.clear();
-	failedLookupsSheetCount = count;
+	failedLookupsFingerprint = fingerprint;
 }
 
 /** Forget every cached failure, so the next lookup resolves from scratch. */
 function clearFailedLookups(): void {
 	failedLookups.clear();
-	failedLookupsSheetCount = -1;
+	failedLookupsFingerprint = "";
+	failedLookupsCheckedAt = 0;
 }
 
 /** Look up CSS declarations for an existing class from document stylesheets. */
@@ -138,9 +185,10 @@ function getStyleSheet(): CSSStyleSheet | null {
 	if (styleSheet && !(styleSheet.ownerNode as Element)?.isConnected) {
 		styleSheet = null;
 		// The rules that lived in the removed sheet went with it, so forget them:
-		// otherwise the dedup cache would suppress re-injecting them forever.
+		// otherwise the dedup cache would suppress re-injecting them forever. Cached failures
+		// survive: they record what the page's other sheets do not define, which losing our
+		// own sheet does not change, and the fingerprint ignores our sheet for the same reason.
 		injectedRules.clear();
-		clearFailedLookups();
 	}
 	if (styleSheet) return styleSheet;
 
@@ -237,8 +285,19 @@ export function injectCustomClass(
 		? `${parsed.property}: ${parsed.value};`
 		: findRuleDeclarations(className);
 	if (!declarations) {
+		// Cache under the base name, but report the class as it was written: the base name of
+		// `hover:bg-brand-500` appears nowhere in the markup, so it is not something a reader
+		// can search for. Reported once per class for the life of the page.
+		if (failedLookups.size >= MAX_FAILED_LOOKUPS) failedLookups.clear();
+		if (failedLookups.size === 0) {
+			failedLookupsFingerprint = ruleFingerprint();
+			failedLookupsCheckedAt = Date.now();
+		}
 		failedLookups.add(className);
-		console.warn(`No CSS rule for class: ${className}`);
+		if (!warnedLookups.has(fullClassName)) {
+			warnedLookups.add(fullClassName);
+			console.warn(`No CSS rule for class: ${fullClassName}`);
+		}
 		return false;
 	}
 
@@ -382,6 +441,7 @@ export function processRenderedClasses(classString: string): void {
 export function _resetForTesting(): void {
 	injectedRules.clear();
 	clearFailedLookups();
+	warnedLookups.clear();
 	if (styleSheet?.ownerNode) {
 		(styleSheet.ownerNode as Element).remove();
 	}
