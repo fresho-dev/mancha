@@ -520,21 +520,28 @@ describe("Browser", () => {
 		});
 
 		it("cloak: true reveals instantly without animation", async () => {
-			const target = createTestElement("cloak-test-6");
+			// Measured against an animated reveal rather than against the clock: both pay the
+			// same parse, mount and two-frame cost, so only the animation wait separates them.
+			// An absolute budget here measures the machine more than it measures the reveal.
+			const animation = 200;
+			const timeInit = async (id: string, cloak: boolean | { duration: number }) => {
+				const target = createTestElement(id);
+				const startTime = Date.now();
+				await initMancha({ target: `#${id}`, cloak, state: { msg: "Instant" } });
+				const duration = Date.now() - startTime;
+				assert.ok(!document.getElementById("mancha-cloak"));
+				target.remove();
+				return duration;
+			};
 
-			const startTime = Date.now();
-			await initMancha({
-				target: "#cloak-test-6",
-				cloak: true,
-				state: { msg: "Instant" },
-			});
-			const duration = Date.now() - startTime;
+			const instant = await timeInit("cloak-test-6", true);
+			const animated = await timeInit("cloak-test-6b", { duration: animation });
 
-			// Should complete quickly (no animation delay).
-			assert.ok(duration < 50, `Should reveal instantly (took ${duration}ms)`);
-			assert.ok(!document.getElementById("mancha-cloak"));
-
-			target.remove();
+			assert.ok(
+				animated - instant > animation / 2,
+				`cloak: true took ${instant}ms against ${animated}ms for a ${animation}ms fade, ` +
+					"so it appears to be waiting out an animation",
+			);
 		});
 
 		it("defaults cloak selector to body when no target specified", async () => {
