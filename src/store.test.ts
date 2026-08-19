@@ -1,5 +1,10 @@
 import { REACTIVE_DEBOUNCE_MILLIS, SignalStore } from "./store.js";
-import { assert, REACTIVE_SLEEP_MS, sleepForReactivity } from "./test_utils.js";
+import {
+	assert,
+	measureTimerGranularity,
+	REACTIVE_SLEEP_MS,
+	sleepForReactivity,
+} from "./test_utils.js";
 
 describe("SignalStore", () => {
 	describe("properties", () => {
@@ -2328,6 +2333,22 @@ describe("SignalStore", () => {
 		});
 	});
 
+	describe("timing environment", () => {
+		it("delivers timers inside the debounce window the tests below assume", async () => {
+			// Every assertion about the debounce window is really an assertion about this. An OS
+			// that coalesces timers for an idle process turns them into measurements of the host,
+			// which is what web-test-runner.config.js keeps at bay for browser runs.
+			const granularity = await measureTimerGranularity();
+			const ceiling = REACTIVE_DEBOUNCE_MILLIS * 4;
+			assert.ok(
+				granularity <= ceiling,
+				`Debounce-sized timers are landing ${granularity}ms late, over the ${ceiling}ms these ` +
+					"tests assume. For a browser run, check that web-test-runner.config.js is being " +
+					"picked up: an idle renderer's timers get coalesced onto a ~100ms grid.",
+			);
+		});
+	});
+
 	describe("notification debouncing", () => {
 		it("debounces multiple notify calls for the same key", async () => {
 			// When a class instance modifies internal state during method calls,
@@ -2646,6 +2667,7 @@ describe("SignalStore", () => {
 			// The whole scheduling model: the first write sets the deadline and later
 			// writes join that run instead of pushing it back. This is what makes the
 			// timing independent of how often the key is written.
+			const granularity = await measureTimerGranularity();
 			const store = new SignalStore({ value: 0 });
 			const runsAt: number[] = [];
 			const start = Date.now();
@@ -2669,10 +2691,17 @@ describe("SignalStore", () => {
 				`Expected repeated runs while writing, got ${runsAt.length} in ${deadline}ms. ` +
 					`Writes appear to be postponing the scheduled run. Ran at: ${runsAt.join(", ")}ms`,
 			);
-			// Each burst joins one run rather than scheduling a run per write.
+			// The first run has to land on the first write's deadline. Comparing it against the
+			// debounce window plus what this host's timers actually cost is what separates
+			// "later writes joined the scheduled run" from "each write pushed it back a little",
+			// which a run count cannot tell apart. Coalescing itself is pinned by the write-joins
+			// test below, which counts runs for a known number of writes.
+			const budget = REACTIVE_DEBOUNCE_MILLIS + Math.max(2 * granularity, 15);
 			assert.ok(
-				runsAt.length < writes,
-				`${writes} writes produced ${runsAt.length} runs, so writes are not coalescing`,
+				runsAt[0] <= budget,
+				`First run landed at ${runsAt[0]}ms, past the ${budget}ms a ${REACTIVE_DEBOUNCE_MILLIS}ms ` +
+					`debounce allows on a host with ${granularity}ms timer granularity. Writes appear to ` +
+					"be pushing the deadline back.",
 			);
 		});
 

@@ -12,6 +12,27 @@ export function sleepForReactivity(): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, REACTIVE_SLEEP_MS));
 }
 
+/**
+ * How late a debounce-sized timer lands here, worst of `samples`. Assertions about the debounce
+ * window have to allow for it: an OS that coalesces timers for an idle process delivers them on
+ * a ~100ms grid, which is ten debounce windows. Measured at the debounce delay rather than at
+ * 1ms because a minimal timer is clamped either way and so does not tell the two regimes apart
+ * — measured here, a coalesced host overshoots by ~75ms against ~20ms for a healthy one. The
+ * first sample is discarded, since it pays for whatever the caller was doing beforehand.
+ */
+export async function measureTimerGranularity(samples = 5): Promise<number> {
+	const overshoot = async (): Promise<number> => {
+		const before = Date.now();
+		await new Promise((resolve) => setTimeout(resolve, REACTIVE_DEBOUNCE_MILLIS));
+		return Date.now() - before - REACTIVE_DEBOUNCE_MILLIS;
+	};
+
+	await overshoot();
+	let worst = 0;
+	for (let i = 0; i < samples; i++) worst = Math.max(worst, await overshoot());
+	return worst;
+}
+
 export function innerHTML(elem: Element): string {
 	if (hasProperty(elem, "innerHTML")) return elem.innerHTML;
 	else return DomUtils.getInnerHTML(elem as unknown as import("domhandler").Element);

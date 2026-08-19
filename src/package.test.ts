@@ -23,7 +23,7 @@ const FORBIDDEN: Array<[label: string, pattern: RegExp]> = [
 	["repo config", /^(\.github|\.vscode|\.claude)\//],
 	[
 		"build config",
-		/^(biome\.json|\.biomeignore|gulpfile\.ts|tsdown\.config\.ts|tsconfig\.json|global\.d\.ts|tsec_exemptions\.json)$/,
+		/^(biome\.json|\.biomeignore|gulpfile\.ts|tsdown\.config\.ts|tsconfig\.json|global\.d\.ts|tsec_exemptions\.json|web-test-runner\.config\.js)$/,
 	],
 	["build scripts", /^scripts\//],
 	// tsdown overwrites the tsc output for these two entries without emitting a
