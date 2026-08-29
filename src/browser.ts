@@ -278,9 +278,7 @@ export async function initMancha<T extends StoreState = StoreState>(
 
 	// Set initial state before mounting.
 	if (options.state) {
-		// Concurrently: each set() ends in a debounced notify(), so awaiting them one at a time
-		// costs a debounce window per key of blank screen. Nothing is mounted yet, so no observer
-		// is waiting on any of them, and ordering is not load-bearing.
+		// Serially, each set() would cost a debounce window of blank screen, observed by nothing.
 		await Promise.all(
 			Object.entries(options.state).map(([key, value]) => renderer.set(key, value)),
 		);

@@ -389,10 +389,7 @@ describe("Browser", () => {
 		});
 
 		it("seeds the state option in one debounce window, not one per key", async () => {
-			// Every set() ends in a debounced notify(), so awaiting them one at a time costs a
-			// debounce window per key before anything can mount. Asserted on timers rather than
-			// wall clock: seeding N keys together leaves N of them pending at once, whereas
-			// seeding them serially never has more than one alive.
+			// Timers, not wall clock: seeding together leaves N notify() timers pending, serially 1.
 			const KEY_COUNT = 25;
 			const state = Object.fromEntries(Array.from({ length: KEY_COUNT }, (_, i) => [`key${i}`, i]));
 
