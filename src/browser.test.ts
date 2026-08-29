@@ -387,6 +387,37 @@ describe("Browser", () => {
 			// Clean up.
 			target.remove();
 		});
+
+		it("seeds the state option in one debounce window, not one per key", async () => {
+			// Every set() ends in a debounced notify(), so awaiting them one at a time costs a
+			// debounce window per key before anything can mount. Asserted on timers rather than
+			// wall clock: seeding N keys together leaves N of them pending at once, whereas
+			// seeding them serially never has more than one alive.
+			const KEY_COUNT = 25;
+			const state = Object.fromEntries(Array.from({ length: KEY_COUNT }, (_, i) => [`key${i}`, i]));
+
+			const originalSetTimeout = globalThis.setTimeout;
+			let pending = 0;
+			let peakPending = 0;
+			try {
+				globalThis.setTimeout = ((fn: () => void, delay?: number) => {
+					peakPending = Math.max(peakPending, ++pending);
+					return originalSetTimeout(() => {
+						pending--;
+						fn();
+					}, delay);
+				}) as typeof globalThis.setTimeout;
+				await initMancha({ state });
+			} finally {
+				globalThis.setTimeout = originalSetTimeout;
+			}
+
+			assert.ok(
+				peakPending >= KEY_COUNT,
+				`Seeding ${KEY_COUNT} keys never had more than ${peakPending} timers pending, so it ` +
+					`is waiting out a debounce window per key`,
+			);
+		});
 	});
 
 	describe("Cloaking", () => {
