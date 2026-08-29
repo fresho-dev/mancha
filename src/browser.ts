@@ -278,9 +278,10 @@ export async function initMancha<T extends StoreState = StoreState>(
 
 	// Set initial state before mounting.
 	if (options.state) {
-		for (const [key, value] of Object.entries(options.state)) {
-			await renderer.set(key, value);
-		}
+		// Serially, each set() would cost a debounce window of blank screen, observed by nothing.
+		await Promise.all(
+			Object.entries(options.state).map(([key, value]) => renderer.set(key, value)),
+		);
 	}
 
 	// Execute the main rendering logic in a try/finally to ensure uncloak always runs.

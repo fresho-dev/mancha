@@ -387,6 +387,34 @@ describe("Browser", () => {
 			// Clean up.
 			target.remove();
 		});
+
+		it("seeds the state option in one debounce window, not one per key", async () => {
+			// Timers, not wall clock: seeding together leaves N notify() timers pending, serially 1.
+			const KEY_COUNT = 25;
+			const state = Object.fromEntries(Array.from({ length: KEY_COUNT }, (_, i) => [`key${i}`, i]));
+
+			const originalSetTimeout = globalThis.setTimeout;
+			let pending = 0;
+			let peakPending = 0;
+			try {
+				globalThis.setTimeout = ((fn: () => void, delay?: number) => {
+					peakPending = Math.max(peakPending, ++pending);
+					return originalSetTimeout(() => {
+						pending--;
+						fn();
+					}, delay);
+				}) as typeof globalThis.setTimeout;
+				await initMancha({ state });
+			} finally {
+				globalThis.setTimeout = originalSetTimeout;
+			}
+
+			assert.ok(
+				peakPending >= KEY_COUNT,
+				`Seeding ${KEY_COUNT} keys never had more than ${peakPending} timers pending, so it ` +
+					`is waiting out a debounce window per key`,
+			);
+		});
 	});
 
 	describe("Cloaking", () => {
