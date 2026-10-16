@@ -4504,6 +4504,32 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(getAttribute(node, "style"), "color:red;margin:0");
 			});
 
+			it("keeps the root's class and style when a custom element forwards empty values", async () => {
+				const renderer = new ctor();
+				const template = `<template is="ez-empty"><i class="a" style="color:red"></i></template>`;
+				const html = `<ez-empty class="" style=""></ez-empty>`;
+				const fragment = renderer.parseHTML(template + html);
+
+				await renderer.mount(fragment);
+
+				const node = fragment.firstChild as Element;
+				assert.equal(getAttribute(node, "class"), "a");
+				assert.equal(getAttribute(node, "style"), "color:red");
+			});
+
+			it("keeps the root's class and style when an <include> forwards empty values", async () => {
+				const renderer = new ctor();
+				const fragment = renderer.parseHTML(`<include src="foo.html" class style=" "></include>`);
+				renderer.preprocessLocal = async () =>
+					renderer.parseHTML(`<svg class="w-4" style="color:red"></svg>`);
+
+				await renderer.mount(fragment, { dirpath: "." });
+
+				const node = fragment.firstChild as Element;
+				assert.equal(getAttribute(node, "class"), "w-4");
+				assert.equal(getAttribute(node, "style"), "color:red");
+			});
+
 			it("composes :class on a custom element with the root's static class", async () => {
 				const renderer = new ctor();
 				const template = `<template is="b2"><i class="a"></i></template>`;

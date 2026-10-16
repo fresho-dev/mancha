@@ -204,7 +204,9 @@ export function forwardAttribute(
 ): void {
 	const prev = getAttribute(elemDest, name);
 	const next = getAttribute(elemFrom, name);
-	if (!prev || !next || (name !== "class" && name !== "style")) {
+	const merge = name === "class" || name === "style";
+	if (merge && prev && !next?.trim()) return; // An empty forwarded value keeps the root's.
+	if (!prev || !merge) {
 		cloneAttribute(elemFrom, elemDest, name);
 	} else if (name === "class") {
 		setAttribute(elemDest, name, [...new Set(`${prev} ${next}`.trim().split(/\s+/))].join(" "));

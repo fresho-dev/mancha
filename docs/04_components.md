@@ -112,7 +112,7 @@ This approach loads the sprite sheet once and references individual icons by the
 </my-red-button>
 ```
 
-Attributes placed on the component tag are copied to the root element of the template. As with includes, `class` and `style` are merged with the root element's existing values, with the component tag's values last; any other attribute overwrites the root element's value. For example, `<my-red-button class="w-full" style="color: white;">` renders `<button style="background-color: red;color: white;" class="w-full">`.
+Attributes placed on the component tag are copied to the root element of the template. As with includes, `class` and `style` are merged with the root element's existing values, with the component tag's values last; any other attribute overwrites the root element's value. For example, `<my-red-button class="w-full" style="color: white;">` renders `<button style="background-color: red;color: white;" class="w-full">`. An empty `class` or `style` leaves the root element's value unchanged. Directive attributes such as `:class` and `:attr:class` are forwarded as-is and overwrite the root element's same-named directive; only static `class` and `style` are merged.
 
 ### Component Registries
 
