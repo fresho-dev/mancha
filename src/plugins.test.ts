@@ -522,6 +522,16 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(getTextContent(fragment.firstChild as Element), "10 10");
 			});
 
+			it("renders values from a catch-all Proxy", async () => {
+				const labels = new Proxy({ hello: "Hello" } as Record<string | symbol, string>, {
+					get: (t, k) => (k in t ? t[k] : `[${String(k)}]`),
+				});
+				const renderer = new ctor({ labels });
+				const fragment = renderer.parseHTML(`<p>{{ labels.hello }} {{ labels.bye }}</p>`);
+				await renderer.mount(fragment);
+				assert.equal(getTextContent(fragment.firstChild as Element), "Hello [bye]");
+			});
+
 			it("writes through $parent from a :for row", async () => {
 				const renderer = new ctor({ count: 0, items: [1] });
 				const fragment = renderer.parseHTML(`<div :for="i in items"></div>`);

@@ -113,9 +113,8 @@ const AST_FACTORY = new expressions.EvalAstFactory();
 /** Symbol used to identify proxified objects. */
 const PROXY_MARKER = "__is_proxy__";
 
-/** Unwraps a store proxy, e.g. a $parent captured as one by a subrenderer created in an effect. */
-const RAW = Symbol();
-type ProxyRaw = { [RAW]?: SignalStore };
+/** Maps store proxies to their store, e.g. a $parent captured as one by a subrenderer created in an effect. */
+const PROXY_STORES = new WeakMap<object, SignalStore>();
 
 /** Type guard to check if an object has the proxy marker. */
 interface ProxyMarked {
@@ -862,7 +861,7 @@ export class SignalStore<T extends StoreState = StoreState> {
 			return value;
 		};
 
-		return new Proxy(keyval as SignalStoreProxy, {
+		const proxy = new Proxy(keyval as SignalStoreProxy, {
 			has: (_, prop) => {
 				if (typeof prop === "string") {
 					if (getAncestorKeyStore(this, prop)) return true;
@@ -877,8 +876,11 @@ export class SignalStore<T extends StoreState = StoreState> {
 						const value = this.get(prop, observer, context);
 						// If the value is a SignalStore (e.g., $parent) and we have an
 						// observer, return it as a proxy for proper dependency tracking.
-						const store = value instanceof SignalStore ? value : (value as ProxyRaw)?.[RAW];
-						if (observer && store) return store.proxify(observer, context);
+						if (observer) {
+							const store =
+								value instanceof SignalStore ? value : PROXY_STORES.get(value as object);
+							if (store) return store.proxify(observer, context);
+						}
 						return wrapMaybeFunction(value, prop, receiver);
 					}
 					// If the property is not found, but we are observing, we assume it's a
@@ -890,7 +892,6 @@ export class SignalStore<T extends StoreState = StoreState> {
 					}
 				}
 
-				if (prop === RAW) return this;
 				if (prop === "$") {
 					return this.proxify(observer, context);
 				} else {
@@ -913,6 +914,8 @@ export class SignalStore<T extends StoreState = StoreState> {
 				return true;
 			},
 		});
+		PROXY_STORES.set(proxy, this);
+		return proxy;
 	}
 
 	get $(): SignalStore<T> & InternalStoreState & T {
