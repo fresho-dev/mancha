@@ -221,6 +221,13 @@ describe("SignalStore", () => {
 				assert.equal(store.eval("x"), "store");
 			});
 
+			it("does not treat Object.prototype names as local args", async () => {
+				const store = new SignalStore({ constructor: "C", valueOf: "V" });
+				assert.equal(store.eval("constructor"), "C");
+				assert.equal(store.eval("valueOf"), "V");
+				assert.equal(store.eval('constructor + ""'), "C");
+			});
+
 			[
 				{ expression: "a && b", expected: false },
 				{ expression: "!a && !b", expected: false },

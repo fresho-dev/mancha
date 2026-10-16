@@ -925,18 +925,18 @@ export class SignalStore<T extends StoreState = StoreState> {
 
 			const scope = new Proxy(args, {
 				has(target, prop) {
-					return prop in target || prop in thisArg || prop in globalThis;
+					return Object.hasOwn(target, prop) || prop in thisArg || prop in globalThis;
 				},
 				get(target, prop) {
 					if (typeof prop !== "string") return undefined;
-					if (prop in target) return target[prop];
+					if (Object.hasOwn(target, prop)) return target[prop];
 					if (prop in thisArg) return thisArg[prop];
 					if (prop in globalThis) return (globalThis as unknown as Record<string, unknown>)[prop];
 					return thisArg[prop];
 				},
 				set(target, prop, value) {
 					if (typeof prop !== "string") return false;
-					if (prop in target) {
+					if (Object.hasOwn(target, prop)) {
 						target[prop] = value;
 						return true;
 					}
@@ -971,7 +971,7 @@ export class SignalStore<T extends StoreState = StoreState> {
 		// Use this.$ which returns a proxy. When called through an effect's proxy,
 		// this.$ inherits the observer for proper dependency tracking.
 		const thisArg = this.$;
-		if (!(expr in args) && this._store.has(expr)) {
+		if (this._store.has(expr) && !Object.hasOwn(args, expr)) {
 			// Shortcut: if the expression is just an item from the value store, use that directly.
 			return thisArg[expr];
 		} else {
