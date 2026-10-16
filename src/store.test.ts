@@ -215,6 +215,12 @@ describe("SignalStore", () => {
 				delete (globalThis as unknown as Record<string, unknown>).foo;
 			});
 
+			it("local args shadow store values for bare identifiers (#120)", async () => {
+				const store = new SignalStore({ x: "store" });
+				assert.equal(store.eval("x", { x: "arg" }), "arg");
+				assert.equal(store.eval("x"), "store");
+			});
+
 			[
 				{ expression: "a && b", expected: false },
 				{ expression: "!a && !b", expected: false },

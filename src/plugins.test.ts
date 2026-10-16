@@ -2299,6 +2299,29 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 					assert.equal(host.firstChild, subtree, "Untouched row's subtree should not be rebuilt");
 					assert.equal(getTextContent(getRows(fragment)[0]), "999");
 				});
+
+				it("keys a nested :for by its own $index, not the outer one (#120)", async () => {
+					const renderer = new ctor({
+						groups: [
+							{ id: 1, sets: ["A", "B", "C"] },
+							{ id: 2, sets: ["A", "B", "C"] },
+						],
+					});
+					const html = `<div :for="g in groups" :key="g.id"><span :for="s in g.sets" :key="$index" :text="s + $index"></span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+					await sleepForReactivity();
+					assert.equal(getTextContent(getRows(fragment)[0]), "A0B1C2");
+					assert.equal(getTextContent(getRows(fragment)[1]), "A0B1C2");
+
+					const groups = renderer.$.groups as { sets: string[] }[];
+					groups[0].sets = ["C", "A", "B", "D"];
+					await sleepForReactivity();
+					await sleepForReactivity();
+
+					assert.equal(getTextContent(getRows(fragment)[0]), "C0A1B2D3");
+					assert.equal(getTextContent(getRows(fragment)[1]), "A0B1C2");
+				});
 			});
 		});
 

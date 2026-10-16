@@ -971,7 +971,7 @@ export class SignalStore<T extends StoreState = StoreState> {
 		// Use this.$ which returns a proxy. When called through an effect's proxy,
 		// this.$ inherits the observer for proper dependency tracking.
 		const thisArg = this.$;
-		if (this._store.has(expr)) {
+		if (!(expr in args) && this._store.has(expr)) {
 			// Shortcut: if the expression is just an item from the value store, use that directly.
 			return thisArg[expr];
 		} else {
