@@ -187,21 +187,21 @@ for (const [key, count] of Object.entries(report.observers.byKey)) {
 
 ### 4. Use `:key` for List Performance
 
-`:for` never recreates rows on update. Without `:key`, rows are reused by position; add `:key` to reuse them by a stable identifier instead:
+Without `:key`, `:for` reuses a row while its position holds the same item and rebuilds it otherwise; add `:key` to reuse rows by a stable identifier instead:
 
 ```html
-<!-- Without :key - rows reused by position -->
+<!-- Without :key - rows reused while their position holds the same item -->
 <li :for="user in users">{{ user.name }}</li>
 
 <!-- With :key - rows reused based on stable identifier -->
 <li :for="user in users" :key="user.id">{{ user.name }}</li>
 ```
 
-Positional reuse is cheap for appends, removals at the end and in-place edits. When items are reordered, inserted or removed elsewhere, every row after the change re-renders with its new item, and DOM state (focus, input values, scroll position, animations) stays at the same position rather than following the item. Keyed reconciliation avoids both:
+Without `:key`, appends, removals at the end and in-place edits to an item's properties keep their rows. When items are reordered, inserted or removed elsewhere, every row from the change onwards is rebuilt, and its DOM state (focus, input values, scroll position, animations) is lost. Keyed reconciliation avoids both:
 - **Faster reordering**: Moved items keep their rows and only change position
 - **Preserved state**: Form inputs, scroll position, and animations follow their item
 
-The key should be a unique primitive value (string or number) that identifies each item. Using `$index` as the key is the same as omitting it.
+The key should be a unique primitive value (string or number) that identifies each item. Avoid `:key="$index"`: it reuses each row for whatever item lands at its index, so state set once per row, such as `:data` on a descendant, keeps the old item.
 
 ### 5. Reset on Each Mount
 

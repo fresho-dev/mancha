@@ -2429,6 +2429,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 					await sleepForReactivity();
 					await sleepForReactivity();
 					assert.deepEqual(texts(fragment), ["a0", "c1", "d2"]);
+					assert.equal(getRows(fragment)[0], first, "Row holding the same item should be reused");
 
 					(renderer.$.items as string[]).reverse();
 					await sleepForReactivity();
@@ -2439,7 +2440,6 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 					await sleepForReactivity();
 					await sleepForReactivity();
 					assert.deepEqual(texts(fragment), ["x0", "y1"]);
-					assert.equal(getRows(fragment)[0], first, "Rows should be reused by position");
 				});
 
 				it("renders nested unkeyed lists with their own $index", async () => {
@@ -2471,6 +2471,71 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 					await sleepForReactivity();
 					await sleepForReactivity();
 					assert.deepEqual(texts(fragment), ["c", "a"]);
+				});
+
+				it("rebuilds nested :data when the item at a position changes", async () => {
+					const renderer = new ctor({ items: [{ name: "a" }, { name: "b" }, { name: "c" }] });
+					const html = `<div :for="item in items"><span :data="{ label: item.name }">{{ label }}</span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["a", "b", "c"]);
+
+					(renderer.$.items as unknown[]).splice(0, 1);
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["b", "c"]);
+
+					renderer.$.items = [{ name: "x" }, { name: "y" }];
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["x", "y"]);
+				});
+
+				it("rebuilds component :data props when the item at a position changes", async () => {
+					const renderer = new ctor({ fruits: [{ icon: "A" }, { icon: "B" }, { icon: "C" }] });
+					const html =
+						`<template is="fruit-chip"><b>{{ fruit.icon }}</b></template>` +
+						`<div :for="f in fruits"><fruit-chip :data="{ fruit: f }"></fruit-chip> <span>{{ f.icon }}</span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["A A", "B B", "C C"]);
+
+					(renderer.$.fruits as unknown[]).shift();
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["B B", "C C"]);
+
+					renderer.$.fruits = [{ icon: "Z" }];
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["Z Z"]);
+				});
+
+				it("re-runs :render when the item at a position changes", async function () {
+					if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+					const renderer = new ctor({ items: ["a", "b", "c"] });
+					const html = `<div :for="item in items"><span :text="item" :render="./fixtures/render-init-inspect.js"></span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment, { dirpath: "." });
+					const rendered = () =>
+						getRows(fragment).map(
+							(r) => (r.firstChild as unknown as RenderedElement)._renderedState?.textContent,
+						);
+					await sleepForReactivity();
+					assert.deepEqual(rendered(), ["a", "b", "c"]);
+
+					(renderer.$.items as string[]).splice(0, 1);
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(rendered(), ["b", "c"]);
+
+					renderer.$.items = ["x"];
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(rendered(), ["x"]);
 				});
 			});
 		});
@@ -2897,8 +2962,6 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 
 			// Now change the items array entirely - all old elements should be cleaned up
 			renderer.$.items = [{ val: "x", show: true }];
-			// The reused row updates one reactivity tick after the :for effect.
-			await sleepForReactivity();
 			await sleepForReactivity();
 
 			// Should only have "x", not "ab" + "x" (which would indicate orphaned elements)

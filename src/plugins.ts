@@ -475,8 +475,8 @@ export namespace RendererPlugins {
 			// When :for reuses a node, :data must be re-evaluated with the updated loop variable.
 			const dataExpr = getAttributeOrDataset(elem, "data", ":");
 
-			// Rows by key; without :key, rows are reused by position.
-			const keyMap = new Map<unknown, { node: Node; subrenderer: IRenderer }>();
+			// Rows by key; without :key, by position while it holds the same item.
+			const keyMap = new Map<unknown, { node: Node; subrenderer: IRenderer; item: unknown }>();
 
 			// Compute the container expression and track dependencies.
 			const [loopKey, itemsExpr] = tokens;
@@ -495,8 +495,25 @@ export namespace RendererPlugins {
 					const listParent = template.parentNode;
 					if (!listParent) return;
 
+					const removeRows = (stale: (key: unknown, item: unknown) => boolean) => {
+						for (const [key, { node: oldNode, subrenderer: sub, item }] of keyMap) {
+							if (stale(key, item)) {
+								sub.dispose();
+								if (oldNode.parentNode) removeChild(oldNode.parentNode, oldNode);
+								this._skipNodes.delete(oldNode);
+								keyMap.delete(key);
+							}
+						}
+					};
+
+					// Without :key, a row whose position now holds a different item is rebuilt.
+					if (!keyExpr) removeRows((idx, item) => item !== items[idx as number]);
+
 					const seenKeys = new Set<unknown>();
-					const newKeyMap = new Map<unknown, { node: Node; subrenderer: IRenderer }>();
+					const newKeyMap = new Map<
+						unknown,
+						{ node: Node; subrenderer: IRenderer; item: unknown }
+					>();
 					const awaiters: Promise<void>[] = [];
 					let cursor = template.nextSibling as ChildNode | null;
 
@@ -563,18 +580,12 @@ export namespace RendererPlugins {
 							this.log("Rendered list child:\n", nodeToString(copy, 128));
 						}
 
-						newKeyMap.set(key, { node: nodeForThisItem, subrenderer });
+						newKeyMap.set(key, { node: nodeForThisItem, subrenderer, item });
 						cursor = nodeForThisItem.nextSibling as ChildNode | null;
 					}
 
 					// Remove nodes for keys that no longer exist.
-					for (const [key, { node: oldNode, subrenderer: sub }] of keyMap) {
-						if (!seenKeys.has(key)) {
-							sub.dispose();
-							if (oldNode.parentNode) removeChild(oldNode.parentNode, oldNode);
-							this._skipNodes.delete(oldNode);
-						}
-					}
+					removeRows((key) => !seenKeys.has(key));
 
 					keyMap.clear();
 					for (const [k, v] of newKeyMap) keyMap.set(k, v);

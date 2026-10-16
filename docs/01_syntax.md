@@ -19,7 +19,7 @@
     :attr:style="'width: ' + segment.width + '; background-color: ' + segment.color"
   ></div>
   ```
-- `:key` (used with `:for`) enables keyed reconciliation, which reuses each item's DOM node by its identifier, so element state (focus, input values, scroll) follows the item when the list is reordered. Without `:key`, rows are reused by position, so that state stays at the same index. The key should be a unique primitive value (string or number). When used with `:data`, the `:data` expression is re-evaluated when a node is reused with updated loop variables.
+- `:key` (used with `:for`) enables keyed reconciliation, which reuses each item's DOM node by its identifier, so element state (focus, input values, scroll) follows the item when the list is reordered. Without `:key`, a row is reused only while its position holds the same item and is rebuilt otherwise, so that state is lost on reorders. The key should be a unique primitive value (string or number). When used with `:data`, the `:data` expression is re-evaluated when a node is reused with updated loop variables.
   ```html
   <div :for="user in users" :key="user.id">{{ user.name }}</div>
   <!-- :data bindings update when the item changes -->
