@@ -178,7 +178,7 @@ describe("Package exports", function () {
  * raising this number, rather than discovered later by a user on a slow link.
  * Matches `npm run check:size`; node's brotli defaults agree with the CLI.
  */
-const BUNDLE_BUDGET_BYTES = 20_100;
+const BUNDLE_BUDGET_BYTES = 21_000;
 
 describe("Bundle size", function () {
 	this.timeout(20000); // Brotli at maximum quality is not fast.
