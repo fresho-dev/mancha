@@ -69,13 +69,6 @@ const ORIENTATIONS = ["landscape", "portrait"];
 // entry at a time: the cost of being wrong is one re-walk, which is what the cache saves.
 const MAX_FAILED_LOOKUPS = 256;
 
-// How long the negative cache is trusted without re-checking whether the page's rules changed.
-// Re-checking costs one read per stylesheet, which is cheap but not free, and paying it for
-// every class on every scan would put a cost back on the path this cache exists to make free.
-// The consequence is bounded: a sheet that starts defining a class is picked up a frame or two
-// later rather than immediately.
-const FINGERPRINT_MAX_AGE_MILLIS = 50;
-
 // Module state.
 const injectedRules = new Set<string>();
 // Classes that resolved to no declarations, keyed by base class name since
@@ -89,7 +82,8 @@ const warnedLookups = new Set<string>();
 // Fingerprint of the page's rules when failedLookups was last known good, as a sheet loading
 // after the first scan can define a class that did not resolve before.
 let failedLookupsFingerprint = "";
-let failedLookupsCheckedAt = 0;
+// Sheet count when the fingerprint was read this task, or -1: a scan pays for it once per task.
+let failedLookupsCheckedSheets = -1;
 let styleSheet: CSSStyleSheet | null = null;
 
 /**
@@ -116,14 +110,21 @@ function ruleFingerprint(): string {
 	return counts.join(",");
 }
 
+/** Record that the fingerprint is current until the end of this task. */
+function markFingerprintChecked(): void {
+	if (failedLookupsCheckedSheets < 0) {
+		queueMicrotask(() => {
+			failedLookupsCheckedSheets = -1;
+		});
+	}
+	failedLookupsCheckedSheets = document.styleSheets.length;
+}
+
 /** Drop the negative cache when the rules a lookup would search have changed. */
 function syncFailedLookups(): void {
 	if (failedLookups.size === 0) return;
-
-	// Throttled, so a scan of a thousand elements re-checks once rather than a thousand times.
-	const now = Date.now();
-	if (now - failedLookupsCheckedAt < FINGERPRINT_MAX_AGE_MILLIS) return;
-	failedLookupsCheckedAt = now;
+	if (document.styleSheets.length === failedLookupsCheckedSheets) return;
+	markFingerprintChecked();
 
 	const fingerprint = ruleFingerprint();
 	if (fingerprint === failedLookupsFingerprint) return;
@@ -135,7 +136,15 @@ function syncFailedLookups(): void {
 function clearFailedLookups(): void {
 	failedLookups.clear();
 	failedLookupsFingerprint = "";
-	failedLookupsCheckedAt = 0;
+	failedLookupsCheckedSheets = -1;
+}
+
+/** Report an unresolvable class once, as written. */
+function warnUnresolved(fullClassName: string): void {
+	if (warnedLookups.has(fullClassName)) return;
+	if (warnedLookups.size >= MAX_FAILED_LOOKUPS) warnedLookups.clear();
+	warnedLookups.add(fullClassName);
+	console.warn(`No CSS rule for class: ${fullClassName}`);
 }
 
 /** Look up CSS declarations for an existing class from document stylesheets. */
@@ -275,7 +284,10 @@ export function injectCustomClass(
 	// Known not to resolve. Checked after the injected cache so a class that was
 	// once unresolvable still short-circuits on the cheaper path once it exists.
 	syncFailedLookups();
-	if (failedLookups.has(className)) return false;
+	if (failedLookups.has(className)) {
+		warnUnresolved(fullClassName);
+		return false;
+	}
 
 	const escapedClass = escapeSelector(fullClassName);
 
@@ -287,17 +299,14 @@ export function injectCustomClass(
 	if (!declarations) {
 		// Cache under the base name, but report the class as it was written: the base name of
 		// `hover:bg-brand-500` appears nowhere in the markup, so it is not something a reader
-		// can search for. Reported once per class for the life of the page.
+		// can search for.
 		if (failedLookups.size >= MAX_FAILED_LOOKUPS) failedLookups.clear();
 		if (failedLookups.size === 0) {
 			failedLookupsFingerprint = ruleFingerprint();
-			failedLookupsCheckedAt = Date.now();
+			markFingerprintChecked();
 		}
 		failedLookups.add(className);
-		if (!warnedLookups.has(fullClassName)) {
-			warnedLookups.add(fullClassName);
-			console.warn(`No CSS rule for class: ${fullClassName}`);
-		}
+		warnUnresolved(fullClassName);
 		return false;
 	}
 
@@ -456,4 +465,9 @@ export function _getInjectedRules(): Set<string> {
 /** For testing: get classes cached as unresolvable. */
 export function _getFailedLookups(): Set<string> {
 	return failedLookups;
+}
+
+/** For testing: get classes already reported as unresolvable. */
+export function _getWarnedLookups(): Set<string> {
+	return warnedLookups;
 }

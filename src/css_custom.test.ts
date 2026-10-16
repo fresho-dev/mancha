@@ -2,6 +2,7 @@ import { injectCss } from "./browser.js";
 import {
 	_getFailedLookups,
 	_getInjectedRules,
+	_getWarnedLookups,
 	_resetForTesting,
 	injectCustomClass,
 	isSupported,
@@ -786,14 +787,6 @@ describe("css_custom", () => {
 
 	describe("unresolvable classes", () => {
 		/**
-		 * Outlive the window during which the negative cache is trusted without re-checking the
-		 * page's rules. Anything that adds rules after a failed lookup has to clear it.
-		 */
-		function sleepPastFingerprint(): Promise<void> {
-			return new Promise((resolve) => setTimeout(resolve, 60));
-		}
-
-		/**
 		 * Count how many sheets get their rules walked. Reading cssRules is the
 		 * expensive half of a lookup, and the only part that scales with sheet size.
 		 */
@@ -852,7 +845,7 @@ describe("css_custom", () => {
 			assert.equal(matching.length, 1, "Should warn exactly once");
 		});
 
-		it("retries after a new stylesheet appears", async () => {
+		it("retries after a new stylesheet appears", () => {
 			if (!isSupported()) return;
 			processClassString("hover:bg-latecolor");
 			assert.ok(_getFailedLookups().has("bg-latecolor"), "Precondition: cached as failed");
@@ -861,7 +854,6 @@ describe("css_custom", () => {
 			const late = document.createElement("style");
 			late.textContent = ".bg-latecolor { background-color: #abc }";
 			document.head.appendChild(late);
-			await sleepPastFingerprint();
 
 			try {
 				processClassString("hover:bg-latecolor");
@@ -903,13 +895,31 @@ describe("css_custom", () => {
 				// has not changed, so a theme switch or a lazy chunk must not re-report it.
 				late.textContent = ".unrelated-late { color: red }";
 				document.head.appendChild(late);
-				processClassString("hover:bg-nosuchcolor-500");
+				const walks = countRuleWalks(() => processClassString("hover:bg-nosuchcolor-500"));
+				if (walks >= 0) assert.ok(walks > 0, "Precondition: the cache was dropped and re-walked");
 			} finally {
 				console.warn = originalWarn;
 				late.remove();
 			}
 			const matching = warnings.filter((w) => w.includes("nosuchcolor"));
 			assert.equal(matching.length, 1, `Should report once, got: ${matching.join(" | ")}`);
+		});
+
+		it("reports a class under each variant it is written with", () => {
+			if (!isSupported()) return;
+			const originalWarn = console.warn;
+			const warnings: string[] = [];
+			console.warn = (msg: string) => warnings.push(msg);
+			try {
+				processClassString("hover:bg-nosuchcolor-500");
+				processClassString("focus:bg-nosuchcolor-500");
+			} finally {
+				console.warn = originalWarn;
+			}
+			assert.ok(
+				warnings.some((w) => w.includes("focus:bg-nosuchcolor-500")),
+				`The second variant should be reported too, got: ${warnings.join(" | ")}`,
+			);
 		});
 
 		it("stays silent for classes it can resolve", () => {
@@ -936,7 +946,8 @@ describe("css_custom", () => {
 				assert.ok(_getFailedLookups().has("bg-insertedcolor"), "Precondition: cached as failed");
 
 				existing.sheet?.insertRule(".bg-insertedcolor { background-color: #abc }", 0);
-				await sleepPastFingerprint();
+				// Rule counts are re-read once per task, so the retry has to come from a later one.
+				await new Promise((resolve) => setTimeout(resolve, 0));
 				processClassString("hover:bg-insertedcolor");
 				assert.ok(
 					_getInjectedRules().has("hover:bg-insertedcolor"),
@@ -955,11 +966,10 @@ describe("css_custom", () => {
 			// Losing our own sheet says nothing about what the page's other sheets define, so the
 			// negative cache stays: a class that resolved to nothing still does.
 			document.querySelector('style[data-mancha="custom"]')?.remove();
-			processClassString("hover:bg-nosuchcolor-500");
-			assert.ok(
-				_getFailedLookups().has("bg-nosuchcolor-500"),
-				"A recreated sheet should not cost a re-walk of every other sheet",
-			);
+			const walks = countRuleWalks(() => processClassString("hover:bg-nosuchcolor-500"));
+			assert.ok(_getFailedLookups().has("bg-nosuchcolor-500"), "Should still be cached");
+			if (walks < 0) return; // cssRules is not an interceptable accessor here.
+			assert.equal(walks, 0, "A recreated sheet should not cost a re-walk of every other sheet");
 		});
 
 		it("bounds how many failures it caches", function () {
@@ -980,6 +990,10 @@ describe("css_custom", () => {
 			assert.ok(
 				_getFailedLookups().size < 300,
 				`The negative cache should be bounded, holds ${_getFailedLookups().size}`,
+			);
+			assert.ok(
+				_getWarnedLookups().size < 300,
+				`The reported set should be bounded, holds ${_getWarnedLookups().size}`,
 			);
 		});
 

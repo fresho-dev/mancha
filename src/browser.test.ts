@@ -151,6 +151,36 @@ describe("Browser", () => {
 			for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
 		});
 
+		it("picks up a class from a sheet that arrives right after it missed", async () => {
+			const initialCount = document.head.querySelectorAll("style").length;
+			injectCss(["utils"]);
+
+			const renderer = new Renderer({ cls: "hover:bg-brandx" });
+			const fragment = renderer.parseHTML(`<button id="latesheet" :class="cls"></button>`);
+			const target = fragment.querySelector("#latesheet") as Element;
+			document.body.appendChild(target);
+			const originalWarn = console.warn;
+			console.warn = () => {};
+			const late = document.createElement("style");
+			try {
+				await renderer.mount(target);
+				late.textContent = ".bg-brandx { background-color: #123456 }";
+				document.head.appendChild(late);
+				await renderer.set("cls", "hover:bg-brandx p-1");
+				await sleepForReactivity();
+			} finally {
+				console.warn = originalWarn;
+			}
+
+			const rule = findCustomRule("bg-brandx");
+			assert.ok(rule?.includes(":hover"), `Should inject hover:bg-brandx, got: ${rule}`);
+
+			target.remove();
+			late.remove();
+			const styles = document.head.querySelectorAll("style");
+			for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
+		});
+
 		it("injects variant rules when an :attr:class binding produces them on state change", async () => {
 			const initialCount = document.head.querySelectorAll("style").length;
 			injectCss(["utils"]);
