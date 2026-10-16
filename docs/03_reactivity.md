@@ -354,7 +354,7 @@ When items are removed from the array, the corresponding `<li>` elements are rem
 
 ### Keyed Reconciliation and Observer Reuse
 
-When using `:key` with `:for`, subrenderers are reused for items with matching keys rather than being disposed and recreated. This is more efficient because existing observers remain attached:
+`:for` reuses a row's node and subrenderer across updates rather than disposing and recreating it, so existing observers remain attached. With `:key`, rows are matched by key:
 
 ```html
 <ul :for="user in users" :key="user.id">
@@ -367,7 +367,7 @@ With `:key`, when the `users` array is updated:
 - Only truly removed items have their observers cleaned up
 - New items create new subrenderers with fresh observers
 
-Without `:key`, every update disposes all subrenderers and creates new ones, which triggers more cleanup and setup cycles. See [Performance](./09_performance.md#4-use-key-for-list-performance) for more details.
+Without `:key`, rows are matched by position: a row is reused while its index still holds the same item (so editing an item's properties, or appending, keeps its row), and is rebuilt when a different item lands at that index. After a reorder, an insertion or a removal, the rows from that point on are rebuilt, losing DOM state such as focus, uncontrolled input values or scroll position. Use `:key="item.id"` when rows must keep their identity across reorders, insertions or removals. See [Performance](./09_performance.md#4-use-key-for-list-performance) for more details.
 
 ### Manual Cleanup with dispose()
 

@@ -2376,6 +2376,168 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 					assert.equal(getTextContent(getRows(fragment)[1]), "A0B1C2");
 				});
 			});
+
+			describe("unkeyed reuse by position (#121)", () => {
+				const getRows = (fragment: Node): Element[] =>
+					Array.from(fragment.childNodes).filter(
+						(n) => n.nodeType === 1 && (n as Element).tagName?.toLowerCase() !== "template",
+					) as unknown as Element[];
+				const texts = (fragment: Node) => getRows(fragment).map((r) => getTextContent(r));
+
+				it("keeps a :bind input node when it writes to its item", async function () {
+					if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+					const doc = globalThis.document.implementation.createHTMLDocument();
+					// tsec-disable-next-line
+					setInnerHTML(doc.body, `<div :for="s in items"><input :bind="s.reps" /></div>`);
+					const renderer = new ctor({ items: [{ reps: "" }, { reps: "" }] });
+					await renderer.mount(doc.body);
+					await sleepForReactivity();
+
+					const input = doc.body.querySelector("input") as HTMLInputElement;
+					input.value = "1";
+					input.dispatchEvent(new globalThis.window.Event("change"));
+					await sleepForReactivity();
+					await sleepForReactivity();
+
+					assert.equal(doc.body.querySelector("input"), input, "Input node should be reused");
+					assert.equal(doc.body.querySelectorAll("input").length, 2);
+					assert.equal((renderer.$.items as { reps: string }[])[0].reps, "1");
+
+					(renderer.$.items as { reps: string }[])[0].reps = "12";
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.equal(doc.body.querySelector("input"), input);
+					assert.equal(input.value, "12");
+				});
+
+				it("renders values and $index after push, splice, reorder and replace", async () => {
+					const renderer = new ctor({ items: ["a", "b", "c"] });
+					const html = `<div :for="item in items">{{ item }}{{ $index }}</div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+					await sleepForReactivity();
+					const first = getRows(fragment)[0];
+					assert.deepEqual(texts(fragment), ["a0", "b1", "c2"]);
+
+					(renderer.$.items as string[]).push("d");
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["a0", "b1", "c2", "d3"]);
+
+					(renderer.$.items as string[]).splice(1, 1);
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["a0", "c1", "d2"]);
+					assert.equal(getRows(fragment)[0], first, "Row holding the same item should be reused");
+
+					(renderer.$.items as string[]).reverse();
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["d0", "c1", "a2"]);
+
+					renderer.$.items = ["x", "y"];
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["x0", "y1"]);
+				});
+
+				it("renders nested unkeyed lists with their own $index", async () => {
+					const renderer = new ctor({ groups: [["A", "B"], ["C"]] });
+					const html = `<div :for="g in groups"><span :for="s in g">{{ s }}{{ $index }}</span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["A0B1", "C0"]);
+
+					renderer.$.groups = [["C"], ["D", "A", "B"]];
+					await sleepForReactivity();
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["C0", "D0A1B2"]);
+				});
+
+				it("updates :data on reused rows", async () => {
+					const renderer = new ctor({ items: [{ name: "a" }, { name: "b" }] });
+					const html = `<div :for="item in items" :data="{ label: item.name }"><span :text="label"></span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["a", "b"]);
+
+					renderer.$.items = [{ name: "c" }, { name: "a" }];
+					await sleepForReactivity();
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["c", "a"]);
+				});
+
+				it("rebuilds nested :data when the item at a position changes", async () => {
+					const renderer = new ctor({ items: [{ name: "a" }, { name: "b" }, { name: "c" }] });
+					const html = `<div :for="item in items"><span :data="{ label: item.name }">{{ label }}</span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["a", "b", "c"]);
+
+					(renderer.$.items as unknown[]).splice(0, 1);
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["b", "c"]);
+
+					renderer.$.items = [{ name: "x" }, { name: "y" }];
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["x", "y"]);
+				});
+
+				it("rebuilds component :data props when the item at a position changes", async () => {
+					const renderer = new ctor({ fruits: [{ icon: "A" }, { icon: "B" }, { icon: "C" }] });
+					const html =
+						`<template is="fruit-chip"><b>{{ fruit.icon }}</b></template>` +
+						`<div :for="f in fruits"><fruit-chip :data="{ fruit: f }"></fruit-chip> <span>{{ f.icon }}</span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["A A", "B B", "C C"]);
+
+					(renderer.$.fruits as unknown[]).shift();
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["B B", "C C"]);
+
+					renderer.$.fruits = [{ icon: "Z" }];
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(texts(fragment), ["Z Z"]);
+				});
+
+				it("re-runs :render when the item at a position changes", async function () {
+					if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+					const renderer = new ctor({ items: ["a", "b", "c"] });
+					const html = `<div :for="item in items"><span :text="item" :render="./fixtures/render-init-inspect.js"></span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment, { dirpath: "." });
+					const rendered = () =>
+						getRows(fragment).map(
+							(r) => (r.firstChild as unknown as RenderedElement)._renderedState?.textContent,
+						);
+					await sleepForReactivity();
+					assert.deepEqual(rendered(), ["a", "b", "c"]);
+
+					(renderer.$.items as string[]).splice(0, 1);
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(rendered(), ["b", "c"]);
+
+					renderer.$.items = ["x"];
+					await sleepForReactivity();
+					await sleepForReactivity();
+					assert.deepEqual(rendered(), ["x"]);
+				});
+			});
 		});
 
 		describe(":bind", () => {

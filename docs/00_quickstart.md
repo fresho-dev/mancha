@@ -163,7 +163,7 @@ Creating dynamic lists—where users can add or remove items—is a common requi
 ```
 
 Key concepts for dynamic lists:
-- **`:key`**: Always provide a unique key when using `:for` with dynamic data. This enables "keyed reconciliation", which reuses existing DOM nodes and is significantly faster.
+- **`:key`**: Always provide a unique key when using `:for` with dynamic data. This enables "keyed reconciliation", which keeps each item's DOM node, and its state, when the list is reordered.
 - **`$index`**: This special variable is automatically available inside any `:for` loop and provides the current iteration index.
 - **Array Mutations**: `mancha` detects when you use standard array methods like `push()`, `pop()`, or `splice()` and automatically updates the UI.
 

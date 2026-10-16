@@ -187,23 +187,21 @@ for (const [key, count] of Object.entries(report.observers.byKey)) {
 
 ### 4. Use `:key` for List Performance
 
-When rendering lists with `:for`, add the `:key` attribute to enable keyed reconciliation. This reuses existing DOM nodes when items are updated, reordered, or partially changed, instead of recreating all nodes:
+Without `:key`, `:for` reuses a row while its position holds the same item and rebuilds it otherwise; add `:key` to reuse rows by a stable identifier instead:
 
 ```html
-<!-- Without :key - all nodes recreated on every update -->
+<!-- Without :key - rows reused while their position holds the same item -->
 <li :for="user in users">{{ user.name }}</li>
 
-<!-- With :key - nodes are reused based on stable identifier -->
+<!-- With :key - rows reused based on stable identifier -->
 <li :for="user in users" :key="user.id">{{ user.name }}</li>
 ```
 
-Benefits of keyed reconciliation:
-- **Faster updates**: Only changed items trigger DOM operations
-- **No visual flicker**: Existing elements stay in place
-- **Preserved state**: Form inputs, scroll position, and animations are maintained
-- **Efficient reordering**: Moving items doesn't require recreation
+Without `:key`, appends, removals at the end and in-place edits to an item's properties keep their rows. When items are reordered, inserted or removed elsewhere, every row from the change onwards is rebuilt, and its DOM state (focus, input values, scroll position, animations) is lost. Keyed reconciliation avoids both:
+- **Faster reordering**: Moved items keep their rows and only change position
+- **Preserved state**: Form inputs, scroll position, and animations follow their item
 
-The key should be a unique primitive value (string or number) that identifies each item. Avoid using array indices as keys if items can be reordered or inserted.
+The key should be a unique primitive value (string or number) that identifies each item. Avoid `:key="$index"`: it reuses each row for whatever item lands at its index, so state set once per row, such as `:data` on a descendant, keeps the old item.
 
 ### 5. Reset on Each Mount
 
