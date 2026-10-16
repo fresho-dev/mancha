@@ -409,7 +409,12 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 		const startTime = this.shouldLog("lifecycle") ? performance.now() : 0;
 		params = { dirpath: this.dirpath, maxdepth: 10, ...params };
 
-		const promises = new Iterator(traverse(root, this._skipNodes)).map(async (node) => {
+		const skip = new Set(this._skipNodes);
+		const promises = new Iterator(traverse(root, skip)).map(async (node) => {
+			// Like DOM template content, a template's children are preprocessed only when it's used.
+			if (node !== (root as Node) && RendererPlugins.templateName(node)) {
+				for (const child of Array.from(node.childNodes)) skip.add(child);
+			}
 			this.log("Preprocessing node:\n", nodeToString(node, 128));
 			// Resolve all the includes in the node.
 			await RendererPlugins.resolveIncludes.call(this, node, params);

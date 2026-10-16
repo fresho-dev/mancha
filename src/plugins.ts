@@ -136,13 +136,19 @@ export namespace RendererPlugins {
 		}
 	};
 
-	export const registerCustomElements: RendererPlugin = function (node, params) {
+	/** Returns the custom element name if the node is a component template. */
+	export function templateName(node: Node): string | undefined {
 		const elem = node as Element;
 		const tagName = elem.tagName?.toLowerCase();
+		if (tagName === "div" && getAttribute(elem, "role") !== "template") return undefined;
+		if (tagName !== "template" && tagName !== "div") return undefined;
+		return (getAttribute(elem, "is") || getAttribute(elem, "alt"))?.toLowerCase() || undefined;
+	}
 
-		const customTagName = (getAttribute(elem, "is") || getAttribute(elem, "alt"))?.toLowerCase();
-		if (["template", "div"].includes(tagName) && customTagName) {
-			if (tagName === "div" && getAttribute(elem, "role") !== "template") return;
+	export const registerCustomElements: RendererPlugin = function (node, params) {
+		const elem = node as Element;
+		const customTagName = templateName(node);
+		if (customTagName) {
 			if (!this._customElements.has(customTagName)) {
 				this.log(`Registering custom element: ${customTagName}\n`, nodeToString(elem, 128));
 
