@@ -341,6 +341,15 @@ describe("Browser", () => {
 		});
 	});
 
+	describe("<include> of a missing file", () => {
+		it("fails instead of inserting the error page", async () => {
+			const renderer = new Renderer();
+			const fragment = renderer.parseHTML(`<include src="/no-such-file.tpl.html"></include>`);
+			const err = await renderer.mount(fragment).catch((e: Error) => e);
+			assert.ok(/404/.test(String(err?.message)), String(err));
+		});
+	});
+
 	describe("initMancha", () => {
 		it("returns a Renderer instance", async () => {
 			const renderer = await initMancha();

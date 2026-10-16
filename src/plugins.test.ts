@@ -317,6 +317,64 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 					const err = await renderer.mount(fragment).catch((e: Error) => e);
 					assert.ok(/Maximum recursion depth/.test(String(err?.message)));
 				});
+
+				it("expands a custom element at the end of a chain of nine includes", async () => {
+					const renderer = new ctor();
+					renderer.preprocessLocal = async function (fpath, params) {
+						const n = Number(fpath);
+						const leaf = `<template is="x-a"><b>A</b></template><x-a></x-a>`;
+						const html = n < 9 ? `<include src="${n + 1}"></include>` : leaf;
+						return this.preprocessString(html, params);
+					};
+					const fragment = renderer.parseHTML(`<include src="1"></include>`);
+					await renderer.mount(fragment, { dirpath: "." });
+					assert.equal(renderer.serializeHTML(fragment), `<b>A</b>`);
+				});
+
+				it("expands a chain of ten nested custom elements", async () => {
+					const renderer = new ctor();
+					let html = `<template is="x-1"><b>leaf</b></template>`;
+					for (let i = 2; i <= 10; i++) {
+						html += `<template is="x-${i}"><i><x-${i - 1}></x-${i - 1}></i></template>`;
+					}
+					const fragment = renderer.parseHTML(`${html}<x-10></x-10>`);
+					await renderer.mount(fragment);
+					assert.equal(
+						renderer.serializeHTML(fragment),
+						`${"<i>".repeat(9)}<b>leaf</b>${"</i>".repeat(9)}`,
+					);
+				});
+
+				it("fails on a recursive <include> in a custom element at the depth limit", async () => {
+					const renderer = new ctor();
+					renderer.preprocessLocal = async function (_fpath, params) {
+						return this.preprocessString(`<include src="loop"></include>`, params);
+					};
+					let html = `<template is="x-1"><include src="loop"></include></template>`;
+					for (let i = 2; i <= 10; i++) {
+						html += `<template is="x-${i}"><i><x-${i - 1}></x-${i - 1}></i></template>`;
+					}
+					const fragment = renderer.parseHTML(`${html}<x-10></x-10>`);
+					const err = await renderer.mount(fragment, { dirpath: "." }).catch((e: Error) => e);
+					assert.ok(/Maximum recursion depth/.test(String(err?.message)));
+				});
+
+				it("resolves an <include> in a template relative to the template's file", async () => {
+					const renderer = new ctor();
+					const fpaths: string[] = [];
+					renderer.preprocessLocal = async function (fpath, params) {
+						fpaths.push(fpath);
+						if (fpath !== "foo/x-inc.tpl.html") return this.parseHTML(`<p>hi</p>`);
+						const tpl = `<template is="x-inc"><div><include src="bar.tpl.html"></include></div></template>`;
+						return this.preprocessString(tpl, { ...params, dirpath: dirname(fpath) });
+					};
+					const fragment = renderer.parseHTML(
+						`<include src="foo/x-inc.tpl.html"></include><x-inc></x-inc>`,
+					);
+					await renderer.mount(fragment, { dirpath: "." });
+					assert.deepEqual(fpaths, ["foo/x-inc.tpl.html", "foo/bar.tpl.html"]);
+					assert.equal(renderer.serializeHTML(fragment), `<div><p>hi</p></div>`);
+				});
 			});
 		});
 

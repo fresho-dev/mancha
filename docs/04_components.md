@@ -114,7 +114,9 @@ This approach loads the sprite sheet once and references individual icons by the
 
 Attributes placed on the component tag are copied to the root element of the template. As with includes, `class` and `style` are merged with the root element's existing values, with the component tag's values last; any other attribute overwrites the root element's value. For example, `<my-red-button class="w-full" style="color: white;">` renders `<button style="background-color: red;color: white;" class="w-full">`. An empty `class` or `style` leaves the root element's value unchanged. Directive attributes such as `:class` and `:attr:class` are forwarded as-is and overwrite the root element's same-named directive; only static `class` and `style` are merged.
 
-Components can use other components in their templates, at any depth. Forwarded attributes compose through each level, so with `<template is="x-card"><my-red-button class="card"></my-red-button></template>`, the tag `<x-card class="w-full">` renders `<button style="background-color: red;" class="card w-full">`. A component that uses itself, directly or through another component, fails with a maximum recursion depth error.
+Components can use other components in their templates. Forwarded attributes compose through each level, so with `<template is="x-card"><my-red-button class="card"></my-red-button></template>`, the tag `<x-card class="w-full">` renders `<button style="background-color: red;" class="card w-full">`. A component that uses itself, directly or through another component, fails with a maximum recursion depth error.
+
+Components and includes share one nesting budget, the `maxdepth` render parameter (default 10): a page renders up to 10 nested components or 9 nested includes, and anything deeper fails with `Maximum recursion depth reached`. The `mancha/worker` renderer expands components inside registered templates ahead of time, so it allows a few more levels of components.
 
 ### Component Registries
 

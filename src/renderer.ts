@@ -290,7 +290,9 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 	 * @returns A promise that resolves to the content of the remote file as a string.
 	 */
 	async fetchRemote(fpath: string, params?: RenderParams): Promise<string> {
-		return fetch(fpath, { cache: params?.cache ?? "default" }).then((res) => res.text());
+		const res = await fetch(fpath, { cache: params?.cache ?? "default" });
+		if (!res.ok) throw new Error(`Failed to fetch ${fpath}: ${res.status} ${res.statusText}`);
+		return res.text();
 	}
 
 	/**
@@ -331,9 +333,7 @@ export abstract class IRenderer<T extends StoreState = StoreState> extends Signa
 		fpath: string,
 		params?: RenderParams & ParserParams,
 	): Promise<Document | DocumentFragment> {
-		const fetchOptions: RequestInit = {};
-		if (params?.cache) fetchOptions.cache = params.cache;
-		const content = await fetch(fpath, fetchOptions).then((res) => res.text());
+		const content = await this.fetchRemote(fpath, params);
 		return this.preprocessString(content, {
 			...params,
 			dirpath: dirname(fpath),
