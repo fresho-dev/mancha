@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { VARIANTS } from "../src/css_custom.js";
 import rules, {
 	COLOR_OPACITY_MODIFIERS,
 	COLOR_PROPS,
@@ -107,9 +108,10 @@ function generateMarkdown() {
 
 	md += "### Pseudo States\n\n";
 	md += "The following pseudo states are supported for all utilities:\n";
-	md += "- `hover:`\n";
-	md += "- `focus:`\n";
-	md += "- `disabled:`\n\n";
+	for (const [name, css] of Object.entries(VARIANTS)) {
+		if (!css.startsWith("(")) md += `- \`${name}:\`\n`;
+	}
+	md += "\n";
 
 	md += "### Dark Mode\n\n";
 	md += `Use the \`dark:\` prefix to apply styles when the user's system prefers dark mode (\`prefers-color-scheme: dark\`):\n\n`;

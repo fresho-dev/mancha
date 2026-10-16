@@ -149,7 +149,7 @@ describe("css_custom", () => {
 		it("injects landscape: with an orientation media query", () => {
 			if (!isSupported()) return;
 
-			injectCustomClass("w-[200px]", { type: "media", name: "landscape" });
+			injectCustomClass("w-[200px]", "landscape");
 
 			assert.ok(
 				_getInjectedRules().has("landscape:w-[200px]"),
@@ -168,7 +168,7 @@ describe("css_custom", () => {
 		it("injects portrait: with an orientation media query", () => {
 			if (!isSupported()) return;
 
-			injectCustomClass("w-[200px]", { type: "media", name: "portrait" });
+			injectCustomClass("w-[200px]", "portrait");
 
 			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
 			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
@@ -198,7 +198,7 @@ describe("css_custom", () => {
 		it("does not treat orientation prefixes as pseudo-states", () => {
 			if (!isSupported()) return;
 
-			injectCustomClass("w-[200px]", { type: "media", name: "landscape" });
+			injectCustomClass("w-[200px]", "landscape");
 
 			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
 			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
@@ -213,7 +213,7 @@ describe("css_custom", () => {
 		it("injects dark: custom bracket value with prefers-color-scheme media query", () => {
 			if (!isSupported()) return;
 
-			injectCustomClass("bg-[#1a1a1a]", { type: "media", name: "dark" });
+			injectCustomClass("bg-[#1a1a1a]", "dark");
 
 			assert.ok(
 				_getInjectedRules().has("dark:bg-[#1a1a1a]"),
@@ -237,7 +237,7 @@ describe("css_custom", () => {
 			// Inject utils so standard classes exist in document stylesheets.
 			injectCss(["utils"]);
 
-			injectCustomClass("bg-gray-900", { type: "media", name: "dark" });
+			injectCustomClass("bg-gray-900", "dark");
 
 			assert.ok(
 				_getInjectedRules().has("dark:bg-gray-900"),
@@ -266,7 +266,7 @@ describe("css_custom", () => {
 			console.warn = (msg: string) => warnings.push(msg);
 			try {
 				assert.ok(
-					injectCustomClass("ring-indigo-500", { type: "pseudo", name: "focus" }),
+					injectCustomClass("ring-indigo-500", "focus"),
 					"focus:ring-indigo-500 should inject",
 				);
 				assert.ok(injectCustomClass("ring-red-500/50"), "ring-red-500/50 should inject");
@@ -308,8 +308,8 @@ describe("css_custom", () => {
 		it("deduplicates dark: rules", () => {
 			if (!isSupported()) return;
 
-			injectCustomClass("bg-[#111]", { type: "media", name: "dark" });
-			injectCustomClass("bg-[#111]", { type: "media", name: "dark" });
+			injectCustomClass("bg-[#111]", "dark");
+			injectCustomClass("bg-[#111]", "dark");
 
 			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
 			assert.equal(customStyle.sheet?.cssRules.length, 1, "Should not duplicate rules");
@@ -320,7 +320,7 @@ describe("css_custom", () => {
 		it("injects sm: variant with correct media query", () => {
 			if (!isSupported()) return;
 
-			injectCustomClass("w-[200px]", { type: "media", name: "sm" });
+			injectCustomClass("w-[200px]", "sm");
 
 			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
 			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
@@ -332,7 +332,7 @@ describe("css_custom", () => {
 		it("injects md: variant with correct media query", () => {
 			if (!isSupported()) return;
 
-			injectCustomClass("p-[1rem]", { type: "media", name: "md" });
+			injectCustomClass("p-[1rem]", "md");
 
 			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
 			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
@@ -342,8 +342,8 @@ describe("css_custom", () => {
 		it("injects lg: and xl: variants with correct breakpoints", () => {
 			if (!isSupported()) return;
 
-			injectCustomClass("h-[50vh]", { type: "media", name: "lg" });
-			injectCustomClass("gap-[2rem]", { type: "media", name: "xl" });
+			injectCustomClass("h-[50vh]", "lg");
+			injectCustomClass("gap-[2rem]", "xl");
 
 			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
 			const rules = Array.from(customStyle.sheet?.cssRules ?? []).map((r) => r.cssText);
@@ -362,7 +362,7 @@ describe("css_custom", () => {
 
 			injectCss(["utils"]);
 
-			injectCustomClass("flex", { type: "media", name: "sm" });
+			injectCustomClass("flex", "sm");
 
 			assert.ok(_getInjectedRules().has("sm:flex"), "Should track sm:flex");
 
@@ -377,7 +377,7 @@ describe("css_custom", () => {
 
 			injectCss(["utils"]);
 
-			injectCustomClass("w-50%", { type: "media", name: "sm" });
+			injectCustomClass("w-50%", "sm");
 
 			const ruleText = customRulesText();
 			assert.ok(ruleText.includes("min-width: 640px"), "Should wrap in sm media query");
@@ -392,7 +392,7 @@ describe("css_custom", () => {
 
 			injectCss(["utils"]);
 
-			injectCustomClass("w-25%", { type: "media", name: "md" });
+			injectCustomClass("w-25%", "md");
 
 			const ruleText = customRulesText();
 			assert.ok(ruleText.includes("min-width: 768px"), "Should wrap in md media query");
@@ -416,7 +416,7 @@ describe("css_custom", () => {
 		it("injects hover: variant with pseudo selector", () => {
 			if (!isSupported()) return;
 
-			injectCustomClass("bg-[#ff0000]", { type: "pseudo", name: "hover" });
+			injectCustomClass("bg-[#ff0000]", "hover");
 
 			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
 			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
@@ -427,7 +427,7 @@ describe("css_custom", () => {
 		it("injects focus: variant with pseudo selector", () => {
 			if (!isSupported()) return;
 
-			injectCustomClass("w-[300px]", { type: "pseudo", name: "focus" });
+			injectCustomClass("w-[300px]", "focus");
 
 			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
 			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
@@ -437,7 +437,7 @@ describe("css_custom", () => {
 		it("injects disabled: variant with pseudo selector", () => {
 			if (!isSupported()) return;
 
-			injectCustomClass("bg-[gray]", { type: "pseudo", name: "disabled" });
+			injectCustomClass("bg-[gray]", "disabled");
 
 			const customStyle = document.querySelector('style[data-mancha="custom"]') as HTMLStyleElement;
 			const ruleText = customStyle.sheet?.cssRules[0].cssText ?? "";
@@ -449,7 +449,7 @@ describe("css_custom", () => {
 
 			injectCss(["utils"]);
 
-			injectCustomClass("hidden", { type: "pseudo", name: "hover" });
+			injectCustomClass("hidden", "hover");
 
 			assert.ok(_getInjectedRules().has("hover:hidden"), "Should track hover:hidden");
 
@@ -464,7 +464,7 @@ describe("css_custom", () => {
 
 			injectCss(["utils"]);
 
-			injectCustomClass("w-50%", { type: "pseudo", name: "hover" });
+			injectCustomClass("w-50%", "hover");
 
 			const ruleText = customRulesText();
 			assert.ok(ruleText.includes(":hover"), "Should include :hover pseudo selector");
@@ -535,7 +535,7 @@ describe("css_custom", () => {
 
 			injectCss(["utils"]);
 
-			injectCustomClass("text-1.5rem", { type: "media", name: "sm" });
+			injectCustomClass("text-1.5rem", "sm");
 
 			const ruleText = customRulesText();
 			assert.ok(ruleText.includes("min-width: 640px"), "Should wrap in sm media query");
@@ -590,7 +590,7 @@ describe("css_custom", () => {
 			if (!isSupported()) return;
 
 			assert.ok(
-				!injectCustomClass("w-[url('a.png')]", { type: "media", name: "sm" }),
+				!injectCustomClass("w-[url('a.png')]", "sm"),
 				"Should report a failed injection for a dropped declaration",
 			);
 			assert.ok(
@@ -609,7 +609,7 @@ describe("css_custom", () => {
 
 			assert.ok(injectCustomClass("w-[50%]"), "Should accept a valid declaration");
 			assert.ok(
-				injectCustomClass("w-[50%]", { type: "media", name: "sm" }),
+				injectCustomClass("w-[50%]", "sm"),
 				"Should accept a valid declaration inside a media wrapper",
 			);
 			assert.equal(customRules().length, 2, "Should keep both rules");
@@ -694,7 +694,7 @@ describe("css_custom", () => {
 		it("injects color opacity with dark: variant", () => {
 			if (!isSupported()) return;
 
-			injectCustomClass("bg-red-500/50", { type: "media", name: "dark" });
+			injectCustomClass("bg-red-500/50", "dark");
 
 			assert.ok(_getInjectedRules().has("dark:bg-red-500/50"), "Should track dark: rule");
 

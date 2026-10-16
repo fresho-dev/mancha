@@ -60,9 +60,26 @@ const PROPERTY_MAP: Record<string, string> = {
 
 // Pattern: optional-negative + prefix + bracket-value.
 const CUSTOM_VALUE_PATTERN = /^(-?)([\w-]+)-\[(.+)\]$/;
-const VARIANT_PATTERN = /^(hover|focus|disabled|sm|md|lg|xl|dark|landscape|portrait):(.+)$/;
-const PSEUDO_STATES = ["hover", "focus", "disabled"];
-const ORIENTATIONS = ["landscape", "portrait"];
+// Splits `variant:class` at the first colon outside brackets.
+const VARIANT_SPLIT = /^((?:[^:[]|\[[^\]]*\])+):(.+)$/;
+
+/** Variant prefixes: a value starting with "(" is a media condition, else a selector suffix. */
+export const VARIANTS: Record<string, string> = {
+	hover: ":hover",
+	focus: ":focus",
+	disabled: ":disabled",
+	dark: "(prefers-color-scheme: dark)",
+	landscape: "(orientation: landscape)",
+	portrait: "(orientation: portrait)",
+	...Object.fromEntries(
+		Object.entries(MEDIA_BREAKPOINTS).map(([bp, px]) => [bp, `(min-width: ${px}px)`]),
+	),
+};
+
+/** CSS for a variant prefix, or undefined if it is not one. */
+function variantCss(name: string): string | undefined {
+	return Object.hasOwn(VARIANTS, name) ? VARIANTS[name] : undefined;
+}
 
 // A class per distinct dynamic value (`:class="'p-[' + px + 'px]'"`) can reach the negative
 // cache, so it needs a ceiling. Past it the cache is dropped whole rather than evicted one
@@ -266,11 +283,8 @@ export function parseColorOpacityClass(
 }
 
 /** Inject a single custom value class (with optional variant). */
-export function injectCustomClass(
-	className: string,
-	variant?: { type: "pseudo" | "media"; name: string },
-): boolean {
-	const fullClassName = variant ? `${variant.name}:${className}` : className;
+export function injectCustomClass(className: string, variant?: string): boolean {
+	const fullClassName = variant ? `${variant}:${className}` : className;
 
 	// Resolve the stylesheet before consulting the cache: getStyleSheet() drops
 	// the cache when it has to recreate a removed sheet, and only the rules in
@@ -313,20 +327,11 @@ export function injectCustomClass(
 	// Divide classes need a child selector suffix.
 	const selectorSuffix = className.startsWith("divide-") ? " > :not(:last-child)" : "";
 
-	// Build the rule based on variant type.
-	let rule: string;
-	if (!variant) {
-		rule = `.${escapedClass}${selectorSuffix} { ${declarations} }`;
-	} else if (variant.type === "pseudo") {
-		rule = `.${escapedClass}${selectorSuffix}:${variant.name} { ${declarations} }`;
-	} else if (variant.name === "dark") {
-		rule = `@media (prefers-color-scheme: dark) { .${escapedClass}${selectorSuffix} { ${declarations} } }`;
-	} else if (ORIENTATIONS.includes(variant.name)) {
-		rule = `@media (orientation: ${variant.name}) { .${escapedClass}${selectorSuffix} { ${declarations} } }`;
-	} else {
-		const bp = MEDIA_BREAKPOINTS[variant.name as keyof typeof MEDIA_BREAKPOINTS];
-		rule = `@media (min-width: ${bp}px) { .${escapedClass}${selectorSuffix} { ${declarations} } }`;
-	}
+	const cond = variant ? (variantCss(variant) ?? "") : "";
+	const isMedia = cond.startsWith("(");
+	const rule = isMedia
+		? `@media ${cond} { .${escapedClass}${selectorSuffix} { ${declarations} } }`
+		: `.${escapedClass}${selectorSuffix}${cond} { ${declarations} }`;
 
 	try {
 		const index = sheet.insertRule(rule, sheet.cssRules.length);
@@ -339,9 +344,9 @@ export function injectCustomClass(
 		// cssRules list too, and `instanceof CSSMediaRule` would throw in a DOM shim
 		// lacking that global.
 		const inserted = sheet.cssRules[index];
-		const styleRule = (
-			variant?.type === "media" ? (inserted as CSSGroupingRule).cssRules[0] : inserted
-		) as CSSStyleRule | undefined;
+		const styleRule = (isMedia ? (inserted as CSSGroupingRule).cssRules[0] : inserted) as
+			| CSSStyleRule
+			| undefined;
 		if (!styleRule?.style?.length) {
 			sheet.deleteRule(index);
 			console.warn(`Injected CSS rule had no effect: ${rule}`);
@@ -369,21 +374,10 @@ export function processClassString(classString: string): void {
 	if (!classString || !needsProcessing(classString)) return;
 
 	for (const cls of classString.trim().split(/\s+/)) {
-		// Check for variant prefix.
-		const variantMatch = cls.match(VARIANT_PATTERN);
-		if (variantMatch) {
-			const [, variantName, baseClass] = variantMatch;
-			const isPseudo = PSEUDO_STATES.includes(variantName);
-			const isMedia = variantName in MEDIA_BREAKPOINTS;
-			const isDark = variantName === "dark";
-			const isOrientation = ORIENTATIONS.includes(variantName);
-			if (isPseudo || isMedia || isDark || isOrientation) {
-				injectCustomClass(baseClass, {
-					type: isPseudo ? "pseudo" : "media",
-					name: variantName,
-				});
-				continue;
-			}
+		const [, variant, baseClass] = cls.match(VARIANT_SPLIT) ?? [];
+		if (variant && variantCss(variant) !== undefined) {
+			injectCustomClass(baseClass, variant);
+			continue;
 		}
 
 		// Skip plain tokens that don't need custom injection — they're already
