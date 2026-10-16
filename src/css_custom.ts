@@ -64,31 +64,87 @@ const VARIANT_PATTERN = /^(hover|focus|disabled|sm|md|lg|xl|dark|landscape|portr
 const PSEUDO_STATES = ["hover", "focus", "disabled"];
 const ORIENTATIONS = ["landscape", "portrait"];
 
+// A class per distinct dynamic value (`:class="'p-[' + px + 'px]'"`) can reach the negative
+// cache, so it needs a ceiling. Past it the cache is dropped whole rather than evicted one
+// entry at a time: the cost of being wrong is one re-walk, which is what the cache saves.
+const MAX_FAILED_LOOKUPS = 256;
+
 // Module state.
 const injectedRules = new Set<string>();
 // Classes that resolved to no declarations, keyed by base class name since
 // resolution does not depend on the variant. Without this a class that matches
 // nothing re-walks every rule of every sheet on each scan, forever.
 const failedLookups = new Set<string>();
-// document.styleSheets.length when failedLookups was last known good. A sheet
-// loading after the first scan can define a class that did not resolve before,
-// so any change to the sheet list drops the negative cache. Rules added to an
-// existing sheet in place are not detected, which no cheap check would catch.
-let failedLookupsSheetCount = -1;
+// Classes already reported. Separate from failedLookups because that one is dropped whenever
+// the page's rules change, and re-reporting the same dead class on every theme switch or lazy
+// chunk is noise: the warning is about the class, which has not changed.
+const warnedLookups = new Set<string>();
+// Fingerprint of the page's rules when failedLookups was last known good, as a sheet loading
+// after the first scan can define a class that did not resolve before.
+let failedLookupsFingerprint = "";
+// Sheet count when the fingerprint was read this task, or -1: a scan pays for it once per task.
+let failedLookupsCheckedSheets = -1;
 let styleSheet: CSSStyleSheet | null = null;
 
-/** Drop the negative cache when the set of stylesheets has changed. */
+/**
+ * Cheap summary of the rules a lookup would search. Counting each sheet's rules as well as the
+ * sheets themselves catches a `<link href>` swapped in place and rules inserted into a sheet
+ * that was already there, which a count of sheets alone misses. Our own sheet is excluded so
+ * that injecting a rule does not invalidate the cache that injection just consulted.
+ *
+ * Not detected: an edit that leaves every count identical, such as replacing a `<style>`
+ * element's text with the same number of different rules. Catching that would mean reading
+ * every selector on every call, which is the walk this cache exists to avoid.
+ */
+function ruleFingerprint(): string {
+	const counts: number[] = [];
+	for (const sheet of document.styleSheets) {
+		if (sheet === styleSheet) continue;
+		try {
+			counts.push(sheet.cssRules.length);
+		} catch {
+			// Cross-origin stylesheets throw SecurityError; their rules are unreadable anyway.
+			counts.push(-1);
+		}
+	}
+	return counts.join(",");
+}
+
+/** Record that the fingerprint is current until the end of this task. */
+function markFingerprintChecked(): void {
+	if (failedLookupsCheckedSheets < 0) {
+		queueMicrotask(() => {
+			failedLookupsCheckedSheets = -1;
+		});
+	}
+	failedLookupsCheckedSheets = document.styleSheets.length;
+}
+
+/** Drop the negative cache when the rules a lookup would search have changed. */
 function syncFailedLookups(): void {
-	const count = document.styleSheets.length;
-	if (count === failedLookupsSheetCount) return;
+	if (failedLookups.size === 0) return;
+	if (document.styleSheets.length === failedLookupsCheckedSheets) return;
+	markFingerprintChecked();
+
+	const fingerprint = ruleFingerprint();
+	if (fingerprint === failedLookupsFingerprint) return;
 	failedLookups.clear();
-	failedLookupsSheetCount = count;
+	failedLookupsFingerprint = fingerprint;
 }
 
 /** Forget every cached failure, so the next lookup resolves from scratch. */
 function clearFailedLookups(): void {
 	failedLookups.clear();
-	failedLookupsSheetCount = -1;
+	failedLookupsFingerprint = "";
+	failedLookupsCheckedSheets = -1;
+}
+
+/** Report an unresolvable class once, as written. */
+function warnUnresolved(fullClassName: string): void {
+	if (warnedLookups.has(fullClassName)) return;
+	if (warnedLookups.size >= MAX_FAILED_LOOKUPS) warnedLookups.clear();
+	warnedLookups.add(fullClassName);
+	console.warn(`No CSS rule for class: ${fullClassName}`);
 }
 
 /** Look up CSS declarations for an existing class from document stylesheets. */
@@ -138,9 +194,10 @@ function getStyleSheet(): CSSStyleSheet | null {
 	if (styleSheet && !(styleSheet.ownerNode as Element)?.isConnected) {
 		styleSheet = null;
 		// The rules that lived in the removed sheet went with it, so forget them:
-		// otherwise the dedup cache would suppress re-injecting them forever.
+		// otherwise the dedup cache would suppress re-injecting them forever. Cached failures
+		// survive: they record what the page's other sheets do not define, which losing our
+		// own sheet does not change, and the fingerprint ignores our sheet for the same reason.
 		injectedRules.clear();
-		clearFailedLookups();
 	}
 	if (styleSheet) return styleSheet;
 
@@ -227,7 +284,10 @@ export function injectCustomClass(
 	// Known not to resolve. Checked after the injected cache so a class that was
 	// once unresolvable still short-circuits on the cheaper path once it exists.
 	syncFailedLookups();
-	if (failedLookups.has(className)) return false;
+	if (failedLookups.has(className)) {
+		warnUnresolved(fullClassName);
+		return false;
+	}
 
 	const escapedClass = escapeSelector(fullClassName);
 
@@ -237,8 +297,16 @@ export function injectCustomClass(
 		? `${parsed.property}: ${parsed.value};`
 		: findRuleDeclarations(className);
 	if (!declarations) {
+		// Cache under the base name, but report the class as it was written: the base name of
+		// `hover:bg-brand-500` appears nowhere in the markup, so it is not something a reader
+		// can search for.
+		if (failedLookups.size >= MAX_FAILED_LOOKUPS) failedLookups.clear();
+		if (failedLookups.size === 0) {
+			failedLookupsFingerprint = ruleFingerprint();
+			markFingerprintChecked();
+		}
 		failedLookups.add(className);
-		console.warn(`No CSS rule for class: ${className}`);
+		warnUnresolved(fullClassName);
 		return false;
 	}
 
@@ -382,6 +450,7 @@ export function processRenderedClasses(classString: string): void {
 export function _resetForTesting(): void {
 	injectedRules.clear();
 	clearFailedLookups();
+	warnedLookups.clear();
 	if (styleSheet?.ownerNode) {
 		(styleSheet.ownerNode as Element).remove();
 	}
@@ -396,4 +465,9 @@ export function _getInjectedRules(): Set<string> {
 /** For testing: get classes cached as unresolvable. */
 export function _getFailedLookups(): Set<string> {
 	return failedLookups;
+}
+
+/** For testing: get classes already reported as unresolvable. */
+export function _getWarnedLookups(): Set<string> {
+	return warnedLookups;
 }
