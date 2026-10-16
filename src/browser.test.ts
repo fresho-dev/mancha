@@ -336,7 +336,8 @@ describe("Browser", () => {
 					`<div id="v-aria-off" aria-pressed="false" class="aria-pressed:w-[141px]"></div>` +
 					`<div id="v-aria-arb" aria-current="page" class="aria-[current=page]:w-[142px]"></div>` +
 					`<div id="v-has" class="has-checked:w-[143px]"><input type="checkbox" checked /></div>` +
-					`<div id="v-has-arb" class="has-[:checked]:w-[144px]"><input type="radio" checked /></div>`,
+					`<div id="v-has-arb" class="has-[:checked]:w-[144px]"><input type="radio" checked /></div>` +
+					`<div aria-pressed="true" class="divide-y aria-pressed:divide-red-500/50"><p id="v-divide"></p><p></p></div>`,
 			);
 			document.body.appendChild(target);
 			scanAndInject(target);
@@ -348,6 +349,7 @@ describe("Browser", () => {
 			assert.equal(style("v-aria-arb").width, "142px");
 			assert.equal(style("v-has").width, "143px");
 			assert.equal(style("v-has-arb").width, "144px");
+			assert.ok(style("v-divide").borderBottomColor.endsWith(", 0.5)"));
 
 			target.remove();
 			const styles = document.head.querySelectorAll("style");

@@ -118,9 +118,9 @@ const MAX_FAILED_LOOKUPS = 256;
 
 // Module state.
 const injectedRules = new Set<string>();
-// Classes that resolved to no declarations, keyed by base class name since
-// resolution does not depend on the variant. Without this a class that matches
-// nothing re-walks every rule of every sheet on each scan, forever.
+// Classes that resolved to no declarations, keyed by base class name since resolution does not
+// depend on the variant, or by full name when insertRule rejected it. Without this a class that
+// matches nothing re-walks every rule of every sheet on each scan, forever.
 const failedLookups = new Set<string>();
 // Classes already reported. Separate from failedLookups because that one is dropped whenever
 // the page's rules change, and re-reporting the same dead class on every theme switch or lazy
@@ -192,6 +192,18 @@ function warnUnresolved(fullClassName: string): void {
 	if (warnedLookups.size >= MAX_FAILED_LOOKUPS) warnedLookups.clear();
 	warnedLookups.add(fullClassName);
 	console.warn(`No CSS rule for class: ${fullClassName}`);
+}
+
+/** Cache a class as unresolvable under `key` and report it as written. */
+function recordFailure(key: string, fullClassName: string): false {
+	if (failedLookups.size >= MAX_FAILED_LOOKUPS) failedLookups.clear();
+	if (failedLookups.size === 0) {
+		failedLookupsFingerprint = ruleFingerprint();
+		markFingerprintChecked();
+	}
+	failedLookups.add(key);
+	warnUnresolved(fullClassName);
+	return false;
 }
 
 /** Look up CSS declarations for an existing class from document stylesheets. */
@@ -328,7 +340,7 @@ export function injectCustomClass(className: string, variant?: string): boolean 
 	// Known not to resolve. Checked after the injected cache so a class that was
 	// once unresolvable still short-circuits on the cheaper path once it exists.
 	syncFailedLookups();
-	if (failedLookups.has(className)) {
+	if (failedLookups.has(className) || failedLookups.has(fullClassName)) {
 		warnUnresolved(fullClassName);
 		return false;
 	}
@@ -344,14 +356,7 @@ export function injectCustomClass(className: string, variant?: string): boolean 
 		// Cache under the base name, but report the class as it was written: the base name of
 		// `hover:bg-brand-500` appears nowhere in the markup, so it is not something a reader
 		// can search for.
-		if (failedLookups.size >= MAX_FAILED_LOOKUPS) failedLookups.clear();
-		if (failedLookups.size === 0) {
-			failedLookupsFingerprint = ruleFingerprint();
-			markFingerprintChecked();
-		}
-		failedLookups.add(className);
-		warnUnresolved(fullClassName);
-		return false;
+		return recordFailure(className, fullClassName);
 	}
 
 	// Divide classes need a child selector suffix.
@@ -361,7 +366,7 @@ export function injectCustomClass(className: string, variant?: string): boolean 
 	const isMedia = cond.startsWith("(");
 	const rule = isMedia
 		? `@media ${cond} { .${escapedClass}${selectorSuffix} { ${declarations} } }`
-		: `.${escapedClass}${selectorSuffix}${cond} { ${declarations} }`;
+		: `.${escapedClass}${cond}${selectorSuffix} { ${declarations} }`;
 
 	try {
 		const index = sheet.insertRule(rule, sheet.cssRules.length);
@@ -388,9 +393,9 @@ export function injectCustomClass(className: string, variant?: string): boolean 
 
 		injectedRules.add(fullClassName);
 		return true;
-	} catch (e) {
-		console.warn(`Failed to inject CSS rule: ${rule}`, e);
-		return false;
+	} catch {
+		// Keyed by the class as written: a variant can break the selector of a base that resolves.
+		return recordFailure(fullClassName, fullClassName);
 	}
 }
 

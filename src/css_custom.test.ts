@@ -542,6 +542,58 @@ describe("css_custom", () => {
 				assert.deepEqual(warnings, [`No CSS rule for class: ${cls}`]);
 			});
 		}
+
+		for (const variant of [
+			"has-[a:b]",
+			"has-[>]",
+			"has-[,]",
+			"has-[()]",
+			"has-[-]",
+			"has-[#1]",
+			"has-[::before]",
+			"has-[:has(a)]",
+		]) {
+			it(`rejects ${variant}:p-4 once, without poisoning p-4`, () => {
+				if (!isSupported()) return;
+				injectCss(["utils"]);
+				const cls = `${variant}:p-4`;
+				const warnings: string[] = [];
+				const originalWarn = console.warn;
+				const originalInsert = CSSStyleSheet.prototype.insertRule;
+				let inserts = 0;
+				console.warn = (msg: string) => warnings.push(msg);
+				CSSStyleSheet.prototype.insertRule = function (...args) {
+					inserts++;
+					return originalInsert.apply(this, args);
+				};
+				try {
+					for (let i = 0; i < 5; i++) processClassString(cls);
+				} finally {
+					console.warn = originalWarn;
+					CSSStyleSheet.prototype.insertRule = originalInsert;
+				}
+				assert.equal(inserts, 1);
+				assert.deepEqual(warnings, [`No CSS rule for class: ${cls}`]);
+				assert.ok(!_getFailedLookups().has("p-4"));
+				processClassString("hover:p-4");
+				assert.ok(_getInjectedRules().has("hover:p-4"));
+			});
+		}
+
+		for (const [variant, cond] of [
+			["hover", ":hover"],
+			["aria-pressed", '[aria-pressed="true"]'],
+		]) {
+			it(`puts ${variant}: on the divide-* container, not its children`, () => {
+				if (!isSupported()) return;
+				injectCustomClass("divide-red-500/50", variant);
+				const rule = customRules()[0] as CSSStyleRule;
+				assert.ok(
+					rule.selectorText.endsWith(`${cond} > :not(:last-child)`),
+					`Got: ${rule.selectorText}`,
+				);
+			});
+		}
 	});
 
 	describe("selector escaping", () => {

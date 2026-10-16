@@ -127,6 +127,11 @@ function generateMarkdown() {
 	md +=
 		"Arbitrary values in `aria-[...]` take a single `name=value` pair of letters, digits, `_` and `-`. Selectors in `has-[...]` take letters, digits and `_-:.#>+~*(),` only, with balanced parentheses, so no spaces, quotes or attribute selectors. Anything else is rejected as an unresolvable class.\n\n";
 	md +=
+		"`empty:` is plain `:empty`, which is false if an element contains any text (including whitespace between tags) or element children. A `:for` list always keeps its `<template>` marker inside the container, so `empty:` cannot detect an empty `:for` list; to hide a list with no items, use `:show` on the container:\n\n";
+	md += "```html\n";
+	md += '<ul :show="errors.length">...</ul>\n';
+	md += "```\n\n";
+	md +=
 		"> **Note:** Only one variant applies per class. Variants do not stack: `dark:hover:bg-black` or `md:aria-pressed:w-full` are rejected as unresolvable classes.\n\n";
 
 	md += "### Dark Mode\n\n";
