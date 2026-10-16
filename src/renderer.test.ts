@@ -104,15 +104,35 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 		});
 
 		it("sets the $parent property", () => {
-			const renderer = new ctor();
+			const renderer = new ctor({ a: 1 });
 			const subrenderer = renderer.subrenderer();
-			assert.equal(subrenderer.$.$parent, renderer);
+			assert.equal(subrenderer.get("$parent"), renderer);
+			assert.equal(subrenderer.eval("$parent.a"), 1);
 		});
 
 		it("sets the $rootRenderer property", () => {
 			const renderer = new ctor();
 			const subrenderer = renderer.subrenderer();
-			assert.equal(subrenderer.$.$rootRenderer, renderer.get("$rootRenderer") ?? renderer);
+			assert.equal(subrenderer.get("$rootRenderer"), renderer.get("$rootRenderer") ?? renderer);
+		});
+
+		it("writes through $parent and $rootRenderer reactively", async () => {
+			const renderer = new ctor({ a: 1 });
+			const subrenderer = renderer.subrenderer();
+			let notified = 0;
+			renderer.watch("a", () => {
+				notified++;
+			});
+
+			subrenderer.eval("$parent.a = 2");
+			assert.equal(renderer.get("a"), 2);
+			assert.equal(subrenderer.eval("$parent.a"), 2);
+			subrenderer.eval("$rootRenderer.a = 3");
+			assert.equal(renderer.get("a"), 3);
+			await subrenderer.eval("$parent.set('a', 4)");
+			assert.equal(subrenderer.eval("$rootRenderer.get('a')"), 4);
+			await sleepForReactivity();
+			assert.equal(notified > 0, true);
 		});
 
 		it("modifying value in parent notifies subrenderer", async () => {

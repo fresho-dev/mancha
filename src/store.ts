@@ -874,13 +874,9 @@ export class SignalStore<T extends StoreState = StoreState> {
 				if (typeof prop === "string") {
 					if (getAncestorKeyStore(this, prop)) {
 						const value = this.get(prop, observer, context);
-						// If the value is a SignalStore (e.g., $parent) and we have an
-						// observer, return it as a proxy for proper dependency tracking.
-						if (observer) {
-							const store =
-								value instanceof SignalStore ? value : PROXY_STORES.get(value as object);
-							if (store) return store.proxify(observer, context);
-						}
+						// Nested stores (e.g. $parent) are proxied so reads are tracked and writes reactive.
+						const store = value instanceof SignalStore ? value : PROXY_STORES.get(value as object);
+						if (store) return store.proxify(observer, context);
 						return wrapMaybeFunction(value, prop, receiver);
 					}
 					// If the property is not found, but we are observing, we assume it's a
