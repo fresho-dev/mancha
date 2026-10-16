@@ -3,9 +3,9 @@ import { processRenderedClasses, scanRenderedTree } from "./css_custom.js";
 import {
 	appendChild,
 	attributeNameToCamelCase,
-	cloneAttribute,
 	ellipsize,
 	firstElementChild,
+	forwardAttribute,
 	getAttribute,
 	getAttributeOrDataset,
 	hasProperty,
@@ -54,7 +54,7 @@ export namespace RendererPlugins {
 			// Add whatever attributes the include tag had to the first child.
 			const child = firstElementChild(fragment as unknown as Element);
 			for (const attr of Array.from(elem.attributes)) {
-				if (child && !skipAttrs.includes(attr.name)) cloneAttribute(elem, child, attr.name);
+				if (child && !skipAttrs.includes(attr.name)) forwardAttribute(elem, child, attr.name);
 			}
 			// Replace the include tag with the contents of the included file.
 			replaceWith(node, ...fragment.childNodes);
@@ -183,7 +183,7 @@ export namespace RendererPlugins {
 			const child = firstElementChild(clone);
 			if (child) {
 				for (const attr of Array.from(elem.attributes)) {
-					if (tagName !== "div" || attr.name !== "role") cloneAttribute(elem, child, attr.name);
+					if (tagName !== "div" || attr.name !== "role") forwardAttribute(elem, child, attr.name);
 				}
 			}
 
