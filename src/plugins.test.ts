@@ -489,6 +489,59 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(getTextContent(updatedSpans[2] as Element), "30");
 			});
 
+			it("re-renders $parent reads in a keyed :for row", async () => {
+				const renderer = new ctor({ multiplier: 2 });
+				renderer.$.scale = function (value: number) {
+					return value * this.multiplier;
+				};
+
+				const html = `<span :for="n in [1, 2]" :key="n">{{ $parent.scale(n) }}</span>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+				assert.equal(getTextContent(fragment as unknown as Element), "24");
+
+				await renderer.set("multiplier", 10);
+				await sleepForReactivity();
+				await sleepForReactivity();
+				assert.equal(getTextContent(fragment as unknown as Element), "1020");
+			});
+
+			it("re-renders $parent reads in the reading subrenderer's context", async () => {
+				const renderer = new ctor({ multiplier: 2 });
+				renderer.$.scale = function (value: number) {
+					return value * this.multiplier;
+				};
+
+				const html = `<div :data="{ n: 1 }">{{ $parent.scale(n) }} {{ $parent.multiplier * n }}</div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+				assert.equal(getTextContent(fragment.firstChild as Element), "2 2");
+
+				await renderer.set("multiplier", 10);
+				await sleepForReactivity();
+				assert.equal(getTextContent(fragment.firstChild as Element), "10 10");
+			});
+
+			it("renders values from a catch-all Proxy", async () => {
+				const labels = new Proxy({ hello: "Hello" } as Record<string | symbol, string>, {
+					get: (t, k) => (k in t ? t[k] : `[${String(k)}]`),
+				});
+				const renderer = new ctor({ labels });
+				const fragment = renderer.parseHTML(`<p>{{ labels.hello }} {{ labels.bye }}</p>`);
+				await renderer.mount(fragment);
+				assert.equal(getTextContent(fragment.firstChild as Element), "Hello [bye]");
+			});
+
+			it("writes through $parent from a :for row", async () => {
+				const renderer = new ctor({ count: 0, items: [1] });
+				const fragment = renderer.parseHTML(`<div :for="i in items"></div>`);
+				await renderer.mount(fragment);
+				const row = fragment.childNodes[1] as unknown as RenderedElement;
+
+				row.renderer?.eval("$parent.count = 7");
+				assert.equal(renderer.get("count"), 7);
+			});
+
 			it("combines direct variable and function call in same expression", async () => {
 				const renderer = new ctor({ prefix: "Result", value: 5 });
 				renderer.$.compute = function () {
