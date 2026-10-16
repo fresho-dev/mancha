@@ -4474,6 +4474,47 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(getAttribute(node, "title"), "t");
 				assert.equal(getAttribute(node, "src"), null);
 			});
+
+			it("merges class and style from a custom element into its first child", async () => {
+				const renderer = new ctor();
+				const template = `<template is="ez-btn"><button class="btn a" style="color:red;" title="x"></button></template>`;
+				const html = `<ez-btn class="a w-full" style="margin:0" title="y"></ez-btn>`;
+				const fragment = renderer.parseHTML(template + html);
+
+				await renderer.mount(fragment);
+
+				const node = fragment.firstChild as Element;
+				assert.equal(getAttribute(node, "class"), "btn a w-full");
+				assert.equal(getAttribute(node, "style"), "color:red;margin:0");
+				assert.equal(getAttribute(node, "title"), "y");
+			});
+
+			it("merges class and style from an <include> into its first child", async () => {
+				const renderer = new ctor();
+				const fragment = renderer.parseHTML(
+					`<include src="foo.html" class="text-blue-500" style="margin:0"></include>`,
+				);
+				renderer.preprocessLocal = async () =>
+					renderer.parseHTML(`<svg class="w-4 h-4" style="color:red"></svg>`);
+
+				await renderer.mount(fragment, { dirpath: "." });
+
+				const node = fragment.firstChild as Element;
+				assert.equal(getAttribute(node, "class"), "w-4 h-4 text-blue-500");
+				assert.equal(getAttribute(node, "style"), "color:red;margin:0");
+			});
+
+			it("composes :class on a custom element with the root's static class", async () => {
+				const renderer = new ctor();
+				const template = `<template is="b2"><i class="a"></i></template>`;
+				const html = `<b2 class="b" :class="'dyn'"></b2>`;
+				const fragment = renderer.parseHTML(template + html);
+
+				await renderer.mount(fragment);
+
+				const node = fragment.firstChild as Element;
+				assert.equal(getAttribute(node, "class"), "a b dyn");
+			});
 		});
 	});
 }

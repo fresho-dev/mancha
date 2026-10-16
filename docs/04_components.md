@@ -23,7 +23,7 @@ You can mix and match content by processing `<include>` tags:
 
 ### Attribute Forwarding
 
-Attributes placed on the `<include>` tag are automatically copied to the root element of the included content. This is useful for styling and accessibility:
+Attributes placed on the `<include>` tag are automatically copied to the root element of the included content. `class` and `style` are merged with the root element's existing values, with the `<include>` tag's values last; any other attribute overwrites the root element's value. This is useful for styling and accessibility:
 
 ```html
 <!-- ./icons/chart.svg -->
@@ -63,7 +63,7 @@ For reusable icon components where the icon name is determined at usage time, us
 ```html
 <!-- Register an icon component that references a sprite sheet -->
 <template is="icon">
-	<svg class="w-4 h-4" :class="class">
+	<svg class="w-4 h-4">
 		<use :attr:href="'./icons/sprite.svg#' + name"></use>
 	</svg>
 </template>
@@ -74,7 +74,7 @@ For reusable icon components where the icon name is determined at usage time, us
 <icon :data="{ name: 'user' }" class="text-green-500"></icon>
 ```
 
-The `:data` attribute passes variables to the component's scope, making `name` available in expressions like `:attr:href`.
+The `:data` attribute passes variables to the component's scope, making `name` available in expressions like `:attr:href`. The `class` on each `<icon>` is merged with the template's `w-4 h-4`, so the first icon renders as `<svg class="w-4 h-4 text-blue-500">`.
 
 SVG sprite sheets bundle multiple icons into a single file, with each icon defined as a `<symbol>`:
 
@@ -111,6 +111,8 @@ This approach loads the sprite sheet once and references individual icons by the
 	Click Me
 </my-red-button>
 ```
+
+Attributes placed on the component tag are copied to the root element of the template. As with includes, `class` and `style` are merged with the root element's existing values, with the component tag's values last; any other attribute overwrites the root element's value. For example, `<my-red-button class="w-full" style="color: white;">` renders `<button style="background-color: red;color: white;" class="w-full">`.
 
 ### Component Registries
 

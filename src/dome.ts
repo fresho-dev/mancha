@@ -196,6 +196,23 @@ export function cloneAttribute(
 	}
 }
 
+/** Like cloneAttribute, but merges `class` and `style` into existing destination values. */
+export function forwardAttribute(
+	elemFrom: ElementWithAttribs,
+	elemDest: ElementWithAttribs,
+	name: string,
+): void {
+	const prev = getAttribute(elemDest, name);
+	const next = getAttribute(elemFrom, name);
+	if (!prev || !next || (name !== "class" && name !== "style")) {
+		cloneAttribute(elemFrom, elemDest, name);
+	} else if (name === "class") {
+		setAttribute(elemDest, name, [...new Set(`${prev} ${next}`.trim().split(/\s+/))].join(" "));
+	} else {
+		setAttribute(elemDest, name, `${prev.replace(/;\s*$/, "")};${next}`);
+	}
+}
+
 export function firstElementChild(elem: Element): Element | null {
 	if (hasProperty(elem, "firstElementChild")) {
 		return elem.firstElementChild;
