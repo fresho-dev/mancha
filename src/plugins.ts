@@ -168,7 +168,7 @@ export namespace RendererPlugins {
 		}
 	};
 
-	export const resolveCustomElements: RendererPlugin = function (node, _params) {
+	export const resolveCustomElements: RendererPlugin = async function (node, params) {
 		const elem = node as Element;
 		const tagName = elem.tagName?.toLowerCase();
 
@@ -186,6 +186,11 @@ export namespace RendererPlugins {
 					if (tagName !== "div" || attr.name !== "role") forwardAttribute(elem, child, attr.name);
 				}
 			}
+
+			// Expand nested custom elements; paths were already rebased when the template was registered.
+			const maxdepth = (params?.maxdepth ?? 100) - 1;
+			if (maxdepth === 0) throw new Error(`Maximum recursion depth reached in <${cusName}>.`);
+			await this.preprocessNode(clone, { ...params, dirpath: undefined, maxdepth });
 
 			// If there's a <slot> element, replace it with the contents of the custom element.
 			const iter = new Iterator(traverse(clone));
