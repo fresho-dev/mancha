@@ -4,7 +4,7 @@
 
 ## Attributes
 
-- `:data` provides scoped variables to all subnodes, evaluated once at mount time. Use `$computed` for derived values that update automatically (see [Reactivity](./03_reactivity.md#computed-values)). Note: `:data` is re-evaluated when used with `:for` + `:key` and the keyed node is reused.
+- `:data` provides scoped variables to all subnodes, evaluated once at mount time. Use `$computed` for derived values that update automatically (see [Reactivity](./03_reactivity.md#computed-values)). Note: `:data` is re-evaluated when used with `:for` and the row's node is reused.
   ```html
   <div :data="{ name: 'Stranger' }"></div>
   <div :data="{ count: 1, doubled: $computed(() => count * 2) }"></div>
@@ -19,7 +19,7 @@
     :attr:style="'width: ' + segment.width + '; background-color: ' + segment.color"
   ></div>
   ```
-- `:key` (used with `:for`) enables keyed reconciliation, which reuses DOM nodes when items have stable identifiers. This prevents unnecessary DOM recreation and preserves element state during updates. The key should be a unique primitive value (string or number). When used with `:data`, the `:data` expression is re-evaluated when a keyed node is reused with updated loop variables.
+- `:key` (used with `:for`) enables keyed reconciliation, which reuses each item's DOM node by its identifier, so element state (focus, input values, scroll) follows the item when the list is reordered. Without `:key`, rows are reused by position, so that state stays at the same index. The key should be a unique primitive value (string or number). When used with `:data`, the `:data` expression is re-evaluated when a node is reused with updated loop variables.
   ```html
   <div :for="user in users" :key="user.id">{{ user.name }}</div>
   <!-- :data bindings update when the item changes -->
