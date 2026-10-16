@@ -164,6 +164,31 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				const node = fragment.firstChild as HTMLImageElement;
 				assert.equal(getAttribute(node, "src"), "foo/bar/baz/qux.jpg");
 			});
+
+			for (const [open, close, use] of [
+				[`<template is="x-i">`, `</template>`, `<x-i></x-i>`],
+				[`<div role="template" is="x-i">`, `</div>`, `<div role="x-i"></div>`],
+			]) {
+				it(`rebases relative paths in ${open} once (#132)`, async () => {
+					const renderer = new ctor();
+					const fpaths: string[] = [];
+					renderer.preprocessLocal = async function (fpath, params) {
+						fpaths.push(fpath);
+						return this.preprocessString(`<img src="c.png">`, {
+							...params,
+							dirpath: dirname(fpath),
+						});
+					};
+					const body = `<p><img src="a.png"><link href="b.css"><include src="inc/c.html"></include></p>`;
+					const fragment = renderer.parseHTML(`${open}${body}${close}${use}`);
+					await renderer.mount(fragment, { dirpath: "foo" });
+					const paths = Array.from(traverse(fragment))
+						.map((n) => getAttribute(n as Element, "src") ?? getAttribute(n as Element, "href"))
+						.filter(Boolean);
+					assert.deepEqual(fpaths, ["foo/inc/c.html"]);
+					assert.deepEqual(paths, ["foo/a.png", "foo/b.css", "foo/inc/c.png"]);
+				});
+			}
 		});
 
 		describe("<custom-element>", () => {
@@ -343,6 +368,17 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 						renderer.serializeHTML(fragment),
 						`${"<i>".repeat(9)}<b>leaf</b>${"</i>".repeat(9)}`,
 					);
+				});
+
+				it("fails on a chain of eleven nested custom elements", async () => {
+					const renderer = new ctor();
+					let html = `<template is="x-1"><b>leaf</b></template>`;
+					for (let i = 2; i <= 11; i++) {
+						html += `<template is="x-${i}"><i><x-${i - 1}></x-${i - 1}></i></template>`;
+					}
+					const fragment = renderer.parseHTML(`${html}<x-11></x-11>`);
+					const err = await renderer.mount(fragment).catch((e: Error) => e);
+					assert.ok(/Maximum recursion depth/.test(String(err?.message)));
 				});
 
 				it("fails on a recursive <include> in a custom element at the depth limit", async () => {

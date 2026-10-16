@@ -116,7 +116,7 @@ Attributes placed on the component tag are copied to the root element of the tem
 
 Components can use other components in their templates. Forwarded attributes compose through each level, so with `<template is="x-card"><my-red-button class="card"></my-red-button></template>`, the tag `<x-card class="w-full">` renders `<button style="background-color: red;" class="card w-full">`. A component that uses itself, directly or through another component, fails with a maximum recursion depth error.
 
-Components and includes share one nesting budget, the `maxdepth` render parameter (default 10): a page renders up to 10 nested components or 9 nested includes, and anything deeper fails with `Maximum recursion depth reached`. The `mancha/worker` renderer expands components inside registered templates ahead of time, so it allows a few more levels of components.
+Components and includes share one nesting budget, the `maxdepth` render parameter (default 10): a page renders up to 10 nested components or 9 nested includes, and anything deeper fails with `Maximum recursion depth reached`.
 
 ### Component Registries
 
