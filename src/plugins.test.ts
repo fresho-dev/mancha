@@ -542,6 +542,48 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(renderer.get("count"), 7);
 			});
 
+			it("writes through $parent from a :data subrenderer", async () => {
+				const renderer = new ctor({ count: 0 });
+				const fragment = renderer.parseHTML(`<div :data="{ n: 1 }"></div>`);
+				await renderer.mount(fragment);
+				const sub = (fragment.firstChild as unknown as RenderedElement).renderer;
+
+				sub?.eval("$parent.count = 5");
+				assert.equal(renderer.get("count"), 5);
+				assert.equal(sub?.eval("$parent.count"), 5);
+				sub?.eval("$rootRenderer.count = 6");
+				assert.equal(renderer.get("count"), 6);
+			});
+
+			it("writes through nested $parent.$parent", async () => {
+				const renderer = new ctor({ count: 0 });
+				const html = `<div :data="{ a: 1 }"><p :data="{ b: 2 }"></p></div>`;
+				const fragment = renderer.parseHTML(html);
+				await renderer.mount(fragment);
+				const inner = (fragment.firstChild?.firstChild as unknown as RenderedElement).renderer;
+
+				inner?.eval("$parent.$parent.count = 3");
+				assert.equal(renderer.get("count"), 3);
+				inner?.eval("$parent.a = 4");
+				assert.equal(inner?.eval("a"), 4);
+			});
+
+			it("re-renders after a click writes through $parent", async function () {
+				if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+				const renderer = new ctor({ count: 0 });
+				const html = `<div :data="{ n: 1 }"><button :on:click="$parent.count = 5"></button></div><span>{{ count }}</span>`;
+				const fragment = renderer.parseHTML(html);
+				const button = fragment.firstChild?.firstChild as HTMLElement;
+				const span = fragment.lastChild as Element;
+				await renderer.mount(fragment);
+				assert.equal(getTextContent(span), "0");
+
+				button.click();
+				await sleepForReactivity();
+				assert.equal(renderer.get("count"), 5);
+				assert.equal(getTextContent(span), "5");
+			});
+
 			it("combines direct variable and function call in same expression", async () => {
 				const renderer = new ctor({ prefix: "Result", value: 5 });
 				renderer.$.compute = function () {
