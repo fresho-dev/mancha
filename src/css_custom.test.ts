@@ -553,10 +553,9 @@ describe("css_custom", () => {
 			"has-[::before]",
 			"has-[:has(a)]",
 		]) {
-			it(`rejects ${variant}:p-4 once, without poisoning p-4`, () => {
+			it(`rejects ${variant}:w-[207px] once, without poisoning its base class`, () => {
 				if (!isSupported()) return;
-				injectCss(["utils"]);
-				const cls = `${variant}:p-4`;
+				const cls = `${variant}:w-[207px]`;
 				const warnings: string[] = [];
 				const originalWarn = console.warn;
 				const originalInsert = CSSStyleSheet.prototype.insertRule;
@@ -574,9 +573,10 @@ describe("css_custom", () => {
 				}
 				assert.equal(inserts, 1);
 				assert.deepEqual(warnings, [`No CSS rule for class: ${cls}`]);
-				assert.ok(!_getFailedLookups().has("p-4"));
-				processClassString("hover:p-4");
-				assert.ok(_getInjectedRules().has("hover:p-4"));
+				assert.ok(!_getFailedLookups().has("w-[207px]"));
+				processClassString("w-[207px] hover:w-[207px]");
+				assert.ok(_getInjectedRules().has("w-[207px]"));
+				assert.ok(_getInjectedRules().has("hover:w-[207px]"));
 			});
 		}
 
