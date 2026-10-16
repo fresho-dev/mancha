@@ -244,6 +244,80 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(node.tagName.toLowerCase(), "span");
 				assert.equal(getTextContent(node), "Hello World");
 			});
+
+			describe("nested custom elements", () => {
+				const inner = `<template is="x-in"><div class="i"></div></template>`;
+
+				it("expands a custom element nested in another's template", async () => {
+					const renderer = new ctor();
+					const outer = `<template is="x-out"><p><x-in class="o"></x-in></p></template>`;
+					const fragment = renderer.parseHTML(`${inner}${outer}<x-out></x-out>`);
+					await renderer.mount(fragment);
+					assert.equal(renderer.serializeHTML(fragment), `<p><div class="i o"></div></p>`);
+				});
+
+				it("expands a custom element at the root of another's template", async () => {
+					const renderer = new ctor();
+					const outer = `<template is="x-out"><x-in class="o"></x-in></template>`;
+					const fragment = renderer.parseHTML(`${inner}${outer}<x-out class="u"></x-out>`);
+					await renderer.mount(fragment);
+					assert.equal(renderer.serializeHTML(fragment), `<div class="i o u"></div>`);
+				});
+
+				it("expands custom elements nested three levels deep", async () => {
+					const renderer = new ctor();
+					const mid = `<template is="x-mid"><x-in class="m"></x-in></template>`;
+					const outer = `<template is="x-out"><section><x-mid class="o"></x-mid></section></template>`;
+					const fragment = renderer.parseHTML(`${inner}${mid}${outer}<x-out class="u"></x-out>`);
+					await renderer.mount(fragment);
+					assert.equal(
+						renderer.serializeHTML(fragment),
+						`<section class="u"><div class="i m o"></div></section>`,
+					);
+				});
+
+				it("expands a custom element passed through a <slot>", async () => {
+					const renderer = new ctor();
+					const outer = `<template is="x-out"><p><slot></slot></p></template>`;
+					const fragment = renderer.parseHTML(
+						`${inner}${outer}<x-out><x-in class="s"></x-in></x-out>`,
+					);
+					await renderer.mount(fragment);
+					assert.equal(renderer.serializeHTML(fragment), `<p><div class="i s"></div></p>`);
+				});
+
+				it("renders directives on a nested custom element", async () => {
+					const renderer = new ctor();
+					const outer = `<template is="x-out"><x-in :data="{ a: 'A' }" :text="a" :on:click="a = 'B'"></x-in></template>`;
+					const fragment = renderer.parseHTML(`${inner}${outer}<x-out></x-out>`);
+					await renderer.mount(fragment);
+					const node = fragment.firstChild as HTMLElement;
+					assert.equal(node.tagName.toLowerCase(), "div");
+					assert.equal(getTextContent(node), "A");
+					if (renderer.impl === "htmlparser2") return;
+					node.click();
+					await sleepForReactivity();
+					assert.equal(getTextContent(node), "B");
+				});
+
+				it("fails on a custom element that uses itself", async () => {
+					const renderer = new ctor();
+					const fragment = renderer.parseHTML(
+						`<template is="x-a"><p><x-a></x-a></p></template><x-a></x-a>`,
+					);
+					const err = await renderer.mount(fragment).catch((e: Error) => e);
+					assert.ok(/Maximum recursion depth/.test(String(err?.message)));
+				});
+
+				it("fails on mutually recursive custom elements", async () => {
+					const renderer = new ctor();
+					const fragment = renderer.parseHTML(
+						`<template is="x-a"><x-b></x-b></template><template is="x-b"><x-a></x-a></template><x-a></x-a>`,
+					);
+					const err = await renderer.mount(fragment).catch((e: Error) => e);
+					assert.ok(/Maximum recursion depth/.test(String(err?.message)));
+				});
+			});
 		});
 
 		describe("icon sprite pattern", () => {
