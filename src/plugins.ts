@@ -61,12 +61,9 @@ export namespace RendererPlugins {
 		};
 
 		// Compute the subparameters being passed down to the included file.
-		const subparameters: RenderParams & ParserParams = {
-			...params,
-			rootDocument: false,
-			maxdepth: (params?.maxdepth ?? 100) - 1,
-		};
-		if (subparameters.maxdepth === 0) throw new Error("Maximum recursion depth reached.");
+		const maxdepth = (params?.maxdepth ?? 100) - 1;
+		if (maxdepth <= 0) throw new Error("Maximum recursion depth reached.");
+		const subparameters: RenderParams & ParserParams = { ...params, rootDocument: false, maxdepth };
 
 		// Case 1: Absolute remote path.
 		if (src.includes("://") || src.startsWith("//")) {
@@ -116,6 +113,8 @@ export namespace RendererPlugins {
 			setAttributeOrDataset(elem, "render", relpath, ":");
 		} else if (hasProperty(elem, "attribs")) {
 			safeSetAttribute(elem, src ? "src" : "href", relpath);
+		} else if (tagName === "include" || tagName === "link") {
+			setAttribute(elem, src ? "src" : "href", relpath);
 		} else if (tagName === "img") {
 			(elem as HTMLImageElement).src = relpath;
 		} else if (tagName === "a") {
@@ -188,9 +187,9 @@ export namespace RendererPlugins {
 			}
 
 			// Expand nested custom elements; paths were already rebased when the template was registered.
-			const maxdepth = (params?.maxdepth ?? 100) - 1;
-			if (maxdepth === 0) throw new Error(`Maximum recursion depth reached in <${cusName}>.`);
-			await this.preprocessNode(clone, { ...params, dirpath: undefined, maxdepth });
+			const maxdepth = params?.maxdepth ?? 10;
+			if (maxdepth <= 0) throw new Error(`Maximum recursion depth reached in <${cusName}>.`);
+			await this.preprocessNode(clone, { ...params, dirpath: undefined, maxdepth: maxdepth - 1 });
 
 			// If there's a <slot> element, replace it with the contents of the custom element.
 			const iter = new Iterator(traverse(clone));
