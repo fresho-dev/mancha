@@ -2352,6 +2352,29 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 					assert.equal(host.firstChild, subtree, "Untouched row's subtree should not be rebuilt");
 					assert.equal(getTextContent(getRows(fragment)[0]), "999");
 				});
+
+				it("keys a nested :for by its own $index, not the outer one (#120)", async () => {
+					const renderer = new ctor({
+						groups: [
+							{ id: 1, sets: ["A", "B", "C"] },
+							{ id: 2, sets: ["A", "B", "C"] },
+						],
+					});
+					const html = `<div :for="g in groups" :key="g.id"><span :for="s in g.sets" :key="$index" :text="s + $index"></span></div>`;
+					const fragment = renderer.parseHTML(html);
+					await renderer.mount(fragment);
+					await sleepForReactivity();
+					assert.equal(getTextContent(getRows(fragment)[0]), "A0B1C2");
+					assert.equal(getTextContent(getRows(fragment)[1]), "A0B1C2");
+
+					const groups = renderer.$.groups as { sets: string[] }[];
+					groups[0].sets = ["C", "A", "B", "D"];
+					await sleepForReactivity();
+					await sleepForReactivity();
+
+					assert.equal(getTextContent(getRows(fragment)[0]), "C0A1B2D3");
+					assert.equal(getTextContent(getRows(fragment)[1]), "A0B1C2");
+				});
 			});
 		});
 
@@ -4526,6 +4549,73 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(getAttribute(node, "id"), "g");
 				assert.equal(getAttribute(node, "title"), "t");
 				assert.equal(getAttribute(node, "src"), null);
+			});
+
+			it("merges class and style from a custom element into its first child", async () => {
+				const renderer = new ctor();
+				const template = `<template is="ez-btn"><button class="btn a" style="color:red;" title="x"></button></template>`;
+				const html = `<ez-btn class="a w-full" style="margin:0" title="y"></ez-btn>`;
+				const fragment = renderer.parseHTML(template + html);
+
+				await renderer.mount(fragment);
+
+				const node = fragment.firstChild as Element;
+				assert.equal(getAttribute(node, "class"), "btn a w-full");
+				assert.equal(getAttribute(node, "style"), "color:red;margin:0");
+				assert.equal(getAttribute(node, "title"), "y");
+			});
+
+			it("merges class and style from an <include> into its first child", async () => {
+				const renderer = new ctor();
+				const fragment = renderer.parseHTML(
+					`<include src="foo.html" class="text-blue-500" style="margin:0"></include>`,
+				);
+				renderer.preprocessLocal = async () =>
+					renderer.parseHTML(`<svg class="w-4 h-4" style="color:red"></svg>`);
+
+				await renderer.mount(fragment, { dirpath: "." });
+
+				const node = fragment.firstChild as Element;
+				assert.equal(getAttribute(node, "class"), "w-4 h-4 text-blue-500");
+				assert.equal(getAttribute(node, "style"), "color:red;margin:0");
+			});
+
+			it("keeps the root's class and style when a custom element forwards empty values", async () => {
+				const renderer = new ctor();
+				const template = `<template is="ez-empty"><i class="a" style="color:red"></i></template>`;
+				const html = `<ez-empty class="" style=""></ez-empty>`;
+				const fragment = renderer.parseHTML(template + html);
+
+				await renderer.mount(fragment);
+
+				const node = fragment.firstChild as Element;
+				assert.equal(getAttribute(node, "class"), "a");
+				assert.equal(getAttribute(node, "style"), "color:red");
+			});
+
+			it("keeps the root's class and style when an <include> forwards empty values", async () => {
+				const renderer = new ctor();
+				const fragment = renderer.parseHTML(`<include src="foo.html" class style=" "></include>`);
+				renderer.preprocessLocal = async () =>
+					renderer.parseHTML(`<svg class="w-4" style="color:red"></svg>`);
+
+				await renderer.mount(fragment, { dirpath: "." });
+
+				const node = fragment.firstChild as Element;
+				assert.equal(getAttribute(node, "class"), "w-4");
+				assert.equal(getAttribute(node, "style"), "color:red");
+			});
+
+			it("composes :class on a custom element with the root's static class", async () => {
+				const renderer = new ctor();
+				const template = `<template is="b2"><i class="a"></i></template>`;
+				const html = `<b2 class="b" :class="'dyn'"></b2>`;
+				const fragment = renderer.parseHTML(template + html);
+
+				await renderer.mount(fragment);
+
+				const node = fragment.firstChild as Element;
+				assert.equal(getAttribute(node, "class"), "a b dyn");
 			});
 		});
 	});

@@ -23,7 +23,7 @@ const FORBIDDEN: Array<[label: string, pattern: RegExp]> = [
 	["repo config", /^(\.github|\.vscode|\.claude)\//],
 	[
 		"build config",
-		/^(biome\.json|\.biomeignore|gulpfile\.ts|tsdown\.config\.ts|tsconfig\.json|global\.d\.ts|tsec_exemptions\.json)$/,
+		/^(biome\.json|\.biomeignore|gulpfile\.ts|tsdown\.config\.ts|tsconfig\.json|global\.d\.ts|tsec_exemptions\.json|web-test-runner\.config\.js)$/,
 	],
 	["build scripts", /^scripts\//],
 	// tsdown overwrites the tsc output for these two entries without emitting a
@@ -178,7 +178,7 @@ describe("Package exports", function () {
  * raising this number, rather than discovered later by a user on a slow link.
  * Matches `npm run check:size`; node's brotli defaults agree with the CLI.
  */
-const BUNDLE_BUDGET_BYTES = 20_000;
+const BUNDLE_BUDGET_BYTES = 21_000;
 
 describe("Bundle size", function () {
 	this.timeout(20000); // Brotli at maximum quality is not fast.

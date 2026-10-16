@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import rules, {
 	COLOR_OPACITY_MODIFIERS,
+	COLOR_PROPS,
 	DURATIONS,
 	MEDIA_BREAKPOINTS,
 	PERCENTS,
@@ -155,7 +156,11 @@ function generateMarkdown() {
 	md += "\n";
 
 	md += "### Colors\n\n";
-	md += "Supported prefixes: `text-`, `bg-`, `border-`, `fill-`.\n\n";
+	md += `Supported prefixes: ${COLOR_PROPS.map(([prefix]) => `\`${prefix}-\``).join(", ")}.\n\n`;
+	md +=
+		"`ring-{color}` sets the ring color through the `--ring-color` custom property, so it\n" +
+		"needs a ring width utility (`ring`, `ring-2`, ...) alongside it to be visible. The\n" +
+		"default is declared on every element, so a ring color does not reach descendants.\n\n";
 	md += "| Color | Shades |\n";
 	md += "| --- | --- |\n";
 	md += "| `white`, `black`, `transparent` | N/A |\n";
@@ -195,6 +200,7 @@ function generateMarkdown() {
 			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
+	md += "| `ring-{color}` | `--ring-color: {value}` |\n";
 	// Document opacity
 	md += "| `opacity-0` | Fully transparent |\n";
 	md += `| \`opacity-{${PERCENTS.join(",")}}\` | Opacity values (multiples of 5) |\n`;
@@ -581,6 +587,14 @@ function generateMarkdown() {
 	md += "### Limitations\n\n";
 	md +=
 		"**Browser only**: Custom values require the CSSStyleSheet API and are not available in Worker or SSR environments.\n\n";
+	md +=
+		"**Unresolvable classes are reported**: a class that reaches on-demand injection and " +
+		"matches no rule logs `No CSS rule for class: ...` once for the life of the page. That " +
+		"covers a typo or a color outside the palette (`hover:bg-brand-500`), and also anything " +
+		"Mancha does not implement — a variant it does not know (`active:`, `group-hover:`), or a " +
+		"bracket value on a property it does not map (`rounded-[12px]`). Each of those does " +
+		"nothing, which is what the message is for. Sheets that arrive later are picked up, so a " +
+		"late-loading sheet defining the class still works.\n\n";
 	md += "### When to Use\n\n";
 	md += "**Prefer the design scale** for consistency. Use custom values for:\n";
 	md += "- Matching external constraints (third-party widgets, embeds)\n";
