@@ -56,7 +56,7 @@ The utility CSS rules are inspired by Tailwind CSS. You can inject them using `i
 This automatically includes:
 - **CSS Reset**: box-sizing, typography, form and media defaults applied to all of your markup — see [CSS Reset](#css-reset), in particular the layout effects on images, lists, and form controls
 - **Base utility classes**: spacing, sizing, colors, layout, typography, and more
-- **On-demand scanning**: responsive variants, orientation variants, pseudo-state variants, color opacity, custom bracket values, and dark mode are generated on-the-fly for only the classes actually used in your markup
+- **On-demand scanning**: responsive variants, orientation variants, state variants, color opacity, custom bracket values, and dark mode are generated on-the-fly for only the classes actually used in your markup
 
 ### Media Breakpoints
 
@@ -79,12 +79,44 @@ Use the `landscape:` and `portrait:` prefixes to apply styles based on screen or
 </div>
 ```
 
-### Pseudo States
+### State Variants
 
-The following pseudo states are supported for all utilities:
-- `hover:`
-- `focus:`
-- `disabled:`
+The following state variants are supported for all utilities:
+
+| Prefix | Selector |
+| --- | --- |
+| `hover:` | `.class:hover` |
+| `focus:` | `.class:focus` |
+| `disabled:` | `.class:disabled` |
+| `empty:` | `.class:empty` |
+| `aria-busy:` | `.class[aria-busy="true"]` |
+| `aria-checked:` | `.class[aria-checked="true"]` |
+| `aria-disabled:` | `.class[aria-disabled="true"]` |
+| `aria-expanded:` | `.class[aria-expanded="true"]` |
+| `aria-hidden:` | `.class[aria-hidden="true"]` |
+| `aria-pressed:` | `.class[aria-pressed="true"]` |
+| `aria-readonly:` | `.class[aria-readonly="true"]` |
+| `aria-required:` | `.class[aria-required="true"]` |
+| `aria-selected:` | `.class[aria-selected="true"]` |
+| `has-checked:` | `.class:has(*:checked)` |
+| `has-focus:` | `.class:has(*:focus)` |
+| `has-disabled:` | `.class:has(*:disabled)` |
+| `has-hover:` | `.class:has(*:hover)` |
+| `aria-[name=value]:` | `.class[aria-name="value"]` |
+| `has-[selector]:` | `.class:has(selector)` |
+
+Style an element from its own ARIA attributes, or a parent from the state of its children:
+
+```html
+<button :attr:aria-pressed="done" class="bg-gray-200 aria-pressed:bg-green-300">Done</button>
+<a aria-current="page" class="aria-[current=page]:font-bold">Home</a>
+<label class="has-checked:bg-green-300"><input type="radio" /> Option</label>
+<ul class="grid gap-3 empty:hidden"></ul>
+```
+
+Arbitrary values in `aria-[...]` take a single `name=value` pair of letters, digits, `_` and `-`. Selectors in `has-[...]` take letters, digits and `_-:.#>+~*(),` only, with balanced parentheses, so no spaces, quotes or attribute selectors. Anything else is rejected as an unresolvable class.
+
+> **Note:** Only one variant applies per class. Variants do not stack: `dark:hover:bg-black` or `md:aria-pressed:w-full` are rejected as unresolvable classes.
 
 ### Dark Mode
 
@@ -102,7 +134,7 @@ The `dark:` prefix can be used with any utility class, including colors, spacing
 <div class="bg-[#fff] dark:bg-[#1a1a1a] p-4 dark:border-gray-700">
 ```
 
-> **Note:** Responsive variants (`sm:`, `md:`, etc.), orientation variants (`landscape:`, `portrait:`), pseudo-state variants (`hover:`, `focus:`, `disabled:`), color opacity (`/N`), dark mode (`dark:`), and custom bracket values are all generated on-demand. Only the classes actually present in your markup are injected, keeping the CSS bundle small.
+> **Note:** Responsive variants (`sm:`, `md:`, etc.), orientation variants (`landscape:`, `portrait:`), state variants (`hover:`, `aria-*:`, `has-*:`, …), color opacity (`/N`), dark mode (`dark:`), and custom bracket values are all generated on-demand. Only the classes actually present in your markup are injected, keeping the CSS bundle small.
 
 ### Spacing (Margin & Padding)
 
@@ -537,6 +569,7 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 
 | Utility | Description |
 | --- | --- |
+| `list-item` | `display: list-item` |
 | `list-none` | `list-style-type: none` |
 | `list-disc` | `list-style-type: disc` |
 | `list-decimal` | `list-style-type: decimal` |
@@ -581,6 +614,17 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | Utility | Description |
 | --- | --- |
 | `no-underline` | `text-decoration: none` |
+| `float-left` | `float: left` |
+| `float-right` | `float: right` |
+| `float-none` | `float: none` |
+| `clear-left` | `clear: left` |
+| `clear-right` | `clear: right` |
+| `clear-both` | `clear: both` |
+| `clear-none` | `clear: none` |
+| `break-normal` | `overflow-wrap: normal; word-break: normal` |
+| `break-words` | `overflow-wrap: break-word` |
+| `break-all` | `word-break: break-all` |
+| `break-keep` | `word-break: keep-all` |
 | `grid` | `display: grid` |
 | `box-border` | `box-sizing: border-box` |
 | `box-content` | `box-sizing: content-box` |

@@ -63,11 +63,30 @@ const CUSTOM_VALUE_PATTERN = /^(-?)([\w-]+)-\[(.+)\]$/;
 // Splits `variant:class` at the first colon outside brackets.
 const VARIANT_SPLIT = /^((?:[^:[]|\[[^\]]*\])+):(.+)$/;
 
+// Arbitrary forms: `aria-[name=value]:` and `has-[selector]:`, the latter checked for balance below.
+const ARIA_VARIANT = /^aria-\[([\w-]+)=([\w-]+)\]$/;
+const HAS_VARIANT = /^has-\[([\w:.#>+~*(),-]+)\]$/;
+const ARIA_STATES = [
+	"busy",
+	"checked",
+	"disabled",
+	"expanded",
+	"hidden",
+	"pressed",
+	"readonly",
+	"required",
+	"selected",
+];
+const HAS_STATES = ["checked", "focus", "disabled", "hover"];
+
 /** Variant prefixes: a value starting with "(" is a media condition, else a selector suffix. */
 export const VARIANTS: Record<string, string> = {
 	hover: ":hover",
 	focus: ":focus",
 	disabled: ":disabled",
+	empty: ":empty",
+	...Object.fromEntries(ARIA_STATES.map((s) => [`aria-${s}`, `[aria-${s}="true"]`])),
+	...Object.fromEntries(HAS_STATES.map((s) => [`has-${s}`, `:has(*:${s})`])),
 	dark: "(prefers-color-scheme: dark)",
 	landscape: "(orientation: landscape)",
 	portrait: "(orientation: portrait)",
@@ -78,7 +97,18 @@ export const VARIANTS: Record<string, string> = {
 
 /** CSS for a variant prefix, or undefined if it is not one. */
 function variantCss(name: string): string | undefined {
-	return Object.hasOwn(VARIANTS, name) ? VARIANTS[name] : undefined;
+	if (Object.hasOwn(VARIANTS, name)) return VARIANTS[name];
+	const aria = name.match(ARIA_VARIANT);
+	if (aria) return `[aria-${aria[1]}="${aria[2]}"]`;
+	const has = name.match(HAS_VARIANT)?.[1];
+	if (!has) return undefined;
+	// Unbalanced parentheses could close :has() early and widen the selector.
+	let depth = 0;
+	for (const c of has) {
+		depth += c === "(" ? 1 : c === ")" ? -1 : 0;
+		if (depth < 0) return undefined;
+	}
+	return depth ? undefined : `:has(${has})`;
 }
 
 // A class per distinct dynamic value (`:class="'p-[' + px + 'px]'"`) can reach the negative

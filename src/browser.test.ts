@@ -323,6 +323,36 @@ describe("Browser", () => {
 			const styles = document.head.querySelectorAll("style");
 			for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
 		});
+
+		it("applies empty:, aria-* and has-* variant rules", () => {
+			const initialCount = document.head.querySelectorAll("style").length;
+			injectCss(["utils"]);
+
+			const target = document.createElement("div");
+			setInnerHTML(
+				target,
+				`<ul id="v-empty" class="block empty:hidden"></ul>` +
+					`<div id="v-aria" aria-pressed="true" class="aria-pressed:w-[141px]"></div>` +
+					`<div id="v-aria-off" aria-pressed="false" class="aria-pressed:w-[141px]"></div>` +
+					`<div id="v-aria-arb" aria-current="page" class="aria-[current=page]:w-[142px]"></div>` +
+					`<div id="v-has" class="has-checked:w-[143px]"><input type="checkbox" checked /></div>` +
+					`<div id="v-has-arb" class="has-[:checked]:w-[144px]"><input type="radio" checked /></div>`,
+			);
+			document.body.appendChild(target);
+			scanAndInject(target);
+
+			const style = (id: string) => getComputedStyle(target.querySelector(`#${id}`) as Element);
+			assert.equal(style("v-empty").display, "none");
+			assert.equal(style("v-aria").width, "141px");
+			assert.notEqual(style("v-aria-off").width, "141px");
+			assert.equal(style("v-aria-arb").width, "142px");
+			assert.equal(style("v-has").width, "143px");
+			assert.equal(style("v-has-arb").width, "144px");
+
+			target.remove();
+			const styles = document.head.querySelectorAll("style");
+			for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
+		});
 	});
 
 	describe("Deprecated CSS names", () => {

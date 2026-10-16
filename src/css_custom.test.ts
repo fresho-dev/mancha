@@ -475,6 +475,75 @@ describe("css_custom", () => {
 		});
 	});
 
+	describe("state variants", () => {
+		it("injects empty: with an :empty selector", () => {
+			if (!isSupported()) return;
+			injectCustomClass("w-[201px]", "empty");
+			assert.ok(customRulesText().includes(":empty"), `Got: ${customRulesText()}`);
+		});
+
+		it("injects aria-{state}: as a true-valued attribute selector", () => {
+			if (!isSupported()) return;
+			processClassString("aria-pressed:w-[202px]");
+			assert.ok(_getInjectedRules().has("aria-pressed:w-[202px]"));
+			assert.ok(customRulesText().includes('[aria-pressed="true"]'), `Got: ${customRulesText()}`);
+		});
+
+		it("injects aria-[name=value]: as an attribute selector", () => {
+			if (!isSupported()) return;
+			processClassString("aria-[current=page]:w-[203px]");
+			assert.ok(_getInjectedRules().has("aria-[current=page]:w-[203px]"));
+			assert.ok(customRulesText().includes('[aria-current="page"]'), `Got: ${customRulesText()}`);
+		});
+
+		it("injects has-{state}: as a :has() selector", () => {
+			if (!isSupported()) return;
+			processClassString("has-checked:w-[204px]");
+			assert.ok(_getInjectedRules().has("has-checked:w-[204px]"));
+			assert.ok(customRulesText().includes(":has(:checked)"), `Got: ${customRulesText()}`);
+		});
+
+		it("injects has-[selector]: despite the colon inside the brackets", () => {
+			if (!isSupported()) return;
+			processClassString("has-[:checked]:w-[205px]");
+			assert.ok(_getInjectedRules().has("has-[:checked]:w-[205px]"));
+			assert.ok(customRulesText().includes(":has(:checked)"), `Got: ${customRulesText()}`);
+		});
+
+		it("applies variants to static utilities via lookup", () => {
+			if (!isSupported()) return;
+			injectCss(["utils"]);
+			injectCustomClass("float-left", "hover");
+			assert.ok(customRulesText().includes("float: left"), `Got: ${customRulesText()}`);
+		});
+
+		for (const cls of [
+			"has-[a),.x,b(]:w-[206px]",
+			"has-[(]:w-[206px]",
+			"has-[:checked;color:red]:w-[206px]",
+			"has-[a{}]:w-[206px]",
+			"has-[a\\]:w-[206px]",
+			"aria-[current=page;x]:w-[206px]",
+			'aria-[current="page"]:w-[206px]',
+			"aria-[current]:w-[206px]",
+			"dark:aria-pressed:w-[206px]",
+		]) {
+			it(`rejects ${cls}`, () => {
+				if (!isSupported()) return;
+				const warnings: string[] = [];
+				const originalWarn = console.warn;
+				console.warn = (msg: string) => warnings.push(msg);
+				try {
+					processClassString(cls);
+				} finally {
+					console.warn = originalWarn;
+				}
+				assert.equal(customRules().length, 0, `Got: ${customRulesText()}`);
+				assert.deepEqual(warnings, [`No CSS rule for class: ${cls}`]);
+			});
+		}
+	});
+
 	describe("selector escaping", () => {
 		it("injects bracket values containing a percent sign", () => {
 			if (!isSupported()) return;
