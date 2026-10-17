@@ -526,7 +526,7 @@ describe("css_custom", () => {
 			"aria-[current=page;x]:w-[206px]",
 			'aria-[current="page"]:w-[206px]',
 			"aria-[current]:w-[206px]",
-			"dark:aria-pressed:w-[206px]",
+			"active:w-[206px]",
 		]) {
 			it(`rejects ${cls}`, () => {
 				if (!isSupported()) return;
@@ -594,6 +594,130 @@ describe("css_custom", () => {
 				);
 			});
 		}
+	});
+
+	describe("stacked variants", () => {
+		for (const [cls, media, selector] of [
+			[
+				"dark:md:hover:w-[301px]",
+				"(prefers-color-scheme: dark) and (min-width: 768px)",
+				".dark\\:md\\:hover\\:w-\\[301px\\]:hover",
+			],
+			[
+				"dark:md:w-[302px]",
+				"(prefers-color-scheme: dark) and (min-width: 768px)",
+				".dark\\:md\\:w-\\[302px\\]",
+			],
+			[
+				"hover:aria-pressed:w-[303px]",
+				"",
+				'.hover\\:aria-pressed\\:w-\\[303px\\]:hover[aria-pressed="true"]',
+			],
+			[
+				"md:aria-[current=page]:w-[304px]",
+				"(min-width: 768px)",
+				'.md\\:aria-\\[current\\=page\\]\\:w-\\[304px\\][aria-current="page"]',
+			],
+			[
+				"dark:has-[:checked]:w-[305px]",
+				"(prefers-color-scheme: dark)",
+				".dark\\:has-\\[\\:checked\\]\\:w-\\[305px\\]:has(:checked)",
+			],
+		]) {
+			it(`injects ${cls}`, () => {
+				if (!isSupported()) return;
+				processClassString(cls);
+				assert.ok(_getInjectedRules().has(cls));
+				const rules = customRules();
+				assert.equal(rules.length, 1, `Got: ${customRulesText()}`);
+				const outer = rules[0] as CSSMediaRule;
+				const inner = (media ? outer.cssRules[0] : outer) as CSSStyleRule;
+				assert.equal(media ? outer.conditionText : "", media);
+				assert.equal(inner.selectorText, selector);
+			});
+		}
+
+		it("puts a stack on the divide-* container, suffix last", () => {
+			if (!isSupported()) return;
+			processClassString("hover:aria-pressed:divide-red-500/50");
+			const rule = customRules()[0] as CSSStyleRule;
+			assert.ok(
+				rule.selectorText.endsWith(':hover[aria-pressed="true"] > :not(:last-child)'),
+				`Got: ${rule.selectorText}`,
+			);
+		});
+
+		for (const cls of ["active:md:w-[306px]", "md:active:w-[306px]", "md:hover:active:w-[306px]"]) {
+			it(`rejects ${cls} once`, () => {
+				if (!isSupported()) return;
+				const warnings: string[] = [];
+				const originalWarn = console.warn;
+				console.warn = (msg: string) => warnings.push(msg);
+				try {
+					processClassString(cls);
+					processClassString(cls);
+				} finally {
+					console.warn = originalWarn;
+				}
+				assert.equal(customRules().length, 0, `Got: ${customRulesText()}`);
+				assert.deepEqual(warnings, [`No CSS rule for class: ${cls}`]);
+			});
+		}
+
+		for (const cls of [
+			"md:has-[:chcked]:bg-[red]",
+			"dark:has-[a,,b]:w-[1px]",
+			"sm:has-[:has(a)]:w-[1px]",
+		]) {
+			it(`rejects ${cls} once when the media rule comes back empty`, () => {
+				if (!isSupported()) return;
+				const warnings: string[] = [];
+				const originalWarn = console.warn;
+				const originalInsert = CSSStyleSheet.prototype.insertRule;
+				let inserts = 0;
+				console.warn = (msg: string) => warnings.push(msg);
+				CSSStyleSheet.prototype.insertRule = function (...args) {
+					inserts++;
+					return originalInsert.apply(this, args);
+				};
+				try {
+					for (let i = 0; i < 5; i++) processClassString(cls);
+				} finally {
+					console.warn = originalWarn;
+					CSSStyleSheet.prototype.insertRule = originalInsert;
+				}
+				assert.equal(inserts, 1);
+				assert.deepEqual(warnings, [`No CSS rule for class: ${cls}`]);
+			});
+		}
+
+		for (const [cls, base, expected] of [
+			["md:print:hidden", "print\\:hidden", "(min-width: 768px)"],
+			["hover:foo:bar", "foo\\:bar", ""],
+		]) {
+			it(`reads ${cls} as variants on a user-defined base class`, () => {
+				if (!isSupported()) return;
+				const user = document.createElement("style");
+				user.textContent = `.${base} { display: none }`;
+				document.head.appendChild(user);
+				try {
+					processClassString(cls);
+				} finally {
+					user.remove();
+				}
+				assert.ok(_getInjectedRules().has(cls), `Got: ${customRulesText()}`);
+				const outer = customRules()[0] as CSSMediaRule;
+				const inner = (expected ? outer.cssRules[0] : outer) as CSSStyleRule;
+				assert.equal(expected ? outer.conditionText : "", expected);
+				assert.equal(inner.style.display, "none");
+			});
+		}
+
+		it("does not re-insert a stack on repeat scans", () => {
+			if (!isSupported()) return;
+			for (let i = 0; i < 3; i++) processClassString("dark:md:hover:w-[307px] sm:focus:w-[307px]");
+			assert.equal(customRules().length, 2, `Got: ${customRulesText()}`);
+		});
 	});
 
 	describe("selector escaping", () => {

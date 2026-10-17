@@ -1,3 +1,4 @@
+import { emulateMedia, setViewport } from "@web/test-runner-commands";
 import { initMancha, injectCss, Renderer, type RenderParams, scanAndInject } from "./browser.js";
 import { testSuite as pluginsTestSuite } from "./plugins.test.js";
 import { testSuite as rendererTestSuite } from "./renderer.test.js";
@@ -354,6 +355,48 @@ describe("Browser", () => {
 			target.remove();
 			const styles = document.head.querySelectorAll("style");
 			for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
+		});
+
+		it("applies stacked variant rules", async () => {
+			const initialCount = document.head.querySelectorAll("style").length;
+			injectCss(["utils"]);
+
+			const target = document.createElement("div");
+			setInnerHTML(
+				target,
+				`<div id="s-on" aria-pressed="true" class="md:aria-pressed:w-[151px]"></div>` +
+					`<div id="s-off" aria-pressed="false" class="md:aria-pressed:w-[151px]"></div>` +
+					`<div id="s-dark" class="dark:md:w-[152px]"></div>` +
+					// The more specific stack wins even though it is injected first.
+					`<div id="s-spec" aria-pressed="true" class="aria-pressed:has-checked:w-[153px] aria-pressed:w-[154px]"><input type="checkbox" checked /></div>` +
+					// Media conditions add no specificity, so the later-injected rule wins.
+					`<div id="s-order" class="dark:md:w-[155px] md:w-[156px]"></div>`,
+			);
+			document.body.appendChild(target);
+			scanAndInject(target);
+
+			const style = (id: string) => getComputedStyle(target.querySelector(`#${id}`) as Element);
+			const { innerWidth: width, innerHeight: height } = window;
+			try {
+				await setViewport({ width: 1024, height: 768 });
+				await emulateMedia({ colorScheme: "dark" });
+				assert.equal(style("s-on").width, "151px");
+				assert.notEqual(style("s-off").width, "151px");
+				assert.equal(style("s-dark").width, "152px");
+				assert.equal(style("s-spec").width, "153px");
+				assert.equal(style("s-order").width, "156px");
+
+				await emulateMedia({ colorScheme: "light" });
+				assert.notEqual(style("s-dark").width, "152px");
+				await setViewport({ width: 600, height: 768 });
+				assert.notEqual(style("s-on").width, "151px");
+			} finally {
+				await setViewport({ width, height });
+				await emulateMedia({ colorScheme: "light" });
+				target.remove();
+				const styles = document.head.querySelectorAll("style");
+				for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
+			}
 		});
 	});
 
