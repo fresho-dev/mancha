@@ -737,6 +737,108 @@ describe("css_custom", () => {
 		});
 	});
 
+	describe("bracket value validation", () => {
+		const injections = [
+			"w-[1px;:not(&){color:rgb(1,2,3)}]",
+			"md:w-[1px;}body{background:red}]",
+			"md:w-[1px;}body{background:red]",
+		];
+		const rejected = [
+			"w-[1px;color:red]",
+			"w-[1px{]",
+			"w-[1px}]",
+			"w-[1px\\]",
+			"w-[1px/*]",
+			"w-['1px']",
+			'w-["1px"]',
+			"w-[calc(1px]",
+			"w-[1px)]",
+			"w-[)(]",
+			"w-[a[b]]",
+			"w-[a:b]",
+			"w-[a@b]",
+			"w-[<a>]",
+		];
+		const legit: [string, string, string][] = [
+			["w-[10px]", "width", "10px"],
+			["w-[calc(100%_-_2rem)]", "width", "calc(100% - 2rem)"],
+			["bg-[#fff]", "background-color", "#fff"],
+			["bg-[rgb(1,2,3)]", "background-color", "rgb(1,2,3)"],
+			["bg-[rgba(0,0,0,0.5)]", "background-color", "rgba(0,0,0,0.5)"],
+			["bg-[rgb(0_0_0/0.5)]", "background-color", "rgb(0 0 0/0.5)"],
+			["top-[-5px]", "top", "-5px"],
+			["-mt-[3px]", "margin-top", "-3px"],
+			["font-[500]", "", ""],
+			["text-[1.5rem]", "font-size", "1.5rem"],
+			["w-[var(--x)]", "width", "var(--x)"],
+			["w-[min(10px,5vw)]", "width", "min(10px,5vw)"],
+			["w-[calc(2*3px_+_1px)]", "width", "calc(2*3px + 1px)"],
+			["m-[1px!important]", "margin", "1px!important"],
+			["max-w-[none]", "max-width", "none"],
+		];
+
+		for (const cls of [...injections.map((c) => c.replace(/^md:/, "")), ...rejected]) {
+			it(`parses ${JSON.stringify(cls)} as no value`, () => {
+				assert.equal(parseCustomValueClass(cls), null);
+			});
+		}
+
+		for (const [cls, property, value] of legit) {
+			it(`parses ${cls}`, () => {
+				const expected = property ? { property, value } : null;
+				assert.deepEqual(parseCustomValueClass(cls), expected);
+			});
+		}
+
+		for (const cls of [...injections, ...rejected]) {
+			it(`injects nothing for ${JSON.stringify(cls)} and warns once`, () => {
+				if (!isSupported()) return;
+				const warnings: string[] = [];
+				const originalWarn = console.warn;
+				console.warn = (msg: string) => warnings.push(msg);
+				try {
+					processClassString(cls);
+					processClassString(cls);
+					injectCustomClass(cls);
+				} finally {
+					console.warn = originalWarn;
+				}
+				assert.equal(customRules().length, 0, `Got: ${customRulesText()}`);
+				assert.equal(warnings.length, 1, `Got: ${warnings.join("\n")}`);
+				assert.ok(warnings[0].startsWith("No CSS rule for class: "), warnings[0]);
+			});
+		}
+
+		it("does not restyle other elements", () => {
+			if (!isSupported()) return;
+			const el = document.createElement("div");
+			el.className = injections.join(" ");
+			const other = document.createElement("p");
+			document.body.append(el, other);
+			const originalWarn = console.warn;
+			console.warn = () => {};
+			try {
+				scanAndInject(el);
+				assert.notEqual(getComputedStyle(document.body).color, "rgb(1, 2, 3)");
+				assert.notEqual(getComputedStyle(other).color, "rgb(1, 2, 3)");
+				assert.notEqual(getComputedStyle(document.body).backgroundColor, "rgb(255, 0, 0)");
+			} finally {
+				console.warn = originalWarn;
+				el.remove();
+				other.remove();
+			}
+		});
+
+		it("injects legitimate values", () => {
+			if (!isSupported()) return;
+			for (const [cls, property] of legit) {
+				if (!property) continue;
+				assert.ok(injectCustomClass(cls), `Should inject ${cls}`);
+				assert.ok(injectCustomClass(cls, "md"), `Should inject md:${cls}`);
+			}
+		});
+	});
+
 	describe("parseColorOpacityClass", () => {
 		it("parses bg-red-500/50", () => {
 			const result = parseColorOpacityClass("bg-red-500/50");

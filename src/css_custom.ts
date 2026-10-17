@@ -60,6 +60,8 @@ const PROPERTY_MAP: Record<string, string> = {
 
 // Pattern: optional-negative + prefix + bracket-value.
 const CUSTOM_VALUE_PATTERN = /^(-?)([\w-]+)-\[(.+)\]$/;
+// Bracket values are spliced into the rule verbatim, so allow only characters that cannot end it.
+const SAFE_VALUE = /^[\w#.%+*/(),!-]+$/;
 // Splits `variant:class` at the first colon outside brackets.
 const VARIANT_SPLIT = /^((?:[^:[]|\[[^\]]*\])+):(.+)$/;
 
@@ -280,7 +282,13 @@ export function parseCustomValueClass(
 
 	const [, negative, prefix, rawValue] = match;
 	const property = PROPERTY_MAP[prefix];
-	if (!property) return null;
+	if (!property || !SAFE_VALUE.test(rawValue) || rawValue.includes("/*")) return null;
+	let depth = 0;
+	for (const c of rawValue) {
+		depth += c === "(" ? 1 : c === ")" ? -1 : 0;
+		if (depth < 0) return null;
+	}
+	if (depth) return null;
 
 	const decoded = rawValue.replace(/_/g, " ");
 	const value = negative ? `-${decoded}` : decoded;
