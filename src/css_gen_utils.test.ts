@@ -255,6 +255,26 @@ describe("CSS Generation Utils", () => {
 			);
 		});
 
+		it("includes float, clear, break and list-item utilities", () => {
+			const css = rules();
+			for (const rule of [
+				".float-left { float: left }",
+				".float-right { float: right }",
+				".float-none { float: none }",
+				".clear-left { clear: left }",
+				".clear-right { clear: right }",
+				".clear-both { clear: both }",
+				".clear-none { clear: none }",
+				".break-normal { overflow-wrap: normal; word-break: normal }",
+				".break-words { overflow-wrap: break-word }",
+				".break-all { word-break: break-all }",
+				".break-keep { word-break: keep-all }",
+				".list-item { display: list-item }",
+			]) {
+				assert.ok(css.includes(rule), `Should include ${rule}`);
+			}
+		});
+
 		it("includes transition and animation utilities", () => {
 			const css = rules();
 			assert.ok(css.includes("@keyframes spin"), "Should include spin keyframes");

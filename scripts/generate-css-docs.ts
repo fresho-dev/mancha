@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { VARIANTS } from "../src/css_custom.js";
 import rules, {
 	COLOR_OPACITY_MODIFIERS,
 	COLOR_PROPS,
@@ -84,7 +85,7 @@ function generateMarkdown() {
 		"- **CSS Reset**: box-sizing, typography, form and media defaults applied to all of your markup — see [CSS Reset](#css-reset), in particular the layout effects on images, lists, and form controls\n";
 	md += "- **Base utility classes**: spacing, sizing, colors, layout, typography, and more\n";
 	md +=
-		"- **On-demand scanning**: responsive variants, orientation variants, pseudo-state variants, color opacity, custom bracket values, and dark mode are generated on-the-fly for only the classes actually used in your markup\n\n";
+		"- **On-demand scanning**: responsive variants, orientation variants, state variants, color opacity, custom bracket values, and dark mode are generated on-the-fly for only the classes actually used in your markup\n\n";
 
 	md += "### Media Breakpoints\n\n";
 	md += "| Prefix | Min Width |\n";
@@ -105,11 +106,33 @@ function generateMarkdown() {
 	md += "</div>\n";
 	md += "```\n\n";
 
-	md += "### Pseudo States\n\n";
-	md += "The following pseudo states are supported for all utilities:\n";
-	md += "- `hover:`\n";
-	md += "- `focus:`\n";
-	md += "- `disabled:`\n\n";
+	md += "### State Variants\n\n";
+	md += "The following state variants are supported for all utilities:\n\n";
+	md += "| Prefix | Selector |\n";
+	md += "| --- | --- |\n";
+	for (const [name, css] of Object.entries(VARIANTS)) {
+		if (!css.startsWith("(")) md += `| \`${name}:\` | \`.class${css}\` |\n`;
+	}
+	md += '| `aria-[name=value]:` | `.class[aria-name="value"]` |\n';
+	md += "| `has-[selector]:` | `.class:has(selector)` |\n\n";
+	md +=
+		"Style an element from its own ARIA attributes, or a parent from the state of its children:\n\n";
+	md += "```html\n";
+	md +=
+		'<button :attr:aria-pressed="done" class="bg-gray-200 aria-pressed:bg-green-300">Done</button>\n';
+	md += '<a aria-current="page" class="aria-[current=page]:font-bold">Home</a>\n';
+	md += '<label class="has-checked:bg-green-300"><input type="radio" /> Option</label>\n';
+	md += '<ul class="grid gap-3 empty:hidden"></ul>\n';
+	md += "```\n\n";
+	md +=
+		"Arbitrary values in `aria-[...]` take a single `name=value` pair of letters, digits, `_` and `-`. Selectors in `has-[...]` take letters, digits and `_-:.#>+~*(),` only, with balanced parentheses, so no spaces, quotes or attribute selectors. Anything else is rejected as an unresolvable class.\n\n";
+	md +=
+		"`empty:` is plain `:empty`, which is false if an element contains any text (including whitespace between tags) or element children. A `:for` list always keeps its `<template>` marker inside the container, so `empty:` cannot detect an empty `:for` list; to hide a list with no items, use `:show` on the container:\n\n";
+	md += "```html\n";
+	md += '<ul :show="errors.length">...</ul>\n';
+	md += "```\n\n";
+	md +=
+		"> **Note:** Only one variant applies per class. Variants do not stack: `dark:hover:bg-black` or `md:aria-pressed:w-full` are rejected as unresolvable classes.\n\n";
 
 	md += "### Dark Mode\n\n";
 	md += `Use the \`dark:\` prefix to apply styles when the user's system prefers dark mode (\`prefers-color-scheme: dark\`):\n\n`;
@@ -122,7 +145,7 @@ function generateMarkdown() {
 	md += "```html\n";
 	md += '<div class="bg-[#fff] dark:bg-[#1a1a1a] p-4 dark:border-gray-700">\n';
 	md += "```\n\n";
-	md += `> **Note:** Responsive variants (\`sm:\`, \`md:\`, etc.), orientation variants (\`landscape:\`, \`portrait:\`), pseudo-state variants (\`hover:\`, \`focus:\`, \`disabled:\`), color opacity (\`/N\`), dark mode (\`dark:\`), and custom bracket values are all generated on-demand. Only the classes actually present in your markup are injected, keeping the CSS bundle small.\n\n`;
+	md += `> **Note:** Responsive variants (\`sm:\`, \`md:\`, etc.), orientation variants (\`landscape:\`, \`portrait:\`), state variants (\`hover:\`, \`aria-*:\`, \`has-*:\`, …), color opacity (\`/N\`), dark mode (\`dark:\`), and custom bracket values are all generated on-demand. Only the classes actually present in your markup are injected, keeping the CSS bundle small.\n\n`;
 
 	md += "### Spacing (Margin & Padding)\n\n";
 	md += "Spacing utilities use a 0.25rem (4px) unit by default.\n\n";

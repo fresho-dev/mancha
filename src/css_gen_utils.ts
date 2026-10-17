@@ -153,6 +153,20 @@ export const PROPS_CUSTOM: { [key: string]: string } = {
 	hidden: "display: none",
 	inline: "display: inline",
 	"inline-block": "display: inline-block",
+	"list-item": "display: list-item",
+	// Float and clear.
+	"float-left": "float: left",
+	"float-right": "float: right",
+	"float-none": "float: none",
+	"clear-left": "clear: left",
+	"clear-right": "clear: right",
+	"clear-both": "clear: both",
+	"clear-none": "clear: none",
+	// Word breaks.
+	"break-normal": "overflow-wrap: normal; word-break: normal",
+	"break-words": "overflow-wrap: break-word",
+	"break-all": "word-break: break-all",
+	"break-keep": "word-break: keep-all",
 	// Visibility.
 	visible: "visibility: visible",
 	invisible: "visibility: hidden",

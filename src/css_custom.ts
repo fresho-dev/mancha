@@ -60,9 +60,56 @@ const PROPERTY_MAP: Record<string, string> = {
 
 // Pattern: optional-negative + prefix + bracket-value.
 const CUSTOM_VALUE_PATTERN = /^(-?)([\w-]+)-\[(.+)\]$/;
-const VARIANT_PATTERN = /^(hover|focus|disabled|sm|md|lg|xl|dark|landscape|portrait):(.+)$/;
-const PSEUDO_STATES = ["hover", "focus", "disabled"];
-const ORIENTATIONS = ["landscape", "portrait"];
+// Splits `variant:class` at the first colon outside brackets.
+const VARIANT_SPLIT = /^((?:[^:[]|\[[^\]]*\])+):(.+)$/;
+
+// Arbitrary forms: `aria-[name=value]:` and `has-[selector]:`, the latter checked for balance below.
+const ARIA_VARIANT = /^aria-\[([\w-]+)=([\w-]+)\]$/;
+const HAS_VARIANT = /^has-\[([\w:.#>+~*(),-]+)\]$/;
+const ARIA_STATES = [
+	"busy",
+	"checked",
+	"disabled",
+	"expanded",
+	"hidden",
+	"pressed",
+	"readonly",
+	"required",
+	"selected",
+];
+const HAS_STATES = ["checked", "focus", "disabled", "hover"];
+
+/** Variant prefixes: a value starting with "(" is a media condition, else a selector suffix. */
+export const VARIANTS: Record<string, string> = {
+	hover: ":hover",
+	focus: ":focus",
+	disabled: ":disabled",
+	empty: ":empty",
+	...Object.fromEntries(ARIA_STATES.map((s) => [`aria-${s}`, `[aria-${s}="true"]`])),
+	...Object.fromEntries(HAS_STATES.map((s) => [`has-${s}`, `:has(*:${s})`])),
+	dark: "(prefers-color-scheme: dark)",
+	landscape: "(orientation: landscape)",
+	portrait: "(orientation: portrait)",
+	...Object.fromEntries(
+		Object.entries(MEDIA_BREAKPOINTS).map(([bp, px]) => [bp, `(min-width: ${px}px)`]),
+	),
+};
+
+/** CSS for a variant prefix, or undefined if it is not one. */
+function variantCss(name: string): string | undefined {
+	if (Object.hasOwn(VARIANTS, name)) return VARIANTS[name];
+	const aria = name.match(ARIA_VARIANT);
+	if (aria) return `[aria-${aria[1]}="${aria[2]}"]`;
+	const has = name.match(HAS_VARIANT)?.[1];
+	if (!has) return undefined;
+	// Unbalanced parentheses could close :has() early and widen the selector.
+	let depth = 0;
+	for (const c of has) {
+		depth += c === "(" ? 1 : c === ")" ? -1 : 0;
+		if (depth < 0) return undefined;
+	}
+	return depth ? undefined : `:has(${has})`;
+}
 
 // A class per distinct dynamic value (`:class="'p-[' + px + 'px]'"`) can reach the negative
 // cache, so it needs a ceiling. Past it the cache is dropped whole rather than evicted one
@@ -71,9 +118,9 @@ const MAX_FAILED_LOOKUPS = 256;
 
 // Module state.
 const injectedRules = new Set<string>();
-// Classes that resolved to no declarations, keyed by base class name since
-// resolution does not depend on the variant. Without this a class that matches
-// nothing re-walks every rule of every sheet on each scan, forever.
+// Classes that resolved to no declarations, keyed by base class name since resolution does not
+// depend on the variant, or by full name when insertRule rejected it. Without this a class that
+// matches nothing re-walks every rule of every sheet on each scan, forever.
 const failedLookups = new Set<string>();
 // Classes already reported. Separate from failedLookups because that one is dropped whenever
 // the page's rules change, and re-reporting the same dead class on every theme switch or lazy
@@ -145,6 +192,18 @@ function warnUnresolved(fullClassName: string): void {
 	if (warnedLookups.size >= MAX_FAILED_LOOKUPS) warnedLookups.clear();
 	warnedLookups.add(fullClassName);
 	console.warn(`No CSS rule for class: ${fullClassName}`);
+}
+
+/** Cache a class as unresolvable under `key` and report it as written. */
+function recordFailure(key: string, fullClassName: string): false {
+	if (failedLookups.size >= MAX_FAILED_LOOKUPS) failedLookups.clear();
+	if (failedLookups.size === 0) {
+		failedLookupsFingerprint = ruleFingerprint();
+		markFingerprintChecked();
+	}
+	failedLookups.add(key);
+	warnUnresolved(fullClassName);
+	return false;
 }
 
 /** Look up CSS declarations for an existing class from document stylesheets. */
@@ -266,11 +325,8 @@ export function parseColorOpacityClass(
 }
 
 /** Inject a single custom value class (with optional variant). */
-export function injectCustomClass(
-	className: string,
-	variant?: { type: "pseudo" | "media"; name: string },
-): boolean {
-	const fullClassName = variant ? `${variant.name}:${className}` : className;
+export function injectCustomClass(className: string, variant?: string): boolean {
+	const fullClassName = variant ? `${variant}:${className}` : className;
 
 	// Resolve the stylesheet before consulting the cache: getStyleSheet() drops
 	// the cache when it has to recreate a removed sheet, and only the rules in
@@ -284,7 +340,7 @@ export function injectCustomClass(
 	// Known not to resolve. Checked after the injected cache so a class that was
 	// once unresolvable still short-circuits on the cheaper path once it exists.
 	syncFailedLookups();
-	if (failedLookups.has(className)) {
+	if (failedLookups.has(className) || failedLookups.has(fullClassName)) {
 		warnUnresolved(fullClassName);
 		return false;
 	}
@@ -300,33 +356,17 @@ export function injectCustomClass(
 		// Cache under the base name, but report the class as it was written: the base name of
 		// `hover:bg-brand-500` appears nowhere in the markup, so it is not something a reader
 		// can search for.
-		if (failedLookups.size >= MAX_FAILED_LOOKUPS) failedLookups.clear();
-		if (failedLookups.size === 0) {
-			failedLookupsFingerprint = ruleFingerprint();
-			markFingerprintChecked();
-		}
-		failedLookups.add(className);
-		warnUnresolved(fullClassName);
-		return false;
+		return recordFailure(className, fullClassName);
 	}
 
 	// Divide classes need a child selector suffix.
 	const selectorSuffix = className.startsWith("divide-") ? " > :not(:last-child)" : "";
 
-	// Build the rule based on variant type.
-	let rule: string;
-	if (!variant) {
-		rule = `.${escapedClass}${selectorSuffix} { ${declarations} }`;
-	} else if (variant.type === "pseudo") {
-		rule = `.${escapedClass}${selectorSuffix}:${variant.name} { ${declarations} }`;
-	} else if (variant.name === "dark") {
-		rule = `@media (prefers-color-scheme: dark) { .${escapedClass}${selectorSuffix} { ${declarations} } }`;
-	} else if (ORIENTATIONS.includes(variant.name)) {
-		rule = `@media (orientation: ${variant.name}) { .${escapedClass}${selectorSuffix} { ${declarations} } }`;
-	} else {
-		const bp = MEDIA_BREAKPOINTS[variant.name as keyof typeof MEDIA_BREAKPOINTS];
-		rule = `@media (min-width: ${bp}px) { .${escapedClass}${selectorSuffix} { ${declarations} } }`;
-	}
+	const cond = variant ? (variantCss(variant) ?? "") : "";
+	const isMedia = cond.startsWith("(");
+	const rule = isMedia
+		? `@media ${cond} { .${escapedClass}${selectorSuffix} { ${declarations} } }`
+		: `.${escapedClass}${cond}${selectorSuffix} { ${declarations} }`;
 
 	try {
 		const index = sheet.insertRule(rule, sheet.cssRules.length);
@@ -339,9 +379,9 @@ export function injectCustomClass(
 		// cssRules list too, and `instanceof CSSMediaRule` would throw in a DOM shim
 		// lacking that global.
 		const inserted = sheet.cssRules[index];
-		const styleRule = (
-			variant?.type === "media" ? (inserted as CSSGroupingRule).cssRules[0] : inserted
-		) as CSSStyleRule | undefined;
+		const styleRule = (isMedia ? (inserted as CSSGroupingRule).cssRules[0] : inserted) as
+			| CSSStyleRule
+			| undefined;
 		if (!styleRule?.style?.length) {
 			sheet.deleteRule(index);
 			console.warn(`Injected CSS rule had no effect: ${rule}`);
@@ -353,9 +393,9 @@ export function injectCustomClass(
 
 		injectedRules.add(fullClassName);
 		return true;
-	} catch (e) {
-		console.warn(`Failed to inject CSS rule: ${rule}`, e);
-		return false;
+	} catch {
+		// Keyed by the class as written: a variant can break the selector of a base that resolves.
+		return recordFailure(fullClassName, fullClassName);
 	}
 }
 
@@ -369,21 +409,10 @@ export function processClassString(classString: string): void {
 	if (!classString || !needsProcessing(classString)) return;
 
 	for (const cls of classString.trim().split(/\s+/)) {
-		// Check for variant prefix.
-		const variantMatch = cls.match(VARIANT_PATTERN);
-		if (variantMatch) {
-			const [, variantName, baseClass] = variantMatch;
-			const isPseudo = PSEUDO_STATES.includes(variantName);
-			const isMedia = variantName in MEDIA_BREAKPOINTS;
-			const isDark = variantName === "dark";
-			const isOrientation = ORIENTATIONS.includes(variantName);
-			if (isPseudo || isMedia || isDark || isOrientation) {
-				injectCustomClass(baseClass, {
-					type: isPseudo ? "pseudo" : "media",
-					name: variantName,
-				});
-				continue;
-			}
+		const [, variant, baseClass] = cls.match(VARIANT_SPLIT) ?? [];
+		if (variant && variantCss(variant) !== undefined) {
+			injectCustomClass(baseClass, variant);
+			continue;
 		}
 
 		// Skip plain tokens that don't need custom injection — they're already
