@@ -324,9 +324,9 @@ export function parseColorOpacityClass(
 	return { property, value: `rgb(${rgb} / ${alpha})` };
 }
 
-/** Inject a single custom value class (with optional variant). */
-export function injectCustomClass(className: string, variant?: string): boolean {
-	const fullClassName = variant ? `${variant}:${className}` : className;
+/** Inject a single custom value class (with optional stacked variants). */
+export function injectCustomClass(className: string, ...variants: string[]): boolean {
+	const fullClassName = [...variants, className].join(":");
 
 	// Resolve the stylesheet before consulting the cache: getStyleSheet() drops
 	// the cache when it has to recreate a removed sheet, and only the rules in
@@ -362,11 +362,16 @@ export function injectCustomClass(className: string, variant?: string): boolean 
 	// Divide classes need a child selector suffix.
 	const selectorSuffix = className.startsWith("divide-") ? " > :not(:last-child)" : "";
 
-	const cond = variant ? (variantCss(variant) ?? "") : "";
-	const isMedia = cond.startsWith("(");
-	const rule = isMedia
-		? `@media ${cond} { .${escapedClass}${selectorSuffix} { ${declarations} } }`
-		: `.${escapedClass}${cond}${selectorSuffix} { ${declarations} }`;
+	let selector = "";
+	const media: string[] = [];
+	for (const variant of variants) {
+		const cond = variantCss(variant) ?? "";
+		if (cond.startsWith("(")) media.push(cond);
+		else selector += cond;
+	}
+	const isMedia = media.length > 0;
+	const inner = `.${escapedClass}${selector}${selectorSuffix} { ${declarations} }`;
+	const rule = isMedia ? `@media ${media.join(" and ")} { ${inner} }` : inner;
 
 	try {
 		const index = sheet.insertRule(rule, sheet.cssRules.length);
@@ -409,9 +414,15 @@ export function processClassString(classString: string): void {
 	if (!classString || !needsProcessing(classString)) return;
 
 	for (const cls of classString.trim().split(/\s+/)) {
-		const [, variant, baseClass] = cls.match(VARIANT_SPLIT) ?? [];
-		if (variant && variantCss(variant) !== undefined) {
-			injectCustomClass(baseClass, variant);
+		const variants: string[] = [];
+		let baseClass = cls;
+		for (let m = cls.match(VARIANT_SPLIT); m; m = baseClass.match(VARIANT_SPLIT)) {
+			variants.push(m[1]);
+			baseClass = m[2];
+		}
+		// One unknown prefix makes the whole class unresolvable, reported as written below.
+		if (variants.length && variants.every((v) => variantCss(v) !== undefined)) {
+			injectCustomClass(baseClass, ...variants);
 			continue;
 		}
 

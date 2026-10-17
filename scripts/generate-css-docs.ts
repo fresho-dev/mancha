@@ -131,8 +131,16 @@ function generateMarkdown() {
 	md += "```html\n";
 	md += '<ul :show="errors.length">...</ul>\n';
 	md += "```\n\n";
+	md += "### Stacked Variants\n\n";
 	md +=
-		"> **Note:** Only one variant applies per class. Variants do not stack: `dark:hover:bg-black` or `md:aria-pressed:w-full` are rejected as unresolvable classes.\n\n";
+		"Variants stack: every prefix must hold for the class to apply. Media variants (`sm:`, `dark:`, `landscape:`, …) are combined into one `@media` query with `and`, and state variants are appended to the selector:\n\n";
+	md += "```html\n";
+	md += '<button class="dark:md:hover:bg-gray-700 md:aria-pressed:w-full">Toggle</button>\n';
+	md += "```\n\n";
+	md +=
+		"`dark:md:hover:bg-gray-700` becomes `@media (prefers-color-scheme: dark) and (min-width: 768px) { .dark\\:md\\:hover\\:bg-gray-700:hover { … } }`. All conditions apply to the same element, so the order of the prefixes does not matter. If any prefix is unknown, the whole class is rejected as unresolvable.\n\n";
+	md +=
+		"When two variant rules set the same property, the more specific selector wins: each state variant adds specificity, a `has-[...]` variant that of its selector. Media variants add none, so between rules of equal specificity the one injected later wins, which is the one whose class Mancha encountered later.\n\n";
 
 	md += "### Dark Mode\n\n";
 	md += `Use the \`dark:\` prefix to apply styles when the user's system prefers dark mode (\`prefers-color-scheme: dark\`):\n\n`;
@@ -598,9 +606,10 @@ function generateMarkdown() {
 	md += "| `border-` | border-color |\n";
 	md += "\n";
 	md += "### Variants\n\n";
-	md += "Custom values support pseudo-states, responsive breakpoints, and dark mode:\n\n";
+	md +=
+		"Custom values support pseudo-states, responsive breakpoints, and dark mode, stacked or not:\n\n";
 	md += "```html\n";
-	md += '<div class="hover:w-[200px] md:max-w-[900px] dark:bg-[#333]">\n';
+	md += '<div class="hover:w-[200px] md:max-w-[900px] dark:bg-[#333] dark:md:hover:bg-[#444]">\n';
 	md += "```\n\n";
 	md += "### Binding\n\n";
 	md +=

@@ -122,7 +122,17 @@ Arbitrary values in `aria-[...]` take a single `name=value` pair of letters, dig
 <ul :show="errors.length">...</ul>
 ```
 
-> **Note:** Only one variant applies per class. Variants do not stack: `dark:hover:bg-black` or `md:aria-pressed:w-full` are rejected as unresolvable classes.
+### Stacked Variants
+
+Variants stack: every prefix must hold for the class to apply. Media variants (`sm:`, `dark:`, `landscape:`, …) are combined into one `@media` query with `and`, and state variants are appended to the selector:
+
+```html
+<button class="dark:md:hover:bg-gray-700 md:aria-pressed:w-full">Toggle</button>
+```
+
+`dark:md:hover:bg-gray-700` becomes `@media (prefers-color-scheme: dark) and (min-width: 768px) { .dark\:md\:hover\:bg-gray-700:hover { … } }`. All conditions apply to the same element, so the order of the prefixes does not matter. If any prefix is unknown, the whole class is rejected as unresolvable.
+
+When two variant rules set the same property, the more specific selector wins: each state variant adds specificity, a `has-[...]` variant that of its selector. Media variants add none, so between rules of equal specificity the one injected later wins, which is the one whose class Mancha encountered later.
 
 ### Dark Mode
 
@@ -669,10 +679,10 @@ When you need a value outside the design scale, use bracket notation as an escap
 
 ### Variants
 
-Custom values support pseudo-states, responsive breakpoints, and dark mode:
+Custom values support pseudo-states, responsive breakpoints, and dark mode, stacked or not:
 
 ```html
-<div class="hover:w-[200px] md:max-w-[900px] dark:bg-[#333]">
+<div class="hover:w-[200px] md:max-w-[900px] dark:bg-[#333] dark:md:hover:bg-[#444]">
 ```
 
 ### Binding
