@@ -627,6 +627,11 @@ function generateMarkdown() {
 		"bracket value on a property it does not map (`rounded-[12px]`). Each of those does " +
 		"nothing, which is what the message is for. Sheets that arrive later are picked up, so a " +
 		"late-loading sheet defining the class still works.\n\n";
+	md +=
+		"**Restricted characters**: a bracket value may only contain letters, digits, `_`, `-`, " +
+		"`#`, `.`, `%`, `+`, `*`, `/`, `,`, `!` and balanced parentheses, and may not contain " +
+		"`/*`. Anything else (`;`, braces, quotes, backslashes, `:`, …) makes the class " +
+		"unresolvable, so a value cannot break out of its declaration.\n\n";
 	md += "### When to Use\n\n";
 	md += "**Prefer the design scale** for consistency. Use custom values for:\n";
 	md += "- Matching external constraints (third-party widgets, embeds)\n";

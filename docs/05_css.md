@@ -697,6 +697,8 @@ Markup that Mancha did not render is the exception: it is never scanned, so call
 
 **Unresolvable classes are reported**: a class that reaches on-demand injection and matches no rule logs `No CSS rule for class: ...` once for the life of the page. That covers a typo or a color outside the palette (`hover:bg-brand-500`), and also anything Mancha does not implement — a variant it does not know (`active:`, `group-hover:`), or a bracket value on a property it does not map (`rounded-[12px]`). Each of those does nothing, which is what the message is for. Sheets that arrive later are picked up, so a late-loading sheet defining the class still works.
 
+**Restricted characters**: a bracket value may only contain letters, digits, `_`, `-`, `#`, `.`, `%`, `+`, `*`, `/`, `,`, `!` and balanced parentheses, and may not contain `/*`. Anything else (`;`, braces, quotes, backslashes, `:`, …) makes the class unresolvable, so a value cannot break out of its declaration.
+
 ### When to Use
 
 **Prefer the design scale** for consistency. Use custom values for:
