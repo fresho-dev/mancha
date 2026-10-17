@@ -376,6 +376,7 @@ describe("Browser", () => {
 			scanAndInject(target);
 
 			const style = (id: string) => getComputedStyle(target.querySelector(`#${id}`) as Element);
+			const { innerWidth: width, innerHeight: height } = window;
 			try {
 				await setViewport({ width: 1024, height: 768 });
 				await emulateMedia({ colorScheme: "dark" });
@@ -390,7 +391,7 @@ describe("Browser", () => {
 				await setViewport({ width: 600, height: 768 });
 				assert.notEqual(style("s-on").width, "151px");
 			} finally {
-				await setViewport({ width: 800, height: 600 });
+				await setViewport({ width, height });
 				await emulateMedia({ colorScheme: "light" });
 				target.remove();
 				const styles = document.head.querySelectorAll("style");

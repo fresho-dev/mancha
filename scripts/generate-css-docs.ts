@@ -138,7 +138,7 @@ function generateMarkdown() {
 	md += '<button class="dark:md:hover:bg-gray-700 md:aria-pressed:w-full">Toggle</button>\n';
 	md += "```\n\n";
 	md +=
-		"`dark:md:hover:bg-gray-700` becomes `@media (prefers-color-scheme: dark) and (min-width: 768px) { .dark\\:md\\:hover\\:bg-gray-700:hover { … } }`. All conditions apply to the same element, so the order of the prefixes does not matter. If any prefix is unknown, the whole class is rejected as unresolvable.\n\n";
+		"`dark:md:hover:bg-gray-700` becomes `@media (prefers-color-scheme: dark) and (min-width: 768px) { .dark\\:md\\:hover\\:bg-gray-700:hover { … } }`. All conditions apply to the same element, so the order of the prefixes does not matter. Prefixes are read up to the first one that is not a variant, and the rest is the base class: `md:print:hidden` applies `md:` to a stylesheet class `.print\\:hidden`.\n\n";
 	md +=
 		"When two variant rules set the same property, the more specific selector wins: each state variant adds specificity, a `has-[...]` variant that of its selector. Media variants add none, so between rules of equal specificity the one injected later wins, which is the one whose class Mancha encountered later.\n\n";
 

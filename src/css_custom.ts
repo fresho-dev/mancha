@@ -389,6 +389,8 @@ export function injectCustomClass(className: string, ...variants: string[]): boo
 			| undefined;
 		if (!styleRule?.style?.length) {
 			sheet.deleteRule(index);
+			// An @media holding no rule means the inner selector was rejected, which is permanent.
+			if (!styleRule) return recordFailure(fullClassName, fullClassName);
 			console.warn(`Injected CSS rule had no effect: ${rule}`);
 			// Deliberately left uncached, so every later scan re-inserts, re-detects
 			// and re-warns for this class. That repeats once per scan rather than
@@ -416,12 +418,16 @@ export function processClassString(classString: string): void {
 	for (const cls of classString.trim().split(/\s+/)) {
 		const variants: string[] = [];
 		let baseClass = cls;
-		for (let m = cls.match(VARIANT_SPLIT); m; m = baseClass.match(VARIANT_SPLIT)) {
+		// Peel known prefixes; the rest, colons included, is the base class.
+		for (
+			let m = cls.match(VARIANT_SPLIT);
+			m && variantCss(m[1]) !== undefined;
+			m = baseClass.match(VARIANT_SPLIT)
+		) {
 			variants.push(m[1]);
 			baseClass = m[2];
 		}
-		// One unknown prefix makes the whole class unresolvable, reported as written below.
-		if (variants.length && variants.every((v) => variantCss(v) !== undefined)) {
+		if (variants.length) {
 			injectCustomClass(baseClass, ...variants);
 			continue;
 		}
