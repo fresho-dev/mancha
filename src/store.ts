@@ -907,10 +907,12 @@ export class SignalStore<T extends StoreState = StoreState> {
 				}
 				return true;
 			},
+			// Store keys are cleared, not removed: removal would drop observers and race later writes.
 			deleteProperty: (_, prop) => {
-				const owner = typeof prop === "string" ? getAncestorKeyStore(this, prop) : null;
-				if (!owner) return Reflect.deleteProperty(keyval, prop);
-				owner.del(prop as string);
+				if (typeof prop !== "string" || !getAncestorKeyStore(this, prop)) {
+					return Reflect.deleteProperty(keyval, prop);
+				}
+				this.set(prop, undefined);
 				return true;
 			},
 		});

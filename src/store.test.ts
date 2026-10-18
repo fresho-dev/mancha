@@ -119,7 +119,7 @@ describe("SignalStore", () => {
 			assert.equal(callCount, 1);
 		});
 
-		it("deletes top-level key and notifies", async () => {
+		it("deletes top-level key by setting it to undefined and notifies", async () => {
 			const store = new SignalStore({ a: 1 } as { a?: number });
 			let callCount = 0;
 			store.effect(function () {
@@ -127,9 +127,8 @@ describe("SignalStore", () => {
 				callCount++;
 			});
 			assert.equal(delete store.$.a, true);
-			await sleepForReactivity();
-			assert.equal("a" in store.$, false);
 			assert.equal(store.get("a"), undefined);
+			await sleepForReactivity();
 			assert.equal(callCount, 2);
 		});
 
@@ -137,8 +136,37 @@ describe("SignalStore", () => {
 			const parent = new SignalStore({ a: 1 } as { a?: number });
 			const child = new SignalStore({ $parent: parent } as unknown as { a?: number });
 			assert.equal(delete child.$.a, true);
+			assert.equal(parent.get("a"), undefined);
+		});
+
+		it("deletes local shadow without touching the ancestor", async () => {
+			const parent = new SignalStore({ a: 1 } as { a?: number });
+			const child = new SignalStore({ $parent: parent } as unknown as { a?: number });
+			await child.set("a", 2, true);
+			assert.equal(delete child.$.a, true);
+			assert.equal(child.get("a"), undefined);
+			assert.equal(parent.get("a"), 1);
+		});
+
+		it("keeps value assigned right after deleting top-level key", async () => {
+			const store = new SignalStore({ a: 1 } as { a?: number });
+			delete store.$.a;
+			store.$.a = 5;
 			await sleepForReactivity();
-			assert.equal("a" in parent.$, false);
+			assert.equal(store.get("a"), 5);
+		});
+
+		it("keeps notifying after a deleted top-level key is reassigned", async () => {
+			const store = new SignalStore({ a: 1 } as { a?: number });
+			const seen: unknown[] = [];
+			store.effect(function () {
+				seen.push(this.a);
+			});
+			delete store.$.a;
+			await sleepForReactivity();
+			store.$.a = 7;
+			await sleepForReactivity();
+			assert.deepEqual(seen, [1, undefined, 7]);
 		});
 
 		it("deletes absent top-level key without throwing", async () => {
