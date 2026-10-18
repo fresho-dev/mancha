@@ -403,7 +403,7 @@ This feature is enabled automatically. When a renderer is mounted to a DOM eleme
 
 - **Store to URL**: When you set a variable like `$.$$page = 2` (where `$` is the renderer's reactive proxy), the URL will be updated to `/?page=2`. If you set the value to a falsy value (e.g., `null`, `undefined`, `false`, `0`, or `''`), the parameter will be removed from the URL.
 
-- **URL to Store**: When the page loads or the user navigates using the browser's back/forward buttons, the store is automatically updated from the current URL's query parameters. For example, if the URL is `/?search=mancha`, the store variable `$$search` will be set to `"mancha"`.
+- **URL to Store**: When the page loads or the user navigates using the browser's back/forward buttons, the store is automatically updated from the current URL's query parameters. For example, if the URL is `/?search=mancha`, the store variable `$$search` will be set to `"mancha"`. Parameters that disappear from the URL set their variable to `undefined`, and bindings to it stay reactive.
 
 This allows you to react to URL changes declaratively within your components:
 
