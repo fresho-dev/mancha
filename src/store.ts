@@ -348,12 +348,10 @@ export class SignalStore<T extends StoreState = StoreState> {
 
 		const proxy = new Proxy(obj, {
 			deleteProperty: (target: U, property: string | symbol): boolean => {
-				if (typeof property === "string" && property in target) {
-					delete (target as Record<string, unknown>)[property];
-					notifyMutation();
-					return true;
-				}
-				return false;
+				const had = Object.hasOwn(target, property);
+				const ret = Reflect.deleteProperty(target, property);
+				if (had && ret) notifyMutation();
+				return ret;
 			},
 			set: (target: U, prop: string | symbol, value: unknown, receiver: unknown): boolean => {
 				// Skip if the value is unchanged.

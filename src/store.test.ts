@@ -67,6 +67,50 @@ describe("SignalStore", () => {
 			assert.equal(value1, 2);
 			assert.equal(value2, 2);
 		});
+
+		it("deletes nested property and notifies", async () => {
+			const store = new SignalStore({ item: { a: 1, b: 2 } as { a: number; b?: number } });
+			let callCount = 0;
+			store.effect(function () {
+				const _ = this.item.a;
+				callCount++;
+			});
+			delete store.$.item.b;
+			await sleepForReactivity();
+			assert.equal("b" in store.$.item, false);
+			assert.equal(callCount, 2);
+		});
+
+		it("deletes absent nested property without throwing or notifying (#141)", async () => {
+			const store = new SignalStore({ item: { a: 1 } as { a: number; b?: number } });
+			let callCount = 0;
+			store.effect(function () {
+				const _ = this.item.a;
+				callCount++;
+			});
+			assert.equal(delete store.$.item.b, true);
+			await sleepForReactivity();
+			assert.equal(callCount, 1);
+		});
+
+		it("deletes symbol nested property without throwing (#141)", async () => {
+			const sym = Symbol("s");
+			const store = new SignalStore({ item: { [sym]: 1 } as Record<symbol, number> });
+			assert.equal(delete store.$.item[sym], true);
+			assert.equal(sym in store.$.item, false);
+		});
+
+		it("does not notify when deleting inherited nested property", async () => {
+			const store = new SignalStore({ item: { a: 1 } as { a: number; toString?: unknown } });
+			let callCount = 0;
+			store.effect(function () {
+				const _ = this.item.a;
+				callCount++;
+			});
+			assert.equal(delete store.$.item.toString, true);
+			await sleepForReactivity();
+			assert.equal(callCount, 1);
+		});
 	});
 
 	describe("effect", () => {
