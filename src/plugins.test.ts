@@ -2801,6 +2801,23 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(node.value, "");
 			});
 
+			it("keeps an ancestor value when binding inside a subrenderer (#143)", async function () {
+				// Skip test if renderer does not support events.
+				if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+				const doc = globalThis.document.implementation.createHTMLDocument();
+				// tsec-disable-next-line
+				setInnerHTML(doc.body, `<div :data="{ x: 1 }"><input :bind="foo" /></div>`);
+				const node = doc.body.querySelector("input") as HTMLInputElement;
+
+				const renderer = new ctor();
+				await renderer.set("foo", "bar");
+				await renderer.mount(doc.body);
+
+				assert.equal(renderer.get("foo"), "bar");
+				assert.equal(node.value, "bar");
+			});
+
 			it("binds to a text input value with undefined variable", async function () {
 				// Skip test if renderer does not support events.
 				if (["htmlparser2"].includes(new ctor().impl)) this.skip();

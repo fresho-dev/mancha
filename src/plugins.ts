@@ -26,6 +26,7 @@ import {
 import type { ParserParams, RendererPlugin, RenderParams } from "./interfaces.js";
 import { Iterator } from "./iterator.js";
 import type { IRenderer } from "./renderer.js";
+import { getAncestorKeyStore } from "./store.js";
 
 /** @internal */
 export namespace RendererPlugins {
@@ -630,7 +631,7 @@ export namespace RendererPlugins {
 			const prop = getAttribute(elem, "type") === "checkbox" ? "checked" : "value";
 
 			// If the bound expression is a simple variable and does not exist, create it.
-			if (!bindExpr.includes(".") && !this.has(bindExpr)) {
+			if (!bindExpr.includes(".") && !getAncestorKeyStore(this, bindExpr)) {
 				// NOTE: Setting the value to an empty string instead of undefined or null.
 				this.set(bindExpr, "");
 			}
