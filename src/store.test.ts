@@ -169,6 +169,21 @@ describe("SignalStore", () => {
 			assert.deepEqual(seen, [1, undefined, 7]);
 		});
 
+		it("keeps child observers after ancestor key is deleted and reassigned", async () => {
+			const parent = new SignalStore({ a: 1 } as { a?: number });
+			const child = new SignalStore({ $parent: parent } as unknown as { a?: number });
+			const seen: unknown[] = [];
+			child.effect(function () {
+				seen.push(this.a);
+			});
+			delete parent.$.a;
+			await sleepForReactivity();
+			parent.$.a = 7;
+			await sleepForReactivity();
+			assert.deepEqual(seen, [1, undefined, 7]);
+			assert.equal(child._store.has("a"), false);
+		});
+
 		it("deletes absent top-level key without throwing", async () => {
 			const store = new SignalStore({ a: 1 } as { a: number; b?: number });
 			assert.equal(delete store.$.b, true);
