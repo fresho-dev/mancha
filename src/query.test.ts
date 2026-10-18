@@ -104,13 +104,17 @@ describe("Query Parameter Bindings", () => {
 		renderer.effect(function (this: { $$b?: string }) {
 			seen.push(this.$$b);
 		});
+		// The popstate handler's writes can't be awaited, so poll for the effect.
+		const seenAtLeast = async (n: number) => {
+			for (let i = 0; i < 100 && seen.length < n; i++) await sleepForReactivity();
+		};
 
 		window.history.replaceState(null, "", "/");
 		window.dispatchEvent(new PopStateEvent("popstate"));
-		await sleepForReactivity();
+		await seenAtLeast(2);
 		window.history.replaceState(null, "", "/?b=3");
 		window.dispatchEvent(new PopStateEvent("popstate"));
-		await sleepForReactivity();
+		await seenAtLeast(3);
 
 		assert.deepEqual(seen, ["2", undefined, "3"]);
 	});
