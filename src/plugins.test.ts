@@ -2783,6 +2783,24 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(renderer.get("foo"), "qux");
 			});
 
+			it("renders an existing key cleared to undefined as an empty text input", async function () {
+				// Skip test if renderer does not support events.
+				if (["htmlparser2"].includes(new ctor().impl)) this.skip();
+
+				const doc = globalThis.document.implementation.createHTMLDocument();
+				// tsec-disable-next-line
+				setInnerHTML(doc.body, `<input :bind="foo" />`);
+				const node = doc.body.firstChild as HTMLInputElement;
+
+				const renderer = new ctor();
+				await renderer.set("foo", "bar");
+				await renderer.mount(doc.body);
+
+				delete renderer.$.foo;
+				await sleepForReactivity();
+				assert.equal(node.value, "");
+			});
+
 			it("binds to a text input value with undefined variable", async function () {
 				// Skip test if renderer does not support events.
 				if (["htmlparser2"].includes(new ctor().impl)) this.skip();

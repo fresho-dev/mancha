@@ -79,6 +79,8 @@ When setting a variable, there are 3 possible cases:
 
 **NOTE**: This does not apply to variables defined via `:data` attribute, which always set a new variable for the newly created renderer.
 
+Deleting a variable with `delete $.message` follows the same lookup, but sets it to `undefined` instead of removing it, so bindings that read it stay reactive and `"message" in $` remains `true`. Deleting properties of nested objects (`delete $.item.field`) removes them like on a plain object.
+
 Renderers also have a `$parent`, `$rootRenderer` and `$rootNode` attributes. The `$parent` attribute references the immediate ancestor renderer if any, or it's `null` otherwise. The `$rootRenderer` attribute references the root renderer where `mancha` was mounted, which could be a self-reference. Finally, the `$rootNode` attribute references the HTML node where `mancha` was mounted. Reads and writes through `$parent` and `$rootRenderer` are reactive, so `$parent.count = 5` updates the ancestor's `count` and re-renders anything that depends on it.
 
 While evaluating expressions, there will also be an `$elem` attribute which references the current element being rendered or, in the case of events, the element dispatching the event as well as the corresponding `$event` attribute.
@@ -401,7 +403,7 @@ This feature is enabled automatically. When a renderer is mounted to a DOM eleme
 
 - **Store to URL**: When you set a variable like `$.$$page = 2` (where `$` is the renderer's reactive proxy), the URL will be updated to `/?page=2`. If you set the value to a falsy value (e.g., `null`, `undefined`, `false`, `0`, or `''`), the parameter will be removed from the URL.
 
-- **URL to Store**: When the page loads or the user navigates using the browser's back/forward buttons, the store is automatically updated from the current URL's query parameters. For example, if the URL is `/?search=mancha`, the store variable `$$search` will be set to `"mancha"`.
+- **URL to Store**: When the page loads or the user navigates using the browser's back/forward buttons, the store is automatically updated from the current URL's query parameters. For example, if the URL is `/?search=mancha`, the store variable `$$search` will be set to `"mancha"`. Parameters that disappear from the URL set their variable to `undefined`, and bindings to it stay reactive.
 
 This allows you to react to URL changes declaratively within your components:
 

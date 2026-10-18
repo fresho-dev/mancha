@@ -1,6 +1,6 @@
 import { Renderer } from "./browser.js";
 import { setupQueryParamBindings } from "./query.js";
-import { assert, setupGlobalTestEnvironment } from "./test_utils.js";
+import { assert, setupGlobalTestEnvironment, sleepForReactivity } from "./test_utils.js";
 
 const START_HREF = "/";
 
@@ -80,7 +80,7 @@ describe("Query Parameter Bindings", () => {
 		assert.equal(renderer.get("$$page"), "2");
 	});
 
-	it("should remove keys from store that are no longer in URL on popstate", async () => {
+	it("should clear keys in store that are no longer in URL on popstate", async () => {
 		window.history.replaceState(null, "", "/?a=1&b=2");
 		const renderer = new Renderer();
 		await setupQueryParamBindings(renderer);
@@ -93,7 +93,30 @@ describe("Query Parameter Bindings", () => {
 		window.dispatchEvent(new PopStateEvent("popstate"));
 
 		assert.equal(renderer.get("$$a"), "1");
-		assert.equal(renderer.get("$$b"), null);
+		assert.equal(renderer.get("$$b"), undefined);
+	});
+
+	it("should keep observers of keys removed from URL on popstate", async () => {
+		window.history.replaceState(null, "", "/?b=2");
+		const renderer = new Renderer();
+		await setupQueryParamBindings(renderer);
+		const seen: unknown[] = [];
+		renderer.effect(function (this: { $$b?: string }) {
+			seen.push(this.$$b);
+		});
+		// The popstate handler's writes can't be awaited, so poll for the effect.
+		const seenAtLeast = async (n: number) => {
+			for (let i = 0; i < 100 && seen.length < n; i++) await sleepForReactivity();
+		};
+
+		window.history.replaceState(null, "", "/");
+		window.dispatchEvent(new PopStateEvent("popstate"));
+		await seenAtLeast(2);
+		window.history.replaceState(null, "", "/?b=3");
+		window.dispatchEvent(new PopStateEvent("popstate"));
+		await seenAtLeast(3);
+
+		assert.deepEqual(seen, ["2", undefined, "3"]);
 	});
 
 	it("should not change URL if value is the same", async () => {

@@ -348,12 +348,10 @@ export class SignalStore<T extends StoreState = StoreState> {
 
 		const proxy = new Proxy(obj, {
 			deleteProperty: (target: U, property: string | symbol): boolean => {
-				if (typeof property === "string" && property in target) {
-					delete (target as Record<string, unknown>)[property];
-					notifyMutation();
-					return true;
-				}
-				return false;
+				const had = Object.hasOwn(target, property);
+				const ret = Reflect.deleteProperty(target, property);
+				if (had && ret) notifyMutation();
+				return ret;
 			},
 			set: (target: U, prop: string | symbol, value: unknown, receiver: unknown): boolean => {
 				// Skip if the value is unchanged.
@@ -907,6 +905,14 @@ export class SignalStore<T extends StoreState = StoreState> {
 					}
 					this.set(prop, value);
 				}
+				return true;
+			},
+			// Store keys are cleared, not removed: removal would drop observers and race later writes.
+			deleteProperty: (_, prop) => {
+				if (typeof prop !== "string" || !getAncestorKeyStore(this, prop)) {
+					return Reflect.deleteProperty(keyval, prop);
+				}
+				this.set(prop, undefined);
 				return true;
 			},
 		});

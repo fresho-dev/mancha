@@ -645,7 +645,8 @@ export namespace RendererPlugins {
 					if (prop === "checked") {
 						elem.checked = !!result;
 					} else {
-						elem.value = result as string;
+						// Nullish renders empty; `.value = undefined` would show "undefined".
+						elem.value = (result ?? "") as string;
 						// Some elements (notably <select>) silently fail when setting .value
 						// if required children don't exist yet. Queue a retry for later.
 						// See IRenderer._pendingValueRetries for detailed explanation.

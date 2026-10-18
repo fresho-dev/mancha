@@ -67,6 +67,128 @@ describe("SignalStore", () => {
 			assert.equal(value1, 2);
 			assert.equal(value2, 2);
 		});
+
+		it("deletes nested property and notifies", async () => {
+			const store = new SignalStore({ item: { a: 1, b: 2 } as { a: number; b?: number } });
+			let callCount = 0;
+			store.effect(function () {
+				const _ = this.item.a;
+				callCount++;
+			});
+			delete store.$.item.b;
+			await sleepForReactivity();
+			assert.equal("b" in store.$.item, false);
+			assert.equal(callCount, 2);
+		});
+
+		it("deletes absent nested property without throwing or notifying (#141)", async () => {
+			const store = new SignalStore({ item: { a: 1 } as { a: number; b?: number } });
+			let callCount = 0;
+			store.effect(function () {
+				const _ = this.item.a;
+				callCount++;
+			});
+			assert.equal(delete store.$.item.b, true);
+			await sleepForReactivity();
+			assert.equal(callCount, 1);
+		});
+
+		it("deletes symbol nested property without throwing and notifies (#141)", async () => {
+			const sym = Symbol("s");
+			const store = new SignalStore({ item: { [sym]: 1 } as Record<symbol, number> });
+			let callCount = 0;
+			store.effect(function () {
+				const _ = this.item[sym];
+				callCount++;
+			});
+			assert.equal(delete store.$.item[sym], true);
+			await sleepForReactivity();
+			assert.equal(sym in store.$.item, false);
+			assert.equal(callCount, 2);
+		});
+
+		it("does not notify when deleting inherited nested property", async () => {
+			const store = new SignalStore({ item: { a: 1 } as { a: number; toString?: unknown } });
+			let callCount = 0;
+			store.effect(function () {
+				const _ = this.item.a;
+				callCount++;
+			});
+			assert.equal(delete store.$.item.toString, true);
+			await sleepForReactivity();
+			assert.equal(callCount, 1);
+		});
+
+		it("deletes top-level key by setting it to undefined and notifies", async () => {
+			const store = new SignalStore({ a: 1 } as { a?: number });
+			let callCount = 0;
+			store.effect(function () {
+				const _ = this.a;
+				callCount++;
+			});
+			assert.equal(delete store.$.a, true);
+			assert.equal(store.get("a"), undefined);
+			await sleepForReactivity();
+			assert.equal(callCount, 2);
+		});
+
+		it("deletes top-level key from the ancestor that owns it", async () => {
+			const parent = new SignalStore({ a: 1 } as { a?: number });
+			const child = new SignalStore({ $parent: parent } as unknown as { a?: number });
+			assert.equal(delete child.$.a, true);
+			assert.equal(parent.get("a"), undefined);
+		});
+
+		it("deletes local shadow without touching the ancestor", async () => {
+			const parent = new SignalStore({ a: 1 } as { a?: number });
+			const child = new SignalStore({ $parent: parent } as unknown as { a?: number });
+			await child.set("a", 2, true);
+			assert.equal(delete child.$.a, true);
+			assert.equal(child.get("a"), undefined);
+			assert.equal(parent.get("a"), 1);
+		});
+
+		it("keeps value assigned right after deleting top-level key", async () => {
+			const store = new SignalStore({ a: 1 } as { a?: number });
+			delete store.$.a;
+			store.$.a = 5;
+			await sleepForReactivity();
+			assert.equal(store.get("a"), 5);
+		});
+
+		it("keeps notifying after a deleted top-level key is reassigned", async () => {
+			const store = new SignalStore({ a: 1 } as { a?: number });
+			const seen: unknown[] = [];
+			store.effect(function () {
+				seen.push(this.a);
+			});
+			delete store.$.a;
+			await sleepForReactivity();
+			store.$.a = 7;
+			await sleepForReactivity();
+			assert.deepEqual(seen, [1, undefined, 7]);
+		});
+
+		it("keeps child observers after ancestor key is deleted and reassigned", async () => {
+			const parent = new SignalStore({ a: 1 } as { a?: number });
+			const child = new SignalStore({ $parent: parent } as unknown as { a?: number });
+			const seen: unknown[] = [];
+			child.effect(function () {
+				seen.push(this.a);
+			});
+			delete parent.$.a;
+			await sleepForReactivity();
+			parent.$.a = 7;
+			await sleepForReactivity();
+			assert.deepEqual(seen, [1, undefined, 7]);
+			assert.equal(child._store.has("a"), false);
+		});
+
+		it("deletes absent top-level key without throwing", async () => {
+			const store = new SignalStore({ a: 1 } as { a: number; b?: number });
+			assert.equal(delete store.$.b, true);
+			assert.equal(store.get("a"), 1);
+		});
 	});
 
 	describe("effect", () => {

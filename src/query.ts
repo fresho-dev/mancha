@@ -113,11 +113,12 @@ function createStoreUpdater(renderer: IRenderer): () => void {
 			}
 		}
 
-		// Remove params from store that are no longer in URL
+		// Clear params from store that are no longer in URL
 		const allQueryKeys = getQueryStoreKeys(renderer);
 		for (const key of allQueryKeys) {
 			if (!presentKeysInUrl.has(key)) {
-				renderer.del(key);
+				// Cleared, not deleted: deleting drops the observers bound to the key.
+				renderer.set(key, undefined);
 			}
 		}
 	};
