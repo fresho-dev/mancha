@@ -93,11 +93,18 @@ describe("SignalStore", () => {
 			assert.equal(callCount, 1);
 		});
 
-		it("deletes symbol nested property without throwing (#141)", async () => {
+		it("deletes symbol nested property without throwing and notifies (#141)", async () => {
 			const sym = Symbol("s");
 			const store = new SignalStore({ item: { [sym]: 1 } as Record<symbol, number> });
+			let callCount = 0;
+			store.effect(function () {
+				const _ = this.item[sym];
+				callCount++;
+			});
 			assert.equal(delete store.$.item[sym], true);
+			await sleepForReactivity();
 			assert.equal(sym in store.$.item, false);
+			assert.equal(callCount, 2);
 		});
 
 		it("does not notify when deleting inherited nested property", async () => {
@@ -110,6 +117,34 @@ describe("SignalStore", () => {
 			assert.equal(delete store.$.item.toString, true);
 			await sleepForReactivity();
 			assert.equal(callCount, 1);
+		});
+
+		it("deletes top-level key and notifies", async () => {
+			const store = new SignalStore({ a: 1 } as { a?: number });
+			let callCount = 0;
+			store.effect(function () {
+				const _ = this.a;
+				callCount++;
+			});
+			assert.equal(delete store.$.a, true);
+			await sleepForReactivity();
+			assert.equal("a" in store.$, false);
+			assert.equal(store.get("a"), undefined);
+			assert.equal(callCount, 2);
+		});
+
+		it("deletes top-level key from the ancestor that owns it", async () => {
+			const parent = new SignalStore({ a: 1 } as { a?: number });
+			const child = new SignalStore({ $parent: parent } as unknown as { a?: number });
+			assert.equal(delete child.$.a, true);
+			await sleepForReactivity();
+			assert.equal("a" in parent.$, false);
+		});
+
+		it("deletes absent top-level key without throwing", async () => {
+			const store = new SignalStore({ a: 1 } as { a: number; b?: number });
+			assert.equal(delete store.$.b, true);
+			assert.equal(store.get("a"), 1);
 		});
 	});
 

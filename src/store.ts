@@ -907,6 +907,12 @@ export class SignalStore<T extends StoreState = StoreState> {
 				}
 				return true;
 			},
+			deleteProperty: (_, prop) => {
+				const owner = typeof prop === "string" ? getAncestorKeyStore(this, prop) : null;
+				if (!owner) return Reflect.deleteProperty(keyval, prop);
+				owner.del(prop as string);
+				return true;
+			},
 		});
 		PROXY_STORES.set(proxy, this);
 		return proxy;
