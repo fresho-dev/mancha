@@ -244,7 +244,9 @@ export class Tokenizer {
 				this._advance();
 				return token(Kind.ARROW, op);
 			}
-			if (_TWO_CHAR_OPS.has(op)) {
+			// Like JS, `?.` before a digit is a ternary `?` and a decimal, e.g. `a?.5:1`.
+			const ternaryDecimal = op === "?." && _isNumber(this._input.charCodeAt(this._index + 1));
+			if (_TWO_CHAR_OPS.has(op) && !ternaryDecimal) {
 				this._advance();
 			} else {
 				// 1-char operator

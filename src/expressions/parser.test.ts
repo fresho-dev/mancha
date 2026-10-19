@@ -102,6 +102,32 @@ describe("Parser", () => {
 		);
 	});
 
+	it("should bind optional chaining to the right operand of binary operators (#145)", () => {
+		const id = factory.id.bind(factory);
+		for (const op of ["&&", "||", "??", "===", "!==", "<"]) {
+			assert.deepEqual(
+				parseExpr(`a ${op} b?.c`),
+				factory.binary(id("a"), op, factory.getter(id("b"), "c", true)),
+			);
+			assert.deepEqual(
+				parseExpr(`a ${op} b?.[k]`),
+				factory.binary(id("a"), op, factory.index(id("b"), id("k"), true)),
+			);
+			assert.deepEqual(
+				parseExpr(`a ${op} b?.(x)`),
+				factory.binary(id("a"), op, factory.invoke(id("b"), undefined, [id("x")], true)),
+			);
+		}
+		assert.deepEqual(
+			parseExpr("!a && b?.c !== 'none'"),
+			factory.binary(
+				factory.unary("!", id("a")),
+				"&&",
+				factory.binary(factory.getter(id("b"), "c", true), "!==", factory.literal("none")),
+			),
+		);
+	});
+
 	it("should parse array literals", () => {
 		assert.deepEqual(parseExpr("[]"), factory.list([]));
 		assert.deepEqual(parseExpr("[1, 2]"), factory.list([factory.literal(1), factory.literal(2)]));

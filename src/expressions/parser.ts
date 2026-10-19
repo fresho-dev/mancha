@@ -118,7 +118,10 @@ export class Parser<N extends Expression> {
 		this._advance();
 		let right = this._parseUnary();
 		while (
-			(this._kind === Kind.OPERATOR || this._kind === Kind.DOT || this._kind === Kind.GROUPER) &&
+			(this._kind === Kind.OPERATOR ||
+				this._kind === Kind.DOT ||
+				this._kind === Kind.OPTIONAL_DOT ||
+				this._kind === Kind.GROUPER) &&
 			this._token &&
 			(this._token.precedence ?? 0) > op.precedence
 		) {

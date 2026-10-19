@@ -1,5 +1,6 @@
 import { assert } from "../test_utils.js";
 import { EvalAstFactory, type Expression } from "./eval.js";
+import { parse } from "./parser.js";
 
 describe("Evaluator", () => {
 	const factory = new EvalAstFactory();
@@ -78,6 +79,24 @@ describe("Evaluator", () => {
 			evalNode(factory.index(factory.id("arr"), factory.literal(0), true), scope),
 			undefined,
 		);
+	});
+
+	it("should evaluate optional chaining on the right operand of binary operators (#145)", () => {
+		const evalExpr = (expr: string, scope: Record<string, unknown>) =>
+			evalNode(parse(expr, factory) as Expression, scope);
+		const scope = { hasAccess: true, subscription: { status: "active" }, obj: { x: 1 }, k: "x" };
+		assert.equal(evalExpr("!hasAccess && subscription?.status !== 'none'", scope), false);
+		assert.equal(evalExpr("false && obj?.x", scope), false);
+		assert.equal(evalExpr("true || obj?.missing === 1", scope), true);
+		assert.equal(evalExpr("null ?? obj?.[k]", scope), 1);
+		assert.equal(evalExpr("0 < obj?.x", scope), true);
+		assert.equal(evalExpr("1 === obj?.[k]", scope), true);
+		assert.equal(evalExpr("false && missing?.(1)", scope), false);
+	});
+
+	it("should evaluate ?. before a digit as a ternary", () => {
+		assert.equal(evalNode(parse("true?.5:1", factory) as Expression), 0.5);
+		assert.equal(evalNode(parse("false ?.5 : 1", factory) as Expression), 1);
 	});
 
 	it("should evaluate ternary", () => {
