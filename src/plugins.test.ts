@@ -3309,6 +3309,16 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			assert.equal(getTextContent(node), "bar");
 		});
 
+		it("render optional chaining on the right of && and || (#145)", async () => {
+			const renderer = new ctor({ obj: { x: 1 } });
+			const html = `<div :text="false && obj?.x"></div><div :text="true || obj?.missing === 1"></div>`;
+			const fragment = renderer.parseHTML(html);
+			const [a, b] = Array.from(fragment.childNodes) as HTMLElement[];
+			await renderer.mount(fragment);
+			assert.equal(getTextContent(a), "false");
+			assert.equal(getTextContent(b), "true");
+		});
+
 		it("render positive number", async () => {
 			const renderer = new ctor({ counter: 42 });
 			const html = `<div :text="counter"></div>`;
