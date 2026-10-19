@@ -94,6 +94,11 @@ describe("Evaluator", () => {
 		assert.equal(evalExpr("false && missing?.(1)", scope), false);
 	});
 
+	it("should evaluate ?. before a digit as a ternary", () => {
+		assert.equal(evalNode(parse("true?.5:1", factory) as Expression), 0.5);
+		assert.equal(evalNode(parse("false ?.5 : 1", factory) as Expression), 1);
+	});
+
 	it("should evaluate ternary", () => {
 		assert.equal(
 			evalNode(factory.ternary(factory.literal(true), factory.literal(1), factory.literal(0))),

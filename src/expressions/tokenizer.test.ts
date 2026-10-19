@@ -73,6 +73,13 @@ describe("Tokenizer", () => {
 		assert.deepEqual(tokenizer.nextToken(), { kind: Kind.IDENTIFIER, value: "b", precedence: 0 });
 	});
 
+	it("should tokenize ?. before a digit as a ternary and a decimal", () => {
+		const tokenizer = new Tokenizer("a?.5:1");
+		assert.deepEqual(tokenizer.nextToken(), { kind: Kind.IDENTIFIER, value: "a", precedence: 0 });
+		assert.deepEqual(tokenizer.nextToken(), { kind: Kind.OPERATOR, value: "?", precedence: 2 });
+		assert.deepEqual(tokenizer.nextToken(), { kind: Kind.DECIMAL, value: ".5", precedence: 0 });
+	});
+
 	it("should tokenize spread operator", () => {
 		const tokenizer = new Tokenizer("...arr");
 		assert.deepEqual(tokenizer.nextToken(), { kind: Kind.SPREAD, value: "...", precedence: 0 });
