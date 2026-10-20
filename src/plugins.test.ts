@@ -3927,6 +3927,21 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			assert.equal(getAttribute(node, ":attr:custom-attr"), null);
 			assert.equal(getAttribute(node, "custom-attr"), "example.com");
 		});
+		it("removes the attribute for false, null and undefined (#147)", async () => {
+			const renderer = new ctor({ foo: true });
+			const html = `<button :attr:disabled="foo"></button>`;
+			const fragment = renderer.parseHTML(html);
+			const node = fragment.firstChild as HTMLElement;
+			await renderer.mount(fragment);
+			assert.equal(getAttribute(node, "disabled"), "true");
+			for (const value of [false, "", null, 0, undefined]) {
+				await renderer.set("foo", value);
+				const expected = value === "" ? "" : value === 0 ? "0" : null;
+				assert.equal(getAttribute(node, "disabled"), expected, String(value));
+			}
+			await renderer.set("foo", "x");
+			assert.equal(getAttribute(node, "disabled"), "x");
+		});
 	});
 
 	describe(":prop", () => {
