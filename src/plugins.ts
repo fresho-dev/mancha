@@ -722,24 +722,29 @@ export namespace RendererPlugins {
 			// child, then replace it with the original child when needed.
 
 			// Store the original display value to reset it later if needed.
-			const display =
-				elem.style?.display === "none"
-					? ""
-					: (elem.style?.display ??
-						getAttribute(elem, "style")
-							?.split(";")
-							?.find((x) => x.split(":")[0] === "display")
-							?.split(":")
-							?.at(1)
-							?.trim());
+			// Elements without a style object (htmlparser2) edit the attribute's declarations instead.
+			// Pieces are kept untrimmed so a `;` inside a string or url() survives the round trip.
+			const styleDecls = () =>
+				(getAttribute(elem, "style") ?? "").split(";").filter((decl) => decl.trim());
+			const isDisplay = (decl: string) => decl.split(":")[0].trim().toLowerCase() === "display";
+			const initial = elem.style
+				? elem.style.display
+				: styleDecls().filter(isDisplay).at(-1)?.split(":")[1]?.trim();
+			const display = initial === "none" ? "" : initial;
 
 			// Compute the function's result and track dependencies.
 			this.effect(
 				function (this: IRenderer) {
 					const result = this.eval(showExpr, { $elem: node });
 					// If the result is false, set the node's display to none.
-					if (elem.style) elem.style.display = result ? display : "none";
-					else safeSetAttribute(elem, "style", `display: ${result ? display : "none"};`);
+					const value = result ? display : "none";
+					if (elem.style) elem.style.display = value ?? "";
+					else {
+						const decls = styleDecls().filter((decl) => !isDisplay(decl));
+						if (value) decls.push(`${decls.length ? " " : ""}display: ${value}`);
+						if (decls.length) safeSetAttribute(elem, "style", `${decls.join(";")};`);
+						else removeAttribute(elem, "style");
+					}
 				},
 				{ directive: ":show", element: elem, expression: showExpr },
 			);
