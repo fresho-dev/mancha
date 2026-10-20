@@ -666,7 +666,7 @@ export namespace RendererPlugins {
 
 			// Watch for updates in the node's value.
 			for (const event of updateEvents) {
-				node.addEventListener(event, () => this.eval(nodeExpr, { $elem: node }));
+				node.addEventListener?.(event, () => this.eval(nodeExpr, { $elem: node }));
 			}
 		}
 	};
