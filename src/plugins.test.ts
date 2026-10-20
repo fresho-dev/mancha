@@ -2905,7 +2905,7 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 		describe(":show", () => {
 			it("keeps other inline styles when toggling (#149)", async () => {
 				const renderer = new ctor({ on: true });
-				const html = `<p :show="on"></p><p style="color: red" :show="on"></p><p style="color: red; display: flex" :show="on"></p><p style="display: none" :show="on"></p>`;
+				const html = `<p :show="on"></p><p style="color: red" :show="on"></p><p style="color: red; display: flex" :show="on"></p><p style="display: none" :show="on"></p><p style="display: flex; display: none" :show="on"></p><p style="DISPLAY: none" :show="on"></p>`;
 				const fragment = renderer.parseHTML(html);
 				await renderer.mount(fragment);
 				const elems = Array.from(fragment.childNodes) as Element[];
@@ -2916,13 +2916,15 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 							.map((decl) => decl.trim().replace(/\s*:\s*/, ": "))
 							.filter(Boolean),
 					);
-				const shown = [[], ["color: red"], ["color: red", "display: flex"], []];
+				const shown = [[], ["color: red"], ["color: red", "display: flex"], [], [], []];
 				assert.deepEqual(decls(), shown);
 				await renderer.set("on", false);
 				assert.deepEqual(decls(), [
 					["display: none"],
 					["color: red", "display: none"],
 					["color: red", "display: none"],
+					["display: none"],
+					["display: none"],
 					["display: none"],
 				]);
 				await renderer.set("on", true);

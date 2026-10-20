@@ -723,15 +723,13 @@ export namespace RendererPlugins {
 
 			// Store the original display value to reset it later if needed.
 			// Elements without a style object (htmlparser2) edit the attribute's declarations instead.
+			// Pieces are kept untrimmed so a `;` inside a string or url() survives the round trip.
 			const styleDecls = () =>
-				(getAttribute(elem, "style") ?? "")
-					.split(";")
-					.map((decl) => decl.trim())
-					.filter(Boolean);
-			const isDisplay = (decl: string) => decl.split(":")[0].trim() === "display";
+				(getAttribute(elem, "style") ?? "").split(";").filter((decl) => decl.trim());
+			const isDisplay = (decl: string) => decl.split(":")[0].trim().toLowerCase() === "display";
 			const initial = elem.style
 				? elem.style.display
-				: styleDecls().find(isDisplay)?.split(":")[1]?.trim();
+				: styleDecls().filter(isDisplay).at(-1)?.split(":")[1]?.trim();
 			const display = initial === "none" ? "" : initial;
 
 			// Compute the function's result and track dependencies.
@@ -743,8 +741,8 @@ export namespace RendererPlugins {
 					if (elem.style) elem.style.display = value ?? "";
 					else {
 						const decls = styleDecls().filter((decl) => !isDisplay(decl));
-						if (value) decls.push(`display: ${value}`);
-						if (decls.length) safeSetAttribute(elem, "style", `${decls.join("; ")};`);
+						if (value) decls.push(`${decls.length ? " " : ""}display: ${value}`);
+						if (decls.length) safeSetAttribute(elem, "style", `${decls.join(";")};`);
 						else removeAttribute(elem, "style");
 					}
 				},
