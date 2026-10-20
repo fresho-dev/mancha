@@ -813,6 +813,7 @@ export namespace RendererPlugins {
 					function (this: IRenderer) {
 						const propValue = this.eval(attr.value, { $elem: node });
 						setProperty(elem, propName, propValue);
+						if (propName === "style") showAppliers.get(elem)?.();
 					},
 					{ directive: `:prop:${propName}`, element: elem, expression: attr.value },
 				);

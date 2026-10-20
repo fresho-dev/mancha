@@ -141,6 +141,12 @@ export function setProperty(elem: ElementWithAttribs, name: string, value: unkno
 		case "checked":
 			(elem as HTMLInputElement).checked = value as boolean;
 			return;
+		// htmlparser2 elements have no style object; write the attribute like a browser would.
+		case "style":
+			if (!elem.attribs) (elem as unknown as Record<string, unknown>).style = value;
+			else if (value == null) removeAttribute(elem, "style");
+			else setAttribute(elem, "style", String(value));
+			return;
 		// Fall back to setting the property directly (unsafe).
 		default:
 			(elem as unknown as Record<string, unknown>)[name] = value;
