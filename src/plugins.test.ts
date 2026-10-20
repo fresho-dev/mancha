@@ -2751,6 +2751,15 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 		});
 
 		describe(":bind", () => {
+			it("mounts on renderers without events (#151)", async () => {
+				const renderer = new ctor({ foo: "bar" });
+				const fragment = renderer.parseHTML(`<input :bind="foo" /><p>{{ foo }}</p>`);
+				await renderer.mount(fragment);
+				const [input, p] = Array.from(fragment.childNodes) as Element[];
+				assert.equal(getAttribute(input, ":bind"), null);
+				assert.equal(getTextContent(p), "bar");
+			});
+
 			it("binds a text input value with existing store key", async function () {
 				// Skip test if renderer does not support events.
 				if (["htmlparser2"].includes(new ctor().impl)) this.skip();
