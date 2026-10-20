@@ -2912,6 +2912,26 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 		});
 
 		describe(":show", () => {
+			it("stays hidden when :attr:style rewrites the style", async () => {
+				const renderer = new ctor({ on: false, s: "color: blue" });
+				const fragment = renderer.parseHTML(`<p :attr:style="s" :show="on"></p>`);
+				await renderer.mount(fragment);
+				const elem = fragment.firstChild as Element;
+				const decls = () =>
+					(getAttribute(elem, "style") ?? "")
+						.split(";")
+						.map((decl) => decl.trim().replace(/\s*:\s*/, ": "))
+						.filter(Boolean)
+						.sort();
+				assert.deepEqual(decls(), ["color: blue", "display: none"]);
+				await renderer.set("s", "color: red; display: flex");
+				assert.deepEqual(decls(), ["color: red", "display: none"]);
+				await renderer.set("on", true);
+				assert.deepEqual(decls(), ["color: red", "display: flex"]);
+				await renderer.set("s", "color: green");
+				assert.deepEqual(decls(), ["color: green"]);
+			});
+
 			it("keeps other inline styles when toggling (#149)", async () => {
 				const renderer = new ctor({ on: true });
 				const html = `<p :show="on"></p><p style="color: red" :show="on"></p><p style="color: red; display: flex" :show="on"></p><p style="display: none" :show="on"></p><p style="display: flex; display: none" :show="on"></p><p style="DISPLAY: none" :show="on"></p>`;

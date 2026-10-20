@@ -28,6 +28,9 @@ import { Iterator } from "./iterator.js";
 import type { IRenderer } from "./renderer.js";
 import { getAncestorKeyStore } from "./store.js";
 
+// Re-applies an element's :show state after :attr:style overwrites its style.
+const showAppliers = new WeakMap<object, () => void>();
+
 /** @internal */
 export namespace RendererPlugins {
 	export const resolveIncludes: RendererPlugin = async function (node, params) {
@@ -727,24 +730,35 @@ export namespace RendererPlugins {
 			const styleDecls = () =>
 				(getAttribute(elem, "style") ?? "").split(";").filter((decl) => decl.trim());
 			const isDisplay = (decl: string) => decl.split(":")[0].trim().toLowerCase() === "display";
-			const initial = elem.style
-				? elem.style.display
-				: styleDecls().filter(isDisplay).at(-1)?.split(":")[1]?.trim();
-			const display = initial === "none" ? "" : initial;
+			const readDisplay = () => {
+				const current = elem.style
+					? elem.style.display
+					: styleDecls().filter(isDisplay).at(-1)?.split(":")[1]?.trim();
+				return current === "none" ? "" : current;
+			};
+			let display = readDisplay();
+			let shown = true;
+			const apply = () => {
+				// If the result is false, set the node's display to none.
+				const value = shown ? display : "none";
+				if (elem.style) elem.style.display = value ?? "";
+				else {
+					const decls = styleDecls().filter((decl) => !isDisplay(decl));
+					if (value) decls.push(`${decls.length ? " " : ""}display: ${value}`);
+					if (decls.length) safeSetAttribute(elem, "style", `${decls.join(";")};`);
+					else removeAttribute(elem, "style");
+				}
+			};
+			showAppliers.set(elem, () => {
+				display = readDisplay();
+				apply();
+			});
 
 			// Compute the function's result and track dependencies.
 			this.effect(
 				function (this: IRenderer) {
-					const result = this.eval(showExpr, { $elem: node });
-					// If the result is false, set the node's display to none.
-					const value = result ? display : "none";
-					if (elem.style) elem.style.display = value ?? "";
-					else {
-						const decls = styleDecls().filter((decl) => !isDisplay(decl));
-						if (value) decls.push(`${decls.length ? " " : ""}display: ${value}`);
-						if (decls.length) safeSetAttribute(elem, "style", `${decls.join(";")};`);
-						else removeAttribute(elem, "style");
-					}
+					shown = Boolean(this.eval(showExpr, { $elem: node }));
+					apply();
 				},
 				{ directive: ":show", element: elem, expression: showExpr },
 			);
@@ -767,14 +781,13 @@ export namespace RendererPlugins {
 				this.effect(
 					function (this: IRenderer) {
 						const attrValue = this.eval(attr.value, { $elem: node });
-						if (attrValue == null || attrValue === false) {
-							removeAttribute(elem, attrName);
-							return;
-						}
-						setAttribute(elem, attrName, String(attrValue));
+						const remove = attrValue == null || attrValue === false;
+						if (remove) removeAttribute(elem, attrName);
+						else setAttribute(elem, attrName, String(attrValue));
+						if (attrName === "style") showAppliers.get(elem)?.();
 						// A class written here is invisible to any DOM scan, exactly like a
 						// :class result, so it needs the same on-demand rule injection.
-						if (attrName === "class") processRenderedClasses(String(attrValue));
+						if (!remove && attrName === "class") processRenderedClasses(String(attrValue));
 					},
 					{ directive: `:attr:${attrName}`, element: elem, expression: attr.value },
 				);
