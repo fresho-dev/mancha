@@ -59,9 +59,10 @@
   ```html
   <a href="#" :on:click.prevent="console.log('clicked')"></a>
   ```
-- `:attr:{name}` sets the corresponding attribute for `name` in the node
+- `:attr:{name}` sets the corresponding attribute for `name` in the node; `false`, `null` and `undefined` remove it
   ```html
   <a :attr:href="buildUrl()"></a>
+  <button :attr:disabled="busy"></button>
   ```
 - `:prop:{name}` sets the corresponding property for (camel-case converted) `name` in the node
   ```html

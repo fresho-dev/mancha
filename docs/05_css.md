@@ -108,7 +108,7 @@ The following state variants are supported for all utilities:
 Style an element from its own ARIA attributes, or a parent from the state of its children:
 
 ```html
-<button :attr:aria-pressed="done" class="bg-gray-200 aria-pressed:bg-green-300">Done</button>
+<button :attr:aria-pressed="done ? 'true' : 'false'" class="bg-gray-200 aria-pressed:bg-green-300">Done</button>
 <a aria-current="page" class="aria-[current=page]:font-bold">Home</a>
 <label class="has-checked:bg-green-300"><input type="radio" /> Option</label>
 <ul class="grid gap-3 empty:hidden"></ul>
