@@ -158,14 +158,14 @@ Spacing utilities use a 0.25rem (4px) unit by default.
 
 | Prefix | Property | Values |
 | --- | --- | --- |
-| `m-` | `margin` | `0`, `0.25rem` - `128rem` (and negative versions) |
+| `m-` | `margin` | `0`, `0.5` (0.125rem), `0.25rem` - `128rem` (and negative versions) |
 | `mx-` | `margin-left/right` | Same as above |
 | `my-` | `margin-top/bottom` | Same as above |
 | `mt-` | `margin-top` | Same as above |
 | `mb-` | `margin-bottom` | Same as above |
 | `ml-` | `margin-left` | Same as above |
 | `mr-` | `margin-right` | Same as above |
-| `p-` | `padding` | `0`, `0.25rem` - `128rem` (and negative versions) |
+| `p-` | `padding` | `0`, `0.5` (0.125rem), `0.25rem` - `128rem` (and negative versions) |
 | `px-` | `padding-left/right` | Same as above |
 | `py-` | `padding-top/bottom` | Same as above |
 | `pt-` | `padding-top` | Same as above |
@@ -177,11 +177,11 @@ Spacing utilities use a 0.25rem (4px) unit by default.
 
 | Prefix | Property | Values |
 | --- | --- | --- |
-| `w-` | `width` | `0`, `full` (100%), `screen` (100vw/vh), `auto`, `px`, `0.25rem` - `128rem` |
+| `w-` | `width` | `0`, `full` (100%), `screen` (100vw/vh), `auto`, `px`, `0.5` (0.125rem), `0.25rem` - `128rem` |
 | `w-sm/md/lg/xl` | `width` | Match media breakpoints (e.g. `w-sm`, `max-w-lg`) |
 | `w-dvw/dvh/svw/svh/lvw/lvh` | `width` | Viewport-relative units |
 | `w-fit/min/max` | `width` | `fit-content`, `min-content`, `max-content` |
-| `h-` | `height` | `0`, `full` (100%), `screen` (100vw/vh), `auto`, `px`, `0.25rem` - `128rem` |
+| `h-` | `height` | `0`, `full` (100%), `screen` (100vw/vh), `auto`, `px`, `0.5` (0.125rem), `0.25rem` - `128rem` |
 | `h-sm/md/lg/xl` | `height` | Match media breakpoints (e.g. `w-sm`, `max-w-lg`) |
 | `h-dvw/dvh/svw/svh/lvw/lvh` | `height` | Viewport-relative units |
 | `h-fit/min/max` | `height` | `fit-content`, `min-content`, `max-content` |
@@ -248,6 +248,7 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | `border-x-{0-15}` | Horizontal border width in pixels |
 | `border-y-{0-15}` | Vertical border width in pixels |
 | `border-{t,b,l,r}-{0-15}` | Individual side border width in pixels |
+| `rounded-{t,r,b,l,tl,tr,br,bl}-{none,sm,md,lg,xl,full}` | Per-side and per-corner radius (bare `rounded-t` is `.25rem`) |
 
 ### Shadows & Effects
 
@@ -376,6 +377,8 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | `font-bold` | `font-weight: 700` |
 | `font-extrabold` | `font-weight: 800` |
 | `font-black` | `font-weight: 900` |
+| `tabular-nums` | `font-variant-numeric: tabular-nums` |
+| `normal-nums` | `font-variant-numeric: normal` |
 | `italic` | `font-style: italic` |
 | `not-italic` | `font-style: normal` |
 | `tracking-tighter` | `letter-spacing: -0.05em` |
@@ -420,7 +423,6 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | --- | --- |
 | `flex` | `display: flex` |
 | `flex-1` | `flex: 1 1 0%` |
-| `flex-inline` | `display: inline-flex` |
 | `flex-row` | `flex-direction: row` |
 | `flex-col` | `flex-direction: column` |
 | `flex-row-reverse` | `flex-direction: row-reverse` |
@@ -464,6 +466,7 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | `content-stretch` | `align-content: stretch` |
 | `items-baseline` | `align-items: baseline` |
 | `gap-0` | No gap |
+| `gap-0.5`, `gap-x-0.5`, `gap-y-0.5`, `space-x-0.5`, `space-y-0.5` | Half step (0.125rem) |
 | `gap-{1-512}` | Gap in rem units (0.25rem increments) |
 | `gap-{1-512}px` | Gap in pixels |
 | `gap-x-{1-512}` | Horizontal gap in rem units |
@@ -488,6 +491,28 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | Utility | Description |
 | --- | --- |
 | `grid` | `display: grid` |
+| `justify-items-start` | `justify-items: start` |
+| `justify-items-end` | `justify-items: end` |
+| `justify-items-center` | `justify-items: center` |
+| `justify-items-stretch` | `justify-items: stretch` |
+| `place-items-start` | `place-items: start` |
+| `place-items-end` | `place-items: end` |
+| `place-items-center` | `place-items: center` |
+| `place-items-baseline` | `place-items: baseline` |
+| `place-items-stretch` | `place-items: stretch` |
+| `grid-flow-row` | `grid-auto-flow: row` |
+| `grid-flow-col` | `grid-auto-flow: column` |
+| `grid-flow-dense` | `grid-auto-flow: dense` |
+| `grid-flow-row-dense` | `grid-auto-flow: row dense` |
+| `grid-flow-col-dense` | `grid-auto-flow: column dense` |
+| `auto-cols-auto` | `grid-auto-columns: auto` |
+| `auto-cols-min` | `grid-auto-columns: min-content` |
+| `auto-cols-max` | `grid-auto-columns: max-content` |
+| `auto-cols-fr` | `grid-auto-columns: minmax(0, 1fr)` |
+| `auto-rows-auto` | `grid-auto-rows: auto` |
+| `auto-rows-min` | `grid-auto-rows: min-content` |
+| `auto-rows-max` | `grid-auto-rows: max-content` |
+| `auto-rows-fr` | `grid-auto-rows: minmax(0, 1fr)` |
 | `grid-cols-{1-12}` | `grid-template-columns: repeat(n, minmax(0, 1fr))` |
 | `grid-cols-none` | `grid-template-columns: none` |
 | `col-span-{1-12}` | `grid-column: span n / span n` |
@@ -535,6 +560,12 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | `contents` | `display: contents` |
 | `hidden` | `display: none` |
 | `inline` | `display: inline` |
+| `inline-block` | `display: inline-block` |
+| `inline-flex` | `display: inline-flex` |
+| `inline-grid` | `display: inline-grid` |
+| `table` | `display: table` |
+| `table-row` | `display: table-row` |
+| `table-cell` | `display: table-cell` |
 | `visible` | `visibility: visible` |
 | `invisible` | `visibility: hidden` |
 | `collapse` | `visibility: collapse` |
@@ -641,7 +672,6 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | `break-words` | `overflow-wrap: break-word` |
 | `break-all` | `word-break: break-all` |
 | `break-keep` | `word-break: keep-all` |
-| `grid` | `display: grid` |
 | `box-border` | `box-sizing: border-box` |
 | `box-content` | `box-sizing: content-box` |
 | `appearance-none` | `appearance: none; -webkit-appearance: none; -moz-appearance: none` |
@@ -656,7 +686,10 @@ When you need a value outside the design scale, use bracket notation as an escap
 
 ```html
 <div class="w-[133px] mt-[2rem] max-w-[900px]">
+<div class="grid grid-cols-[max-content_minmax(0,max-content)_max-content]">
 ```
+
+An underscore in a bracket value becomes a space.
 
 ### Supported Properties
 
@@ -672,6 +705,9 @@ When you need a value outside the design scale, use bracket notation as an escap
 | `px-`, `py-` | padding-inline, padding-block |
 | `top`, `right`, `bottom`, `left` | positioning |
 | `gap-`, `gap-x-`, `gap-y-` | gap |
+| `grid-cols-`, `grid-rows-` | grid-template-columns, grid-template-rows |
+| `rounded-` | border-radius |
+| `leading-` | line-height |
 | `text-` | font-size, or color for a color value |
 | `z-` | z-index |
 | `bg-` | background-color |
@@ -695,7 +731,7 @@ Markup that Mancha did not render is the exception: it is never scanned, so call
 
 **Browser only**: Custom values require the CSSStyleSheet API and are not available in Worker or SSR environments.
 
-**Unresolvable classes are reported**: a class that reaches on-demand injection and matches no rule logs `No CSS rule for class: ...` once for the life of the page. That covers a typo or a color outside the palette (`hover:bg-brand-500`), and also anything Mancha does not implement — a variant it does not know (`active:`, `group-hover:`), a bracket value on a property it does not map (`rounded-[12px]`), or a `text-[…]` / `border-[…]` value that is neither a length nor a color (`text-[large]`). Each of those does nothing, which is what the message is for. Sheets that arrive later are picked up, so a late-loading sheet defining the class still works.
+**Unresolvable classes are reported**: a class that reaches on-demand injection and matches no rule logs `No CSS rule for class: ...` once for the life of the page. That covers a typo or a color outside the palette (`hover:bg-brand-500`), and also anything Mancha does not implement — a variant it does not know (`active:`, `group-hover:`), a bracket value on a property it does not map (`outline-[3px]`), or a `text-[…]` / `border-[…]` value that is neither a length nor a color (`text-[large]`). Each of those does nothing, which is what the message is for. Sheets that arrive later are picked up, so a late-loading sheet defining the class still works.
 
 **Restricted characters**: a bracket value may only contain letters, digits, `_`, `-`, `#`, `.`, `%`, `+`, `*`, `/`, `,`, `!` and balanced parentheses, and may not contain `/*`. Anything else (`;`, braces, quotes, backslashes, `:`, …) makes the class unresolvable, so a value cannot break out of its declaration.
 
