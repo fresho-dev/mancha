@@ -600,10 +600,10 @@ function generateMarkdown() {
 	md += "| `px-`, `py-` | padding-inline, padding-block |\n";
 	md += "| `top`, `right`, `bottom`, `left` | positioning |\n";
 	md += "| `gap-`, `gap-x-`, `gap-y-` | gap |\n";
-	md += "| `text-` | font-size |\n";
+	md += "| `text-` | font-size, or color for a color value |\n";
 	md += "| `z-` | z-index |\n";
 	md += "| `bg-` | background-color |\n";
-	md += "| `border-` | border-color |\n";
+	md += "| `border-` | border-width, or border-color for a color value |\n";
 	md += "\n";
 	md += "### Variants\n\n";
 	md +=
@@ -623,8 +623,9 @@ function generateMarkdown() {
 		"**Unresolvable classes are reported**: a class that reaches on-demand injection and " +
 		"matches no rule logs `No CSS rule for class: ...` once for the life of the page. That " +
 		"covers a typo or a color outside the palette (`hover:bg-brand-500`), and also anything " +
-		"Mancha does not implement — a variant it does not know (`active:`, `group-hover:`), or a " +
-		"bracket value on a property it does not map (`rounded-[12px]`). Each of those does " +
+		"Mancha does not implement — a variant it does not know (`active:`, `group-hover:`), a " +
+		"bracket value on a property it does not map (`rounded-[12px]`), or a `text-[…]` / " +
+		"`border-[…]` value that is neither a length nor a color (`text-[large]`). Each of those does " +
 		"nothing, which is what the message is for. Sheets that arrive later are picked up, so a " +
 		"late-loading sheet defining the class still works.\n\n";
 	md +=

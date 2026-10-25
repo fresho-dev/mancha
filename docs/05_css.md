@@ -672,10 +672,10 @@ When you need a value outside the design scale, use bracket notation as an escap
 | `px-`, `py-` | padding-inline, padding-block |
 | `top`, `right`, `bottom`, `left` | positioning |
 | `gap-`, `gap-x-`, `gap-y-` | gap |
-| `text-` | font-size |
+| `text-` | font-size, or color for a color value |
 | `z-` | z-index |
 | `bg-` | background-color |
-| `border-` | border-color |
+| `border-` | border-width, or border-color for a color value |
 
 ### Variants
 
@@ -695,7 +695,7 @@ Markup that Mancha did not render is the exception: it is never scanned, so call
 
 **Browser only**: Custom values require the CSSStyleSheet API and are not available in Worker or SSR environments.
 
-**Unresolvable classes are reported**: a class that reaches on-demand injection and matches no rule logs `No CSS rule for class: ...` once for the life of the page. That covers a typo or a color outside the palette (`hover:bg-brand-500`), and also anything Mancha does not implement — a variant it does not know (`active:`, `group-hover:`), or a bracket value on a property it does not map (`rounded-[12px]`). Each of those does nothing, which is what the message is for. Sheets that arrive later are picked up, so a late-loading sheet defining the class still works.
+**Unresolvable classes are reported**: a class that reaches on-demand injection and matches no rule logs `No CSS rule for class: ...` once for the life of the page. That covers a typo or a color outside the palette (`hover:bg-brand-500`), and also anything Mancha does not implement — a variant it does not know (`active:`, `group-hover:`), a bracket value on a property it does not map (`rounded-[12px]`), or a `text-[…]` / `border-[…]` value that is neither a length nor a color (`text-[large]`). Each of those does nothing, which is what the message is for. Sheets that arrive later are picked up, so a late-loading sheet defining the class still works.
 
 **Restricted characters**: a bracket value may only contain letters, digits, `_`, `-`, `#`, `.`, `%`, `+`, `*`, `/`, `,`, `!` and balanced parentheses, and may not contain `/*`. Anything else (`;`, braces, quotes, backslashes, `:`, …) makes the class unresolvable, so a value cannot break out of its declaration.
 
