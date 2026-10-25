@@ -62,10 +62,10 @@ const PROPERTY_MAP: Record<string, string> = {
 	border: "border-width",
 };
 
-// `text-[…]` and `border-[…]` take a color or a size; anything else is rejected.
-const COLOR_VALUE =
-	/^(#[\da-f]{3,8}|(rgb|hsl|hwb|lab|lch|ok|color|light-dark)[\w-]*\(.*\)|transparent|currentcolor)$/i;
-const LENGTH_VALUE = /^(-?[\d.]+[a-z%]*|(calc|min|max|clamp|var)\(.*\))$/;
+// `text-[…]` and `border-[…]` take a size, else a color or other identifier, as in Tailwind.
+const LENGTH_VALUE =
+	/^(-?[\d.]+[a-z%]*|(calc|min|max|clamp)\(.*\)|(x*-)?(small|large)|smaller|larger|medium|thin|thick)$/i;
+const COLOR_VALUE = /^(#([\da-f]{3,4}|([\da-f]{2}){3,4})|[a-z-]+(\(.*\))?)$/i;
 
 // Pattern: optional-negative + prefix + bracket-value.
 const CUSTOM_VALUE_PATTERN = /^(-?)([\w-]+)-\[(.+)\]$/;
@@ -301,8 +301,11 @@ export function parseCustomValueClass(
 
 	const decoded = rawValue.replace(/_/g, " ");
 	if (prefix === "text" || prefix === "border") {
-		if (COLOR_VALUE.test(decoded)) property = COLOR_PROPERTY_MAP[prefix];
-		else if (!LENGTH_VALUE.test(decoded)) return null;
+		if (negative) return null;
+		if (!LENGTH_VALUE.test(decoded)) {
+			if (!COLOR_VALUE.test(decoded)) return null;
+			property = COLOR_PROPERTY_MAP[prefix];
+		}
 	}
 	const value = negative ? `-${decoded}` : decoded;
 	return { property, value };
@@ -370,7 +373,10 @@ export function injectCustomClass(className: string, ...variants: string[]): boo
 
 	// Resolve CSS declarations: try parsers, then fall back to stylesheet lookup.
 	const parsed = parseCustomValueClass(className) ?? parseColorOpacityClass(className);
-	const declarations = parsed
+	// A value the browser rejects defers to the page's own rule for the class, if any.
+	const css = (globalThis as { CSS?: { supports?: (cond: string) => boolean } }).CSS;
+	const usable = parsed && css?.supports?.(`${parsed.property}: ${parsed.value}`) !== false;
+	const declarations = usable
 		? `${parsed.property}: ${parsed.value};`
 		: findRuleDeclarations(className);
 	if (!declarations) {
@@ -412,6 +418,8 @@ export function injectCustomClass(className: string, ...variants: string[]): boo
 			sheet.deleteRule(index);
 			// An @media holding no rule means the inner selector was rejected, which is permanent.
 			if (!styleRule) return recordFailure(fullClassName, fullClassName);
+			// A parsed value is fixed, so an unusable one never recovers.
+			if (parsed) return recordFailure(className, fullClassName);
 			console.warn(`Injected CSS rule had no effect: ${rule}`);
 			// Deliberately left uncached, so every later scan re-inserts, re-detects
 			// and re-warns for this class. That repeats once per scan rather than

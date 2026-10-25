@@ -738,6 +738,24 @@ describe("css_custom", () => {
 			});
 		}
 
+		it("falls back to a user-defined rule for a bracket value the browser rejects", () => {
+			if (!isSupported()) return;
+			const user = document.createElement("style");
+			user.textContent = ".text-\\[brand\\] { color: rgb(1, 2, 3) }";
+			document.head.appendChild(user);
+			const warnings: string[] = [];
+			const originalWarn = console.warn;
+			console.warn = (msg: string) => warnings.push(msg);
+			try {
+				processClassString("hover:text-[brand]");
+			} finally {
+				console.warn = originalWarn;
+				user.remove();
+			}
+			assert.deepEqual(warnings, []);
+			assert.equal((customRules()[0] as CSSStyleRule).style.color, "rgb(1, 2, 3)");
+		});
+
 		it("does not re-insert a stack on repeat scans", () => {
 			if (!isSupported()) return;
 			for (let i = 0; i < 3; i++) processClassString("dark:md:hover:w-[307px] sm:focus:w-[307px]");
@@ -907,10 +925,12 @@ describe("css_custom", () => {
 			"w-[a:b]",
 			"w-[a@b]",
 			"w-[<a>]",
-			"text-[foo]",
-			"text-[thick]",
-			"border-[foo]",
-			"border-[large]",
+			"text-[#12345]",
+			"border-[#1234567]",
+			"-text-[#666]",
+			"-border-[red]",
+			"-text-[2px]",
+			"-border-[2px]",
 		];
 		const legit: [string, string, string][] = [
 			["w-[10px]", "width", "10px"],
@@ -928,7 +948,18 @@ describe("css_custom", () => {
 			["text-[oklch(0.5_0.1_200)]", "color", "oklch(0.5 0.1 200)"],
 			["text-[currentColor]", "color", "currentColor"],
 			["text-[calc(1rem_+_2px)]", "font-size", "calc(1rem + 2px)"],
-			["text-[var(--size)]", "font-size", "var(--size)"],
+			["text-[var(--x)]", "color", "var(--x)"],
+			["text-[2PX]", "font-size", "2PX"],
+			["text-[CALC(1px)]", "font-size", "CALC(1px)"],
+			["text-[larger]", "font-size", "larger"],
+			["text-[xx-small]", "font-size", "xx-small"],
+			["text-[medium]", "font-size", "medium"],
+			["text-[red]", "color", "red"],
+			["text-[inherit]", "color", "inherit"],
+			["border-[thin]", "border-width", "thin"],
+			["border-[medium]", "border-width", "medium"],
+			["border-[var(--brand)]", "border-color", "var(--brand)"],
+			["border-[currentcolor]", "border-color", "currentcolor"],
 			["border-[2px]", "border-width", "2px"],
 			["border-[#ccc]", "border-color", "#ccc"],
 			["border-[hsl(0,0%,50%)]", "border-color", "hsl(0,0%,50%)"],
@@ -989,6 +1020,24 @@ describe("css_custom", () => {
 				el.remove();
 				other.remove();
 			}
+		});
+
+		it("passes an unknown text-[…] identifier through as a color, then warns once", () => {
+			assert.deepEqual(parseCustomValueClass("text-[foo]"), { property: "color", value: "foo" });
+			if (!isSupported()) return;
+			const warnings: string[] = [];
+			const originalWarn = console.warn;
+			console.warn = (msg: string) => warnings.push(msg);
+			try {
+				processClassString("text-[foo]");
+				processClassString("text-[foo]");
+				assert.ok(!injectCustomClass("text-[foo]"));
+			} finally {
+				console.warn = originalWarn;
+			}
+			assert.equal(customRules().length, 0, `Got: ${customRulesText()}`);
+			assert.equal(warnings.length, 1, `Got: ${warnings.join("\n")}`);
+			assert.ok(warnings[0].startsWith("No CSS rule for class: "), warnings[0]);
 		});
 
 		it("injects legitimate values", () => {
