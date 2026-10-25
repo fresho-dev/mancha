@@ -660,7 +660,7 @@ function generateMarkdown() {
 		"`/*`. Anything else (`;`, braces, quotes, backslashes, `:`, …) makes the class " +
 		"unresolvable, so a value cannot break out of its declaration.\n\n";
 	md +=
-		"**Injected after the utilities**: custom-value rules come after the static utilities, so they win over any of them setting the same property: `p-[10px] pt-0` keeps the 10px top padding, and `rounded-[12px] rounded-l-none` keeps every corner rounded.\n\n";
+		"**Injected after the utilities**: custom-value rules come after the static utilities, so they win over any of them setting the same property: `p-[10px] pt-0` keeps the 10px top padding, and `rounded-[12px] rounded-l-none` keeps every corner rounded. They share one injected sheet with variant rules, in the order Mancha first encounters each class on the page.\n\n";
 	md += "### When to Use\n\n";
 	md += "**Prefer the design scale** for consistency. Use custom values for:\n";
 	md += "- Matching external constraints (third-party widgets, embeds)\n";

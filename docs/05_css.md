@@ -735,7 +735,7 @@ Markup that Mancha did not render is the exception: it is never scanned, so call
 
 **Restricted characters**: a bracket value may only contain letters, digits, `_`, `-`, `#`, `.`, `%`, `+`, `*`, `/`, `,`, `!` and balanced parentheses, and may not contain `/*`. Anything else (`;`, braces, quotes, backslashes, `:`, …) makes the class unresolvable, so a value cannot break out of its declaration.
 
-**Injected after the utilities**: custom-value rules come after the static utilities, so they win over any of them setting the same property: `p-[10px] pt-0` keeps the 10px top padding, and `rounded-[12px] rounded-l-none` keeps every corner rounded.
+**Injected after the utilities**: custom-value rules come after the static utilities, so they win over any of them setting the same property: `p-[10px] pt-0` keeps the 10px top padding, and `rounded-[12px] rounded-l-none` keeps every corner rounded. They share one injected sheet with variant rules, in the order Mancha first encounters each class on the page.
 
 ### When to Use
 
