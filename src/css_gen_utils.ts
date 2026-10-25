@@ -164,7 +164,6 @@ export const PROPS_CUSTOM: { [key: string]: string } = {
 	// Display.
 	block: "display: block",
 	contents: "display: contents",
-	hidden: "display: none",
 	inline: "display: inline",
 	"inline-block": "display: inline-block",
 	"inline-flex": "display: inline-flex",
@@ -197,6 +196,8 @@ export const PROPS_CUSTOM: { [key: string]: string } = {
 	// Flex.
 	flex: "display: flex",
 	grid: "display: grid",
+	// Last display rule, so it overrides the others.
+	hidden: "display: none",
 	"flex-1": "flex: 1 1 0%",
 	"flex-row": "flex-direction: row",
 	"flex-col": "flex-direction: column",
@@ -212,6 +213,11 @@ export const PROPS_CUSTOM: { [key: string]: string } = {
 	"justify-around": "justify-content: space-around",
 	"justify-evenly": "justify-content: space-evenly",
 	"justify-stretch": "justify-content: stretch",
+	"place-items-start": "place-items: start",
+	"place-items-end": "place-items: end",
+	"place-items-center": "place-items: center",
+	"place-items-baseline": "place-items: baseline",
+	"place-items-stretch": "place-items: stretch",
 	"items-start": "align-items: flex-start",
 	"items-end": "align-items: flex-end",
 	"items-center": "align-items: center",
@@ -220,11 +226,6 @@ export const PROPS_CUSTOM: { [key: string]: string } = {
 	"justify-items-end": "justify-items: end",
 	"justify-items-center": "justify-items: center",
 	"justify-items-stretch": "justify-items: stretch",
-	"place-items-start": "place-items: start",
-	"place-items-end": "place-items: end",
-	"place-items-center": "place-items: center",
-	"place-items-baseline": "place-items: baseline",
-	"place-items-stretch": "place-items: stretch",
 	// Grid auto placement.
 	"grid-flow-row": "grid-auto-flow: row",
 	"grid-flow-col": "grid-auto-flow: column",

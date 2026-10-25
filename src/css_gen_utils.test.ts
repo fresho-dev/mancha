@@ -291,6 +291,24 @@ describe("CSS Generation Utils", () => {
 			assert.ok(positions[0] < positions[1] && positions[1] < positions[2]);
 		});
 
+		it("orders place-items before items and justify-items so the longhands win", () => {
+			const css = rules();
+			const positions = [".place-items-center {", ".items-start {", ".justify-items-start {"].map(
+				(s) => css.indexOf(s),
+			);
+			assert.ok(positions[0] >= 0 && positions[0] < positions[1] && positions[1] < positions[2]);
+		});
+
+		it("orders hidden after every display utility so it always hides", () => {
+			const css = rules();
+			const hidden = css.indexOf(".hidden {");
+			const displays = [...css.matchAll(/\n\.([\w-]+) \{ display: (?!none)/g)];
+			assert.ok(displays.length > 10, "Should find display utilities");
+			for (const m of displays) {
+				assert.ok(m.index < hidden, `.${m[1]} must come before .hidden`);
+			}
+		});
+
 		it("includes half-step spacing with an escaped decimal point", () => {
 			const css = rules();
 			for (const rule of [
