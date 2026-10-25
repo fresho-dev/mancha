@@ -738,6 +738,24 @@ describe("css_custom", () => {
 			});
 		}
 
+		it("falls back to a user-defined rule for a bracket value the browser rejects", () => {
+			if (!isSupported()) return;
+			const user = document.createElement("style");
+			user.textContent = ".text-\\[brand\\] { color: rgb(1, 2, 3) }";
+			document.head.appendChild(user);
+			const warnings: string[] = [];
+			const originalWarn = console.warn;
+			console.warn = (msg: string) => warnings.push(msg);
+			try {
+				processClassString("hover:text-[brand]");
+			} finally {
+				console.warn = originalWarn;
+				user.remove();
+			}
+			assert.deepEqual(warnings, []);
+			assert.equal((customRules()[0] as CSSStyleRule).style.color, "rgb(1, 2, 3)");
+		});
+
 		it("does not re-insert a stack on repeat scans", () => {
 			if (!isSupported()) return;
 			for (let i = 0; i < 3; i++) processClassString("dark:md:hover:w-[307px] sm:focus:w-[307px]");

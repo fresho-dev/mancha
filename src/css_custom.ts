@@ -373,7 +373,10 @@ export function injectCustomClass(className: string, ...variants: string[]): boo
 
 	// Resolve CSS declarations: try parsers, then fall back to stylesheet lookup.
 	const parsed = parseCustomValueClass(className) ?? parseColorOpacityClass(className);
-	const declarations = parsed
+	// A value the browser rejects defers to the page's own rule for the class, if any.
+	const css = (globalThis as { CSS?: { supports?: (cond: string) => boolean } }).CSS;
+	const usable = parsed && css?.supports?.(`${parsed.property}: ${parsed.value}`) !== false;
+	const declarations = usable
 		? `${parsed.property}: ${parsed.value};`
 		: findRuleDeclarations(className);
 	if (!declarations) {
@@ -415,7 +418,7 @@ export function injectCustomClass(className: string, ...variants: string[]): boo
 			sheet.deleteRule(index);
 			// An @media holding no rule means the inner selector was rejected, which is permanent.
 			if (!styleRule) return recordFailure(fullClassName, fullClassName);
-			// A bracket value is fixed, so an unusable one never recovers.
+			// A parsed value is fixed, so an unusable one never recovers.
 			if (parsed) return recordFailure(className, fullClassName);
 			console.warn(`Injected CSS rule had no effect: ${rule}`);
 			// Deliberately left uncached, so every later scan re-inserts, re-detects
