@@ -911,6 +911,8 @@ describe("css_custom", () => {
 			"border-[#1234567]",
 			"-text-[#666]",
 			"-border-[red]",
+			"-text-[2px]",
+			"-border-[2px]",
 		];
 		const legit: [string, string, string][] = [
 			["w-[10px]", "width", "10px"],
@@ -1002,19 +1004,22 @@ describe("css_custom", () => {
 			}
 		});
 
-		it("passes an unknown text-[…] identifier through as a color that has no effect", () => {
+		it("passes an unknown text-[…] identifier through as a color, then warns once", () => {
 			assert.deepEqual(parseCustomValueClass("text-[foo]"), { property: "color", value: "foo" });
 			if (!isSupported()) return;
 			const warnings: string[] = [];
 			const originalWarn = console.warn;
 			console.warn = (msg: string) => warnings.push(msg);
 			try {
+				processClassString("text-[foo]");
+				processClassString("text-[foo]");
 				assert.ok(!injectCustomClass("text-[foo]"));
 			} finally {
 				console.warn = originalWarn;
 			}
 			assert.equal(customRules().length, 0, `Got: ${customRulesText()}`);
-			assert.ok(warnings[0]?.startsWith("Injected CSS rule had no effect: "), warnings[0]);
+			assert.equal(warnings.length, 1, `Got: ${warnings.join("\n")}`);
+			assert.ok(warnings[0].startsWith("No CSS rule for class: "), warnings[0]);
 		});
 
 		it("injects legitimate values", () => {

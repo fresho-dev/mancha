@@ -301,8 +301,9 @@ export function parseCustomValueClass(
 
 	const decoded = rawValue.replace(/_/g, " ");
 	if (prefix === "text" || prefix === "border") {
+		if (negative) return null;
 		if (!LENGTH_VALUE.test(decoded)) {
-			if (negative || !COLOR_VALUE.test(decoded)) return null;
+			if (!COLOR_VALUE.test(decoded)) return null;
 			property = COLOR_PROPERTY_MAP[prefix];
 		}
 	}
@@ -414,6 +415,8 @@ export function injectCustomClass(className: string, ...variants: string[]): boo
 			sheet.deleteRule(index);
 			// An @media holding no rule means the inner selector was rejected, which is permanent.
 			if (!styleRule) return recordFailure(fullClassName, fullClassName);
+			// A bracket value is fixed, so an unusable one never recovers.
+			if (parsed) return recordFailure(className, fullClassName);
 			console.warn(`Injected CSS rule had no effect: ${rule}`);
 			// Deliberately left uncached, so every later scan re-inserts, re-detects
 			// and re-warns for this class. That repeats once per scan rather than
