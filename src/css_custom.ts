@@ -55,8 +55,13 @@ const PROPERTY_MAP: Record<string, string> = {
 
 	// Colors.
 	bg: "background-color",
-	border: "border-color",
+	border: "border-width",
 };
+
+// `text-[…]` and `border-[…]` take a color or a size; anything else is rejected.
+const COLOR_VALUE =
+	/^(#[\da-f]{3,8}|(rgb|hsl|hwb|lab|lch|ok|color|light-dark)[\w-]*\(.*\)|transparent|currentcolor)$/i;
+const LENGTH_VALUE = /^(-?[\d.]+[a-z%]*|(calc|min|max|clamp|var)\(.*\))$/;
 
 // Pattern: optional-negative + prefix + bracket-value.
 const CUSTOM_VALUE_PATTERN = /^(-?)([\w-]+)-\[(.+)\]$/;
@@ -281,7 +286,7 @@ export function parseCustomValueClass(
 	if (!match) return null;
 
 	const [, negative, prefix, rawValue] = match;
-	const property = PROPERTY_MAP[prefix];
+	let property = PROPERTY_MAP[prefix];
 	if (!property || !SAFE_VALUE.test(rawValue) || rawValue.includes("/*")) return null;
 	let depth = 0;
 	for (const c of rawValue) {
@@ -291,6 +296,10 @@ export function parseCustomValueClass(
 	if (depth) return null;
 
 	const decoded = rawValue.replace(/_/g, " ");
+	if (prefix === "text" || prefix === "border") {
+		if (COLOR_VALUE.test(decoded)) property = COLOR_PROPERTY_MAP[prefix];
+		else if (!LENGTH_VALUE.test(decoded)) return null;
+	}
 	const value = negative ? `-${decoded}` : decoded;
 	return { property, value };
 }
