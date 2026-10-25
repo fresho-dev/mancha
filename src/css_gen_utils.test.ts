@@ -255,6 +255,75 @@ describe("CSS Generation Utils", () => {
 			);
 		});
 
+		it("includes grid flow, alignment, display and numeric utilities", () => {
+			const css = rules();
+			for (const rule of [
+				".grid-flow-col { grid-auto-flow: column }",
+				".grid-flow-row-dense { grid-auto-flow: row dense }",
+				".auto-cols-fr { grid-auto-columns: minmax(0, 1fr) }",
+				".auto-rows-min { grid-auto-rows: min-content }",
+				".inline-grid { display: inline-grid }",
+				".inline-flex { display: inline-flex }",
+				".table-cell { display: table-cell }",
+				".justify-items-center { justify-items: center }",
+				".place-items-center { place-items: center }",
+				".tabular-nums { font-variant-numeric: tabular-nums }",
+			]) {
+				assert.ok(css.includes(rule), `Should include ${rule}`);
+			}
+		});
+
+		it("generates per-side and per-corner radius after the shorthand", () => {
+			const css = rules();
+			for (const rule of [
+				".rounded-l-none { border-top-left-radius: 0; border-bottom-left-radius: 0 }",
+				".rounded-b-full { border-bottom-right-radius: 9999px; border-bottom-left-radius: 9999px }",
+				".rounded-t { border-top-left-radius: .25rem; border-top-right-radius: .25rem }",
+				".rounded-tr-lg { border-top-right-radius: .5rem }",
+				".rounded-bl { border-bottom-left-radius: .25rem }",
+			]) {
+				assert.ok(css.includes(rule), `Should include ${rule}`);
+			}
+			// Equal specificity, so a later rule wins: "rounded-lg rounded-t-none rounded-tl-lg".
+			const positions = [".rounded-lg {", ".rounded-t-none {", ".rounded-tl-lg {"].map((s) =>
+				css.indexOf(s),
+			);
+			assert.ok(positions[0] < positions[1] && positions[1] < positions[2]);
+		});
+
+		it("orders place-items before items and justify-items so the longhands win", () => {
+			const css = rules();
+			const positions = [".place-items-center {", ".items-start {", ".justify-items-start {"].map(
+				(s) => css.indexOf(s),
+			);
+			assert.ok(positions[0] >= 0 && positions[0] < positions[1] && positions[1] < positions[2]);
+		});
+
+		it("orders hidden after every display utility so it always hides", () => {
+			const css = rules();
+			const hidden = css.indexOf(".hidden {");
+			const displays = [...css.matchAll(/\n\.([\w-]+) \{ display: (?!none)/g)];
+			assert.ok(displays.length > 10, "Should find display utilities");
+			for (const m of displays) {
+				assert.ok(m.index < hidden, `.${m[1]} must come before .hidden`);
+			}
+		});
+
+		it("includes half-step spacing with an escaped decimal point", () => {
+			const css = rules();
+			for (const rule of [
+				".p-0\\.5 { padding: 0.125rem }",
+				".px-0\\.5 { padding-left: 0.125rem; padding-right: 0.125rem; }",
+				".-mt-0\\.5 { margin-top: -0.125rem }",
+				".w-0\\.5 { width: 0.125rem }",
+				".gap-0\\.5 { gap: 0.125rem }",
+				".gap-x-0\\.5 { column-gap: 0.125rem }",
+				".space-y-0\\.5 > :not(:first-child) { margin-top: 0.125rem }",
+			]) {
+				assert.ok(css.includes(rule), `Should include ${rule}`);
+			}
+		});
+
 		it("includes float, clear, break and list-item utilities", () => {
 			const css = rules();
 			for (const rule of [

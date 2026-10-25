@@ -140,7 +140,7 @@ function generateMarkdown() {
 	md +=
 		"`dark:md:hover:bg-gray-700` becomes `@media (prefers-color-scheme: dark) and (min-width: 768px) { .dark\\:md\\:hover\\:bg-gray-700:hover { … } }`. All conditions apply to the same element, so the order of the prefixes does not matter. Prefixes are read up to the first one that is not a variant, and the rest is the base class: `md:print:hidden` applies `md:` to a stylesheet class `.print\\:hidden`.\n\n";
 	md +=
-		"When two variant rules set the same property, the more specific selector wins: each state variant adds specificity, a `has-[...]` variant that of its selector. Media variants add none, so between rules of equal specificity the one injected later wins, which is the one whose class Mancha encountered later.\n\n";
+		"When two variant rules set the same property, the more specific selector wins: each state variant adds specificity, a `has-[...]` variant that of its selector. Media variants add none, so between rules of equal specificity the one injected later wins, which is the one whose class Mancha encountered later. That also overrides the order of the static utilities, where sides come after shorthands: if `md:pt-0` is encountered before `md:p-4`, the shorthand wins and the top padding is `1rem`.\n\n";
 
 	md += "### Dark Mode\n\n";
 	md += `Use the \`dark:\` prefix to apply styles when the user's system prefers dark mode (\`prefers-color-scheme: dark\`):\n\n`;
@@ -160,7 +160,7 @@ function generateMarkdown() {
 	md += "| Prefix | Property | Values |\n";
 	md += "| --- | --- | --- |\n";
 	for (const [prop, prefix] of Object.entries(PROPS_SPACING)) {
-		md += `| \`${prefix}-\` | \`${prop}\` | \`0\`, \`0.25rem\` - \`128rem\` (and negative versions) |\n`;
+		md += `| \`${prefix}-\` | \`${prop}\` | \`0\`, \`0.5\` (0.125rem), \`0.25rem\` - \`128rem\` (and negative versions) |\n`;
 		md += `| \`${prefix}x-\` | \`${prop}-left/right\` | Same as above |\n`;
 		md += `| \`${prefix}y-\` | \`${prop}-top/bottom\` | Same as above |\n`;
 		md += `| \`${prefix}t-\` | \`${prop}-top\` | Same as above |\n`;
@@ -174,7 +174,7 @@ function generateMarkdown() {
 	md += "| Prefix | Property | Values |\n";
 	md += "| --- | --- | --- |\n";
 	for (const [prop, prefix] of Object.entries(PROPS_SIZING)) {
-		md += `| \`${prefix}-\` | \`${prop}\` | \`0\`, \`full\` (100%), \`screen\` (100vw/vh), \`auto\`, \`px\`, \`0.25rem\` - \`128rem\` |\n`;
+		md += `| \`${prefix}-\` | \`${prop}\` | \`0\`, \`full\` (100%), \`screen\` (100vw/vh), \`auto\`, \`px\`, \`0.5\` (0.125rem), \`0.25rem\` - \`128rem\` |\n`;
 		md += `| \`${prefix}-sm/md/lg/xl\` | \`${prop}\` | Match media breakpoints (e.g. \`w-sm\`, \`max-w-lg\`) |\n`;
 		md += `| \`${prefix}-dvw/dvh/svw/svh/lvw/lvh\` | \`${prop}\` | Viewport-relative units |\n`;
 		md += `| \`${prefix}-fit/min/max\` | \`${prop}\` | \`fit-content\`, \`min-content\`, \`max-content\` |\n`;
@@ -220,6 +220,8 @@ function generateMarkdown() {
 	md += "| `border-x-{0-15}` | Horizontal border width in pixels |\n";
 	md += "| `border-y-{0-15}` | Vertical border width in pixels |\n";
 	md += "| `border-{t,b,l,r}-{0-15}` | Individual side border width in pixels |\n";
+	md +=
+		"| `rounded-{t,r,b,l,tl,tr,br,bl}-{none,sm,md,lg,xl,full}` | Per-side and per-corner radius (bare `rounded-t` is `.25rem`) |\n";
 	md += "\n";
 
 	md += "### Shadows & Effects\n\n";
@@ -304,6 +306,8 @@ function generateMarkdown() {
 		"not-italic",
 		"leading-",
 		"tracking-",
+		"tabular-nums",
+		"normal-nums",
 		"uppercase",
 		"lowercase",
 		"capitalize",
@@ -335,13 +339,25 @@ function generateMarkdown() {
 		"order-",
 		"grid-",
 	];
+	const gridProps = [
+		"grid",
+		"grid-flow-",
+		"auto-cols-",
+		"auto-rows-",
+		"justify-items-",
+		"place-items-",
+	];
+	const isGrid = (klass: string) =>
+		klass === "grid" || gridProps.slice(1).some((p) => klass.startsWith(p));
 	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
-		if (flexProps.some((p) => klass.startsWith(p))) {
+		if (flexProps.some((p) => klass.startsWith(p)) && !isGrid(klass)) {
 			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
 	// Document gap utilities
 	md += "| `gap-0` | No gap |\n";
+	md +=
+		"| `gap-0.5`, `gap-x-0.5`, `gap-y-0.5`, `space-x-0.5`, `space-y-0.5` | Half step (0.125rem) |\n";
 	md += "| `gap-{1-512}` | Gap in rem units (0.25rem increments) |\n";
 	md += "| `gap-{1-512}px` | Gap in pixels |\n";
 	md += "| `gap-x-{1-512}` | Horizontal gap in rem units |\n";
@@ -367,10 +383,8 @@ function generateMarkdown() {
 	md += "| Utility | Description |\n";
 	md += "| --- | --- |\n";
 
-	// Static grid properties from PROPS_CUSTOM if any (like 'grid')
-	const gridProps = ["grid"];
 	for (const [klass, decls] of Object.entries(PROPS_CUSTOM)) {
-		if (gridProps.some((p) => klass === p)) {
+		if (isGrid(klass)) {
 			md += `| \`${klass}\` | \`${decls}\` |\n`;
 		}
 	}
@@ -418,6 +432,12 @@ function generateMarkdown() {
 	const displayProps = [
 		"block",
 		"inline",
+		"inline-block",
+		"inline-flex",
+		"inline-grid",
+		"table",
+		"table-row",
+		"table-cell",
 		"hidden",
 		"contents",
 		"visible",
@@ -533,6 +553,7 @@ function generateMarkdown() {
 	const allHandledPrefixes = [
 		...typoProps,
 		...flexProps,
+		...gridProps,
 		...posProps,
 		...borderProps,
 		...effectProps,
@@ -586,7 +607,9 @@ function generateMarkdown() {
 	md += "### Syntax\n\n";
 	md += "```html\n";
 	md += '<div class="w-[133px] mt-[2rem] max-w-[900px]">\n';
+	md += '<div class="grid grid-cols-[max-content_minmax(0,max-content)_max-content]">\n';
 	md += "```\n\n";
+	md += "An underscore in a bracket value becomes a space.\n\n";
 	md += "### Supported Properties\n\n";
 	md += "| Prefix | CSS Property |\n";
 	md += "|--------|--------------|\n";
@@ -600,6 +623,9 @@ function generateMarkdown() {
 	md += "| `px-`, `py-` | padding-inline, padding-block |\n";
 	md += "| `top`, `right`, `bottom`, `left` | positioning |\n";
 	md += "| `gap-`, `gap-x-`, `gap-y-` | gap |\n";
+	md += "| `grid-cols-`, `grid-rows-` | grid-template-columns, grid-template-rows |\n";
+	md += "| `rounded-` | border-radius |\n";
+	md += "| `leading-` | line-height |\n";
 	md += "| `text-` | font-size, or color for a color value |\n";
 	md += "| `z-` | z-index |\n";
 	md += "| `bg-` | background-color |\n";
@@ -624,7 +650,7 @@ function generateMarkdown() {
 		"matches no rule logs `No CSS rule for class: ...` once for the life of the page. That " +
 		"covers a typo or a color outside the palette (`hover:bg-brand-500`), and also anything " +
 		"Mancha does not implement — a variant it does not know (`active:`, `group-hover:`), a " +
-		"bracket value on a property it does not map (`rounded-[12px]`), or a `text-[…]` / " +
+		"bracket value on a property it does not map (`outline-[3px]`), or a `text-[…]` / " +
 		"`border-[…]` value that is neither a length nor a color (`text-[large]`). Each of those does " +
 		"nothing, which is what the message is for. Sheets that arrive later are picked up, so a " +
 		"late-loading sheet defining the class still works.\n\n";
@@ -633,6 +659,8 @@ function generateMarkdown() {
 		"`#`, `.`, `%`, `+`, `*`, `/`, `,`, `!` and balanced parentheses, and may not contain " +
 		"`/*`. Anything else (`;`, braces, quotes, backslashes, `:`, …) makes the class " +
 		"unresolvable, so a value cannot break out of its declaration.\n\n";
+	md +=
+		"**Injected after the utilities**: custom-value rules come after the static utilities, so they win over any of them setting the same property: `p-[10px] pt-0` keeps the 10px top padding, and `rounded-[12px] rounded-l-none` keeps every corner rounded. They share one injected sheet with variant rules, in the order Mancha first encounters each class on the page.\n\n";
 	md += "### When to Use\n\n";
 	md += "**Prefer the design scale** for consistency. Use custom values for:\n";
 	md += "- Matching external constraints (third-party widgets, embeds)\n";

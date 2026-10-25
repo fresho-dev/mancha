@@ -70,6 +70,31 @@ describe("css_custom", () => {
 			assert.deepEqual(result, { property: "height", value: "50vh" });
 		});
 
+		it("parses grid templates with spaces and nested functions", () => {
+			assert.deepEqual(
+				parseCustomValueClass("grid-cols-[max-content_minmax(0,max-content)_max-content]"),
+				{
+					property: "grid-template-columns",
+					value: "max-content minmax(0,max-content) max-content",
+				},
+			);
+			assert.deepEqual(parseCustomValueClass("grid-rows-[auto_1fr]"), {
+				property: "grid-template-rows",
+				value: "auto 1fr",
+			});
+		});
+
+		it("parses border radius and line height", () => {
+			assert.deepEqual(parseCustomValueClass("rounded-[12px]"), {
+				property: "border-radius",
+				value: "12px",
+			});
+			assert.deepEqual(parseCustomValueClass("leading-[1.1]"), {
+				property: "line-height",
+				value: "1.1",
+			});
+		});
+
 		it("parses min-height", () => {
 			const result = parseCustomValueClass("min-h-[100px]");
 			assert.deepEqual(result, { property: "min-height", value: "100px" });

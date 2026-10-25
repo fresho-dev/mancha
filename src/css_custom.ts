@@ -52,6 +52,10 @@ const PROPERTY_MAP: Record<string, string> = {
 	"gap-y": "row-gap",
 	text: "font-size",
 	z: "z-index",
+	"grid-cols": "grid-template-columns",
+	"grid-rows": "grid-template-rows",
+	rounded: "border-radius",
+	leading: "line-height",
 
 	// Colors.
 	bg: "background-color",

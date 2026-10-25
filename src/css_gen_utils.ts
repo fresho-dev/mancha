@@ -42,6 +42,17 @@ const TRANSITION_BASE =
 const RING_COLOR_DEFAULT = "rgb(59 130 246 / 0.5)";
 const RING_COLOR = `var(--ring-color, ${RING_COLOR_DEFAULT})`;
 
+// Radius scale; the empty key is the bare `rounded` class.
+const RADII: { [key: string]: string } = {
+	none: "0",
+	"": ".25rem",
+	sm: ".125rem",
+	md: ".375rem",
+	lg: ".5rem",
+	xl: ".75rem",
+	full: "9999px",
+};
+
 export const PROPS_CUSTOM: { [key: string]: string } = {
 	// Based on https://tailwindcss.com.
 	// Font family.
@@ -71,6 +82,9 @@ export const PROPS_CUSTOM: { [key: string]: string } = {
 	"font-bold": "font-weight: 700",
 	"font-extrabold": "font-weight: 800",
 	"font-black": "font-weight: 900",
+	// Numeric variants.
+	"tabular-nums": "font-variant-numeric: tabular-nums",
+	"normal-nums": "font-variant-numeric: normal",
 	// Font style.
 	italic: "font-style: italic",
 	"not-italic": "font-style: normal",
@@ -150,9 +164,13 @@ export const PROPS_CUSTOM: { [key: string]: string } = {
 	// Display.
 	block: "display: block",
 	contents: "display: contents",
-	hidden: "display: none",
 	inline: "display: inline",
 	"inline-block": "display: inline-block",
+	"inline-flex": "display: inline-flex",
+	"inline-grid": "display: inline-grid",
+	table: "display: table",
+	"table-row": "display: table-row",
+	"table-cell": "display: table-cell",
 	"list-item": "display: list-item",
 	// Float and clear.
 	"float-left": "float: left",
@@ -178,8 +196,9 @@ export const PROPS_CUSTOM: { [key: string]: string } = {
 	// Flex.
 	flex: "display: flex",
 	grid: "display: grid",
+	// Last display rule, so it overrides the others.
+	hidden: "display: none",
 	"flex-1": "flex: 1 1 0%",
-	"flex-inline": "display: inline-flex",
 	"flex-row": "flex-direction: row",
 	"flex-col": "flex-direction: column",
 	"flex-row-reverse": "flex-direction: row-reverse",
@@ -194,10 +213,33 @@ export const PROPS_CUSTOM: { [key: string]: string } = {
 	"justify-around": "justify-content: space-around",
 	"justify-evenly": "justify-content: space-evenly",
 	"justify-stretch": "justify-content: stretch",
+	"place-items-start": "place-items: start",
+	"place-items-end": "place-items: end",
+	"place-items-center": "place-items: center",
+	"place-items-baseline": "place-items: baseline",
+	"place-items-stretch": "place-items: stretch",
 	"items-start": "align-items: flex-start",
 	"items-end": "align-items: flex-end",
 	"items-center": "align-items: center",
 	"items-stretch": "align-items: stretch",
+	"justify-items-start": "justify-items: start",
+	"justify-items-end": "justify-items: end",
+	"justify-items-center": "justify-items: center",
+	"justify-items-stretch": "justify-items: stretch",
+	// Grid auto placement.
+	"grid-flow-row": "grid-auto-flow: row",
+	"grid-flow-col": "grid-auto-flow: column",
+	"grid-flow-dense": "grid-auto-flow: dense",
+	"grid-flow-row-dense": "grid-auto-flow: row dense",
+	"grid-flow-col-dense": "grid-auto-flow: column dense",
+	"auto-cols-auto": "grid-auto-columns: auto",
+	"auto-cols-min": "grid-auto-columns: min-content",
+	"auto-cols-max": "grid-auto-columns: max-content",
+	"auto-cols-fr": "grid-auto-columns: minmax(0, 1fr)",
+	"auto-rows-auto": "grid-auto-rows: auto",
+	"auto-rows-min": "grid-auto-rows: min-content",
+	"auto-rows-max": "grid-auto-rows: max-content",
+	"auto-rows-fr": "grid-auto-rows: minmax(0, 1fr)",
 	"flex-grow": "flex-grow: 1",
 	"flex-shrink": "flex-shrink: 1",
 	// Vertical alignment.
@@ -255,13 +297,12 @@ export const PROPS_CUSTOM: { [key: string]: string } = {
 	"border-dotted": "border-style: dotted",
 	"border-collapse": "border-collapse: collapse",
 	// Radius.
-	"rounded-none": "border-radius: 0",
-	rounded: "border-radius: .25rem",
-	"rounded-sm": "border-radius: .125rem",
-	"rounded-md": "border-radius: .375rem",
-	"rounded-lg": "border-radius: .5rem",
-	"rounded-xl": "border-radius: .75rem",
-	"rounded-full": "border-radius: 9999px",
+	...Object.fromEntries(
+		Object.entries(RADII).map(([size, value]) => [
+			size ? `rounded-${size}` : "rounded",
+			`border-radius: ${value}`,
+		]),
+	),
 	// Shadows (matching Tailwind CSS).
 	"shadow-2xs": "box-shadow: 0 1px rgb(0 0 0 / 0.05)",
 	"shadow-xs": "box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05)",
@@ -455,6 +496,26 @@ const SIDES: Array<[side: string, letter: string]> = [
 	["right", "r"],
 ];
 
+/** Corner longhands each side or corner class of `rounded-*` sets. */
+const CORNERS: Array<[letter: string, corners: string[]]> = [
+	["t", ["top-left", "top-right"]],
+	["r", ["top-right", "bottom-right"]],
+	["b", ["bottom-right", "bottom-left"]],
+	["l", ["top-left", "bottom-left"]],
+	["tl", ["top-left"]],
+	["tr", ["top-right"]],
+	["br", ["bottom-right"]],
+	["bl", ["bottom-left"]],
+];
+
+/** Rem steps, plus the half step Tailwind offers below 1. */
+const UNITS_REM = [0.5, ...UNITS_ALL];
+
+/** A number as a class suffix: a bare "." would start a new compound selector. */
+function unit(v: number): string {
+	return String(v).replace(".", "\\.");
+}
+
 /**
  * The rem / pixel / percentage triple that every length utility offers.
  * `sign` prefixes both the class and the value, so a negative class carries a
@@ -470,7 +531,7 @@ function scaled(
 		decl(`${sign}${value}`),
 	];
 	return [
-		...UNITS_ALL.map((v) => at(`${v}`, `${v * REM_UNIT}rem`)),
+		...UNITS_REM.map((v) => at(unit(v), `${v * REM_UNIT}rem`)),
 		...UNITS_ALL.map((v) => at(`${v}px`, `${v}px`)),
 		...PERCENTS.map((v) => at(`${v}\\%`, `${v}%`)),
 	];
@@ -568,6 +629,18 @@ function border(): string[] {
 	]);
 }
 
+/** Per-side and per-corner radius, emitted after the shorthand so they override it. */
+function radius(): string[] {
+	return wrap(
+		CORNERS.flatMap(([letter, corners]) =>
+			Object.entries(RADII).map(([size, value]) => [
+				size ? `rounded-${letter}-${size}` : `rounded-${letter}`,
+				corners.map((c) => `border-${c}-radius: ${value}`).join("; "),
+			]),
+		),
+	);
+}
+
 function zIndex(): string[] {
 	return wrap(PERCENTS.map((v) => [`z-${v}`, `z-index: ${v}`]));
 }
@@ -585,21 +658,21 @@ function between(): string[] {
 	return wrap([
 		[`space-x-0 > *`, `margin-left: 0`],
 		[`space-y-0 > *`, `margin-top: 0`],
-		...UNITS_ALL.map((v) => [
-			`space-x-${v} > :not(:first-child)`,
+		...UNITS_REM.map((v) => [
+			`space-x-${unit(v)} > :not(:first-child)`,
 			`margin-left: ${v * REM_UNIT}rem`,
 		]),
-		...UNITS_ALL.map((v) => [
-			`space-y-${v} > :not(:first-child)`,
+		...UNITS_REM.map((v) => [
+			`space-y-${unit(v)} > :not(:first-child)`,
 			`margin-top: ${v * REM_UNIT}rem`,
 		]),
 		...UNITS_ALL.map((v) => [`space-x-${v}px > :not(:first-child)`, `margin-left: ${v}px`]),
 		...UNITS_ALL.map((v) => [`space-y-${v}px > :not(:first-child)`, `margin-top: ${v}px`]),
 		[`gap-0`, `gap: 0`],
-		...UNITS_ALL.map((v) => [`gap-${v}`, `gap: ${v * REM_UNIT}rem`]),
+		...UNITS_REM.map((v) => [`gap-${unit(v)}`, `gap: ${v * REM_UNIT}rem`]),
 		...UNITS_ALL.map((v) => [`gap-${v}px`, `gap: ${v}px`]),
-		...UNITS_ALL.map((v) => [`gap-x-${v}`, `column-gap: ${v * REM_UNIT}rem`]),
-		...UNITS_ALL.map((v) => [`gap-y-${v}`, `row-gap: ${v * REM_UNIT}rem`]),
+		...UNITS_REM.map((v) => [`gap-x-${unit(v)}`, `column-gap: ${v * REM_UNIT}rem`]),
+		...UNITS_REM.map((v) => [`gap-y-${unit(v)}`, `row-gap: ${v * REM_UNIT}rem`]),
 		...UNITS_ALL.map((v) => [`gap-x-${v}px`, `column-gap: ${v}px`]),
 		...UNITS_ALL.map((v) => [`gap-y-${v}px`, `row-gap: ${v}px`]),
 		// Divide utilities for adding borders between child elements.
@@ -761,6 +834,7 @@ export default function rules(): string {
 		...posneg(PROPS_SIZING_MINMAX, SIGNS_POSITIVE),
 		// Border.
 		...border(),
+		...radius(),
 		// Text sizes.
 		...textSizes(),
 		// Grid.
