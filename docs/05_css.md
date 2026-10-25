@@ -132,7 +132,7 @@ Variants stack: every prefix must hold for the class to apply. Media variants (`
 
 `dark:md:hover:bg-gray-700` becomes `@media (prefers-color-scheme: dark) and (min-width: 768px) { .dark\:md\:hover\:bg-gray-700:hover { … } }`. All conditions apply to the same element, so the order of the prefixes does not matter. Prefixes are read up to the first one that is not a variant, and the rest is the base class: `md:print:hidden` applies `md:` to a stylesheet class `.print\:hidden`.
 
-When two variant rules set the same property, the more specific selector wins: each state variant adds specificity, a `has-[...]` variant that of its selector. Media variants add none, so between rules of equal specificity the one injected later wins, which is the one whose class Mancha encountered later.
+When two variant rules set the same property, the more specific selector wins: each state variant adds specificity, a `has-[...]` variant that of its selector. Media variants add none, so between rules of equal specificity the one injected later wins, which is the one whose class Mancha encountered later. That also overrides the order of the static utilities, where sides come after shorthands: if `md:pt-0` is encountered before `md:p-4`, the shorthand wins and the top padding is `1rem`.
 
 ### Dark Mode
 
@@ -491,15 +491,15 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | Utility | Description |
 | --- | --- |
 | `grid` | `display: grid` |
-| `justify-items-start` | `justify-items: start` |
-| `justify-items-end` | `justify-items: end` |
-| `justify-items-center` | `justify-items: center` |
-| `justify-items-stretch` | `justify-items: stretch` |
 | `place-items-start` | `place-items: start` |
 | `place-items-end` | `place-items: end` |
 | `place-items-center` | `place-items: center` |
 | `place-items-baseline` | `place-items: baseline` |
 | `place-items-stretch` | `place-items: stretch` |
+| `justify-items-start` | `justify-items: start` |
+| `justify-items-end` | `justify-items: end` |
+| `justify-items-center` | `justify-items: center` |
+| `justify-items-stretch` | `justify-items: stretch` |
 | `grid-flow-row` | `grid-auto-flow: row` |
 | `grid-flow-col` | `grid-auto-flow: column` |
 | `grid-flow-dense` | `grid-auto-flow: dense` |
@@ -558,7 +558,6 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | --- | --- |
 | `block` | `display: block` |
 | `contents` | `display: contents` |
-| `hidden` | `display: none` |
 | `inline` | `display: inline` |
 | `inline-block` | `display: inline-block` |
 | `inline-flex` | `display: inline-flex` |
@@ -569,6 +568,7 @@ You can also control the opacity of any color utility by appending `/{opacity}` 
 | `visible` | `visibility: visible` |
 | `invisible` | `visibility: hidden` |
 | `collapse` | `visibility: collapse` |
+| `hidden` | `display: none` |
 
 ### Overflow & Scrolling
 
@@ -734,6 +734,8 @@ Markup that Mancha did not render is the exception: it is never scanned, so call
 **Unresolvable classes are reported**: a class that reaches on-demand injection and matches no rule logs `No CSS rule for class: ...` once for the life of the page. That covers a typo or a color outside the palette (`hover:bg-brand-500`), and also anything Mancha does not implement — a variant it does not know (`active:`, `group-hover:`), a bracket value on a property it does not map (`outline-[3px]`), or a `text-[…]` / `border-[…]` value that is neither a length nor a color (`text-[large]`). Each of those does nothing, which is what the message is for. Sheets that arrive later are picked up, so a late-loading sheet defining the class still works.
 
 **Restricted characters**: a bracket value may only contain letters, digits, `_`, `-`, `#`, `.`, `%`, `+`, `*`, `/`, `,`, `!` and balanced parentheses, and may not contain `/*`. Anything else (`;`, braces, quotes, backslashes, `:`, …) makes the class unresolvable, so a value cannot break out of its declaration.
+
+**Injected after the utilities**: custom-value rules come after the static utilities, so they win over any of them setting the same property: `p-[10px] pt-0` keeps the 10px top padding, and `rounded-[12px] rounded-l-none` keeps every corner rounded.
 
 ### When to Use
 

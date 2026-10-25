@@ -140,7 +140,7 @@ function generateMarkdown() {
 	md +=
 		"`dark:md:hover:bg-gray-700` becomes `@media (prefers-color-scheme: dark) and (min-width: 768px) { .dark\\:md\\:hover\\:bg-gray-700:hover { … } }`. All conditions apply to the same element, so the order of the prefixes does not matter. Prefixes are read up to the first one that is not a variant, and the rest is the base class: `md:print:hidden` applies `md:` to a stylesheet class `.print\\:hidden`.\n\n";
 	md +=
-		"When two variant rules set the same property, the more specific selector wins: each state variant adds specificity, a `has-[...]` variant that of its selector. Media variants add none, so between rules of equal specificity the one injected later wins, which is the one whose class Mancha encountered later.\n\n";
+		"When two variant rules set the same property, the more specific selector wins: each state variant adds specificity, a `has-[...]` variant that of its selector. Media variants add none, so between rules of equal specificity the one injected later wins, which is the one whose class Mancha encountered later. That also overrides the order of the static utilities, where sides come after shorthands: if `md:pt-0` is encountered before `md:p-4`, the shorthand wins and the top padding is `1rem`.\n\n";
 
 	md += "### Dark Mode\n\n";
 	md += `Use the \`dark:\` prefix to apply styles when the user's system prefers dark mode (\`prefers-color-scheme: dark\`):\n\n`;
@@ -659,6 +659,8 @@ function generateMarkdown() {
 		"`#`, `.`, `%`, `+`, `*`, `/`, `,`, `!` and balanced parentheses, and may not contain " +
 		"`/*`. Anything else (`;`, braces, quotes, backslashes, `:`, …) makes the class " +
 		"unresolvable, so a value cannot break out of its declaration.\n\n";
+	md +=
+		"**Injected after the utilities**: custom-value rules come after the static utilities, so they win over any of them setting the same property: `p-[10px] pt-0` keeps the 10px top padding, and `rounded-[12px] rounded-l-none` keeps every corner rounded.\n\n";
 	md += "### When to Use\n\n";
 	md += "**Prefer the design scale** for consistency. Use custom values for:\n";
 	md += "- Matching external constraints (third-party widgets, embeds)\n";
