@@ -69,6 +69,9 @@
 		"yargs": "^17.7.2"
 	},
 	"overrides": {
+		"@bazel/concatjs": {
+			"protobufjs": "^7.6.6"
+		},
 		"qs": "^6.14.2",
 		"serialize-javascript": "^7.0.3",
 		"diff": "^8.0.3",
@@ -92,9 +95,9 @@
 		"@types/node": "^20.12.11",
 		"@types/trusted-types": "^2.0.7",
 		"@types/yargs": "^17.0.29",
-		"@web/test-runner": "^0.19.0",
-		"@web/test-runner-commands": "^0.9.0",
-		"@web/test-runner-playwright": "^0.11.1",
+		"@web/test-runner": "^1.0.0",
+		"@web/test-runner-commands": "^1.0.1",
+		"@web/test-runner-playwright": "^1.0.0",
 		"chai": "^5.3.3",
 		"chai-as-promised": "^8.0.1",
 		"css-tree": "^3.2.1",
