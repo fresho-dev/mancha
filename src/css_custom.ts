@@ -427,7 +427,9 @@ function pageUse(className: string): "own" | "mention" | null {
 		}
 	};
 	for (const sheet of document.styleSheets) {
-		if (sheet === styleSheet || sheet === utilsSheet) continue;
+		// Every utils sheet matches the static names already checked, however often it was injected.
+		const owner = (sheet.ownerNode as Element | null)?.getAttribute?.("data-mancha");
+		if (sheet === styleSheet || owner === "utils") continue;
 		if (use === "own") break;
 		try {
 			search(sheet.cssRules);
