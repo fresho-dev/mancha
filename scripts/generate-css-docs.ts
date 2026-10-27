@@ -672,7 +672,8 @@ function generateMarkdown() {
 	md +=
 		"Custom values support pseudo-states, responsive breakpoints, and dark mode, stacked or not:\n\n";
 	md += "```html\n";
-	md += '<div class="hover:w-[200px] md:max-w-[900px] dark:bg-[#333] dark:md:hover:bg-[#444] md:p-(--gutter)">\n';
+	md +=
+		'<div class="hover:w-[200px] md:max-w-[900px] dark:bg-[#333] dark:md:hover:bg-[#444] md:p-(--gutter)">\n';
 	md += "```\n\n";
 	md += "### Binding\n\n";
 	md +=
