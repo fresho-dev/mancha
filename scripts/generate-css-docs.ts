@@ -691,9 +691,12 @@ function generateMarkdown() {
 		"covers a typo or a color outside the palette (`hover:bg-brand-500`), and also anything " +
 		"Mancha does not implement — a variant it does not know (`active:`, `group-hover:`), or a " +
 		"bracket value on a property it does not map (`outline-[3px]`). With utils CSS in the " +
-		"document, a plain color or radius name (`bg-brnad`, `rounded-cardd`) that is neither a " +
-		"built-in utility, a [theme name](#theme-colors) nor a rule in one of the page's sheets " +
-		"is reported too, so a class used only as a script hook should avoid those prefixes. " +
+		"document, any plain `text-`, `bg-`, `border-`, `fill-`, `divide-`, `ring-` or `rounded-` " +
+		"class is reported too unless it is a built-in utility, a [theme name](#theme-colors) or " +
+		"named by a rule in one of the page's readable sheets. That covers a typo (`bg-brnad`) " +
+		"and Tailwind utilities Mancha lacks (`bg-clip-text`, `text-ellipsis`); a class used " +
+		"only as a script hook should avoid those prefixes, and one styled only by a " +
+		"cross-origin sheet is reported because its rules cannot be read. " +
 		"Each of those does " +
 		"nothing, which is what the message is for. Sheets that arrive later are picked up, so a " +
 		"late-loading sheet defining the class still works.\n\n";
@@ -703,7 +706,7 @@ function generateMarkdown() {
 		"`/*`. Anything else (`;`, braces, quotes, backslashes, `:`, …) makes the class " +
 		"unresolvable, so a value cannot break out of its declaration.\n\n";
 	md +=
-		"**Injected after the utilities**: custom-value rules come after the static utilities, so they win over any of them setting the same property: `p-[10px] pt-0` keeps the 10px top padding, and `rounded-[12px] rounded-l-none` keeps every corner rounded. They share one injected sheet with variant rules, in the order Mancha first encounters each class on the page.\n\n";
+		"**Injected after the utilities**: custom-value rules come after the static utilities, so they win over any of them setting the same property: `p-[10px] pt-0` keeps the 10px top padding, and `rounded-[12px] rounded-l-none` keeps every corner rounded. In the injected sheet, rules without a variant come before every variant rule, so `bg-[#0f0] md:bg-[#00f]` and `bg-brand md:bg-red-500` switch at the breakpoint; within each group, rules keep the order Mancha first encounters each class on the page.\n\n";
 	md += "### When to Use\n\n";
 	md += "**Prefer the design scale** for consistency. Use custom values for:\n";
 	md += "- Matching external constraints (third-party widgets, embeds)\n";

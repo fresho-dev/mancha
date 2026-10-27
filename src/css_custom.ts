@@ -1,10 +1,15 @@
 import { MEDIA_BREAKPOINTS } from "./css_gen_utils.js";
-import { parseColorOpacityClass, parseCustomValueClass, parseThemeClass } from "./css_parse.js";
+import {
+	type Declaration,
+	parseColorOpacityClass,
+	parseCustomValueClass,
+	parseThemeClass,
+} from "./css_parse.js";
 
 // A plain class a theme variable could define, e.g. `bg-brand`.
 const THEME_CANDIDATE = /^(?:text|bg|border|fill|divide|ring|rounded)-[\w-]+$/;
-// The class a static rule's selector starts with; escaped names like `w-1\/2` are skipped.
-const STATIC_NAME = /^\.([\w-]+)(?![\w-]|\\)/;
+// The class a static rule's selector starts with, escapes included, as in `.w-1\/2`.
+const STATIC_NAME = /^\.((?:[\w-]|\\.)+)/;
 
 // Splits `variant:class` at the first colon outside brackets.
 const VARIANT_SPLIT = /^((?:[^:[]|\[[^\]]*\])+):(.+)$/;
@@ -78,9 +83,13 @@ let failedLookupsFingerprint = "";
 // Sheet count when the fingerprint was read this task, or -1: a scan pays for it once per task.
 let failedLookupsCheckedSheets = -1;
 let styleSheet: CSSStyleSheet | null = null;
+// Rules without a variant, which sit at the start of our sheet.
+let plainRules = 0;
 // The static utilities sheet and the class names it defines, which theme names never override.
 let utilsSheet: CSSStyleSheet | null = null;
 let utilsNames = new Set<string>();
+// Custom properties the root defines, snapshotted per task, and the sheet count it was read at.
+let rootProperties: { names: Set<string>; sheets: number } | null = null;
 
 /**
  * Cheap summary of the rules a lookup would search. Counting each sheet's rules as well as the
@@ -206,6 +215,7 @@ function getStyleSheet(): CSSStyleSheet | null {
 		// survive: they record what the page's other sheets do not define, which losing our
 		// own sheet does not change, and the fingerprint ignores our sheet for the same reason.
 		injectedRules.clear();
+		plainRules = 0;
 	}
 	if (styleSheet) return styleSheet;
 
@@ -243,27 +253,24 @@ export function injectCustomClass(className: string, ...variants: string[]): boo
 
 	const escapedClass = escapeSelector(fullClassName);
 
-	// Resolve CSS declarations: try parsers, then fall back to stylesheet lookup.
-	const parsed =
-		parseCustomValueClass(className) ??
-		parseColorOpacityClass(className) ??
-		(staticUtilities()?.has(className) ? null : parseThemeClass(className, rootDefines));
+	// Resolve CSS declarations: parsers first, then the page's own rules, then theme names.
 	// A value the browser rejects defers to the page's own rule for the class, if any.
-	const css = (globalThis as { CSS?: { supports?: (cond: string) => boolean } }).CSS;
-	const usable = parsed && css?.supports?.(`${parsed.property}: ${parsed.value}`) !== false;
-	const declarations = usable
-		? `${parsed.property}: ${parsed.value};`
-		: findRuleDeclarations(className);
+	let declarations = usable(parseCustomValueClass(className) ?? parseColorOpacityClass(className));
+	if (!declarations && !variants.length && pageStyles(className)) {
+		// The page's own rule already applies to a plain class; a copy would only reorder the cascade.
+		injectedRules.add(fullClassName);
+		return true;
+	}
+	const fromPage = !declarations && variants.length > 0;
+	if (fromPage) declarations = findRuleDeclarations(className);
+	if (!declarations && !staticUtilities()?.has(className)) {
+		declarations = usable(parseThemeClass(className, rootDefines));
+	}
 	if (!declarations) {
 		// Cache under the base name, but report the class as it was written: the base name of
 		// `hover:bg-brand-500` appears nowhere in the markup, so it is not something a reader
 		// can search for.
 		return recordFailure(className, fullClassName);
-	}
-	// The page's own rule already applies to a plain class; a copy would only reorder the cascade.
-	if (!usable && !variants.length) {
-		injectedRules.add(fullClassName);
-		return true;
 	}
 
 	// Divide classes need a child selector suffix.
@@ -281,7 +288,12 @@ export function injectCustomClass(className: string, ...variants: string[]): boo
 	const rule = isMedia ? `@media ${media.join(" and ")} { ${inner} }` : inner;
 
 	try {
-		const index = sheet.insertRule(rule, sheet.cssRules.length);
+		// Plain rules go before every variant rule, so a breakpoint can override them.
+		const plain = variants.length === 0;
+		const index = sheet.insertRule(
+			rule,
+			plain ? Math.min(plainRules, sheet.cssRules.length) : sheet.cssRules.length,
+		);
 
 		// The browser accepts a rule whose selector parses but whose declaration it
 		// cannot use, and an @media wrapper parses even with an invalid inner
@@ -299,7 +311,7 @@ export function injectCustomClass(className: string, ...variants: string[]): boo
 			// An @media holding no rule means the inner selector was rejected, which is permanent.
 			if (!styleRule) return recordFailure(fullClassName, fullClassName);
 			// A parsed value is fixed, so an unusable one never recovers.
-			if (parsed) return recordFailure(className, fullClassName);
+			if (!fromPage) return recordFailure(className, fullClassName);
 			console.warn(`Injected CSS rule had no effect: ${rule}`);
 			// Deliberately left uncached, so every later scan re-inserts, re-detects
 			// and re-warns for this class. That repeats once per scan rather than
@@ -307,12 +319,20 @@ export function injectCustomClass(className: string, ...variants: string[]): boo
 			return false;
 		}
 
+		if (plain) plainRules++;
 		injectedRules.add(fullClassName);
 		return true;
 	} catch {
 		// Keyed by the class as written: a variant can break the selector of a base that resolves.
 		return recordFailure(fullClassName, fullClassName);
 	}
+}
+
+/** A parsed declaration as rule text, or null when the browser rejects its value. */
+function usable(parsed: Declaration | null): string | null {
+	const css = (globalThis as { CSS?: { supports?: (cond: string) => boolean } }).CSS;
+	if (!parsed || css?.supports?.(`${parsed.property}: ${parsed.value}`) === false) return null;
+	return `${parsed.property}: ${parsed.value};`;
 }
 
 /** Check if a class contains any patterns that need on-demand injection. */
@@ -329,8 +349,8 @@ function staticUtilities(): Set<string> | null {
 		if (!utilsSheet) return null;
 		utilsNames = new Set();
 		for (const rule of utilsSheet.cssRules) {
-			const name = rule instanceof CSSStyleRule && rule.selectorText.match(STATIC_NAME)?.[1];
-			if (name) utilsNames.add(name);
+			const name = (rule as CSSStyleRule).selectorText?.match(STATIC_NAME)?.[1];
+			if (name) utilsNames.add(name.replace(/\\(.)/g, "$1"));
 		}
 	}
 	return utilsNames;
@@ -338,7 +358,51 @@ function staticUtilities(): Set<string> | null {
 
 /** Whether the root element defines a custom property, which is where theme tokens live. */
 function rootDefines(variable: string): boolean {
-	return getComputedStyle(document.documentElement).getPropertyValue(variable).trim() !== "";
+	if (typeof getComputedStyle !== "function") return false;
+	// Reading computed style after an insert forces a style recalc, so snapshot the names once
+	// per task, and again only if a stylesheet appears.
+	if (rootProperties?.sheets !== document.styleSheets.length) {
+		if (!rootProperties) queueMicrotask(() => (rootProperties = null));
+		const names = new Set<string>();
+		for (const name of getComputedStyle(document.documentElement)) {
+			if (name.startsWith("--")) names.add(name);
+		}
+		rootProperties = { names, sheets: document.styleSheets.length };
+	}
+	return rootProperties.names.has(variable);
+}
+
+/** Whether a selector names the escaped class `token`, not just a class it prefixes. */
+function mentions(selector: string, token: string): boolean {
+	for (let i = selector.indexOf(token); i >= 0; i = selector.indexOf(token, i + 1)) {
+		const next = selector[i + token.length] ?? "";
+		if (!/[\w-]/.test(next) && next !== "\\") return true;
+	}
+	return false;
+}
+
+/** Whether the utilities or a page stylesheet style a class, in any selector or nested rule. */
+function pageStyles(className: string): boolean {
+	if (staticUtilities()?.has(className)) return true;
+	const token = `.${escapeSelector(className)}`;
+	const search = (rules: CSSRuleList): boolean => {
+		for (const rule of rules) {
+			const selector = (rule as CSSStyleRule).selectorText;
+			if (selector !== undefined && mentions(selector, token)) return true;
+			const nested = (rule as CSSGroupingRule).cssRules;
+			if (nested && search(nested)) return true;
+		}
+		return false;
+	};
+	for (const sheet of document.styleSheets) {
+		if (sheet === styleSheet || sheet === utilsSheet) continue;
+		try {
+			if (search(sheet.cssRules)) return true;
+		} catch {
+			// Cross-origin stylesheets throw SecurityError; their rules are unreadable anyway.
+		}
+	}
+	return false;
 }
 
 /** Process a class string, inject CSS for any custom values. */
@@ -429,7 +493,9 @@ export function _resetForTesting(): void {
 		(styleSheet.ownerNode as Element).remove();
 	}
 	styleSheet = null;
+	plainRules = 0;
 	utilsSheet = null;
+	rootProperties = null;
 }
 
 /** For testing: get injected rules. */

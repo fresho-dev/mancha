@@ -77,6 +77,8 @@ const COLOR_VALUE = /^(#([\da-f]{3,4}|([\da-f]{2}){3,4})|[a-z-]+(\(.*\))?)$/i;
 const CUSTOM_VALUE_PATTERN = /^(-?)([\w-]+)-\[(.+)\](?:\/(\d+))?$/;
 // Variable shorthand, as in Tailwind v4: `bg-(--x)` is `bg-[var(--x)]`; `text-(length:--x)` is a size.
 const VAR_VALUE_PATTERN = /^(-?)([\w-]+)-\((?:(length|color):)?(--[\w-]+)\)(?:\/(\d+))?$/;
+// Properties a leading `-` can negate; elsewhere a negative value is invalid or meaningless.
+const NEGATABLE = /^(margin|top|right|bottom|left|z-index)/;
 // Bracket values are spliced into the rule verbatim, so allow only characters that cannot end it.
 const SAFE_VALUE = /^[\w#.%+*/(),!-]+$/;
 
@@ -126,6 +128,7 @@ export function parseCustomValueClass(className: string): Declaration | null {
 	} else if (hint) {
 		return null;
 	}
+	if (negative && !NEGATABLE.test(property)) return null;
 	if (opacity !== undefined && !property.endsWith("color")) return null;
 	return withOpacity(property, value, opacity);
 }

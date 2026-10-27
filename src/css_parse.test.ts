@@ -19,7 +19,26 @@ describe("css_parse", () => {
 			});
 		}
 
-		for (const cls of ["w-(length:--x)", "bg-(--x;y)", "bg-(x)", "foo-(--x)", "-text-(--x)"]) {
+		for (const [cls, property, value] of [
+			["-z-(--x)", "z-index", "calc(var(--x) * -1)"],
+			["-top-(--x)", "top", "calc(var(--x) * -1)"],
+		]) {
+			it(`parses ${cls}`, () => {
+				assert.deepEqual(parseCustomValueClass(cls), { property, value });
+			});
+		}
+
+		for (const cls of [
+			"w-(length:--x)",
+			"bg-(--x;y)",
+			"bg-(x)",
+			"foo-(--x)",
+			"-text-(--x)",
+			"-bg-(--x)",
+			"-w-(--x)",
+			"-p-(--x)",
+			"-bg-[#fff]",
+		]) {
 			it(`rejects ${cls}`, () => {
 				assert.equal(parseCustomValueClass(cls), null);
 			});
