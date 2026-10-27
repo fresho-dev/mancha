@@ -1675,6 +1675,78 @@ describe("css_custom", () => {
 			}
 		});
 
+		it("keeps a theme name when page selectors only mention the class", () => {
+			if (!isSupported()) return;
+			tokens.textContent += ":root { --color-ctx1: rgb(1, 2, 3); --color-ctx2: rgb(1, 2, 3); }";
+			const own = document.createElement("style");
+			own.textContent = ".card .bg-ctx1 { padding: 1px } .bg-ctx2:hover { opacity: 0.9 }";
+			document.head.appendChild(own);
+			try {
+				assert.equal(computed("bg-ctx1", "background-color"), "rgb(1, 2, 3)");
+				assert.equal(computed("bg-ctx2", "background-color"), "rgb(1, 2, 3)");
+				assert.equal(warnings.length, 0, `Should not warn: ${warnings.join(" | ")}`);
+			} finally {
+				own.remove();
+			}
+		});
+
+		it("sees rules in @import-ed sheets", async () => {
+			if (!isSupported()) return;
+			tokens.textContent += ":root { --color-imp: rgb(1, 2, 3); }";
+			const url = URL.createObjectURL(
+				new Blob([".bg-imp { background-color: rgb(9, 9, 9) } .x .bg-imp2 { color: red }"], {
+					type: "text/css",
+				}),
+			);
+			const own = document.createElement("style");
+			own.textContent = `@import url(${url});`;
+			const loaded = new Promise((resolve) => own.addEventListener("load", resolve));
+			document.head.appendChild(own);
+			try {
+				await loaded;
+				assert.equal(computed("bg-imp", "background-color"), "rgb(9, 9, 9)");
+				processClassString("bg-imp2");
+				assert.equal(warnings.length, 0, `Should not warn: ${warnings.join(" | ")}`);
+			} finally {
+				own.remove();
+				URL.revokeObjectURL(url);
+			}
+		});
+
+		it("retries a failure once an @import-ed sheet loads", async () => {
+			if (!isSupported()) return;
+			const url = URL.createObjectURL(
+				new Blob([".bg-lateimp { background-color: rgb(9, 9, 9) }"], { type: "text/css" }),
+			);
+			const own = document.createElement("style");
+			own.textContent = `@import url(${url});`;
+			const loaded = new Promise((resolve) => own.addEventListener("load", resolve));
+			document.head.appendChild(own);
+			try {
+				processClassString("hover:bg-lateimp");
+				assert.ok(_getFailedLookups().has("bg-lateimp"), "Precondition: failed before load");
+				await loaded;
+				processClassString("hover:bg-lateimp");
+				assert.ok(_getInjectedRules().has("hover:bg-lateimp"), "Should resolve after load");
+			} finally {
+				own.remove();
+				URL.revokeObjectURL(url);
+			}
+		});
+
+		it("sees a token set since the root style was last read", () => {
+			if (!isSupported()) return;
+			const root = document.documentElement;
+			try {
+				processClassString("bg-brand");
+				root.style.setProperty("--color-stuck", "rgb(1, 2, 3)");
+				processClassString("bg-stuck");
+				assert.ok(_getInjectedRules().has("bg-stuck"), `Should resolve: ${warnings.join(" | ")}`);
+			} finally {
+				root.style.removeProperty("--color-stuck");
+			}
+		});
+
 		it("reads the root's computed style once per scan, not once per class", () => {
 			if (!isSupported()) return;
 			const names = Array.from({ length: 20 }, (_, i) => `tok${i}`);

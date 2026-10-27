@@ -228,7 +228,8 @@ function generateMarkdown() {
 		"`color-mix(in oklab, var(--color-brand) 20%, transparent)`.\n";
 	md +=
 		"- Built-in utilities win: `text-sm` stays a font size and `bg-red-500` stays the " +
-		"palette red, whatever variables exist.\n";
+		"palette red, whatever variables exist. So does a page rule for exactly the class, such " +
+		"as `.bg-brand { … }`, but not one that only names it, such as `.card .bg-brand`.\n";
 	md +=
 		"- The variable must be defined on `:root` when the class is first seen. A name no " +
 		"variable defines is reported like any other [unresolvable class](#limitations), so " +

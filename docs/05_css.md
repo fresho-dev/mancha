@@ -245,7 +245,7 @@ A color name outside the palette reads a `--color-{name}` custom property define
 - Every color prefix works: `bg-brand` is `background-color: var(--color-brand)`, and so on for `text-`, `border-`, `fill-`, `divide-` and `ring-`.
 - `rounded-{name}` reads `--radius-{name}` the same way.
 - Opacity mixes the variable with transparency: `bg-brand/20` is `color-mix(in oklab, var(--color-brand) 20%, transparent)`.
-- Built-in utilities win: `text-sm` stays a font size and `bg-red-500` stays the palette red, whatever variables exist.
+- Built-in utilities win: `text-sm` stays a font size and `bg-red-500` stays the palette red, whatever variables exist. So does a page rule for exactly the class, such as `.bg-brand { … }`, but not one that only names it, such as `.card .bg-brand`.
 - The variable must be defined on `:root` when the class is first seen. A name no variable defines is reported like any other [unresolvable class](#limitations), so `bg-brnad` does not fail silently.
 
 ### Borders & Corners

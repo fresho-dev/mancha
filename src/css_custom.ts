@@ -107,6 +107,12 @@ function ruleFingerprint(): string {
 		if (sheet === styleSheet) continue;
 		try {
 			counts.push(sheet.cssRules.length);
+			// @import rules lead a sheet, after any @layer statements, and their sheets load later.
+			for (const rule of sheet.cssRules) {
+				if ("nameList" in rule) continue;
+				if (!("styleSheet" in rule)) break;
+				counts.push(childRules(rule)?.length ?? -1);
+			}
 		} catch {
 			// Cross-origin stylesheets throw SecurityError; their rules are unreadable anyway.
 			counts.push(-1);
@@ -169,18 +175,36 @@ function findRuleDeclarations(className: string): string | null {
 	if (typeof document === "undefined") return null;
 	// selectorText is serialized escaped (e.g. ".w-50\%"), so escape before comparing.
 	const targetSelector = `.${escapeSelector(className)}`;
+	const search = (rules: CSSRuleList): string | null => {
+		for (const rule of rules) {
+			if ((rule as CSSStyleRule).selectorText === targetSelector) {
+				return (rule as CSSStyleRule).style.cssText;
+			}
+			const imported = "styleSheet" in rule ? childRules(rule) : undefined;
+			const found = imported && search(imported);
+			if (found) return found;
+		}
+		return null;
+	};
 	for (const sheet of document.styleSheets) {
 		try {
-			for (const rule of sheet.cssRules) {
-				if (rule instanceof CSSStyleRule && rule.selectorText === targetSelector) {
-					return rule.style.cssText;
-				}
-			}
+			const found = search(sheet.cssRules);
+			if (found) return found;
 		} catch {
 			// Cross-origin stylesheets throw SecurityError.
 		}
 	}
 	return null;
+}
+
+/** A rule's nested or @import-ed rules, or undefined if it has none or they are unreadable. */
+function childRules(rule: CSSRule): CSSRuleList | undefined {
+	try {
+		return (rule as CSSGroupingRule).cssRules ?? (rule as CSSImportRule).styleSheet?.cssRules;
+	} catch {
+		// A cross-origin @import throws SecurityError.
+		return undefined;
+	}
 }
 
 /** Check if CSSStyleSheet API is available. */
@@ -256,15 +280,17 @@ export function injectCustomClass(className: string, ...variants: string[]): boo
 	// Resolve CSS declarations: parsers first, then the page's own rules, then theme names.
 	// A value the browser rejects defers to the page's own rule for the class, if any.
 	let declarations = usable(parseCustomValueClass(className) ?? parseColorOpacityClass(className));
-	if (!declarations && !variants.length && pageStyles(className)) {
-		// The page's own rule already applies to a plain class; a copy would only reorder the cascade.
-		injectedRules.add(fullClassName);
-		return true;
-	}
 	const fromPage = !declarations && variants.length > 0;
 	if (fromPage) declarations = findRuleDeclarations(className);
-	if (!declarations && !staticUtilities()?.has(className)) {
+	// For a plain class, a rule for exactly it beats a theme name; a selector naming it does not.
+	const use = declarations || variants.length ? null : pageUse(className);
+	if (use !== "own" && !declarations && !staticUtilities()?.has(className)) {
 		declarations = usable(parseThemeClass(className, rootDefines));
+	}
+	if (!declarations && use) {
+		// The page's own rules already apply to a plain class; a copy would only reorder the cascade.
+		injectedRules.add(fullClassName);
+		return true;
 	}
 	if (!declarations) {
 		// Cache under the base name, but report the class as it was written: the base name of
@@ -369,7 +395,11 @@ function rootDefines(variable: string): boolean {
 		}
 		rootProperties = { names, sheets: document.styleSheets.length };
 	}
-	return rootProperties.names.has(variable);
+	if (rootProperties.names.has(variable)) return true;
+	// A token set since the snapshot, e.g. inline on <html>; only a miss pays for this recalc.
+	if (!getComputedStyle(document.documentElement).getPropertyValue(variable).trim()) return false;
+	rootProperties = null;
+	return true;
 }
 
 /** Whether a selector names the escaped class `token`, not just a class it prefixes. */
@@ -381,28 +411,31 @@ function mentions(selector: string, token: string): boolean {
 	return false;
 }
 
-/** Whether the utilities or a page stylesheet style a class, in any selector or nested rule. */
-function pageStyles(className: string): boolean {
-	if (staticUtilities()?.has(className)) return true;
+/** Whether the utilities or page sheets have a rule for exactly a class, only name it, or neither. */
+function pageUse(className: string): "own" | "mention" | null {
+	if (staticUtilities()?.has(className)) return "own";
 	const token = `.${escapeSelector(className)}`;
-	const search = (rules: CSSRuleList): boolean => {
+	let use: "own" | "mention" | null = null;
+	const search = (rules: CSSRuleList): void => {
 		for (const rule of rules) {
+			if (use === "own") return;
 			const selector = (rule as CSSStyleRule).selectorText;
-			if (selector !== undefined && mentions(selector, token)) return true;
-			const nested = (rule as CSSGroupingRule).cssRules;
-			if (nested && search(nested)) return true;
+			if (selector === token) use = "own";
+			else if (selector !== undefined && mentions(selector, token)) use = "mention";
+			const nested = childRules(rule);
+			if (nested) search(nested);
 		}
-		return false;
 	};
 	for (const sheet of document.styleSheets) {
 		if (sheet === styleSheet || sheet === utilsSheet) continue;
+		if (use === "own") break;
 		try {
-			if (search(sheet.cssRules)) return true;
+			search(sheet.cssRules);
 		} catch {
 			// Cross-origin stylesheets throw SecurityError; their rules are unreadable anyway.
 		}
 	}
-	return false;
+	return use;
 }
 
 /** Process a class string, inject CSS for any custom values. */
