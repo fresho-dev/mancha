@@ -6,11 +6,10 @@ import {
 	_resetForTesting,
 	injectCustomClass,
 	isSupported,
-	parseColorOpacityClass,
-	parseCustomValueClass,
 	processClassString,
 	scanAndInject,
 } from "./css_custom.js";
+import { parseColorOpacityClass, parseCustomValueClass } from "./css_parse.js";
 import { assert, isNode } from "./test_utils.js";
 
 /** Rules currently live in the on-demand stylesheet. */
@@ -1481,6 +1480,123 @@ describe("css_custom", () => {
 			);
 
 			container.remove();
+		});
+	});
+
+	describe("theme names", () => {
+		let tokens: HTMLStyleElement;
+		let warnings: string[];
+		const originalWarn = console.warn;
+
+		beforeEach(() => {
+			if (!isSupported()) return;
+			injectCss(["utils"]);
+			tokens = document.createElement("style");
+			tokens.textContent =
+				":root { --color-brand: rgb(1, 2, 3); --color-sm: rgb(4, 5, 6); --radius-card: 7px }";
+			document.head.appendChild(tokens);
+			warnings = [];
+			console.warn = (msg: string) => warnings.push(msg);
+		});
+
+		afterEach(() => {
+			console.warn = originalWarn;
+			tokens?.remove();
+		});
+
+		/** Computed value of a property on an element carrying the given classes. */
+		function computed(classes: string, property: string): string {
+			const el = document.createElement("div");
+			el.className = classes;
+			document.body.appendChild(el);
+			scanAndInject(el);
+			const value = getComputedStyle(el).getPropertyValue(property);
+			el.remove();
+			return value;
+		}
+
+		it("resolves a plain theme color", () => {
+			if (!isSupported()) return;
+			assert.equal(computed("bg-brand", "background-color"), "rgb(1, 2, 3)");
+			assert.equal(computed("text-brand", "color"), "rgb(1, 2, 3)");
+		});
+
+		it("resolves a theme radius", () => {
+			if (!isSupported()) return;
+			assert.equal(computed("rounded-card", "border-top-left-radius"), "7px");
+		});
+
+		it("mixes a theme color with transparency", () => {
+			if (!isSupported()) return;
+			processClassString("bg-brand/50");
+			assert.ok(
+				customRulesText().includes("color-mix(in oklab, var(--color-brand) 50%, transparent)"),
+				`Should inject a color-mix rule, got: ${customRulesText()}`,
+			);
+		});
+
+		it("stacks variants on theme names and variable shorthand", () => {
+			if (!isSupported()) return;
+			processClassString("dark:bg-brand hover:ring-brand md:text-(length:--fs) md:bg-(--x)/20");
+			const text = customRulesText();
+			assert.ok(text.includes("prefers-color-scheme: dark"), `dark: missing, got: ${text}`);
+			assert.ok(text.includes("--ring-color: var(--color-brand)"), `ring missing, got: ${text}`);
+			assert.ok(text.includes("font-size: var(--fs)"), `md: size missing, got: ${text}`);
+			assert.ok(text.includes("var(--x) 20%"), `md: opacity missing, got: ${text}`);
+			assert.equal(warnings.length, 0, `Should not warn: ${warnings.join(" | ")}`);
+		});
+
+		it("reports a plain name no variable defines", () => {
+			if (!isSupported()) return;
+			processClassString("bg-brnad");
+			assert.ok(
+				warnings.some((w) => w.includes("No CSS rule for class: bg-brnad")),
+				`Should report the typo, got: ${warnings.join(" | ")}`,
+			);
+		});
+
+		it("lets static utilities win over a theme variable of the same name", () => {
+			if (!isSupported()) return;
+			// `--color-sm` is defined, but `text-sm` is a font size.
+			assert.notEqual(computed("hover:text-sm text-sm", "color"), "rgb(4, 5, 6)");
+			assert.ok(
+				!customRulesText().includes("--color-sm"),
+				`Should not resolve text-sm to a color, got: ${customRulesText()}`,
+			);
+		});
+
+		it("leaves every static color utility alone", () => {
+			if (!isSupported()) return;
+			const style = document.querySelector('style[data-mancha="utils"]') as HTMLStyleElement;
+			const names = Array.from(style.sheet?.cssRules ?? [])
+				.map((r) => (r as CSSStyleRule).selectorText?.match(/^\.([\w-]+)(?![\w-]|\\)/)?.[1])
+				.filter((n): n is string => !!n && /^(text|bg|border|fill|divide|ring|rounded)-/.test(n));
+			assert.ok(names.length > 100, `Precondition: found ${names.length} static names`);
+			processClassString(names.join(" "));
+			assert.equal(warnings.length, 0, `Static names must not warn: ${warnings.slice(0, 5)}`);
+			assert.equal(customRules().length, 0, `Static names must not inject: ${customRulesText()}`);
+		});
+
+		it("defers to a page rule for a plain name without copying it", () => {
+			if (!isSupported()) return;
+			const own = document.createElement("style");
+			own.textContent = ".bg-hero { background-color: rgb(9, 9, 9) }";
+			document.head.appendChild(own);
+			try {
+				processClassString("bg-hero");
+				assert.equal(warnings.length, 0, `Should not warn: ${warnings.join(" | ")}`);
+				assert.equal(customRules().length, 0, `Should not copy: ${customRulesText()}`);
+			} finally {
+				own.remove();
+			}
+		});
+
+		it("ignores plain names when utils CSS is not in use", () => {
+			if (!isSupported()) return;
+			for (const el of document.querySelectorAll('style[data-mancha="utils"]')) el.remove();
+			processClassString("bg-brnad bg-brand");
+			assert.equal(warnings.length, 0, `Should not warn: ${warnings.join(" | ")}`);
+			assert.equal(customRules().length, 0, `Should not inject: ${customRulesText()}`);
 		});
 	});
 
