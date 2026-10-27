@@ -85,7 +85,7 @@ function generateMarkdown() {
 		"- **CSS Reset**: box-sizing, typography, form and media defaults applied to all of your markup — see [CSS Reset](#css-reset), in particular the layout effects on images, lists, and form controls\n";
 	md += "- **Base utility classes**: spacing, sizing, colors, layout, typography, and more\n";
 	md +=
-		"- **On-demand scanning**: responsive variants, orientation variants, state variants, color opacity, custom bracket values, and dark mode are generated on-the-fly for only the classes actually used in your markup\n\n";
+		"- **On-demand scanning**: responsive variants, orientation variants, state variants, color opacity, custom bracket values, theme names, and dark mode are generated on-the-fly for only the classes actually used in your markup\n\n";
 
 	md += "### Media Breakpoints\n\n";
 	md += "| Prefix | Min Width |\n";
@@ -153,7 +153,7 @@ function generateMarkdown() {
 	md += "```html\n";
 	md += '<div class="bg-[#fff] dark:bg-[#1a1a1a] p-4 dark:border-gray-700">\n';
 	md += "```\n\n";
-	md += `> **Note:** Responsive variants (\`sm:\`, \`md:\`, etc.), orientation variants (\`landscape:\`, \`portrait:\`), state variants (\`hover:\`, \`aria-*:\`, \`has-*:\`, …), color opacity (\`/N\`), dark mode (\`dark:\`), and custom bracket values are all generated on-demand. Only the classes actually present in your markup are injected, keeping the CSS bundle small.\n\n`;
+	md += `> **Note:** Responsive variants (\`sm:\`, \`md:\`, etc.), orientation variants (\`landscape:\`, \`portrait:\`), state variants (\`hover:\`, \`aria-*:\`, \`has-*:\`, …), color opacity (\`/N\`), dark mode (\`dark:\`), custom bracket values and theme names are all generated on-demand. Only the classes actually present in your markup are injected, keeping the CSS bundle small.\n\n`;
 
 	md += "### Spacing (Margin & Padding)\n\n";
 	md += "Spacing utilities use a 0.25rem (4px) unit by default.\n\n";
@@ -204,6 +204,35 @@ function generateMarkdown() {
 	md += "- `text-red-500/20`\n";
 	md += "- `border-blue-600/100`\n";
 	md += "\n";
+
+	md += "#### Theme Colors\n\n";
+	md +=
+		"A color name outside the palette reads a `--color-{name}` custom property defined on " +
+		"`:root`, as in Tailwind v4's `@theme`. Define light and dark values once, and the " +
+		"utilities follow without any `dark:` classes:\n\n";
+	md += "```css\n";
+	md += ":root { --color-brand: #1a7f37; --color-surface: #fff; --radius-card: 12px; }\n";
+	md += "@media (prefers-color-scheme: dark) {\n";
+	md += "  :root { --color-brand: #3fb950; --color-surface: #161b22; }\n";
+	md += "}\n";
+	md += "```\n\n";
+	md += "```html\n";
+	md += '<button class="bg-brand text-surface rounded-card hover:bg-brand/80">Save</button>\n';
+	md += "```\n\n";
+	md +=
+		"- Every color prefix works: `bg-brand` is `background-color: var(--color-brand)`, and " +
+		"so on for `text-`, `border-`, `fill-`, `divide-` and `ring-`.\n";
+	md += "- `rounded-{name}` reads `--radius-{name}` the same way.\n";
+	md +=
+		"- Opacity mixes the variable with transparency: `bg-brand/20` is " +
+		"`color-mix(in oklab, var(--color-brand) 20%, transparent)`.\n";
+	md +=
+		"- Built-in utilities win: `text-sm` stays a font size and `bg-red-500` stays the " +
+		"palette red, whatever variables exist.\n";
+	md +=
+		"- The variable must be defined on `:root` when the class is first seen. A name no " +
+		"variable defines is reported like any other [unresolvable class](#limitations), so " +
+		"`bg-brnad` does not fail silently.\n\n";
 
 	md += "### Borders & Corners\n\n";
 	md += "| Utility | Description |\n";
@@ -610,6 +639,14 @@ function generateMarkdown() {
 	md += '<div class="grid grid-cols-[max-content_minmax(0,max-content)_max-content]">\n';
 	md += "```\n\n";
 	md += "An underscore in a bracket value becomes a space.\n\n";
+	md +=
+		"A custom property can be written in parentheses instead, as in Tailwind v4: " +
+		"`bg-(--brand)` is `bg-[var(--brand)]`, and `-mt-(--gap)` negates it with `calc()`. " +
+		"`text-(…)` and `border-(…)` default to a color; prefix the variable with `length:` for " +
+		"the size meaning, as in `text-(length:--fs-lg)`.\n\n";
+	md +=
+		"Color values take an opacity modifier in either form: `bg-(--brand)/20` and " +
+		"`bg-[#1a7f37]/20` mix the color with transparency through `color-mix()`.\n\n";
 	md += "### Supported Properties\n\n";
 	md += "| Prefix | CSS Property |\n";
 	md += "|--------|--------------|\n";
@@ -635,7 +672,7 @@ function generateMarkdown() {
 	md +=
 		"Custom values support pseudo-states, responsive breakpoints, and dark mode, stacked or not:\n\n";
 	md += "```html\n";
-	md += '<div class="hover:w-[200px] md:max-w-[900px] dark:bg-[#333] dark:md:hover:bg-[#444]">\n';
+	md += '<div class="hover:w-[200px] md:max-w-[900px] dark:bg-[#333] dark:md:hover:bg-[#444] md:p-(--gutter)">\n';
 	md += "```\n\n";
 	md += "### Binding\n\n";
 	md +=
@@ -644,13 +681,19 @@ function generateMarkdown() {
 		"Markup that Mancha did not render is the exception: it is never scanned, so call `scanAndInject(root)` after inserting it yourself.\n\n";
 	md += "### Limitations\n\n";
 	md +=
-		"**Browser only**: Custom values require the CSSStyleSheet API and are not available in Worker or SSR environments.\n\n";
+		"**Browser only**: Custom values and theme names require the CSSStyleSheet API and are " +
+		"not available in Worker or SSR environments. Server-rendered markup gets its rules when " +
+		"the browser scans it.\n\n";
 	md +=
 		"**Unresolvable classes are reported**: a class that reaches on-demand injection and " +
 		"matches no rule logs `No CSS rule for class: ...` once for the life of the page. That " +
 		"covers a typo or a color outside the palette (`hover:bg-brand-500`), and also anything " +
 		"Mancha does not implement — a variant it does not know (`active:`, `group-hover:`), or a " +
-		"bracket value on a property it does not map (`outline-[3px]`). Each of those does " +
+		"bracket value on a property it does not map (`outline-[3px]`). With utils CSS in the " +
+		"document, a plain color or radius name (`bg-brnad`, `rounded-cardd`) that is neither a " +
+		"built-in utility, a [theme name](#theme-colors) nor a rule in one of the page's sheets " +
+		"is reported too, so a class used only as a script hook should avoid those prefixes. " +
+		"Each of those does " +
 		"nothing, which is what the message is for. Sheets that arrive later are picked up, so a " +
 		"late-loading sheet defining the class still works.\n\n";
 	md +=
