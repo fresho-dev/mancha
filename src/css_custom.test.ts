@@ -6,11 +6,10 @@ import {
 	_resetForTesting,
 	injectCustomClass,
 	isSupported,
-	parseColorOpacityClass,
-	parseCustomValueClass,
 	processClassString,
 	scanAndInject,
 } from "./css_custom.js";
+import { parseColorOpacityClass, parseCustomValueClass } from "./css_parse.js";
 import { assert, isNode } from "./test_utils.js";
 
 /** Rules currently live in the on-demand stylesheet. */
@@ -1459,6 +1458,44 @@ describe("css_custom", () => {
 		});
 	});
 
+	describe("plain names in a minimal DOM shim", () => {
+		// Node-only: a consumer's shim may define document and CSSStyleSheet but not
+		// CSSStyleRule or getComputedStyle.
+		it("does not throw", () => {
+			if (!isNode) return;
+			const sheet = {
+				cssRules: [] as unknown[],
+				insertRule(rule: string, index: number) {
+					this.cssRules.splice(index, 0, { style: { length: 1 }, cssText: rule });
+					return index;
+				},
+				deleteRule(index: number) {
+					this.cssRules.splice(index, 1);
+				},
+			};
+			const utils = { cssRules: [{ selectorText: ".bg-red-500", style: { length: 1 } }] };
+			const shim = {
+				createElement: () => ({ setAttribute() {}, sheet, isConnected: true }),
+				head: { appendChild() {} },
+				styleSheets: [utils],
+				querySelector: () => ({ sheet: utils }),
+				documentElement: {},
+			};
+			const g = globalThis as Record<string, unknown>;
+			const saved = { document: g.document, CSSStyleSheet: g.CSSStyleSheet };
+			g.document = shim;
+			g.CSSStyleSheet = function CSSStyleSheet() {};
+			try {
+				_resetForTesting();
+				processClassString("bg-brand hover:bg-brand bg-red-500");
+			} finally {
+				g.document = saved.document;
+				g.CSSStyleSheet = saved.CSSStyleSheet;
+				_resetForTesting();
+			}
+		});
+	});
+
 	describe("stylesheet removal", () => {
 		it("re-injects on re-scan after the stylesheet element was removed", () => {
 			if (!isSupported()) return;
@@ -1481,6 +1518,268 @@ describe("css_custom", () => {
 			);
 
 			container.remove();
+		});
+	});
+
+	describe("theme names", () => {
+		let tokens: HTMLStyleElement;
+		let warnings: string[];
+		const originalWarn = console.warn;
+
+		beforeEach(() => {
+			if (!isSupported()) return;
+			injectCss(["utils"]);
+			tokens = document.createElement("style");
+			tokens.textContent =
+				":root { --color-brand: rgb(1, 2, 3); --color-sm: rgb(4, 5, 6); --radius-card: 7px }";
+			document.head.appendChild(tokens);
+			warnings = [];
+			console.warn = (msg: string) => warnings.push(msg);
+		});
+
+		afterEach(() => {
+			console.warn = originalWarn;
+			tokens?.remove();
+		});
+
+		/** Computed value of a property on an element carrying the given classes. */
+		function computed(classes: string, property: string): string {
+			const el = document.createElement("div");
+			el.className = classes;
+			document.body.appendChild(el);
+			scanAndInject(el);
+			const value = getComputedStyle(el).getPropertyValue(property);
+			el.remove();
+			return value;
+		}
+
+		it("resolves a plain theme color", () => {
+			if (!isSupported()) return;
+			assert.equal(computed("bg-brand", "background-color"), "rgb(1, 2, 3)");
+			assert.equal(computed("text-brand", "color"), "rgb(1, 2, 3)");
+		});
+
+		it("resolves a theme radius", () => {
+			if (!isSupported()) return;
+			assert.equal(computed("rounded-card", "border-top-left-radius"), "7px");
+		});
+
+		it("mixes a theme color with transparency", () => {
+			if (!isSupported()) return;
+			processClassString("bg-brand/50");
+			assert.ok(
+				customRulesText().includes("color-mix(in oklab, var(--color-brand) 50%, transparent)"),
+				`Should inject a color-mix rule, got: ${customRulesText()}`,
+			);
+		});
+
+		it("stacks variants on theme names and variable shorthand", () => {
+			if (!isSupported()) return;
+			processClassString("dark:bg-brand hover:ring-brand md:text-(length:--fs) md:bg-(--x)/20");
+			const text = customRulesText();
+			assert.ok(text.includes("prefers-color-scheme: dark"), `dark: missing, got: ${text}`);
+			assert.ok(text.includes("--ring-color: var(--color-brand)"), `ring missing, got: ${text}`);
+			assert.ok(text.includes("font-size: var(--fs)"), `md: size missing, got: ${text}`);
+			assert.ok(text.includes("var(--x) 20%"), `md: opacity missing, got: ${text}`);
+			assert.equal(warnings.length, 0, `Should not warn: ${warnings.join(" | ")}`);
+		});
+
+		it("reports a plain name no variable defines", () => {
+			if (!isSupported()) return;
+			processClassString("bg-brnad");
+			assert.ok(
+				warnings.some((w) => w.includes("No CSS rule for class: bg-brnad")),
+				`Should report the typo, got: ${warnings.join(" | ")}`,
+			);
+		});
+
+		it("lets static utilities win over a theme variable of the same name", () => {
+			if (!isSupported()) return;
+			// `--color-sm` is defined, but `text-sm` is a font size.
+			assert.notEqual(computed("hover:text-sm text-sm", "color"), "rgb(4, 5, 6)");
+			assert.ok(
+				!customRulesText().includes("--color-sm"),
+				`Should not resolve text-sm to a color, got: ${customRulesText()}`,
+			);
+		});
+
+		it("leaves every static color utility alone", () => {
+			if (!isSupported()) return;
+			const style = document.querySelector('style[data-mancha="utils"]') as HTMLStyleElement;
+			const names = Array.from(style.sheet?.cssRules ?? [])
+				.map((r) => (r as CSSStyleRule).selectorText?.match(/^\.([\w-]+)(?![\w-]|\\)/)?.[1])
+				.filter((n): n is string => !!n && /^(text|bg|border|fill|divide|ring|rounded)-/.test(n));
+			assert.ok(names.length > 100, `Precondition: found ${names.length} static names`);
+			processClassString(names.join(" "));
+			assert.equal(warnings.length, 0, `Static names must not warn: ${warnings.slice(0, 5)}`);
+			assert.equal(customRules().length, 0, `Static names must not inject: ${customRulesText()}`);
+		});
+
+		it("defers to a page rule for a plain name without copying it", () => {
+			if (!isSupported()) return;
+			const own = document.createElement("style");
+			own.textContent = ".bg-hero { background-color: rgb(9, 9, 9) }";
+			document.head.appendChild(own);
+			try {
+				processClassString("bg-hero");
+				assert.equal(warnings.length, 0, `Should not warn: ${warnings.join(" | ")}`);
+				assert.equal(customRules().length, 0, `Should not copy: ${customRulesText()}`);
+			} finally {
+				own.remove();
+			}
+		});
+
+		it("orders plain rules before variant rules, keeping each group's order", () => {
+			if (!isSupported()) return;
+			assert.ok(window.innerWidth >= 640, "Precondition: the sm: breakpoint matches");
+			// The variant rule is seen first, so appending plain rules would put them after it.
+			assert.notEqual(computed("sm:bg-red-500", "background-color"), "");
+			assert.equal(computed("bg-brand sm:bg-red-500", "background-color"), "rgb(244, 67, 54)");
+			assert.equal(computed("bg-[#0f0] sm:bg-[#00f]", "background-color"), "rgb(0, 0, 255)");
+			assert.equal(computed("p-[10px] pt-[2px]", "padding-top"), "2px");
+		});
+
+		it("stays silent for plain names the page styles anywhere", () => {
+			if (!isSupported()) return;
+			const own = document.createElement("style");
+			own.textContent = [
+				"@media (min-width: 1px) { .rounded-pill { border-radius: 99px } }",
+				"@layer components { .bg-hero { background-color: red } }",
+				"@supports (display: grid) { .text-fancy { color: red } }",
+				".card .text-muted { color: gray }",
+				".text-title:hover { color: red }",
+				".a, .border-soft { border-color: red }",
+				"button.bg-cta { background-color: red }",
+			].join("\n");
+			document.head.appendChild(own);
+			try {
+				processClassString(
+					"rounded-pill bg-hero text-fancy text-muted text-title border-soft bg-cta",
+				);
+				assert.equal(warnings.length, 0, `Should not warn: ${warnings.join(" | ")}`);
+				assert.equal(customRules().length, 0, `Should not inject: ${customRulesText()}`);
+			} finally {
+				own.remove();
+			}
+		});
+
+		it("lets the page's own rule win over a theme variable", () => {
+			if (!isSupported()) return;
+			const own = document.createElement("style");
+			own.textContent = ".bg-brand { background-color: rgb(9, 9, 9) }";
+			document.head.appendChild(own);
+			try {
+				assert.equal(computed("bg-brand", "background-color"), "rgb(9, 9, 9)");
+			} finally {
+				own.remove();
+			}
+		});
+
+		it("keeps a theme name when page selectors only mention the class", () => {
+			if (!isSupported()) return;
+			tokens.textContent += ":root { --color-ctx1: rgb(1, 2, 3); --color-ctx2: rgb(1, 2, 3); }";
+			const own = document.createElement("style");
+			own.textContent = ".card .bg-ctx1 { padding: 1px } .bg-ctx2:hover { opacity: 0.9 }";
+			document.head.appendChild(own);
+			try {
+				assert.equal(computed("bg-ctx1", "background-color"), "rgb(1, 2, 3)");
+				assert.equal(computed("bg-ctx2", "background-color"), "rgb(1, 2, 3)");
+				assert.equal(warnings.length, 0, `Should not warn: ${warnings.join(" | ")}`);
+			} finally {
+				own.remove();
+			}
+		});
+
+		it("sees rules in @import-ed sheets", async () => {
+			if (!isSupported()) return;
+			tokens.textContent += ":root { --color-imp: rgb(1, 2, 3); }";
+			const url = URL.createObjectURL(
+				new Blob([".bg-imp { background-color: rgb(9, 9, 9) } .x .bg-imp2 { color: red }"], {
+					type: "text/css",
+				}),
+			);
+			const own = document.createElement("style");
+			own.textContent = `@import url(${url});`;
+			const loaded = new Promise((resolve) => own.addEventListener("load", resolve));
+			document.head.appendChild(own);
+			try {
+				await loaded;
+				assert.equal(computed("bg-imp", "background-color"), "rgb(9, 9, 9)");
+				processClassString("bg-imp2");
+				assert.equal(warnings.length, 0, `Should not warn: ${warnings.join(" | ")}`);
+			} finally {
+				own.remove();
+				URL.revokeObjectURL(url);
+			}
+		});
+
+		it("retries a failure once an @import-ed sheet loads", async () => {
+			if (!isSupported()) return;
+			const url = URL.createObjectURL(
+				new Blob([".bg-lateimp { background-color: rgb(9, 9, 9) }"], { type: "text/css" }),
+			);
+			const own = document.createElement("style");
+			own.textContent = `@import url(${url});`;
+			const loaded = new Promise((resolve) => own.addEventListener("load", resolve));
+			document.head.appendChild(own);
+			try {
+				processClassString("hover:bg-lateimp");
+				assert.ok(_getFailedLookups().has("bg-lateimp"), "Precondition: failed before load");
+				await loaded;
+				processClassString("hover:bg-lateimp");
+				assert.ok(_getInjectedRules().has("hover:bg-lateimp"), "Should resolve after load");
+			} finally {
+				own.remove();
+				URL.revokeObjectURL(url);
+			}
+		});
+
+		it("sees a token set since the root style was last read", () => {
+			if (!isSupported()) return;
+			const root = document.documentElement;
+			try {
+				processClassString("bg-brand");
+				root.style.setProperty("--color-stuck", "rgb(1, 2, 3)");
+				processClassString("bg-stuck");
+				assert.ok(_getInjectedRules().has("bg-stuck"), `Should resolve: ${warnings.join(" | ")}`);
+			} finally {
+				root.style.removeProperty("--color-stuck");
+			}
+		});
+
+		it("reads the root's computed style once per scan, not once per class", () => {
+			if (!isSupported()) return;
+			const names = Array.from({ length: 20 }, (_, i) => `tok${i}`);
+			tokens.textContent += `:root { ${names.map((n) => `--color-${n}: red;`).join(" ")} }`;
+			const el = document.createElement("div");
+			for (const n of names) {
+				const p = document.createElement("p");
+				p.className = `bg-${n}`;
+				el.appendChild(p);
+			}
+			document.body.appendChild(el);
+			const original = window.getComputedStyle;
+			let calls = 0;
+			window.getComputedStyle = (...args: Parameters<typeof original>) => {
+				calls++;
+				return original.apply(window, args);
+			};
+			try {
+				scanAndInject(el);
+			} finally {
+				window.getComputedStyle = original;
+				el.remove();
+			}
+			assert.equal(customRules().length, 20, `Should resolve all: ${customRulesText()}`);
+			assert.ok(calls <= 2, `Should snapshot the root style, read it ${calls} times`);
+		});
+
+		it("ignores plain names when utils CSS is not in use", () => {
+			if (!isSupported()) return;
+			for (const el of document.querySelectorAll('style[data-mancha="utils"]')) el.remove();
+			processClassString("bg-brnad bg-brand");
+			assert.equal(warnings.length, 0, `Should not warn: ${warnings.join(" | ")}`);
+			assert.equal(customRules().length, 0, `Should not inject: ${customRulesText()}`);
 		});
 	});
 
