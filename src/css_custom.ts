@@ -30,7 +30,7 @@ const ARIA_STATES = [
 ];
 const HAS_STATES = ["checked", "focus", "disabled", "hover"];
 
-/** Variant prefixes: a value starting with "(" is a media condition, else a selector suffix. */
+/** Variant prefixes: "print" or a value starting with "(" is a media query, else a selector suffix. */
 export const VARIANTS: Record<string, string> = {
 	hover: ":hover",
 	focus: ":focus",
@@ -41,6 +41,7 @@ export const VARIANTS: Record<string, string> = {
 	dark: "(prefers-color-scheme: dark)",
 	landscape: "(orientation: landscape)",
 	portrait: "(orientation: portrait)",
+	print: "print",
 	...Object.fromEntries(
 		Object.entries(MEDIA_BREAKPOINTS).map(([bp, px]) => [bp, `(min-width: ${px}px)`]),
 	),
@@ -306,7 +307,9 @@ export function injectCustomClass(className: string, ...variants: string[]): boo
 	const media: string[] = [];
 	for (const variant of variants) {
 		const cond = variantCss(variant) ?? "";
-		if (cond.startsWith("(")) media.push(cond);
+		// A media type must lead the query.
+		if (cond === "print") media.unshift(cond);
+		else if (cond.startsWith("(")) media.push(cond);
 		else selector += cond;
 	}
 	const isMedia = media.length > 0;

@@ -56,7 +56,7 @@ The utility CSS rules are inspired by Tailwind CSS. You can inject them using `i
 This automatically includes:
 - **CSS Reset**: box-sizing, typography, form and media defaults applied to all of your markup — see [CSS Reset](#css-reset), in particular the layout effects on images, lists, and form controls
 - **Base utility classes**: spacing, sizing, colors, layout, typography, and more
-- **On-demand scanning**: responsive variants, orientation variants, state variants, color opacity, custom bracket values, theme names, and dark mode are generated on-the-fly for only the classes actually used in your markup
+- **On-demand scanning**: responsive variants, orientation variants, print styles, state variants, color opacity, custom bracket values, theme names, and dark mode are generated on-the-fly for only the classes actually used in your markup
 
 ### Media Breakpoints
 
@@ -77,6 +77,15 @@ Use the `landscape:` and `portrait:` prefixes to apply styles based on screen or
   <div class="board">...</div>
   <div class="moves-panel portrait:hidden">...</div>
 </div>
+```
+
+### Print
+
+Use the `print:` prefix to apply styles only when the page is printed (`@media print`). Stacked with media variants, `print` leads the query, as in `@media print and (min-width: 768px)`:
+
+```html
+<nav class="print:hidden">...</nav>
+<article class="text-gray-700 print:text-black print:p-0">...</article>
 ```
 
 ### State Variants
@@ -124,13 +133,13 @@ Arbitrary values in `aria-[...]` take a single `name=value` pair of letters, dig
 
 ### Stacked Variants
 
-Variants stack: every prefix must hold for the class to apply. Media variants (`sm:`, `dark:`, `landscape:`, …) are combined into one `@media` query with `and`, and state variants are appended to the selector:
+Variants stack: every prefix must hold for the class to apply. Media variants (`sm:`, `dark:`, `landscape:`, `print:`, …) are combined into one `@media` query with `and`, and state variants are appended to the selector:
 
 ```html
 <button class="dark:md:hover:bg-gray-700 md:aria-pressed:w-full">Toggle</button>
 ```
 
-`dark:md:hover:bg-gray-700` becomes `@media (prefers-color-scheme: dark) and (min-width: 768px) { .dark\:md\:hover\:bg-gray-700:hover { … } }`. All conditions apply to the same element, so the order of the prefixes does not matter. Prefixes are read up to the first one that is not a variant, and the rest is the base class: `md:print:hidden` applies `md:` to a stylesheet class `.print\:hidden`.
+`dark:md:hover:bg-gray-700` becomes `@media (prefers-color-scheme: dark) and (min-width: 768px) { .dark\:md\:hover\:bg-gray-700:hover { … } }`. All conditions apply to the same element, so the order of the prefixes does not matter. Prefixes are read up to the first one that is not a variant, and the rest is the base class: `md:foo:hidden` applies `md:` to a stylesheet class `.foo\:hidden`.
 
 When two variant rules set the same property, the more specific selector wins: each state variant adds specificity, a `has-[...]` variant that of its selector. Media variants add none, so between rules of equal specificity the one injected later wins, which is the one whose class Mancha encountered later. That also overrides the order of the static utilities, where sides come after shorthands: if `md:pt-0` is encountered before `md:p-4`, the shorthand wins and the top padding is `1rem`.
 
@@ -150,7 +159,7 @@ The `dark:` prefix can be used with any utility class, including colors, spacing
 <div class="bg-[#fff] dark:bg-[#1a1a1a] p-4 dark:border-gray-700">
 ```
 
-> **Note:** Responsive variants (`sm:`, `md:`, etc.), orientation variants (`landscape:`, `portrait:`), state variants (`hover:`, `aria-*:`, `has-*:`, …), color opacity (`/N`), dark mode (`dark:`), custom bracket values and theme names are all generated on-demand. Only the classes actually present in your markup are injected, keeping the CSS bundle small.
+> **Note:** Responsive variants (`sm:`, `md:`, etc.), orientation variants (`landscape:`, `portrait:`), print (`print:`), state variants (`hover:`, `aria-*:`, `has-*:`, …), color opacity (`/N`), dark mode (`dark:`), custom bracket values and theme names are all generated on-demand. Only the classes actually present in your markup are injected, keeping the CSS bundle small.
 
 ### Spacing (Margin & Padding)
 
