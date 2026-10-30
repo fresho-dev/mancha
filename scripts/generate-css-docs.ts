@@ -85,7 +85,7 @@ function generateMarkdown() {
 		"- **CSS Reset**: box-sizing, typography, form and media defaults applied to all of your markup — see [CSS Reset](#css-reset), in particular the layout effects on images, lists, and form controls\n";
 	md += "- **Base utility classes**: spacing, sizing, colors, layout, typography, and more\n";
 	md +=
-		"- **On-demand scanning**: responsive variants, orientation variants, state variants, color opacity, custom bracket values, theme names, and dark mode are generated on-the-fly for only the classes actually used in your markup\n\n";
+		"- **On-demand scanning**: responsive variants, orientation variants, print styles, state variants, color opacity, custom bracket values, theme names, and dark mode are generated on-the-fly for only the classes actually used in your markup\n\n";
 
 	md += "### Media Breakpoints\n\n";
 	md += "| Prefix | Min Width |\n";
@@ -106,12 +106,20 @@ function generateMarkdown() {
 	md += "</div>\n";
 	md += "```\n\n";
 
+	md += "### Print\n\n";
+	md +=
+		"Use the `print:` prefix to apply styles only when the page is printed (`@media print`). Stacked with media variants, `print` leads the query, as in `@media print and (min-width: 768px)`. Print rules are injected after every other variant rule, so `print:hidden` beats `md:flex` when printing:\n\n";
+	md += "```html\n";
+	md += '<nav class="hidden md:flex print:hidden">...</nav>\n';
+	md += '<article class="text-gray-700 print:text-black print:p-0">...</article>\n';
+	md += "```\n\n";
+
 	md += "### State Variants\n\n";
 	md += "The following state variants are supported for all utilities:\n\n";
 	md += "| Prefix | Selector |\n";
 	md += "| --- | --- |\n";
 	for (const [name, css] of Object.entries(VARIANTS)) {
-		if (!css.startsWith("(")) md += `| \`${name}:\` | \`.class${css}\` |\n`;
+		if (/^[:[]/.test(css)) md += `| \`${name}:\` | \`.class${css}\` |\n`;
 	}
 	md += '| `aria-[name=value]:` | `.class[aria-name="value"]` |\n';
 	md += "| `has-[selector]:` | `.class:has(selector)` |\n\n";
@@ -133,14 +141,14 @@ function generateMarkdown() {
 	md += "```\n\n";
 	md += "### Stacked Variants\n\n";
 	md +=
-		"Variants stack: every prefix must hold for the class to apply. Media variants (`sm:`, `dark:`, `landscape:`, …) are combined into one `@media` query with `and`, and state variants are appended to the selector:\n\n";
+		"Variants stack: every prefix must hold for the class to apply. Media variants (`sm:`, `dark:`, `landscape:`, `print:`, …) are combined into one `@media` query with `and`, and state variants are appended to the selector:\n\n";
 	md += "```html\n";
 	md += '<button class="dark:md:hover:bg-gray-700 md:aria-pressed:w-full">Toggle</button>\n';
 	md += "```\n\n";
 	md +=
-		"`dark:md:hover:bg-gray-700` becomes `@media (prefers-color-scheme: dark) and (min-width: 768px) { .dark\\:md\\:hover\\:bg-gray-700:hover { … } }`. All conditions apply to the same element, so the order of the prefixes does not matter. Prefixes are read up to the first one that is not a variant, and the rest is the base class: `md:print:hidden` applies `md:` to a stylesheet class `.print\\:hidden`.\n\n";
+		"`dark:md:hover:bg-gray-700` becomes `@media (prefers-color-scheme: dark) and (min-width: 768px) { .dark\\:md\\:hover\\:bg-gray-700:hover { … } }`. All conditions apply to the same element, so the order of the prefixes does not matter. Prefixes are read up to the first one that is not a variant, and the rest is the base class: `md:foo:hidden` applies `md:` to a stylesheet class `.foo\\:hidden`.\n\n";
 	md +=
-		"When two variant rules set the same property, the more specific selector wins: each state variant adds specificity, a `has-[...]` variant that of its selector. Media variants add none, so between rules of equal specificity the one injected later wins, which is the one whose class Mancha encountered later. That also overrides the order of the static utilities, where sides come after shorthands: if `md:pt-0` is encountered before `md:p-4`, the shorthand wins and the top padding is `1rem`.\n\n";
+		"When two variant rules set the same property, the more specific selector wins: each state variant adds specificity, a `has-[...]` variant that of its selector. Media variants add none, so between rules of equal specificity a `print:` rule wins, and otherwise the one injected later wins, which is the one whose class Mancha encountered later. That also overrides the order of the static utilities, where sides come after shorthands: if `md:pt-0` is encountered before `md:p-4`, the shorthand wins and the top padding is `1rem`.\n\n";
 
 	md += "### Dark Mode\n\n";
 	md += `Use the \`dark:\` prefix to apply styles when the user's system prefers dark mode (\`prefers-color-scheme: dark\`):\n\n`;
@@ -153,7 +161,7 @@ function generateMarkdown() {
 	md += "```html\n";
 	md += '<div class="bg-[#fff] dark:bg-[#1a1a1a] p-4 dark:border-gray-700">\n';
 	md += "```\n\n";
-	md += `> **Note:** Responsive variants (\`sm:\`, \`md:\`, etc.), orientation variants (\`landscape:\`, \`portrait:\`), state variants (\`hover:\`, \`aria-*:\`, \`has-*:\`, …), color opacity (\`/N\`), dark mode (\`dark:\`), custom bracket values and theme names are all generated on-demand. Only the classes actually present in your markup are injected, keeping the CSS bundle small.\n\n`;
+	md += `> **Note:** Responsive variants (\`sm:\`, \`md:\`, etc.), orientation variants (\`landscape:\`, \`portrait:\`), print (\`print:\`), state variants (\`hover:\`, \`aria-*:\`, \`has-*:\`, …), color opacity (\`/N\`), dark mode (\`dark:\`), custom bracket values and theme names are all generated on-demand. Only the classes actually present in your markup are injected, keeping the CSS bundle small.\n\n`;
 
 	md += "### Spacing (Margin & Padding)\n\n";
 	md += "Spacing utilities use a 0.25rem (4px) unit by default.\n\n";

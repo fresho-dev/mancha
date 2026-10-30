@@ -233,6 +233,33 @@ describe("css_custom", () => {
 		});
 	});
 
+	describe("print variant", () => {
+		it("injects print: for standard utility classes", () => {
+			if (!isSupported()) return;
+			injectCss(["utils"]);
+			processClassString("print:hidden");
+			const rule = customRules()[0] as CSSMediaRule;
+			assert.equal(rule.conditionText, "print");
+			assert.equal((rule.cssRules[0] as CSSStyleRule).style.display, "none");
+		});
+
+		it("ignores a repeated print:", () => {
+			if (!isSupported()) return;
+			processClassString("print:md:print:w-[310px]");
+			assert.equal(
+				(customRules()[0] as CSSMediaRule).conditionText,
+				"print and (min-width: 768px)",
+			);
+		});
+
+		it("keeps print: rules after other variant rules", () => {
+			if (!isSupported()) return;
+			processClassString("print:w-[311px] md:w-[312px] dark:w-[313px] w-[314px]");
+			const media = customRules().map((r) => (r as CSSMediaRule).conditionText ?? "");
+			assert.deepEqual(media, ["", "(min-width: 768px)", "(prefers-color-scheme: dark)", "print"]);
+		});
+	});
+
 	describe("dark variant", () => {
 		it("injects dark: custom bracket value with prefers-color-scheme media query", () => {
 			if (!isSupported()) return;
@@ -647,6 +674,12 @@ describe("css_custom", () => {
 				"(prefers-color-scheme: dark)",
 				".dark\\:has-\\[\\:checked\\]\\:w-\\[305px\\]:has(:checked)",
 			],
+			["print:w-[308px]", "print", ".print\\:w-\\[308px\\]"],
+			[
+				"md:print:hover:w-[309px]",
+				"print and (min-width: 768px)",
+				".md\\:print\\:hover\\:w-\\[309px\\]:hover",
+			],
 		]) {
 			it(`injects ${cls}`, () => {
 				if (!isSupported()) return;
@@ -716,7 +749,7 @@ describe("css_custom", () => {
 		}
 
 		for (const [cls, base, expected] of [
-			["md:print:hidden", "print\\:hidden", "(min-width: 768px)"],
+			["md:foo:hidden", "foo\\:hidden", "(min-width: 768px)"],
 			["hover:foo:bar", "foo\\:bar", ""],
 		]) {
 			it(`reads ${cls} as variants on a user-defined base class`, () => {
