@@ -81,10 +81,10 @@ Use the `landscape:` and `portrait:` prefixes to apply styles based on screen or
 
 ### Print
 
-Use the `print:` prefix to apply styles only when the page is printed (`@media print`). Stacked with media variants, `print` leads the query, as in `@media print and (min-width: 768px)`:
+Use the `print:` prefix to apply styles only when the page is printed (`@media print`). Stacked with media variants, `print` leads the query, as in `@media print and (min-width: 768px)`. Print rules are injected after every other variant rule, so `print:hidden` beats `md:flex` when printing:
 
 ```html
-<nav class="print:hidden">...</nav>
+<nav class="hidden md:flex print:hidden">...</nav>
 <article class="text-gray-700 print:text-black print:p-0">...</article>
 ```
 
@@ -141,7 +141,7 @@ Variants stack: every prefix must hold for the class to apply. Media variants (`
 
 `dark:md:hover:bg-gray-700` becomes `@media (prefers-color-scheme: dark) and (min-width: 768px) { .dark\:md\:hover\:bg-gray-700:hover { … } }`. All conditions apply to the same element, so the order of the prefixes does not matter. Prefixes are read up to the first one that is not a variant, and the rest is the base class: `md:foo:hidden` applies `md:` to a stylesheet class `.foo\:hidden`.
 
-When two variant rules set the same property, the more specific selector wins: each state variant adds specificity, a `has-[...]` variant that of its selector. Media variants add none, so between rules of equal specificity the one injected later wins, which is the one whose class Mancha encountered later. That also overrides the order of the static utilities, where sides come after shorthands: if `md:pt-0` is encountered before `md:p-4`, the shorthand wins and the top padding is `1rem`.
+When two variant rules set the same property, the more specific selector wins: each state variant adds specificity, a `has-[...]` variant that of its selector. Media variants add none, so between rules of equal specificity a `print:` rule wins, and otherwise the one injected later wins, which is the one whose class Mancha encountered later. That also overrides the order of the static utilities, where sides come after shorthands: if `md:pt-0` is encountered before `md:p-4`, the shorthand wins and the top padding is `1rem`.
 
 ### Dark Mode
 

@@ -242,6 +242,22 @@ describe("css_custom", () => {
 			assert.equal(rule.conditionText, "print");
 			assert.equal((rule.cssRules[0] as CSSStyleRule).style.display, "none");
 		});
+
+		it("ignores a repeated print:", () => {
+			if (!isSupported()) return;
+			processClassString("print:md:print:w-[310px]");
+			assert.equal(
+				(customRules()[0] as CSSMediaRule).conditionText,
+				"print and (min-width: 768px)",
+			);
+		});
+
+		it("keeps print: rules after other variant rules", () => {
+			if (!isSupported()) return;
+			processClassString("print:w-[311px] md:w-[312px] dark:w-[313px] w-[314px]");
+			const media = customRules().map((r) => (r as CSSMediaRule).conditionText ?? "");
+			assert.deepEqual(media, ["", "(min-width: 768px)", "(prefers-color-scheme: dark)", "print"]);
+		});
 	});
 
 	describe("dark variant", () => {

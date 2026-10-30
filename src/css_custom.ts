@@ -86,6 +86,8 @@ let failedLookupsCheckedSheets = -1;
 let styleSheet: CSSStyleSheet | null = null;
 // Rules without a variant, which sit at the start of our sheet.
 let plainRules = 0;
+// Rules with print:, which sit at the end of our sheet.
+let printRules = 0;
 // The static utilities sheet and the class names it defines, which theme names never override.
 let utilsSheet: CSSStyleSheet | null = null;
 let utilsNames = new Set<string>();
@@ -241,6 +243,7 @@ function getStyleSheet(): CSSStyleSheet | null {
 		// own sheet does not change, and the fingerprint ignores our sheet for the same reason.
 		injectedRules.clear();
 		plainRules = 0;
+		printRules = 0;
 	}
 	if (styleSheet) return styleSheet;
 
@@ -307,21 +310,25 @@ export function injectCustomClass(className: string, ...variants: string[]): boo
 	const media: string[] = [];
 	for (const variant of variants) {
 		const cond = variantCss(variant) ?? "";
-		// A media type must lead the query.
-		if (cond === "print") media.unshift(cond);
-		else if (cond.startsWith("(")) media.push(cond);
+		// A media type must lead the query, once: `print and print` is `not all`.
+		if (cond === "print") {
+			if (media[0] !== cond) media.unshift(cond);
+		} else if (cond.startsWith("(")) media.push(cond);
 		else selector += cond;
 	}
 	const isMedia = media.length > 0;
+	const print = media[0] === "print";
 	const inner = `.${escapedClass}${selector}${selectorSuffix} { ${declarations} }`;
 	const rule = isMedia ? `@media ${media.join(" and ")} { ${inner} }` : inner;
 
 	try {
-		// Plain rules go before every variant rule, so a breakpoint can override them.
+		// Plain rules go before every variant rule, so a breakpoint can override them, and
+		// print rules after, so they win over whatever else matches while printing.
 		const plain = variants.length === 0;
+		const length = sheet.cssRules.length;
 		const index = sheet.insertRule(
 			rule,
-			plain ? Math.min(plainRules, sheet.cssRules.length) : sheet.cssRules.length,
+			plain ? Math.min(plainRules, length) : print ? length : Math.max(0, length - printRules),
 		);
 
 		// The browser accepts a rule whose selector parses but whose declaration it
@@ -349,6 +356,7 @@ export function injectCustomClass(className: string, ...variants: string[]): boo
 		}
 
 		if (plain) plainRules++;
+		if (print) printRules++;
 		injectedRules.add(fullClassName);
 		return true;
 	} catch {
@@ -532,6 +540,7 @@ export function _resetForTesting(): void {
 	}
 	styleSheet = null;
 	plainRules = 0;
+	printRules = 0;
 	utilsSheet = null;
 	rootProperties = null;
 }
