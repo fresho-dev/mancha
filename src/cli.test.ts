@@ -73,6 +73,37 @@ describe("CLI", function () {
 			assert.ok(stdout.includes("Checked 2 file(s)"));
 		});
 
+		it("should expand a glob pattern the shell left quoted", async () => {
+			const pattern = path.join(testDir, "dir*", "*.html");
+			const { stdout } = await execAsync(`node ${cliPath} check "${pattern}"`);
+			assert.ok(stdout.includes("Checked 2 file(s)"));
+		});
+
+		it("should check paths whose names look like glob patterns", async () => {
+			const dirPath = path.join(testDir, "[slug]");
+			const filePath = path.join(dirPath, "[id].html");
+			await fs.mkdir(dirPath);
+			await fs.writeFile(filePath, "<p>route</p>");
+			try {
+				for (const input of [filePath, dirPath]) {
+					const { stdout } = await execAsync(`node ${cliPath} check "${input}"`);
+					assert.ok(stdout.includes("Checked 1 file(s)"), input);
+				}
+			} finally {
+				await fs.rm(dirPath, { recursive: true });
+			}
+		});
+
+		it("should fail cleanly on a missing path", async () => {
+			const missing = path.join(testDir, "missing.html");
+			const result = await execAsync(`node ${cliPath} check ${missing}`).then(
+				() => ({ failed: false, stderr: "" }),
+				(err: { stderr: string }) => ({ failed: true, stderr: err.stderr }),
+			);
+			assert.ok(result.failed, "Should exit with a non-zero code");
+			assert.equal(result.stderr.trim(), `No such file or directory: ${missing}`);
+		});
+
 		it("should skip node_modules directories when crawling", async () => {
 			const nested = path.join(testDir, "node_modules", "ignoredpkg");
 			await fs.mkdir(nested, { recursive: true });
