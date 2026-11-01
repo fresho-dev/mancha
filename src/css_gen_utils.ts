@@ -508,8 +508,8 @@ const CORNERS: Array<[letter: string, corners: string[]]> = [
 	["bl", ["bottom-left"]],
 ];
 
-/** Rem steps, plus the half step Tailwind offers below 1. */
-const UNITS_REM = [0.5, ...UNITS_ALL];
+/** Rem steps, plus the half steps Tailwind offers up to 3.5. */
+const UNITS_REM = [0.5, 1.5, 2.5, 3.5, ...UNITS_ALL].sort((a, b) => a - b);
 
 /** A number as a class suffix: a bare "." would start a new compound selector. */
 function unit(v: number): string {
