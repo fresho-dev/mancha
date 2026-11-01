@@ -82,6 +82,12 @@ The `:types` payload is parsed with `jexpr`, so it must evaluate to a plain obje
 # Check a single file
 npx mancha check src/index.html
 
+# Check every .html and .htm file under a directory, skipping node_modules and .git
+npx mancha check src
+
+# Check files matching a glob pattern; quote it so mancha expands it, not the shell
+npx mancha check "src/**/*.tpl.html"
+
 # Check with strict mode
 npx mancha check src/index.html --strict
 ```

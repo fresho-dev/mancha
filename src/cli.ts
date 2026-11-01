@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { glob } from "glob";
+import { glob, escape as globEscape, hasMagic } from "glob";
 import * as ts from "typescript";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
@@ -61,7 +61,7 @@ const _args = yargs(hideBin(process.argv))
 		(yargs) => {
 			return yargs
 				.positional("input", {
-					describe: "Input HTML file(s) or directories to type check",
+					describe: "Input HTML file(s), directories or glob patterns to type check",
 					type: "string",
 					array: true,
 				})
@@ -92,15 +92,21 @@ const _args = yargs(hideBin(process.argv))
 			const filesToCheck: string[] = [];
 
 			for (const input of inputs) {
-				const isDirectory = (await fs.stat(input)).isDirectory();
-				const pattern = isDirectory ? `${input}/**/*.{html,htm}` : input;
-				const globOptions = isDirectory
-					? {
+				const stat = await fs.stat(input).catch(() => null);
+				if (stat && !stat.isDirectory()) {
+					filesToCheck.push(input);
+					continue;
+				}
+				if (!stat && !hasMagic(input)) {
+					console.error(`No such file or directory: ${input}`);
+					process.exit(1);
+				}
+				const files = stat
+					? await glob(`${globEscape(input)}/**/*.{html,htm}`, {
 							nodir: true,
 							ignore: ["**/node_modules/**", "**/.git/**"],
-						}
-					: { nodir: true };
-				const files = await glob(pattern, globOptions);
+						})
+					: await glob(input, { nodir: true });
 				filesToCheck.push(...files);
 			}
 
