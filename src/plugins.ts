@@ -781,7 +781,7 @@ export namespace RendererPlugins {
 				this.effect(
 					function (this: IRenderer) {
 						const attrValue = this.eval(attr.value, { $elem: node });
-						const remove = attrValue == null || attrValue === false;
+						const remove = attrValue == null;
 						if (remove) removeAttribute(elem, attrName);
 						else setAttribute(elem, attrName, String(attrValue));
 						if (attrName === "style") showAppliers.get(elem)?.();
