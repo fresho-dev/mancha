@@ -3986,20 +3986,25 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 			assert.equal(getAttribute(node, ":attr:custom-attr"), null);
 			assert.equal(getAttribute(node, "custom-attr"), "example.com");
 		});
-		it("removes the attribute for false, null and undefined (#147)", async () => {
+		it("removes the attribute only for null and undefined (#147, #168)", async () => {
 			const renderer = new ctor({ foo: true });
-			const html = `<button :attr:disabled="foo"></button>`;
+			const html = `<button :attr:aria-pressed="foo"></button>`;
 			const fragment = renderer.parseHTML(html);
 			const node = fragment.firstChild as HTMLElement;
 			await renderer.mount(fragment);
-			assert.equal(getAttribute(node, "disabled"), "true");
-			for (const value of [false, "", null, 0, undefined]) {
+			assert.equal(getAttribute(node, "aria-pressed"), "true");
+			const cases: [unknown, string | null][] = [
+				[false, "false"],
+				[null, null],
+				["", ""],
+				[undefined, null],
+				[0, "0"],
+				["x", "x"],
+			];
+			for (const [value, expected] of cases) {
 				await renderer.set("foo", value);
-				const expected = value === "" ? "" : value === 0 ? "0" : null;
-				assert.equal(getAttribute(node, "disabled"), expected, String(value));
+				assert.equal(getAttribute(node, "aria-pressed"), expected, String(value));
 			}
-			await renderer.set("foo", "x");
-			assert.equal(getAttribute(node, "disabled"), "x");
 		});
 	});
 
