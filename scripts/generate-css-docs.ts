@@ -168,7 +168,8 @@ function generateMarkdown() {
 	md += "| Prefix | Property | Values |\n";
 	md += "| --- | --- | --- |\n";
 	for (const [prop, prefix] of Object.entries(PROPS_SPACING)) {
-		md += `| \`${prefix}-\` | \`${prop}\` | \`0\`, \`0.5\`, \`1.5\`, \`2.5\`, \`3.5\` (half steps), \`0.25rem\` - \`128rem\` (and negative versions) |\n`;
+		const negatives = prop === "margin" ? " (and negative versions)" : "";
+		md += `| \`${prefix}-\` | \`${prop}\` | \`0\`, \`0.5\`, \`1.5\`, \`2.5\`, \`3.5\` (half steps, 0.125rem - 0.875rem), \`0.25rem\` - \`128rem\`${negatives} |\n`;
 		md += `| \`${prefix}x-\` | \`${prop}-left/right\` | Same as above |\n`;
 		md += `| \`${prefix}y-\` | \`${prop}-top/bottom\` | Same as above |\n`;
 		md += `| \`${prefix}t-\` | \`${prop}-top\` | Same as above |\n`;
@@ -182,7 +183,7 @@ function generateMarkdown() {
 	md += "| Prefix | Property | Values |\n";
 	md += "| --- | --- | --- |\n";
 	for (const [prop, prefix] of Object.entries(PROPS_SIZING)) {
-		md += `| \`${prefix}-\` | \`${prop}\` | \`0\`, \`full\` (100%), \`screen\` (100vw/vh), \`auto\`, \`px\`, \`0.5\`, \`1.5\`, \`2.5\`, \`3.5\` (half steps), \`0.25rem\` - \`128rem\` |\n`;
+		md += `| \`${prefix}-\` | \`${prop}\` | \`0\`, \`full\` (100%), \`screen\` (100vw/vh), \`auto\`, \`px\`, \`0.5\`, \`1.5\`, \`2.5\`, \`3.5\` (half steps, 0.125rem - 0.875rem), \`0.25rem\` - \`128rem\` |\n`;
 		md += `| \`${prefix}-sm/md/lg/xl\` | \`${prop}\` | Match media breakpoints (e.g. \`w-sm\`, \`max-w-lg\`) |\n`;
 		md += `| \`${prefix}-dvw/dvh/svw/svh/lvw/lvh\` | \`${prop}\` | Viewport-relative units |\n`;
 		md += `| \`${prefix}-fit/min/max\` | \`${prop}\` | \`fit-content\`, \`min-content\`, \`max-content\` |\n`;
@@ -454,7 +455,7 @@ function generateMarkdown() {
 	}
 	// Document position values
 	md +=
-		"| `top-{0-512}`, `bottom-{0-512}`, `left-{0-512}`, `right-{0-512}` | Position in rem units (0.25rem increments) |\n";
+		"| `top-{0-512}`, `bottom-{0-512}`, `left-{0-512}`, `right-{0-512}` | Position in rem units (0.25rem increments, plus half steps `0.5`, `1.5`, `2.5`, `3.5`) |\n";
 	md +=
 		"| `top-{0-512}px`, `bottom-{0-512}px`, `left-{0-512}px`, `right-{0-512}px` | Position in pixels |\n";
 	md +=
