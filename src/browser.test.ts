@@ -74,31 +74,35 @@ describe("Browser", () => {
 
 		it("keeps the button reset at element specificity", () => {
 			const initialCount = document.head.querySelectorAll("style").length;
-			injectCss(["utils"]);
-			const page = document.createElement("style");
-			page.textContent = "button{background-color:rgb(1, 2, 3)}";
-			document.head.appendChild(page);
-
 			const target = document.createElement("div");
-			setInnerHTML(
-				target,
-				`<button id="b-plain"></button>` +
-					`<button id="b-button" type="button"></button>` +
-					`<button id="b-submit" type="submit"></button>` +
-					`<button id="b-util" type="button" class="bg-[#040506]"></button>` +
-					`<input id="i-submit" type="submit" />`,
-			);
-			document.body.appendChild(target);
-			scanAndInject(target);
-
-			const style = (id: string) => getComputedStyle(target.querySelector(`#${id}`) as Element);
 			try {
+				injectCss(["utils"]);
+				const page = document.createElement("style");
+				page.textContent = "button{background-color:rgb(1, 2, 3)}";
+				document.head.appendChild(page);
+
+				setInnerHTML(
+					target,
+					`<button id="b-plain"></button>` +
+						`<button id="b-button" type="button"></button>` +
+						`<button id="b-submit" type="submit"></button>` +
+						`<button id="b-util" type="button" class="bg-[#040506]"></button>` +
+						`<input id="i-button" type="button" />` +
+						`<input id="i-reset" type="reset" />` +
+						`<input id="i-submit" type="submit" />`,
+				);
+				document.body.appendChild(target);
+				scanAndInject(target);
+
+				const style = (id: string) => getComputedStyle(target.querySelector(`#${id}`) as Element);
 				assert.equal(style("b-plain").backgroundColor, "rgb(1, 2, 3)");
 				assert.equal(style("b-button").backgroundColor, "rgb(1, 2, 3)");
 				assert.equal(style("b-submit").backgroundColor, "rgb(1, 2, 3)");
 				assert.equal(style("b-util").backgroundColor, "rgb(4, 5, 6)");
-				assert.equal(style("i-submit").backgroundColor, "rgba(0, 0, 0, 0)");
-				assert.equal(style("i-submit").cursor, "pointer");
+				for (const id of ["i-button", "i-reset", "i-submit"]) {
+					assert.equal(style(id).backgroundColor, "rgba(0, 0, 0, 0)", id);
+					assert.equal(style(id).cursor, "pointer", id);
+				}
 			} finally {
 				target.remove();
 				const styles = document.head.querySelectorAll("style");
