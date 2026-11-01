@@ -78,7 +78,8 @@ describe("Browser", () => {
 			try {
 				injectCss(["utils"]);
 				const page = document.createElement("style");
-				page.textContent = "button{background-color:rgb(1, 2, 3)}";
+				page.textContent =
+					"button{background-color:rgb(1, 2, 3)}input{background-color:rgb(7, 8, 9)}";
 				document.head.appendChild(page);
 
 				setInnerHTML(
@@ -100,7 +101,7 @@ describe("Browser", () => {
 				assert.equal(style("b-submit").backgroundColor, "rgb(1, 2, 3)");
 				assert.equal(style("b-util").backgroundColor, "rgb(4, 5, 6)");
 				for (const id of ["i-button", "i-reset", "i-submit"]) {
-					assert.equal(style(id).backgroundColor, "rgba(0, 0, 0, 0)", id);
+					assert.equal(style(id).backgroundColor, "rgb(7, 8, 9)", id);
 					assert.equal(style(id).cursor, "pointer", id);
 				}
 			} finally {
