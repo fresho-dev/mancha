@@ -167,14 +167,14 @@ Spacing utilities use a 0.25rem (4px) unit by default.
 
 | Prefix | Property | Values |
 | --- | --- | --- |
-| `m-` | `margin` | `0`, `0.5` (0.125rem), `0.25rem` - `128rem` (and negative versions) |
+| `m-` | `margin` | `0`, `0.5`, `1.5`, `2.5`, `3.5` (half steps, 0.125rem - 0.875rem), `0.25rem` - `128rem` (and negative versions) |
 | `mx-` | `margin-left/right` | Same as above |
 | `my-` | `margin-top/bottom` | Same as above |
 | `mt-` | `margin-top` | Same as above |
 | `mb-` | `margin-bottom` | Same as above |
 | `ml-` | `margin-left` | Same as above |
 | `mr-` | `margin-right` | Same as above |
-| `p-` | `padding` | `0`, `0.5` (0.125rem), `0.25rem` - `128rem` (and negative versions) |
+| `p-` | `padding` | `0`, `0.5`, `1.5`, `2.5`, `3.5` (half steps, 0.125rem - 0.875rem), `0.25rem` - `128rem` |
 | `px-` | `padding-left/right` | Same as above |
 | `py-` | `padding-top/bottom` | Same as above |
 | `pt-` | `padding-top` | Same as above |
@@ -186,11 +186,11 @@ Spacing utilities use a 0.25rem (4px) unit by default.
 
 | Prefix | Property | Values |
 | --- | --- | --- |
-| `w-` | `width` | `0`, `full` (100%), `screen` (100vw/vh), `auto`, `px`, `0.5` (0.125rem), `0.25rem` - `128rem` |
+| `w-` | `width` | `0`, `full` (100%), `screen` (100vw/vh), `auto`, `px`, `0.5`, `1.5`, `2.5`, `3.5` (half steps, 0.125rem - 0.875rem), `0.25rem` - `128rem` |
 | `w-sm/md/lg/xl` | `width` | Match media breakpoints (e.g. `w-sm`, `max-w-lg`) |
 | `w-dvw/dvh/svw/svh/lvw/lvh` | `width` | Viewport-relative units |
 | `w-fit/min/max` | `width` | `fit-content`, `min-content`, `max-content` |
-| `h-` | `height` | `0`, `full` (100%), `screen` (100vw/vh), `auto`, `px`, `0.5` (0.125rem), `0.25rem` - `128rem` |
+| `h-` | `height` | `0`, `full` (100%), `screen` (100vw/vh), `auto`, `px`, `0.5`, `1.5`, `2.5`, `3.5` (half steps, 0.125rem - 0.875rem), `0.25rem` - `128rem` |
 | `h-sm/md/lg/xl` | `height` | Match media breakpoints (e.g. `w-sm`, `max-w-lg`) |
 | `h-dvw/dvh/svw/svh/lvw/lvh` | `height` | Viewport-relative units |
 | `h-fit/min/max` | `height` | `fit-content`, `min-content`, `max-content` |
@@ -496,7 +496,7 @@ A color name outside the palette reads a `--color-{name}` custom property define
 | `content-stretch` | `align-content: stretch` |
 | `items-baseline` | `align-items: baseline` |
 | `gap-0` | No gap |
-| `gap-0.5`, `gap-x-0.5`, `gap-y-0.5`, `space-x-0.5`, `space-y-0.5` | Half step (0.125rem) |
+| `gap-`, `gap-x-`, `gap-y-`, `space-x-`, `space-y-` with `0.5`, `1.5`, `2.5`, `3.5` | Half steps (0.125rem - 0.875rem) |
 | `gap-{1-512}` | Gap in rem units (0.25rem increments) |
 | `gap-{1-512}px` | Gap in pixels |
 | `gap-x-{1-512}` | Horizontal gap in rem units |
@@ -576,7 +576,7 @@ A color name outside the palette reads a `--color-{name}` custom property define
 | `inset-y-0` | `top: 0; bottom: 0` |
 | `inset-x-auto` | `left: auto; right: auto` |
 | `inset-y-auto` | `top: auto; bottom: auto` |
-| `top-{0-512}`, `bottom-{0-512}`, `left-{0-512}`, `right-{0-512}` | Position in rem units (0.25rem increments) |
+| `top-{0-512}`, `bottom-{0-512}`, `left-{0-512}`, `right-{0-512}` | Position in rem units (0.25rem increments, plus half steps `0.5`, `1.5`, `2.5`, `3.5`) |
 | `top-{0-512}px`, `bottom-{0-512}px`, `left-{0-512}px`, `right-{0-512}px` | Position in pixels |
 | `top-{1-100}%`, `bottom-{1-100}%`, `left-{1-100}%`, `right-{1-100}%` | Position in percentages |
 | `top-auto`, `bottom-auto`, `left-auto`, `right-auto` | Auto positioning |

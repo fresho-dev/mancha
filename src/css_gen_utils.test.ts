@@ -319,6 +319,10 @@ describe("CSS Generation Utils", () => {
 				".gap-0\\.5 { gap: 0.125rem }",
 				".gap-x-0\\.5 { column-gap: 0.125rem }",
 				".space-y-0\\.5 > :not(:first-child) { margin-top: 0.125rem }",
+				".py-2\\.5 { padding-top: 0.625rem; padding-bottom: 0.625rem; }",
+				".gap-1\\.5 { gap: 0.375rem }",
+				".w-3\\.5 { width: 0.875rem }",
+				".-mt-1\\.5 { margin-top: -0.375rem }",
 			]) {
 				assert.ok(css.includes(rule), `Should include ${rule}`);
 			}
