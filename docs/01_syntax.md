@@ -59,7 +59,7 @@
   ```html
   <a href="#" :on:click.prevent="console.log('clicked')"></a>
   ```
-- `:attr:{name}` sets the corresponding attribute for `name` in the node; `null` and `undefined` remove it, any other value is stringified, so `false` writes `"false"`
+- `:attr:{name}` sets the corresponding attribute for `name` in the node; `null` and `undefined` remove it, any other value is stringified, so `false` writes `"false"`. Presence-only attributes such as `disabled` or `hidden` stay active even as `"false"`, so toggle them with `cond ? '' : null`
   ```html
   <a :attr:href="buildUrl()"></a>
   <button :attr:aria-pressed="done"></button>
