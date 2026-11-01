@@ -71,6 +71,40 @@ describe("Browser", () => {
 			// Verify the style has non-empty content.
 			assert.ok(lastStyle.textContent && lastStyle.textContent.length > 0);
 		});
+
+		it("keeps the button reset at element specificity", () => {
+			const initialCount = document.head.querySelectorAll("style").length;
+			injectCss(["utils"]);
+			const page = document.createElement("style");
+			page.textContent = "button{background-color:rgb(1, 2, 3)}";
+			document.head.appendChild(page);
+
+			const target = document.createElement("div");
+			setInnerHTML(
+				target,
+				`<button id="b-plain"></button>` +
+					`<button id="b-button" type="button"></button>` +
+					`<button id="b-submit" type="submit"></button>` +
+					`<button id="b-util" type="button" class="bg-[#040506]"></button>` +
+					`<input id="i-submit" type="submit" />`,
+			);
+			document.body.appendChild(target);
+			scanAndInject(target);
+
+			const style = (id: string) => getComputedStyle(target.querySelector(`#${id}`) as Element);
+			try {
+				assert.equal(style("b-plain").backgroundColor, "rgb(1, 2, 3)");
+				assert.equal(style("b-button").backgroundColor, "rgb(1, 2, 3)");
+				assert.equal(style("b-submit").backgroundColor, "rgb(1, 2, 3)");
+				assert.equal(style("b-util").backgroundColor, "rgb(4, 5, 6)");
+				assert.equal(style("i-submit").backgroundColor, "rgba(0, 0, 0, 0)");
+				assert.equal(style("i-submit").cursor, "pointer");
+			} finally {
+				target.remove();
+				const styles = document.head.querySelectorAll("style");
+				for (let i = initialCount; i < styles.length; i++) addedStyles.push(styles[i]);
+			}
+		});
 	});
 
 	describe("On-demand CSS for rendered content", () => {

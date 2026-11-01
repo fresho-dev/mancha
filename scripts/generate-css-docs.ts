@@ -62,7 +62,7 @@ function generateMarkdown() {
 	md +=
 		"- `button,input,optgroup,select,textarea{…;margin:0;padding:0}` — form controls lose their native margin and padding on top of inheriting the surrounding font and color, so inputs and text areas render flush against their content and need padding utilities to look clickable.\n";
 	md +=
-		"- `button,[type='button'],[type='reset'],[type='submit']{-webkit-appearance:button;background-color:transparent;background-image:none;cursor:pointer}` — buttons lose their native chrome entirely and must be styled explicitly.\n";
+		"- `button,input:where([type='button']),input:where([type='reset']),input:where([type='submit']){-webkit-appearance:button;background-color:transparent;background-image:none;cursor:pointer}` — buttons lose their native chrome entirely and must be styled explicitly.\n";
 	md +=
 		"- `:disabled{cursor:default;pointer-events:none;opacity:0.75}` — beyond dimming, `pointer-events:none` is a behavioral change: disabled controls stop receiving hover, tooltip, and click handling. Tailwind Preflight only sets `cursor:default` here; the `pointer-events` and `opacity` declarations are mancha additions.\n\n";
 	md +=

@@ -46,7 +46,7 @@ export default function rules(): SafeStyleSheet {
 		// Correct the inability to style clickable types in iOS and Safari.
 		// Remove default appearance in most browsers.
 		// Add cursor: pointer to buttons as requested.
-		safeStyleSheet`button,[type='button'],[type='reset'],[type='submit']{-webkit-appearance:button;background-color:transparent;background-image:none;cursor:pointer}`,
+		safeStyleSheet`button,input:where([type='button']),input:where([type='reset']),input:where([type='submit']){-webkit-appearance:button;background-color:transparent;background-image:none;cursor:pointer}`,
 
 		// Use the modern Firefox focus style for all focusable elements.
 		safeStyleSheet`:-moz-focusring{outline:auto}`,
