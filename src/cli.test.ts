@@ -104,6 +104,27 @@ describe("CLI", function () {
 			assert.equal(result.stderr.trim(), `No such file or directory: ${missing}`);
 		});
 
+		it("should report a file that fails to check and keep checking the rest", async () => {
+			const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mancha-cli-check-"));
+			const bad = path.join(dir, "bad.html");
+			await fs.writeFile(bad, `<p :for="x">{{ x }}</p>`);
+			await fs.writeFile(
+				path.join(dir, "ok.html"),
+				`<div :types='{"a": "string"}'>{{ a.b }}</div>`,
+			);
+			try {
+				const result = await execAsync(`node ${cliPath} check ${dir}`).then(
+					() => ({ failed: false, stderr: "" }),
+					(err: { stderr: string }) => ({ failed: true, stderr: err.stderr }),
+				);
+				assert.ok(result.failed, "Should exit with a non-zero code");
+				assert.ok(result.stderr.includes(`${bad}: Failed to type check: `));
+				assert.ok(result.stderr.includes("Found 2 error(s) in 2 file(s)."));
+			} finally {
+				await fs.rm(dir, { recursive: true, force: true });
+			}
+		});
+
 		it("should skip node_modules directories when crawling", async () => {
 			const nested = path.join(testDir, "node_modules", "ignoredpkg");
 			await fs.mkdir(nested, { recursive: true });

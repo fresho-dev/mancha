@@ -1078,6 +1078,26 @@ describe("typeCheck", function () {
 			const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
 			assert.equal(diagnostics.length, 0, "Should handle Pick type");
 		});
+
+		it("should handle long runs of { in text", async () => {
+			const braces = "{".repeat(5000);
+			for (const html of [
+				`<div :types='{"name": "number"}'><p>${braces}</p></div>`,
+				`<div :types='{"a":"number"}' :text="a">${braces}</div>`,
+			]) {
+				const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+				assert.equal(diagnostics.length, 0);
+			}
+		});
+
+		it("should report line and column after long runs of { in text", async () => {
+			const html = `<div :types='{"name": "string"}'>\n<p>${"{".repeat(5000)}</p>\n<p>{{ name.toFixed(2) }}</p></div>`;
+			const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+			assert.equal(diagnostics.length, 1);
+			const { file, start } = diagnostics[0];
+			const position = file && ts.getLineAndCharacterOfPosition(file, start ?? -1);
+			assert.deepEqual(position, { line: 2, character: 11 });
+		});
 	});
 
 	describe("attribute handling with data- prefix", () => {

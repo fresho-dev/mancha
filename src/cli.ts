@@ -120,7 +120,19 @@ const _args = yargs(hideBin(process.argv))
 
 			for (const filePath of filesToCheck) {
 				const htmlContent = await fs.readFile(filePath, "utf-8");
-				const diagnostics = await typeCheck(htmlContent, { ...options, filePath });
+				const diagnostics = await typeCheck(htmlContent, { ...options, filePath }).catch(
+					(error: unknown): ts.Diagnostic[] => [
+						{
+							file: undefined,
+							start: undefined,
+							length: undefined,
+							category: ts.DiagnosticCategory.Error,
+							code: 91000,
+							source: "mancha-type-checker",
+							messageText: `Failed to type check: ${error instanceof Error ? error.message : String(error)}`,
+						},
+					],
+				);
 
 				if (diagnostics.length > 0) {
 					filesWithErrors++;
