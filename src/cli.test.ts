@@ -107,13 +107,14 @@ describe("CLI", function () {
 		it("should report a file that fails to check and keep checking the rest", async () => {
 			const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mancha-cli-check-"));
 			const bad = path.join(dir, "bad.html");
-			await fs.writeFile(bad, `<p :for="x">{{ x }}</p>`);
+			// Deep nesting overflows a small stack while typeCheck builds the DOM.
+			await fs.writeFile(bad, "<span>".repeat(10000));
 			await fs.writeFile(
 				path.join(dir, "ok.html"),
 				`<div :types='{"a": "string"}'>{{ a.b }}</div>`,
 			);
 			try {
-				const result = await execAsync(`node ${cliPath} check ${dir}`).then(
+				const result = await execAsync(`node --stack-size=300 ${cliPath} check ${dir}`).then(
 					() => ({ failed: false, stderr: "" }),
 					(err: { stderr: string }) => ({ failed: true, stderr: err.stderr }),
 				);

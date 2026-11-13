@@ -1583,6 +1583,32 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(getTextContent(children3[2] as Element), "bar");
 			});
 
+			for (const [label, attr] of [
+				["a newline around in", `:for="item in\n  items"`],
+				["tabs around in", `:for="item\tin\titems"`],
+				["multiple spaces around in", `:for="  item   in   items  "`],
+				["data-for with a newline around in", `data-for="item\nin items"`],
+				["an in inside the items expression", `:for="item in 'a' in obj ? items : []"`],
+			]) {
+				it(`parses ${label}`, async () => {
+					const renderer = new ctor({ items: ["a", "b"], obj: { a: 1 } });
+					const fragment = renderer.parseHTML(`<div><p ${attr}>{{ item }}</p></div>`);
+					await renderer.mount(fragment);
+					const rows = Array.from(fragment.firstChild?.childNodes || []).slice(1);
+					assert.deepEqual(
+						rows.map((row) => getTextContent(row as Element)),
+						["a", "b"],
+					);
+				});
+			}
+
+			for (const attr of [`:for="item"`, `data-for="item"`, `:for="in items"`]) {
+				it(`rejects ${attr} without a loop variable and items`, async () => {
+					const renderer = new ctor({ items: [] });
+					await assert.rejects(renderer.mount(renderer.parseHTML(`<p ${attr}></p>`)));
+				});
+			}
+
 			it("renders items fully before inserting into DOM (no flash of untemplated content)", async () => {
 				// Issue #21: Ensure elements are fully rendered before insertion to prevent
 				// flash of raw {{ variable }} syntax during reactive updates.

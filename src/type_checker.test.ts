@@ -1001,6 +1001,62 @@ describe("typeCheck", function () {
 			const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
 			assert.equal(diagnostics.length, 0, "Should handle union in arrays");
 		});
+
+		for (const [label, attr] of [
+			["a newline around in", `:for="item in\n  items"`],
+			["tabs around in", `:for="item\tin\titems"`],
+			["multiple spaces around in", `:for="  item   in   items  "`],
+			["data-for with a newline around in", `data-for="item\nin items"`],
+		]) {
+			it(`should type the loop variable with ${label}`, async () => {
+				const html = `<div :types='{"items": "string[]"}'><p ${attr}>{{ item.toFixed(2) }}</p></div>`;
+				const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+				assert.equal(diagnostics.length, 1);
+				const diagnostic = findDiagnostic(diagnostics, "Property 'toFixed' does not exist");
+				assert.equal(diagnostic?.start, html.indexOf("toFixed"));
+			});
+		}
+
+		it("should locate the items expression after a newline around in", async () => {
+			const html = `<div :types='{"items": "string[]"}'><p :for="item\n  in\titems.size"></p></div>`;
+			const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+			const diagnostic = findDiagnostic(diagnostics, "Property 'size' does not exist");
+			assert.equal(diagnostic?.start, html.indexOf("size"));
+			assert.equal(diagnostic?.length, "size".length);
+		});
+
+		it("should split on the first in only", async () => {
+			const html = `<div :types='{"items": "string[]"}'><p :for="item in 'a' in obj ? items : []">{{ item }}</p></div>`;
+			const diagnostics = await typeCheck(html, { strict: true, filePath: testFilePath });
+			const diagnostic = findDiagnostic(diagnostics, "Cannot find name 'obj'");
+			assert.equal(diagnostic?.start, html.indexOf("obj"));
+		});
+
+		for (const [label, html] of [
+			[
+				"without in inside :types",
+				`<div :types='{"items": "string[]"}'><p :for="item">{{ item }}</p></div>`,
+			],
+			["without in outside :types", `<p :for="item">{{ item }}</p>`],
+			["without in on data-for", `<p data-for="item">{{ item }}</p>`],
+			["without a loop variable", `<p :for="in items">{{ item }}</p>`],
+		]) {
+			it(`should report a :for ${label} on the attribute`, async () => {
+				const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+				assert.equal(diagnostics.length, 1);
+				const diagnostic = findDiagnostic(diagnostics, "Invalid :for format");
+				const value = html.match(/for="([^"]*)"/)?.[1] ?? "";
+				assert.equal(diagnostic?.file?.fileName, testFilePath);
+				assert.equal(diagnostic?.start, html.indexOf(`for="${value}"`) + 'for="'.length);
+				assert.equal(diagnostic?.length, value.length);
+			});
+		}
+
+		it("should treat a blank :for as absent, like the runtime", async () => {
+			const html = `<div :for="   "><span>{{ x.) }}</span></div>`;
+			const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+			assert.ok(findDiagnostic(diagnostics, "Unsupported expression"));
+		});
 	});
 
 	describe("edge cases", () => {
