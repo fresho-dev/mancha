@@ -831,8 +831,6 @@ function getExpressionsExcludingNestedTypes(
 				),
 			};
 
-			currentScope.expressions.push(itemsExpressionEntry);
-
 			const forScope: ExpressionScope = { expressions: [], forLoops: [] };
 			queueChildren(element, forScope);
 			currentScope.forLoops.push({
