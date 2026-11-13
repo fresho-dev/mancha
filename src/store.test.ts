@@ -2862,26 +2862,32 @@ describe("SignalStore", () => {
 			// cannot strand it and leave the next unrelated flush to pick it up.
 			const observed: number[] = [];
 			const store = new SignalStore({ value: 0 });
-			let shouldThrow = true;
+			let started!: () => void;
+			let release!: () => void;
+			let rerun!: () => void;
+			const running = new Promise<void>((resolve) => (started = resolve));
+			const gate = new Promise<void>((resolve) => (release = resolve));
+			const reran = new Promise<void>((resolve) => (rerun = resolve));
+
+			// Let the constructor's write settle, so the failing run belongs to the write below alone.
+			await store.notify("value");
 
 			store.watch("value", async () => {
 				observed.push(store.get("value") as number);
-				await new Promise((resolve) => setTimeout(resolve, REACTIVE_SLEEP_MS * 2));
-				if (shouldThrow) {
-					shouldThrow = false;
-					throw new Error("observer failure");
-				}
+				if (observed.length > 1) return rerun();
+				started();
+				await gate;
+				throw new Error("observer failure");
 			});
 
-			void store.set("value", 1);
-			await new Promise((resolve) => setTimeout(resolve, REACTIVE_SLEEP_MS * 1.5));
+			const first = store.set("value", 1);
+			await running;
 			void store.set("value", 2);
-			for (let i = 0; i < 10; i++) await sleepForReactivity();
+			release();
 
-			assert.ok(
-				observed.includes(2),
-				`Write was lost when the observer threw. Saw ${JSON.stringify(observed)}.`,
-			);
+			assert.equal((await first.catch((error: Error) => error))?.message, "observer failure");
+			await reran;
+			assert.deepEqual(observed, [1, 2], "the write recorded during the observer was lost");
 		});
 
 		it("still notifies a key written faster than the debounce window", async () => {
