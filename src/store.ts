@@ -316,8 +316,7 @@ export class SignalStore<T extends StoreState = StoreState> {
 
 	constructor(data?: T) {
 		for (const [key, value] of Object.entries(data || {})) {
-			// Use our set method to ensure that callbacks and wrappers are appropriately set, but ignore
-			// the return value since we know that no observers will be triggered.
+			// Not awaited: a write joining this run shares its promise, and reports a failure once.
 			this.set(key, value);
 		}
 	}
@@ -473,10 +472,18 @@ export class SignalStore<T extends StoreState = StoreState> {
 		// otherwise still run its effects and, for example, put a removed :for row back in the DOM.
 		return entries
 			.filter((entry) => !entry.store._disposed)
-			.map((entry) => entry.observer.call(entry.store.proxify(entry.observer)));
+			.map((entry) => {
+				try {
+					return entry.observer.call(entry.store.proxify(entry.observer));
+				} catch (error) {
+					// Returned rather than thrown, so the remaining observers still run.
+					return Promise.reject(error);
+				}
+			});
 	}
 
-	async notify(key: string, debounceMillis: number = REACTIVE_DEBOUNCE_MILLIS): Promise<void> {
+	// Not async: writers joining a run share its promise, so an unawaited failure is reported once.
+	notify(key: string, debounceMillis: number = REACTIVE_DEBOUNCE_MILLIS): Promise<void> {
 		// Capture observers NOW (at call time). This ensures constructor calls
 		// don't trigger effects registered later.
 		const owner = getAncestorKeyStore(this, key);
@@ -487,7 +494,7 @@ export class SignalStore<T extends StoreState = StoreState> {
 		// own writes are filtered out below, not here.
 		if (this._executing.has(key)) {
 			this._dirty.add(key);
-			return;
+			return Promise.resolve();
 		}
 
 		// Observers are already scheduled and will read the value this write just set,
@@ -504,30 +511,26 @@ export class SignalStore<T extends StoreState = StoreState> {
 		const done = new Promise<void>((resolve, reject) => {
 			setTimeout(async () => {
 				this._pending.delete(key);
-				try {
-					this._executing.add(key);
+				this._executing.add(key);
 
-					// Invoking an observer runs its body up to its first await, so nothing
-					// else can interleave here: any write recorded during this line came
-					// from the observers themselves. Discarding those stops an observer
-					// whose body writes its own key from rescheduling itself forever.
-					// A self-write from an observer's awaited tail is indistinguishable
-					// from an outside one, so that remains a cycle the caller must avoid.
-					const running = this.runObservers(entries);
-					this._dirty.delete(key);
+				// Invoking an observer runs its body up to its first await, so nothing
+				// else can interleave here: any write recorded during this line came
+				// from the observers themselves. Discarding those stops an observer
+				// whose body writes its own key from rescheduling itself forever.
+				// A self-write from an observer's awaited tail is indistinguishable
+				// from an outside one, so that remains a cycle the caller must avoid.
+				const running = this.runObservers(entries);
+				this._dirty.delete(key);
 
-					// Anything recorded from here on arrived from outside, and is honored.
-					await Promise.all(running);
-				} catch (error) {
-					// Settle the writers awaiting this run; an escaped throw would leave them hanging.
-					reject(error);
-				} finally {
-					this._executing.delete(key);
+				// Anything recorded from here on arrived from outside, and is honored.
+				const results = await Promise.allSettled(running);
+				const errors = results.flatMap((result) =>
+					result.status === "rejected" ? [result.reason] : [],
+				);
+				this._executing.delete(key);
 
-					// Flush any write that arrived while the observers were awaiting. In the
-					// finally block so a throwing observer still can't swallow the write.
-					if (this._dirty.delete(key)) void this.notify(key, debounceMillis);
-				}
+				// Flush any write that arrived while the observers were awaiting, failed or not.
+				if (this._dirty.delete(key)) void this.notify(key, debounceMillis);
 
 				// Lazy cleanup: remove observers whose store's $rootNode is orphaned.
 				// This handles memory leaks from removed :for items, replaced :html content, etc.
@@ -546,7 +549,9 @@ export class SignalStore<T extends StoreState = StoreState> {
 					}
 				}
 
-				resolve();
+				if (errors.length === 0) resolve();
+				else if (errors.length === 1) reject(errors[0]);
+				else reject(new AggregateError(errors, `${errors.length} observers of "${key}" failed`));
 			}, debounceMillis);
 		});
 
@@ -656,14 +661,28 @@ export class SignalStore<T extends StoreState = StoreState> {
 	 * @param local - If true, sets directly on this store bypassing ancestor lookup.
 	 *                Use for creating local scope variables that shadow ancestors.
 	 */
-	async set(key: string, value: unknown, local?: boolean): Promise<void> {
+	set(key: string, value: unknown, local?: boolean): Promise<void> {
+		try {
+			if (!this.write(key, value, local)) return Promise.resolve();
+		} catch (error) {
+			// Rejected rather than thrown, as callers of a promise-returning set() expect.
+			return Promise.reject(error);
+		}
+
+		// Notify observers of the write itself. Not async, so writers joining a run share its promise.
+		this.markDependentComputedsDirty(key);
+		return this.notify(key);
+	}
+
+	/** Writes `key` and runs its key handlers; returns whether its observers need notifying. */
+	private write(key: string, value: unknown, local?: boolean): boolean {
 		if (isComputedMarker(value)) {
 			this.setupComputed(key, value.fn);
-			return;
+			return false;
 		}
 
 		// Early return if the key exists in this store and has the same value.
-		if (this._store.has(key) && value === this._store.get(key)) return;
+		if (this._store.has(key) && value === this._store.get(key)) return false;
 
 		// Resolved through the chain even for a local set: a local set can shadow a key this
 		// store only inherits, and the subscription to unwind is the one held on the inherited
@@ -699,15 +718,12 @@ export class SignalStore<T extends StoreState = StoreState> {
 			for (const [pattern, handlers] of this.keyHandlers.entries()) {
 				if (pattern.test(key)) {
 					for (const handler of handlers) {
-						await Promise.resolve(handler.call(this.$, key, value));
+						handler.call(this.$, key, value);
 					}
 				}
 			}
 		}
-
-		// Notify observers of the write itself.
-		this.markDependentComputedsDirty(key);
-		await this.notify(key);
+		return true;
 	}
 
 	async del(key: string): Promise<void> {
