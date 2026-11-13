@@ -881,13 +881,11 @@ function validateExpressions(
 
 export async function typeCheck(html: string, options: TypeCheckOptions): Promise<ts.Diagnostic[]> {
 	const dom = new JSDOM(html, { includeNodeLocations: true });
-	const htmlSourceFile = ts.createSourceFile(
+	// Diagnostics only need the file name and text; createSourceFile would parse the HTML as TS.
+	const htmlSourceFile = ts.createSourceMapSource(
 		options.filePath ?? "template.html",
 		html,
-		ts.ScriptTarget.Latest,
-		false,
-		ts.ScriptKind.Unknown,
-	);
+	) as ts.SourceFile;
 
 	const allTypeNodes = dom.window.document.querySelectorAll("[\\:types], [data-types]");
 
