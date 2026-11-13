@@ -4,6 +4,7 @@ import { JSDOM } from "jsdom";
 import * as ts from "typescript";
 import { getAttributeOrDataset } from "./dome.js";
 import * as expressions from "./expressions/index.js";
+import { parseForAttribute } from "./plugins.js";
 import { TRUSTED_DATA_ATTRIBS } from "./trusted_attributes.js";
 
 export interface TypeCheckOptions {
@@ -105,6 +106,8 @@ interface ExpressionEntry {
 	expression: string;
 	source: ExpressionSource;
 	range?: SourceRange;
+	// Reported as is instead of parsing or type checking the expression.
+	error?: string;
 }
 
 interface ExpressionScope {
@@ -237,6 +240,7 @@ function buildTypeScriptSource(
 
 		// Add expressions in current scope
 		for (const entry of currentScope.expressions) {
+			if (entry.error) continue;
 			const expressionPrefix = `${indent}(`;
 			const code = `${expressionPrefix}${entry.expression});\n`;
 			expressionMap.set(currentOffset + expressionPrefix.length, entry);
@@ -422,11 +426,9 @@ function getForLoopContext(element: Element, typesMap: Map<string, string>): Map
 	let current: Element | null = element.parentElement;
 
 	while (current) {
-		const forAttr = getAttributeOrDataset(current, "for", ":");
-		if (forAttr) {
-			const parts = forAttr.split(" in ");
-			const itemName = parts[0].trim();
-			const itemsExpression = parts[1].trim();
+		const forTokens = parseForAttribute(getAttributeOrDataset(current, "for", ":") ?? "");
+		if (forTokens) {
+			const [itemName, itemsExpression] = forTokens;
 
 			// Try to determine the type of the items expression
 			// First check if it's a simple variable name in our types map
@@ -723,14 +725,11 @@ function getExpressionsExcludingNestedTypes(
 		}
 
 		// Check if this element has a :for attribute
-		const forAttr = getAttributeOrDataset(element, "for", ":");
+		const forAttr = getAttributeOrDataset(element, "for", ":")?.trim();
 		if (forAttr) {
 			if (processedForElements.has(element)) return;
 			processedForElements.add(element);
 
-			const parts = forAttr.split(" in ");
-			const itemName = parts[0].trim();
-			const itemsExpression = parts[1].trim();
 			const attributeName = element.hasAttribute(":for")
 				? ":for"
 				: element.hasAttribute("data-for")
@@ -738,6 +737,18 @@ function getExpressionsExcludingNestedTypes(
 					: ":for";
 			const attr = element.getAttributeNode(attributeName);
 			const attrValue = attr?.value ?? "";
+			const forTokens = parseForAttribute(forAttr);
+			if (!forTokens) {
+				const tagName = element.tagName.toLowerCase();
+				currentScope.expressions.push({
+					expression: forAttr,
+					source: { kind: "attribute", element, attributeName, attributeKind: "for-items" },
+					range: getAttributeValueRange(element, attributeName, attrValue, attrValue, dom, html, 0),
+					error: `Invalid :for format on <${tagName}>: \`${forAttr}\`. Expected "{key} in {expression}".`,
+				});
+				return;
+			}
+			const [itemName, itemsExpression] = forTokens;
 			const valueIndex = attrValue.lastIndexOf(itemsExpression);
 
 			const itemsExpressionEntry: ExpressionEntry = {
@@ -905,6 +916,12 @@ function validateExpressions(
 	for (const entry of expressions) {
 		const candidate = entry.expression.trim();
 		if (!candidate) continue;
+
+		if (entry.error) {
+			const diagnostic = createExpressionDiagnostic(entry, entry.error, htmlSourceFile);
+			diagnostics.push({ ...diagnostic, messageText: entry.error });
+			continue;
+		}
 
 		// Skip :render attributes since they contain file paths, not expressions.
 		if (entry.source.kind === "attribute" && PATH_ATTRIBUTES.includes(entry.source.attributeName)) {

@@ -10,12 +10,12 @@
         <h1 class="text-2xl font-bold mb-4">Tags List</h1>
         
         <div class="flex flex-wrap gap-2 mb-6">
-            <template :for="(tag, index) in tags" :key="tag">
+            <template :for="tag in tags" :key="tag">
                 <span class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full flex items-center">
                     {{ tag }}
                     <button 
                         class="ml-2 text-indigo-600 hover:text-indigo-900 font-bold"
-                        :on:click="tags.splice(index, 1)"
+                        :on:click="tags.splice($index, 1)"
                     >
                         &times;
                     </button>

@@ -31,6 +31,12 @@ import { getAncestorKeyStore } from "./store.js";
 // Re-applies an element's :show state after :attr:style overwrites its style.
 const showAppliers = new WeakMap<object, () => void>();
 
+// Splits a :for value on its first whitespace-delimited `in` into the loop variable and items.
+export function parseForAttribute(value: string): [string, string] | undefined {
+	const match = value.trim().match(/^(\S+)\s+in\s+([\s\S]+)$/);
+	return match ? [match[1], match[2]] : undefined;
+}
+
 /** @internal */
 export namespace RendererPlugins {
 	export const resolveIncludes: RendererPlugin = async function (node, params) {
@@ -483,9 +489,8 @@ export namespace RendererPlugins {
 			}
 			this.log(":for template:\n", nodeToString(template, 128));
 
-			// Tokenize the input by splitting it based on the format "{key} in {expression}".
-			const tokens = forAttr.split(" in ", 2);
-			if (tokens.length !== 2) {
+			const tokens = parseForAttribute(forAttr);
+			if (!tokens) {
 				throw new Error(`Invalid :for format: \`${forAttr}\`. Expected "{key} in {expression}".`);
 			}
 
