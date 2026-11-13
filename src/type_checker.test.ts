@@ -343,6 +343,22 @@ describe("typeCheck", function () {
 			const diagnostic = findDiagnostic(diagnostics, "Unsupported expression");
 			assert.ok(diagnostic, "Should flag invalid expression even without :types");
 		});
+
+		it("should check deeply nested elements without overflowing the stack", async () => {
+			const spans = "<span>".repeat(3000);
+			const untyped = await typeCheck(`<div>${spans}{{ 1 + }}</div>`, { strict: false });
+			assert.deepEqual(
+				untyped.map((d) => d.code),
+				[91002],
+			);
+			const typed = await typeCheck(`<div :types='{"x": "number"}'>${spans}{{ x.foo }}</div>`, {
+				strict: false,
+			});
+			assert.deepEqual(
+				typed.map((d) => d.code),
+				[2339],
+			);
+		});
 	});
 
 	describe("expression compatibility", () => {

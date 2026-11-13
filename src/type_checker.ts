@@ -762,7 +762,7 @@ function getExpressionsExcludingNestedTypes(
 			currentScope.expressions.push(itemsExpressionEntry);
 
 			const forScope: ExpressionScope = { expressions: [], forLoops: [] };
-			processDescendants(element, forScope);
+			queueChildren(element, forScope);
 			currentScope.forLoops.push({
 				itemName,
 				itemsExpression: itemsExpressionEntry,
@@ -785,24 +785,15 @@ function getExpressionsExcludingNestedTypes(
 				}
 			}
 
-			// Process children
-			for (const child of Array.from(element.childNodes)) {
-				if (child.nodeType === 1) {
-					processElement(child as Element, currentScope);
-				} else if (child.nodeType === 3) {
-					processTextNode(child as Text, currentScope);
-				}
-			}
+			queueChildren(element, currentScope);
 		}
 	};
 
-	const processDescendants = (element: Element, currentScope: ExpressionScope) => {
-		for (const child of Array.from(element.childNodes)) {
-			if (child.nodeType === 1) {
-				processElement(child as Element, currentScope);
-			} else if (child.nodeType === 3) {
-				processTextNode(child as Text, currentScope);
-			}
+	// Walk iteratively, since recursing per level overflows the stack on deeply nested markup.
+	const stack: [Node, ExpressionScope][] = [[root, scope]];
+	const queueChildren = (element: Element, currentScope: ExpressionScope) => {
+		for (let child = element.lastChild; child; child = child.previousSibling) {
+			stack.push([child, currentScope]);
 		}
 	};
 
@@ -822,8 +813,14 @@ function getExpressionsExcludingNestedTypes(
 		}
 	};
 
-	// Start processing from root
-	processElement(root, scope);
+	for (let entry = stack.pop(); entry; entry = stack.pop()) {
+		const [node, currentScope] = entry;
+		if (node.nodeType === 1) {
+			processElement(node as Element, currentScope);
+		} else if (node.nodeType === 3) {
+			processTextNode(node as Text, currentScope);
+		}
+	}
 
 	return scope;
 }
