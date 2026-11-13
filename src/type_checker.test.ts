@@ -334,7 +334,6 @@ describe("typeCheck", function () {
 
 		for (const [label, attr, needle] of [
 			["unknown type", `:types='{"z": "BadType"}'`, "BadType"],
-			["unclosed generic", `:types='{"z": "BadType<"}'`, "BadType"],
 			["missing type arguments", `:types='{"z": "Record<string>"}'`, "Record<string>"],
 			["statement after the type", `:types='{"z": "string; Missing"}'`, "Missing"],
 			["undeclared name", `:types='{"a": "number", "z": "typeof missing"}'`, "missing"],
@@ -412,6 +411,64 @@ describe("typeCheck", function () {
 					[undefined, undefined],
 					[testFilePath, html.indexOf("{")],
 				],
+			);
+		});
+
+		for (const [label, type, needle, code] of [
+			["an unclosed object", "{ a: string", "", 1005],
+			["an unclosed generic", "BadType<", "", 1005],
+			["an initializer", "number = 1", "1", 1039],
+			["a trailing comma", "string,", ",", 1009],
+			["an empty type", "", "", 1110],
+		] as const) {
+			it(`should report a syntax error in :types for ${label}`, async () => {
+				const html = `<div :types='{"z": "${type}"}'>{{ z }}</div>`;
+				const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+				const at =
+					html.indexOf(`"${type}"`) + 1 + (needle ? type.lastIndexOf(needle) : type.length);
+				assert.deepEqual(
+					diagnostics.map((d) => [d.file?.fileName, d.start, d.length, d.code]),
+					[[testFilePath, at, needle.length, code]],
+				);
+			});
+		}
+
+		for (const key of ["a b", "a/*", "", "class"]) {
+			it(`should report an invalid :types key "${key}" on the :types value`, async () => {
+				const html = `<div :types='{"${key}": "string", "n": "number"}'>{{ n.foo }}</div>`;
+				const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+				const value = html.indexOf("{");
+				assert.deepEqual(
+					diagnostics.map((d) => [d.file?.fileName, d.start, d.length]),
+					[
+						[testFilePath, value, html.indexOf("'>") - value],
+						[testFilePath, html.indexOf("foo"), 3],
+					],
+				);
+			});
+		}
+
+		it("should keep checking the rest of the template after a :types syntax error", async () => {
+			const html =
+				`<div :types='{"z": "{ a: string", "n": "number"}'>{{ n.foo }} {{ z.b }}` +
+				`<p :types='{"y": "string"}'>{{ z.c }} {{ y.bar }}</p></div>`;
+			const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+			assert.deepEqual(
+				diagnostics.map((d) => [d.code, d.start]),
+				[
+					[1005, html.indexOf('", "n"')],
+					[2339, html.indexOf("foo")],
+					[2339, html.indexOf("bar")],
+				],
+			);
+		});
+
+		it("should not report syntax errors in expressions twice", async () => {
+			const html = `<div :types='{"a": "number"}'>{{ a + }}</div>`;
+			const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+			assert.deepEqual(
+				diagnostics.map((d) => d.code),
+				[91002],
 			);
 		});
 	});

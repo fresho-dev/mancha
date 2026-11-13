@@ -56,11 +56,11 @@ async function getDiagnostics(
 		const allDiagnostics = ts.getPreEmitDiagnostics(program);
 
 		// Filter diagnostics:
-		// 1. Only keep semantic errors (2000-2999) and strict mode errors (18000-18999)
+		// 1. Only keep syntax (1000-1999), semantic (2000-2999) and strict mode errors (18000-18999)
 		// 2. Only keep diagnostics from our temp file (ignore errors from imported type definitions)
 		const diagnostics = allDiagnostics.filter(
 			(d) =>
-				((d.code >= 2000 && d.code < 3000) || (d.code >= 18000 && d.code < 19000)) &&
+				((d.code >= 1000 && d.code < 3000) || (d.code >= 18000 && d.code < 19000)) &&
 				d.file?.fileName === tempFilePath,
 		);
 
@@ -515,6 +515,38 @@ async function processTypesElement(
 		// Merge with parent types (element types override parent types)
 		const mergedTypes = new Map([...parentTypes, ...elementTypes]);
 
+		// Parse each declaration alone, so a syntax error can't swallow the rest of the source.
+		const syntaxErrors: Array<[string, number, ts.Diagnostic]> = [];
+		for (const [name, type] of elementTypes) {
+			// Template expressions only read ASCII identifiers.
+			if (!/^[A-Za-z_$][\w$]*$/.test(name)) {
+				mergedTypes.delete(name);
+				syntaxErrors.push([
+					name,
+					-1,
+					{
+						file: undefined,
+						start: undefined,
+						length: undefined,
+						category: ts.DiagnosticCategory.Error,
+						code: 91001,
+						source: "mancha-type-checker",
+						messageText: `Key "${name}" in :types must be an identifier`,
+					},
+				]);
+				continue;
+			}
+			const declaration = `declare let ${name}: `;
+			const source = `${declaration}${type};`;
+			const [error] = ts.transpileModule(source, { reportDiagnostics: true }).diagnostics ?? [];
+			if (!error) continue;
+			const offset = (error.start ?? 0) - declaration.length;
+			syntaxErrors.push([name, offset, error]);
+			// A reserved-word key can't be declared at all, and a broken type falls back to any.
+			if (offset < 0) mergedTypes.delete(name);
+			else mergedTypes.set(name, "any");
+		}
+
 		// Get expressions for this element (excluding nested :types descendants)
 		const scope = getExpressionsExcludingNestedTypes(element, dom, html);
 
@@ -567,10 +599,38 @@ async function processTypesElement(
 		let cursor = 0;
 		for (const [name, value] of Object.entries(rawTypes)) {
 			const type = String(value);
-			const index = typesAttr.indexOf(type, typesAttr.indexOf(name, cursor) + name.length);
+			// Skip the separator and opening quote, so an empty type lands inside its quotes.
+			const separator = typesAttr.indexOf(":", typesAttr.indexOf(name, cursor) + name.length);
+			const index = typesAttr.indexOf(
+				type,
+				typesAttr.slice(separator + 1).search(/\S/) + separator + 2,
+			);
 			typeOffsets.set(name, [index, type]);
 			if (index >= 0) cursor = index + type.length;
 		}
+
+		// Maps a diagnostic at offset within the generated type of name to the :types value.
+		const pushDeclarationDiagnostic = (diag: ts.Diagnostic, name: string, offset: number) => {
+			const [index, type] = typeOffsets.get(name) ?? [-1, ""];
+			// Syntax errors can point past the end of the type.
+			const clamped = Math.min(offset, type.length);
+			// Imports change the type's length, so only import-free types map exactly.
+			const exact = type === elementTypes.get(name);
+			const [at, text] =
+				index < 0 || offset < 0
+					? [0, typesAttr]
+					: exact
+						? [index + clamped, type.slice(clamped, clamped + (diag.length ?? 0))]
+						: [index, type];
+			const range = getAttributeValueRange(element, typesAttrName, typesAttr, text, dom, html, at);
+			allDiagnostics.push({
+				...diag,
+				file: range && htmlSourceFile,
+				start: range?.start,
+				length: range?.length,
+			});
+		};
+		for (const [name, offset, diag] of syntaxErrors) pushDeclarationDiagnostic(diag, name, offset);
 
 		// Remap diagnostics to original source locations
 		for (const diag of rawDiagnostics) {
@@ -586,34 +646,11 @@ async function processTypesElement(
 			if (declaration) {
 				const [name, { typeStart }] = declaration;
 				// Inherited and :for-derived declarations repeat an ancestor's types, which it reports.
-				if (!elementTypes.has(name)) continue;
-				const [index, type] = typeOffsets.get(name) ?? [-1, ""];
-				const offset = diagStart - typeStart;
-				// Imports change the type's length, so only import-free types map exactly.
-				const exact = type === elementTypes.get(name);
-				const [at, text] =
-					index < 0 || offset < 0
-						? [0, typesAttr]
-						: exact
-							? [index + offset, type.slice(offset, offset + (diag.length ?? 0))]
-							: [index, type];
-				const range = getAttributeValueRange(
-					element,
-					typesAttrName,
-					typesAttr,
-					text,
-					dom,
-					html,
-					at,
-				);
-				allDiagnostics.push({
-					...diag,
-					file: range && htmlSourceFile,
-					start: range?.start,
-					length: range?.length,
-				});
+				if (elementTypes.has(name)) pushDeclarationDiagnostic(diag, name, diagStart - typeStart);
 				continue;
 			}
+			// Expression syntax errors are reported by validateExpressions; other 1xxx codes stay dropped.
+			if (diag.code < 2000) continue;
 
 			let bestMatch: { offset: number; entry: ExpressionEntry } | undefined;
 			for (const [offset, entry] of expressionMap.entries()) {
