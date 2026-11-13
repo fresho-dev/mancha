@@ -126,6 +126,23 @@ describe("CLI", function () {
 			}
 		});
 
+		it("should report type declaration errors at their position in the template", async () => {
+			const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mancha-cli-check-"));
+			const file = path.join(dir, "x.html");
+			const html = `<div :types='{"z": "BadType"}'>{{ z }}</div>`;
+			await fs.writeFile(file, html);
+			try {
+				const stderr = await execAsync(`node ${cliPath} check ${file}`).then(
+					() => "",
+					(err: { stderr: string }) => err.stderr,
+				);
+				const column = html.indexOf("BadType") + 1;
+				assert.ok(stderr.includes(`${file} (1,${column}): Cannot find name 'BadType'.`), stderr);
+			} finally {
+				await fs.rm(dir, { recursive: true, force: true });
+			}
+		});
+
 		it("should skip node_modules directories when crawling", async () => {
 			const nested = path.join(testDir, "node_modules", "ignoredpkg");
 			await fs.mkdir(nested, { recursive: true });

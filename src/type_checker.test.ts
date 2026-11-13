@@ -330,6 +330,89 @@ describe("typeCheck", function () {
 				}
 			}
 		});
+
+		for (const [label, attr, needle] of [
+			["unknown type", `:types='{"z": "BadType"}'`, "BadType"],
+			["unclosed generic", `:types='{"z": "BadType<"}'`, "BadType"],
+			["missing type arguments", `:types='{"z": "Record<string>"}'`, "Record<string>"],
+			["statement after the type", `:types='{"z": "string; Missing"}'`, "Missing"],
+			["undeclared name", `:types='{"a": "number", "z": "typeof missing"}'`, "missing"],
+			["data-types", `data-types='{"z": "BadType"}'`, "BadType"],
+			[
+				"missing export",
+				`:types='{"z": "@import:./test_types/user.ts:Missing"}'`,
+				"@import:./test_types/user.ts:Missing",
+			],
+			[
+				"type after an import",
+				`:types='{"z": "@import:./test_types/user.ts:User | Bad"}'`,
+				"@import:./test_types/user.ts:User | Bad",
+			],
+			[
+				"missing module",
+				`:types='{"z": "@import:./test_types/missing.ts:User"}'`,
+				"@import:./test_types/missing.ts:User",
+			],
+			["entities", `:types="{&quot;z&quot;: &quot;BadType&quot;}"`, "BadType"],
+			["CRLF and entities", `:types='{"z":\r\n "&lt;T&gt;() =&gt; BadType"}'`, "BadType"],
+		]) {
+			it(`should report location in :types for ${label}`, async () => {
+				const html = `<div ${attr}>{{ z }}</div>`;
+				const diagnostics = await typeCheck(html, { strict: true, filePath: testFilePath });
+				assert.equal(diagnostics.length, 1);
+				assert.equal(diagnostics[0].file?.fileName, testFilePath);
+				assert.equal(diagnostics[0].start, html.indexOf(needle));
+				assert.equal(diagnostics[0].length, needle.length);
+			});
+		}
+
+		for (const [label, html] of [
+			[
+				"an inherited",
+				`<div :types='{"z": "BadType"}'><p :types='{"y": "string"}'>{{ y }}</p></div>`,
+			],
+			["a nested", `<div :types='{"y": "string"}'><p :types='{"z": "BadType"}'>{{ z }}</p></div>`],
+			[
+				"a :for-derived",
+				`<div :types='{"z": "BadType[]"}'><p :for="i in z"><b :types='{"y": "string"}'>{{ i }}</b></p></div>`,
+			],
+		]) {
+			it(`should report ${label} type error once in its :types`, async () => {
+				const diagnostics = await typeCheck(html, { strict: true, filePath: testFilePath });
+				assert.equal(diagnostics.length, 1);
+				assert.equal(diagnostics[0].file?.fileName, testFilePath);
+				assert.equal(diagnostics[0].start, html.indexOf("BadType"));
+			});
+		}
+
+		it("should not mistake an earlier value for a :types key", async () => {
+			const html = `<div :types='{"y": "string /* z: Bad */", "z": "Bad"}'>{{ z }}</div>`;
+			const diagnostics = await typeCheck(html, { strict: true, filePath: testFilePath });
+			assert.equal(diagnostics.length, 1);
+			assert.equal(diagnostics[0].start, html.lastIndexOf("Bad"));
+		});
+
+		it("should report the :types value for a type it cannot locate", async () => {
+			const html = `<div :types='{"z": "BadType<\\"a\\">"}'>{{ z }}</div>`;
+			const diagnostics = await typeCheck(html, { strict: true, filePath: testFilePath });
+			assert.equal(diagnostics.length, 1);
+			assert.equal(diagnostics[0].file?.fileName, testFilePath);
+			assert.equal(diagnostics[0].start, html.indexOf("{"));
+			assert.equal(diagnostics[0].length, html.indexOf("'>") - html.indexOf("{"));
+		});
+
+		it("should not point unmapped diagnostics into generated code", async () => {
+			const html = `<div :types='{"$elem": "string"}'></div>`;
+			const diagnostics = await typeCheck(html, { strict: true, filePath: testFilePath });
+			// $elem clashes with a built-in declaration, which has no source, and with the :types key.
+			assert.deepEqual(
+				diagnostics.map((d) => [d.file?.fileName, d.start]),
+				[
+					[undefined, undefined],
+					[testFilePath, html.indexOf("{")],
+				],
+			);
+		});
 	});
 
 	describe("global expression validation", () => {

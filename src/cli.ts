@@ -140,7 +140,7 @@ const _args = yargs(hideBin(process.argv))
 
 					diagnostics.forEach((diagnostic) => {
 						const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n");
-						if (diagnostic.file && diagnostic.start) {
+						if (diagnostic.file && diagnostic.start !== undefined) {
 							const { line, character } = ts.getLineAndCharacterOfPosition(
 								diagnostic.file,
 								diagnostic.start,
