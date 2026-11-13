@@ -192,7 +192,11 @@ function buildTypeScriptSource(
 	types: Map<string, string>,
 	scope: ExpressionScope,
 	baseDir?: string,
-): { source: string; expressionMap: Map<number, ExpressionEntry> } {
+): {
+	source: string;
+	expressionMap: Map<number, ExpressionEntry>;
+	declarationMap: Map<string, { start: number; typeStart: number; end: number }>;
+} {
 	const namespace = "M"; // Use a constant namespace
 
 	// Add reference directive for DOM lib
@@ -202,14 +206,6 @@ function buildTypeScriptSource(
 	const defaultGlobals = ["declare const $elem: Element;", "declare const $event: Event;"].join(
 		"\n",
 	);
-
-	// Apply import syntax transformation to all type values
-	const declarations = Array.from(types.entries())
-		.map(([key, value]) => {
-			const resolvedType = replaceImportSyntax(value, baseDir);
-			return `declare let ${key}: ${resolvedType};`;
-		})
-		.join("\n");
 
 	// Global augmentations
 	const globalAugmentations = [
@@ -229,7 +225,21 @@ function buildTypeScriptSource(
 		"}",
 	].join("\n");
 
-	const prefix = `${libDirectives}\n${globalAugmentations}\nnamespace ${namespace} {\n${defaultGlobals}\n${declarations}\n`;
+	let prefix = `${libDirectives}\n${globalAugmentations}\nnamespace ${namespace} {\n${defaultGlobals}\n`;
+	// Generated offsets of each declaration, its type, and its end.
+	const declarationMap = new Map<string, { start: number; typeStart: number; end: number }>();
+	for (const [key, value] of types) {
+		const declaration = `declare let ${key}: `;
+		// Apply import syntax transformation to all type values
+		const resolvedType = replaceImportSyntax(value, baseDir);
+		const typeStart = prefix.length + declaration.length;
+		declarationMap.set(key, {
+			start: prefix.length,
+			typeStart,
+			end: typeStart + resolvedType.length,
+		});
+		prefix += `${declaration}${resolvedType};\n`;
+	}
 	const suffix = "\n}";
 	const expressionMap = new Map<number, ExpressionEntry>();
 	let currentOffset = prefix.length;
@@ -269,7 +279,7 @@ function buildTypeScriptSource(
 
 	const checks = buildChecks(scope);
 	const source = `${prefix}${checks}${suffix}`;
-	return { source, expressionMap };
+	return { source, expressionMap, declarationMap };
 }
 
 function getAttributeValueRange(
@@ -520,7 +530,11 @@ async function processTypesElement(
 		allDiagnostics.push(...expressionDiagnostics);
 
 		// Type check expressions in this scope
-		const { source, expressionMap } = buildTypeScriptSource(mergedTypes, scope, baseDir);
+		const { source, expressionMap, declarationMap } = buildTypeScriptSource(
+			mergedTypes,
+			scope,
+			baseDir,
+		);
 
 		if (options.debug) {
 			console.log("\n=== Generated TypeScript Source ===");
@@ -547,10 +561,57 @@ async function processTypesElement(
 			}
 		}
 
+		// Offset of each raw type in typesAttr, searching keys in order so earlier values can't match.
+		const typeOffsets = new Map<string, [number, string]>();
+		const rawTypes = ensurePlainObject(parseExpression(typesAttr).evaluate({}), ":types");
+		let cursor = 0;
+		for (const [name, value] of Object.entries(rawTypes)) {
+			const type = String(value);
+			const index = typesAttr.indexOf(type, typesAttr.indexOf(name, cursor) + name.length);
+			typeOffsets.set(name, [index, type]);
+			if (index >= 0) cursor = index + type.length;
+		}
+
 		// Remap diagnostics to original source locations
 		for (const diag of rawDiagnostics) {
 			if (diag.start === undefined) {
-				allDiagnostics.push(diag);
+				allDiagnostics.push({ ...diag, file: undefined });
+				continue;
+			}
+
+			const diagStart = diag.start;
+			const declaration = Array.from(declarationMap).find(
+				([, { start, end }]) => start <= diagStart && diagStart <= end,
+			);
+			if (declaration) {
+				const [name, { typeStart }] = declaration;
+				// Inherited and :for-derived declarations repeat an ancestor's types, which it reports.
+				if (!elementTypes.has(name)) continue;
+				const [index, type] = typeOffsets.get(name) ?? [-1, ""];
+				const offset = diagStart - typeStart;
+				// Imports change the type's length, so only import-free types map exactly.
+				const exact = type === elementTypes.get(name);
+				const [at, text] =
+					index < 0 || offset < 0
+						? [0, typesAttr]
+						: exact
+							? [index + offset, type.slice(offset, offset + (diag.length ?? 0))]
+							: [index, type];
+				const range = getAttributeValueRange(
+					element,
+					typesAttrName,
+					typesAttr,
+					text,
+					dom,
+					html,
+					at,
+				);
+				allDiagnostics.push({
+					...diag,
+					file: range && htmlSourceFile,
+					start: range?.start,
+					length: range?.length,
+				});
 				continue;
 			}
 
@@ -604,7 +665,7 @@ async function processTypesElement(
 					console.log(`  TS start=${diag.start}, length=${diag.length}`);
 					console.log(`  Message: ${msg}`);
 				}
-				allDiagnostics.push(diag);
+				allDiagnostics.push({ ...diag, file: undefined, start: undefined, length: undefined });
 			}
 		}
 
