@@ -501,7 +501,7 @@ export class SignalStore<T extends StoreState = StoreState> {
 			return scheduled.done;
 		}
 
-		const done = new Promise<void>((resolve) => {
+		const done = new Promise<void>((resolve, reject) => {
 			setTimeout(async () => {
 				this._pending.delete(key);
 				try {
@@ -518,6 +518,9 @@ export class SignalStore<T extends StoreState = StoreState> {
 
 					// Anything recorded from here on arrived from outside, and is honored.
 					await Promise.all(running);
+				} catch (error) {
+					// Settle the writers awaiting this run; an escaped throw would leave them hanging.
+					reject(error);
 				} finally {
 					this._executing.delete(key);
 
