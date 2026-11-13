@@ -21,8 +21,7 @@ concurrency:
 
 jobs:
   build-test:
-    # Playwright does not support Chromium on ubuntu-latest (26.04) yet.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     name: Test and Build
     steps:
       - name: Checkout code
