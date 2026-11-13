@@ -746,7 +746,7 @@ function getExpressionsExcludingNestedTypes(
 	const processTextNode = (textNode: Text, currentScope: ExpressionScope) => {
 		const text = textNode.nodeValue;
 		if (text) {
-			const matches = text.matchAll(/{{(.*?)}}/g);
+			const matches = text.matchAll(/{{([\s\S]*?)}}/g);
 			for (const match of matches) {
 				const trimmedExpression = match[1]?.trim() ?? "";
 				if (!trimmedExpression) continue;

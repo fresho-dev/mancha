@@ -488,6 +488,80 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				await sleepForReactivity();
 				assert.equal(textNode.data, "Hello John");
 			});
+
+			for (const [label, expr] of [
+				["no whitespace", "{{name}}"],
+				["extra whitespace", "{{   name   }}"],
+				["newlines", "{{\n  name\n}}"],
+				["tabs and CRLF", "{{\t\r\n name \r\n\t}}"],
+			]) {
+				it(`resolves interpolation with ${label}`, async () => {
+					const renderer = new ctor({ name: "World" });
+					const fragment = renderer.parseHTML(`Hello ${expr}!`);
+					const textNode = fragment.childNodes[0] as Text;
+
+					await renderer.mount(fragment);
+					assert.equal(textNode.data, "Hello World!");
+
+					renderer.set("name", "Stranger");
+					await sleepForReactivity();
+					assert.equal(textNode.data, "Hello Stranger!");
+				});
+			}
+
+			it("resolves multiple interpolations with mixed whitespace", async () => {
+				const renderer = new ctor({ a: 1, b: 2 });
+				const fragment = renderer.parseHTML("[{{a}}] [{{ a }}] [{{\n b\n}}] [{{  a  }}]");
+				const textNode = fragment.childNodes[0] as Text;
+
+				await renderer.mount(fragment);
+				assert.equal(textNode.data, "[1] [1] [2] [1]");
+
+				renderer.set("a", 3);
+				await sleepForReactivity();
+				assert.equal(textNode.data, "[3] [3] [2] [3]");
+			});
+
+			it("resolves expressions containing braces", async () => {
+				const renderer = new ctor({});
+				const fragment = renderer.parseHTML("{{ {a: 1}.a }}-{{ [{b: 2}][0].b }}");
+				const textNode = fragment.childNodes[0] as Text;
+
+				await renderer.mount(fragment);
+				assert.equal(textNode.data, "1-2");
+			});
+
+			it("inserts values containing replacement patterns verbatim", async () => {
+				const renderer = new ctor({ a: "$& $$ $'", b: "{{ a }}" });
+				const fragment = renderer.parseHTML("{{ a }} {{ b }} {{ a }}");
+				const textNode = fragment.childNodes[0] as Text;
+
+				await renderer.mount(fragment);
+				assert.equal(textNode.data, "$& $$ $' {{ a }} $& $$ $'");
+			});
+
+			it("handles an unclosed interpolation followed by long whitespace quickly", async () => {
+				const renderer = new ctor({ name: "World" });
+				const unclosed = `{{${" ".repeat(5000)}`;
+				const fragment = renderer.parseHTML(`Hello {{ name }} ${unclosed}`);
+				const textNode = fragment.childNodes[0] as Text;
+
+				const start = performance.now();
+				await renderer.mount(fragment);
+				renderer.set("name", "Stranger");
+				await sleepForReactivity();
+				assert.ok(performance.now() - start < 1000, "Rendering should not backtrack");
+				assert.equal(textNode.data, `Hello Stranger ${unclosed}`);
+			});
+
+			it("leaves empty interpolations untouched", async () => {
+				const renderer = new ctor({});
+				const fragment = renderer.parseHTML("a {{}} b {{  }} c");
+				const textNode = fragment.childNodes[0] as Text;
+
+				await renderer.mount(fragment);
+				assert.equal(textNode.data, "a {{}} b {{  }} c");
+			});
 		});
 
 		describe("function call reactivity in templates", () => {
