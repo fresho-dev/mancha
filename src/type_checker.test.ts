@@ -130,6 +130,31 @@ describe("typeCheck", function () {
 			}
 		});
 
+		for (const [label, expr] of [
+			["no whitespace", "{{name.toFixed(2)}}"],
+			["extra whitespace", "{{   name.toFixed(2)   }}"],
+			["newlines", "{{\n  name\n    .toFixed(2)\n}}"],
+		]) {
+			it(`should report location for text interpolation with ${label}`, async () => {
+				const html = `<div :types='{"name": "string"}'><span>{{ name }}</span><span>${expr}</span></div>`;
+				const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+				assert.equal(diagnostics.length, 1);
+				const diagnostic = findDiagnostic(
+					diagnostics,
+					"Property 'toFixed' does not exist on type 'string'",
+				);
+				assert.equal(diagnostic?.file?.fileName, testFilePath);
+				assert.equal(diagnostic?.start, html.indexOf("toFixed"));
+				assert.equal(diagnostic?.length, "toFixed".length);
+			});
+		}
+
+		it("should report undefined variables in multi-line text interpolations", async () => {
+			const html = `<div :types='{"definedVar": "string"}'><span>{{\n  undefinedVar\n}}</span></div>`;
+			const diagnostics = await typeCheck(html, { strict: true });
+			assert.ok(findDiagnostic(diagnostics, "Cannot find name 'undefinedVar'"));
+		});
+
 		it("should report correct location for type error in attribute", async () => {
 			const html = `<div :types='{"show": "boolean"}' :show="show.toUpperCase()"></div>`;
 			const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });

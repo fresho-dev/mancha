@@ -69,7 +69,7 @@
   ```html
   <video :prop:src="buildSrc()"></video>
   ```
-- `{{ value }}` replaces `value` in text nodes
+- `{{ value }}` replaces `value` in text nodes. Whitespace inside the braces, including newlines, doesn't matter; the expression ends at the first `}}`.
   ```html
   <button :data="{label: 'Click Me'}">{{ label }}</button>
   ```

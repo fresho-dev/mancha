@@ -217,22 +217,25 @@ export namespace RendererPlugins {
 		this.log(`Processing node content value:\n`, ellipsize(content, 128));
 
 		// Identify all the expressions found in the content.
-		const matcher = new RegExp(/{{ ([^}]+) }}/gm);
-		const expressions = Array.from(content.matchAll(matcher)).map((match) => match[1]);
+		const matcher = /{{([\s\S]*?)}}/g;
+		// Unclosed {{ past the last }} can't match; slicing them off avoids a quadratic scan.
+		const end = content.lastIndexOf("}}") + 2;
+		const [head, tail] = [content.slice(0, end), content.slice(end)];
+		const expressions = Array.from(head.matchAll(matcher), (match) => match[1].trim()).filter(
+			Boolean,
+		);
 
 		// To update the node, we re-evaluate all of the expressions since that's much simpler than
 		// caching results.
 		return this.effect(
 			function (this: IRenderer) {
-				let updatedContent = content;
-				for (const expr of expressions) {
-					const result = this.eval(expr, { $elem: node });
-					updatedContent = updatedContent.replace(
-						`{{ ${expr} }}`,
-						result == null ? "" : String(result),
-					);
-				}
-				node.nodeValue = updatedContent;
+				node.nodeValue =
+					head.replace(matcher, (match, raw: string) => {
+						const expr = raw.trim();
+						if (!expr) return match;
+						const result = this.eval(expr, { $elem: node });
+						return result == null ? "" : String(result);
+					}) + tail;
 			},
 			{
 				directive: "text",
