@@ -1,10 +1,27 @@
 import { REACTIVE_DEBOUNCE_MILLIS, SignalStore } from "./store.js";
 import {
 	assert,
+	isNode,
 	measureTimerGranularity,
 	REACTIVE_SLEEP_MS,
 	sleepForReactivity,
 } from "./test_utils.js";
+
+/** Promises `body` left rejected and unhandled. Node only: browsers show them to the runner. */
+async function unhandledRejections(body: () => Promise<void>): Promise<Set<Promise<unknown>>> {
+	// A set, since mocha re-emits what it traps and each promise would arrive twice.
+	const leaked = new Set<Promise<unknown>>();
+	const listener = (_: unknown, promise: Promise<unknown>) => leaked.add(promise);
+	process.on("unhandledRejection", listener);
+	try {
+		await body();
+		// Reported once the microtask queue drains, so a task later.
+		await new Promise((resolve) => setTimeout(resolve));
+	} finally {
+		process.off("unhandledRejection", listener);
+	}
+	return leaked;
+}
 
 describe("SignalStore", () => {
 	describe("properties", () => {
@@ -2869,9 +2886,6 @@ describe("SignalStore", () => {
 			const gate = new Promise<void>((resolve) => (release = resolve));
 			const reran = new Promise<void>((resolve) => (rerun = resolve));
 
-			// Let the constructor's write settle, so the failing run belongs to the write below alone.
-			await store.notify("value");
-
 			store.watch("value", async () => {
 				observed.push(store.get("value") as number);
 				if (observed.length > 1) return rerun();
@@ -2888,6 +2902,94 @@ describe("SignalStore", () => {
 			assert.equal((await first.catch((error: Error) => error))?.message, "observer failure");
 			await reran;
 			assert.deepEqual(observed, [1, 2], "the write recorded during the observer was lost");
+		});
+
+		it("does not rerun an observer that writes its own key and throws", async () => {
+			const store = new SignalStore({ value: 0 });
+			let runs = 0;
+			let stopped = false;
+			store.watch("value", () => {
+				if (stopped) return;
+				void store.set("value", ++runs);
+				throw new Error("observer failure");
+			});
+
+			const error = await store.set("value", -1).catch((error: Error) => error);
+			assert.equal(error?.message, "observer failure");
+			for (let i = 0; i < 3; i++) await sleepForReactivity();
+			stopped = true;
+
+			assert.equal(runs, 1, "the observer's own write rescheduled it");
+		});
+
+		it("runs every observer of a key and rejects with all their errors", async () => {
+			const store = new SignalStore({ value: 0 });
+			const ran: string[] = [];
+			store.watch("value", () => {
+				ran.push("sync");
+				throw new Error("sync failure");
+			});
+			store.watch("value", () => {
+				ran.push("after");
+			});
+			store.watch("value", async () => {
+				ran.push("async");
+				throw new Error("async failure");
+			});
+
+			const error = await store.set("value", 1).catch((error: AggregateError) => error);
+
+			assert.deepEqual(ran, ["sync", "after", "async"], "a throwing observer skipped the rest");
+			assert.ok(error instanceof AggregateError, `expected an AggregateError, got ${error}`);
+			assert.deepEqual(
+				error?.errors.map((error: Error) => error.message),
+				["sync failure", "async failure"],
+			);
+		});
+
+		it("does not leak the constructor's write when a handled write joins a failing run", async function () {
+			if (!isNode) this.skip();
+			const leaked = await unhandledRejections(async () => {
+				const store = new SignalStore({ value: 0 });
+				store.watch("value", () => {
+					throw new Error("observer failure");
+				});
+				const error = await store.set("value", 1).catch((error: Error) => error);
+				assert.equal(error?.message, "observer failure");
+			});
+
+			assert.equal(leaked.size, 0, "the constructor's write leaked the run's rejection");
+		});
+
+		it("reports a computed that throws in the constructor", async function () {
+			if (!isNode) this.skip();
+			const broken = new SignalStore().$computed(() => {
+				throw new Error("computed failure");
+			});
+			const leaked = await unhandledRejections(async () => {
+				new SignalStore({ broken });
+			});
+
+			assert.equal(leaked.size, 1, "the computed's error was swallowed");
+		});
+
+		it("reports a failing run once however many unawaited writes joined it", async function () {
+			if (!isNode) this.skip();
+			let failed!: () => void;
+			const failing = new Promise<void>((resolve) => (failed = resolve));
+			const leaked = await unhandledRejections(async () => {
+				const store = new SignalStore({ list: [0] });
+				store.watch("list", () => {
+					failed();
+					throw new Error("observer failure");
+				});
+				store.$.list.push(1);
+				void store.set("list", [2]);
+				store.$.list = [3];
+				await failing;
+			});
+
+			assert.equal(leaked.size, 1, `expected one report for the run, got ${leaked.size}`);
 		});
 
 		it("still notifies a key written faster than the debounce window", async () => {
