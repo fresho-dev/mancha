@@ -218,7 +218,10 @@ export namespace RendererPlugins {
 
 		// Identify all the expressions found in the content.
 		const matcher = /{{([\s\S]*?)}}/g;
-		const expressions = Array.from(content.matchAll(matcher), (match) => match[1].trim()).filter(
+		// Unclosed {{ past the last }} can't match; slicing them off avoids a quadratic scan.
+		const end = content.lastIndexOf("}}") + 2;
+		const [head, tail] = [content.slice(0, end), content.slice(end)];
+		const expressions = Array.from(head.matchAll(matcher), (match) => match[1].trim()).filter(
 			Boolean,
 		);
 
@@ -226,12 +229,13 @@ export namespace RendererPlugins {
 		// caching results.
 		return this.effect(
 			function (this: IRenderer) {
-				node.nodeValue = content.replace(matcher, (match, raw: string) => {
-					const expr = raw.trim();
-					if (!expr) return match;
-					const result = this.eval(expr, { $elem: node });
-					return result == null ? "" : String(result);
-				});
+				node.nodeValue =
+					head.replace(matcher, (match, raw: string) => {
+						const expr = raw.trim();
+						if (!expr) return match;
+						const result = this.eval(expr, { $elem: node });
+						return result == null ? "" : String(result);
+					}) + tail;
 			},
 			{
 				directive: "text",

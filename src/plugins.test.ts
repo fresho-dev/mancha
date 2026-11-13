@@ -540,11 +540,13 @@ export function testSuite(ctor: new (data?: StoreState) => IRenderer): void {
 				assert.equal(textNode.data, "$& $$ $' {{ a }} $& $$ $'");
 			});
 
-			it("handles an unclosed interpolation followed by long whitespace quickly", async () => {
+			it("handles unclosed interpolations quickly", async () => {
 				const renderer = new ctor({ name: "World" });
-				const unclosed = `{{${" ".repeat(5000)}`;
-				const fragment = renderer.parseHTML(`Hello {{ name }} ${unclosed}`);
+				const unclosed = `{{${" ".repeat(5000)}${"{{".repeat(100_000)}`;
+				const fragment = renderer.parseHTML("placeholder");
 				const textNode = fragment.childNodes[0] as Text;
+				// Set directly since browser parsers split text nodes past 64K chars.
+				textNode.data = `Hello {{ name }} ${unclosed}`;
 
 				const start = performance.now();
 				await renderer.mount(fragment);
