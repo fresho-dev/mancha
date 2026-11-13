@@ -202,6 +202,7 @@ describe("typeCheck", function () {
 		it("should report correct location for :for items expression", async () => {
 			const html = `<div :types='{"items": "number"}'><ul><li :for="item in items.length"></li></ul></div>`;
 			const diagnostics = await typeCheck(html, { strict: true, filePath: testFilePath });
+			assert.equal(diagnostics.length, 1);
 			const diagnostic = findDiagnostic(
 				diagnostics,
 				"Property 'length' does not exist on type 'number'",
@@ -1119,10 +1120,33 @@ describe("typeCheck", function () {
 		it("should locate the items expression after a newline around in", async () => {
 			const html = `<div :types='{"items": "string[]"}'><p :for="item\n  in\titems.size"></p></div>`;
 			const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+			assert.equal(diagnostics.length, 1);
 			const diagnostic = findDiagnostic(diagnostics, "Property 'size' does not exist");
 			assert.equal(diagnostic?.start, html.indexOf("size"));
 			assert.equal(diagnostic?.length, "size".length);
 		});
+
+		for (const [label, html, codes] of [
+			[
+				"a type error",
+				`<div :types='{"items": "number[]"}'><p :for="item in items.size">{{ item }}</p></div>`,
+				[2339],
+			],
+			["a parse error", `<p :for="item in items +">{{ item }}</p>`, [91002]],
+			[
+				"a type error in a nested loop",
+				`<div :types='{"rows": "number[][]"}'><p :for="row in rows"><b :for="cell in row.size">{{ cell }}</b></p></div>`,
+				[2339],
+			],
+		] as const) {
+			it(`should report ${label} in the items expression once`, async () => {
+				const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+				assert.deepEqual(
+					diagnostics.map((d) => d.code),
+					codes,
+				);
+			});
+		}
 
 		it("should split on the first in only", async () => {
 			const html = `<div :types='{"items": "string[]"}'><p :for="item in 'a' in obj ? items : []">{{ item }}</p></div>`;
