@@ -74,6 +74,8 @@ const AST_FACTORY = new expressions.EvalAstFactory();
 interface SourceRange {
 	start: number;
 	length: number;
+	// Source offset of each expression index, including the end.
+	offsets?: number[];
 }
 
 function parseExpression(expression: string) {
@@ -315,8 +317,54 @@ function getAttributeValueRange(
 		}
 	}
 
-	const start = attrLocation.startOffset + baseOffset + offsetWithinValue;
-	return { start, length: valueSubstring.length };
+	const rawValue = attrText.slice(baseOffset, baseOffset > cursor ? -1 : undefined);
+	return getSourceRange(
+		rawValue,
+		attrValue,
+		attrLocation.startOffset + baseOffset,
+		offsetWithinValue,
+		valueSubstring.length,
+	);
+}
+
+const decodedReferences = new Map<string, string>();
+function decodeReference(reference: string): string {
+	if (!decodedReferences.has(reference)) {
+		decodedReferences.set(reference, JSDOM.fragment(reference).textContent ?? "");
+	}
+	return decodedReferences.get(reference) ?? reference;
+}
+
+// Maps text[index, index + length) to the raw source, undoing CRLF normalization and entity decoding.
+function getSourceRange(
+	raw: string,
+	text: string,
+	rawStart: number,
+	index: number,
+	length: number,
+): SourceRange {
+	if (raw === text) return { start: rawStart + index, length };
+	const decodeReferences = raw.replace(/\r\n?/g, "\n") !== text;
+	const token = /\r\n?|&(?:#\d+|#[xX][\da-fA-F]+|[A-Za-z][A-Za-z\d]*);?/y;
+	const offsets: number[] = [];
+	for (let i = 0; i < raw.length; ) {
+		token.lastIndex = i;
+		const chunk = token.exec(raw)?.[0] ?? raw[i] ?? "";
+		let parsed = chunk;
+		if (chunk[0] === "\r") parsed = "\n";
+		else if (chunk[0] === "&" && decodeReferences) parsed = decodeReference(chunk);
+		for (let j = 0; j < parsed.length; j++)
+			offsets.push(i + (j && chunk.length - parsed.length + j));
+		i += chunk.length;
+	}
+	offsets.push(raw.length);
+	// Fall back to identity if the parser changed the text in a way not modeled here.
+	const exact = offsets.length === text.length + 1;
+	const mapped = Array.from(
+		{ length: length + 1 },
+		(_, i) => rawStart + (exact ? offsets[index + i] : index + i),
+	);
+	return { start: mapped[0], length: mapped[length] - mapped[0], offsets: mapped };
 }
 
 function getTextExpressionRange(
@@ -324,16 +372,21 @@ function getTextExpressionRange(
 	match: RegExpMatchArray,
 	trimmedExpression: string,
 	dom: JSDOM,
+	html: string,
 ): SourceRange | undefined {
 	const location = dom.nodeLocation(textNode) as unknown as Record<string, unknown>;
 	if (!location) return undefined;
 
 	const rawExpression = match[1] ?? "";
-	// biome-ignore lint/suspicious/noExplicitAny: location structure is complex
-	const startOffset = (location as any).startOffset as number;
+	const { startOffset, endOffset } = location as { startOffset: number; endOffset: number };
 	const leadingWhitespace = rawExpression.length - rawExpression.trimStart().length;
-	const start = startOffset + (match.index ?? 0) + 2 + leadingWhitespace;
-	return { start, length: trimmedExpression.length };
+	return getSourceRange(
+		html.slice(startOffset, endOffset),
+		textNode.nodeValue ?? "",
+		startOffset,
+		(match.index ?? 0) + 2 + leadingWhitespace,
+		trimmedExpression.length,
+	);
 }
 
 // Helper to check if an element is nested within another :types element
@@ -511,8 +564,18 @@ async function processTypesElement(
 			if (bestMatch?.entry.range) {
 				const { range } = bestMatch.entry;
 				const tsOffsetInGeneratedCode = diag.start - bestMatch.offset;
-				const newStart = range.start + tsOffsetInGeneratedCode;
-				const newLength = diag.length;
+				const { offsets } = range;
+				// Offsets past the expression continue linearly from its end.
+				const toSource = (offset: number) => {
+					if (!offsets) return range.start + offset;
+					const last = offsets.length - 1;
+					return offsets[Math.min(offset, last)] + Math.max(0, offset - last);
+				};
+				const newStart = toSource(tsOffsetInGeneratedCode);
+				const newLength =
+					diag.length === undefined
+						? undefined
+						: toSource(tsOffsetInGeneratedCode + diag.length) - newStart;
 
 				if (options.debug) {
 					const msg = ts.flattenDiagnosticMessageText(diag.messageText, "\n");
@@ -753,7 +816,7 @@ function getExpressionsExcludingNestedTypes(
 				currentScope.expressions.push({
 					expression: trimmedExpression,
 					source: { kind: "text", node: textNode },
-					range: getTextExpressionRange(textNode, match, trimmedExpression, dom),
+					range: getTextExpressionRange(textNode, match, trimmedExpression, dom, html),
 				});
 			}
 		}

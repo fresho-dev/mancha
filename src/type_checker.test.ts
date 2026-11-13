@@ -134,6 +134,12 @@ describe("typeCheck", function () {
 			["no whitespace", "{{name.toFixed(2)}}"],
 			["extra whitespace", "{{   name.toFixed(2)   }}"],
 			["newlines", "{{\n  name\n    .toFixed(2)\n}}"],
+			["CRLF before", "\r\n  {{ name.toFixed(2) }}"],
+			["CRLF inside", "{{\r\n  name\r\n    .toFixed(2)\r\n}}"],
+			["lone CR before", "\r  {{ name.toFixed(2) }}"],
+			["entity before", "&amp; {{ name.toFixed(2) }}"],
+			["numeric entities before", "&#123;&lt;&#x7D; {{ name.toFixed(2) }}"],
+			["entity inside", "{{ name &amp;&amp; name.toFixed(2) }}"],
 		]) {
 			it(`should report location for text interpolation with ${label}`, async () => {
 				const html = `<div :types='{"name": "string"}'><span>{{ name }}</span><span>${expr}</span></div>`;
@@ -148,6 +154,14 @@ describe("typeCheck", function () {
 				assert.equal(diagnostic?.length, "toFixed".length);
 			});
 		}
+
+		it("should report the full span of a diagnostic that crosses an entity", async () => {
+			const html = `<div :types='{"name": "number"}'><span>{{ name.toFixed("a&amp;b") }}</span></div>`;
+			const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+			const diagnostic = findDiagnostic(diagnostics, "is not assignable to parameter");
+			assert.equal(diagnostic?.start, html.indexOf(`"a&amp;b"`));
+			assert.equal(diagnostic?.length, `"a&amp;b"`.length);
+		});
 
 		it("should report undefined variables in multi-line text interpolations", async () => {
 			const html = `<div :types='{"definedVar": "string"}'><span>{{\n  undefinedVar\n}}</span></div>`;
@@ -169,6 +183,21 @@ describe("typeCheck", function () {
 				assert.equal(diagnostic.length, 11, "Length of expression should be correct");
 			}
 		});
+
+		for (const [label, attr] of [
+			["entity", `:show="show &amp;&amp; show.toUpperCase()"`],
+			["CRLF", `:show="show &&\r\n  show.toUpperCase()"`],
+			[":for entity", `:for="item in show &amp;&amp; show.toUpperCase()"`],
+		]) {
+			it(`should report location for attribute with ${label}`, async () => {
+				const html = `<div :types='{"show": "boolean"}'><p ${attr}></p></div>`;
+				const diagnostics = await typeCheck(html, { strict: false, filePath: testFilePath });
+				const diagnostic = findDiagnostic(diagnostics, "Property 'toUpperCase' does not exist");
+				assert.equal(diagnostic?.file?.fileName, testFilePath);
+				assert.equal(diagnostic?.start, html.indexOf("toUpperCase"));
+				assert.equal(diagnostic?.length, "toUpperCase".length);
+			});
+		}
 
 		it("should report correct location for :for items expression", async () => {
 			const html = `<div :types='{"items": "number"}'><ul><li :for="item in items.length"></li></ul></div>`;
