@@ -125,12 +125,21 @@ export class Parser<N extends Expression> {
 			this._token &&
 			(this._token.precedence ?? 0) > op.precedence
 		) {
+			this._checkMix(op.value);
 			right = this._parsePrecedence(right, this._token?.precedence ?? 0);
 		}
+		this._checkMix(op.value);
 		if (right === undefined) {
 			throw new Error(`Expected expression after ${op.value}`);
 		}
 		return this._ast.binary(left, op.value, right);
+	}
+
+	// Like JavaScript, reject ?? next to || or && at the same nesting level.
+	private _checkMix(op: string) {
+		if (["??||", "??&&", "||??", "&&??"].includes(op + this._value)) {
+			throw new Error(`Cannot mix ${op} with ${this._value} without parentheses`);
+		}
 	}
 
 	private _parseUnary(): N | undefined {

@@ -71,6 +71,8 @@ Operators are listed in order of precedence (lowest to highest):
 | 12         | `*` `/` `%`            | Multiplicative              |
 | 13         | `.` `?.` `()` `[]`     | Member access, call, index  |
 
+As in JavaScript, mixing `??` with `||` or `&&` requires parentheses: `(a ?? b) || c`.
+
 ### Special Syntax
 
 | Syntax            | Example                               | Description                                                |
