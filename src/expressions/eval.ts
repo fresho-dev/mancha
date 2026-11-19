@@ -13,6 +13,8 @@ const _BINARY_OPERATORS: Record<string, BinaryOp> = {
 	"*": (a, b) => (a as number) * (b as number),
 	"/": (a, b) => (a as number) / (b as number),
 	"%": (a, b) => (a as number) % (b as number),
+	"&": (a, b) => (a as number) & (b as number),
+	"^": (a, b) => (a as number) ^ (b as number),
 	// biome-ignore lint/suspicious/noDoubleEquals: must be loose equality
 	"==": (a, b) => a == b,
 	// biome-ignore lint/suspicious/noDoubleEquals: must be loose equality
