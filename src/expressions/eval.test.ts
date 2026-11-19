@@ -115,6 +115,17 @@ describe("Evaluator", () => {
 		assert.equal(calls, 3);
 	});
 
+	it("should require parentheses to mix ?? with || or && (#196)", () => {
+		const evalExpr = (expr: string) => evalNode(parse(expr, factory) as Expression);
+		assert.throws(() => evalExpr("0 ?? 1 || 2"));
+		assert.throws(() => evalExpr("null || 0 ?? 1"));
+		assert.equal(evalExpr("(0 ?? 1) || 2"), 2);
+		assert.equal(evalExpr("0 ?? (1 || 2)"), 0);
+		assert.equal(evalExpr("(null || 0) ?? 1"), 0);
+		assert.equal(evalExpr("(null && 0) ?? 1"), 1);
+		assert.equal(evalExpr("null ?? 0 === 0"), true);
+	});
+
 	it("should evaluate ?. before a digit as a ternary", () => {
 		assert.equal(evalNode(parse("true?.5:1", factory) as Expression), 0.5);
 		assert.equal(evalNode(parse("false ?.5 : 1", factory) as Expression), 1);

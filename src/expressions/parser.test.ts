@@ -277,6 +277,34 @@ describe("Parser", () => {
 		assert.throws(() => parseExpr("1 +"), "Expected expression after +");
 	});
 
+	it("should reject ?? mixed with || or && without parentheses (#196)", () => {
+		const mixed = ["a ?? b || c", "a || b ?? c", "a && b ?? c", "a ?? b && c", "a ?? b === c || d"];
+		for (const expr of mixed) {
+			assert.throws(() => parseExpr(expr), expr);
+		}
+		const id = factory.id.bind(factory);
+		assert.deepEqual(
+			parseExpr("(a ?? b) || c"),
+			factory.binary(factory.paren(factory.binary(id("a"), "??", id("b"))), "||", id("c")),
+		);
+		assert.deepEqual(
+			parseExpr("a ?? (b || c)"),
+			factory.binary(id("a"), "??", factory.paren(factory.binary(id("b"), "||", id("c")))),
+		);
+		assert.deepEqual(
+			parseExpr("a ?? b ?? c"),
+			factory.binary(factory.binary(id("a"), "??", id("b")), "??", id("c")),
+		);
+		assert.deepEqual(
+			parseExpr("a ?? b === c"),
+			factory.binary(id("a"), "??", factory.binary(id("b"), "===", id("c"))),
+		);
+		assert.deepEqual(
+			parseExpr("a ?? b ? c : d"),
+			factory.ternary(factory.binary(id("a"), "??", id("b")), id("c"), id("d")),
+		);
+	});
+
 	it("should throw on unconsumed tokens", () => {
 		// Parser must consume all input or throw an error.
 		assert.throws(() => parseExpr("1 2"));
