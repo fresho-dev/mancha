@@ -23,11 +23,15 @@ const _BINARY_OPERATORS: Record<string, BinaryOp> = {
 	">=": (a, b) => (a as number) >= (b as number),
 	"<": (a, b) => (a as number) < (b as number),
 	"<=": (a, b) => (a as number) <= (b as number),
-	"||": (a, b) => a || b,
-	"&&": (a, b) => a && b,
-	"??": (a, b) => a ?? b,
 	"|": (a, f) => (f as (x: unknown) => unknown)(a),
 	in: (a, b) => (a as PropertyKey) in (b as object),
+};
+
+type LogicalOp = (a: unknown, b: () => unknown) => unknown;
+const _LOGICAL_OPERATORS: Record<string, LogicalOp> = {
+	"||": (a, b) => a || b(),
+	"&&": (a, b) => a && b(),
+	"??": (a, b) => a ?? b(),
 };
 
 type UnaryOp = (a: unknown) => unknown;
@@ -205,6 +209,7 @@ export class EvalAstFactory implements AstFactory<Expression> {
 
 	binary(l: Expression, op: string, r: Expression): Binary {
 		const f = _BINARY_OPERATORS[op];
+		const logical = _LOGICAL_OPERATORS[op];
 		return {
 			type: "Binary",
 			operator: op,
@@ -237,6 +242,7 @@ export class EvalAstFactory implements AstFactory<Expression> {
 					receiver[property] = value;
 					return value;
 				}
+				if (logical) return logical(this.left.evaluate(scope), () => this.right.evaluate(scope));
 				return f(this.left.evaluate(scope), this.right.evaluate(scope));
 			},
 			getIds(idents) {

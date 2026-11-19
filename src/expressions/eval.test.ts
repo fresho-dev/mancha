@@ -94,6 +94,20 @@ describe("Evaluator", () => {
 		assert.equal(evalExpr("false && missing?.(1)", scope), false);
 	});
 
+	it("should short-circuit &&, || and ?? (#193)", () => {
+		let calls = 0;
+		const scope = { f: () => ++calls };
+		const evalExpr = (expr: string) => evalNode(parse(expr, factory) as Expression, scope);
+		assert.equal(evalExpr("false && f()"), false);
+		assert.equal(evalExpr("true || f()"), true);
+		assert.equal(evalExpr("0 ?? f()"), 0);
+		assert.equal(calls, 0);
+		assert.equal(evalExpr("true && f()"), 1);
+		assert.equal(evalExpr("false || f()"), 2);
+		assert.equal(evalExpr("null ?? f()"), 3);
+		assert.equal(calls, 3);
+	});
+
 	it("should evaluate ?. before a digit as a ternary", () => {
 		assert.equal(evalNode(parse("true?.5:1", factory) as Expression), 0.5);
 		assert.equal(evalNode(parse("false ?.5 : 1", factory) as Expression), 1);
