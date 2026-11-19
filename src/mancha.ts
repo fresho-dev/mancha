@@ -28,10 +28,10 @@ if (currentScript?.hasAttribute("init")) {
 	// - cloak="false" disables cloaking
 	// - cloak="200" enables cloaking with 200ms fade-in animation
 	// - no cloak attribute or cloak="" enables cloaking with no animation (default)
-	let cloak: boolean | { duration: number } | undefined;
+	let cloak: boolean | { duration: number };
 	const cloakValue = currentScript.getAttribute("cloak");
 	if (cloakValue === "false") {
-		cloak = undefined;
+		cloak = false;
 	} else if (cloakValue && !Number.isNaN(parseInt(cloakValue, 10))) {
 		const duration = parseInt(cloakValue, 10);
 		cloak = duration > 0 ? { duration } : true;
@@ -57,7 +57,7 @@ if (currentScript?.hasAttribute("init")) {
 		?.split("+")
 		.map((s) => s.trim() as CssName)
 		.filter((s) => (s as string) !== "") as CssName[];
-	initMancha({ css: styleNames });
+	initMancha({ css: styleNames, cloak: false });
 }
 
 export default instance;

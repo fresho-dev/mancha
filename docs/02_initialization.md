@@ -124,16 +124,16 @@ Cloaking is **enabled by default** when using the script tag with `init`:
 
 ### ESM Defaults
 
-Cloaking is **opt-in** when using the ES module API:
+Cloaking is also **enabled by default** when using the ES module API:
 
 ```typescript
 import { initMancha } from "mancha/browser";
 
-// No cloaking (default)
+// Cloaking ON by default (instant reveal)
 await initMancha({ target: "#app" });
 
-// Enable with instant reveal
-await initMancha({ target: "#app", cloak: true });
+// Disable cloaking
+await initMancha({ target: "#app", cloak: false });
 
 // Enable with 200ms fade-in
 await initMancha({ target: "#app", cloak: { duration: 200 } });
@@ -169,25 +169,33 @@ try {
 
 Element cloaking uses the private `data-m-cloak` marker and a shared runtime rule. It does not overwrite the element's inline styles, classes, or directive results.
 
-### Preventing FOUC with ESM
+### Preventing FOUC with a Bundler
 
-> [!WARNING]
-> Because `<script type="module">` is deferred by default, using `initMancha` with `cloak` options may still result in a Flash of Unstyled Content (FOUC) because the script runs *after* the page has first rendered.
+Cloaking only prevents FOUC if `initMancha` runs before the browser first paints the page. A `<script type="module">` is deferred, so the browser may paint the raw templates before any of its code runs.
 
-To guarantee zero FOUC when using ESM, you **must** manually add the cloak style to your `<head>`:
+Instead, bundle your entry point as a classic script and load it in the `<head>` without `type="module"`, `defer` or `async`. It then runs before the `<body>` is parsed, so the cloak is in place before anything is painted:
+
+```bash
+bun build src/main.ts --outdir dist --format=iife
+```
 
 ```html
 <head>
-  <!-- ... -->
-  
-  <!-- Pre-cloak the body (or your target element) to hide it immediately -->
-  <style id="mancha-cloak">
-    body { opacity: 0 !important; }
-  </style>
+  <script src="/main.js"></script>
 </head>
 ```
 
-When `initMancha({ cloak: ... })` runs, it will detect this existing style tag (by its ID `mancha-cloak`) and take control of it, applying any configured transitions and removing it once rendering is complete.
+This costs nothing visible: the page stays cloaked until your code has run and mounted anyway. Classic scripts can't contain top-level `await` or `import.meta` anywhere in the bundle, dependencies included (e.g. three.js's `DRACOLoader`). Call `initMancha(...)` without `await` in the entry point.
+
+If the entry point must stay a module, pre-cloak the page yourself in the `<head>`:
+
+```html
+<head>
+  <style id="mancha-cloak">body { opacity: 0 !important; }</style>
+</head>
+```
+
+`initMancha` detects this style tag by its ID `mancha-cloak`, takes control of it, and removes it once rendering is complete. Without a `cloak` option, it keeps your rule as is.
 
 ### Keeping Loading Indicator Active
 
@@ -395,18 +403,21 @@ This table summarizes all initialization methods and when to use them:
 <!DOCTYPE html>
 <html>
 <head>
-  <style id="mancha-cloak">body { opacity: 0 !important; }</style>
+  <!-- main.js bundled with --format=iife, see "Preventing FOUC with a Bundler" -->
+  <script src="/main.js"></script>
 </head>
 <body>
   <div id="app" :data="{ count: 0 }">
     <button :on:click="count++">Count: {{ count }}</button>
   </div>
-  <script type="module">
-    import { initMancha } from "mancha/browser";
-    await initMancha({ target: "#app", cloak: true });
-  </script>
 </body>
 </html>
+```
+
+```typescript
+// main.ts
+import { initMancha } from "mancha/browser";
+initMancha({ target: "#app" });
 ```
 
 **With third-party chart (Script Tag + `:render`)**:

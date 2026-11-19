@@ -867,6 +867,37 @@ describe("Browser", () => {
 				"Cloak style should be removed even without cloak option",
 			);
 		});
+
+		// Reads the cloak rule while initMancha is mid-render, before it is removed.
+		const cloakRuleDuringInit = async (cloak?: boolean) => {
+			let rule: string | undefined;
+			await initMancha({
+				cloak,
+				callback: async () => {
+					rule = document.getElementById("mancha-cloak")?.textContent ?? undefined;
+				},
+			});
+			return rule;
+		};
+
+		it("cloaks the body by default", async () => {
+			assert.equal(await cloakRuleDuringInit(), "body { opacity: 0 !important;  }");
+			assert.ok(!document.getElementById("mancha-cloak"), "Should end up revealed");
+		});
+
+		it("does not cloak with cloak: false", async () => {
+			assert.equal(await cloakRuleDuringInit(false), undefined);
+		});
+
+		it("keeps a manual cloak rule when no cloak option is given", async () => {
+			const style = document.createElement("style");
+			style.id = "mancha-cloak";
+			style.textContent = "main { opacity: 0; }";
+			document.head.appendChild(style);
+
+			assert.equal(await cloakRuleDuringInit(), "main { opacity: 0; }");
+			assert.ok(!document.getElementById("mancha-cloak"), "Should end up revealed");
+		});
 	});
 	it("initMancha waits for DOMContentLoaded if document is loading", async () => {
 		// Mock document.readyState

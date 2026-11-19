@@ -124,8 +124,10 @@ export interface InitManchaOptions<T extends StoreState = StoreState> {
 	/** Initial state to set before mounting. */
 	state?: Record<string, unknown>;
 	/**
-	 * Cloak (hide) content until rendering is complete.
+	 * Cloak (hide) content until rendering is complete. Defaults to `true`, unless the page has a
+	 * `#mancha-cloak` style of its own, which is then kept as is.
 	 * - `true`: cloak with no animation (instant reveal)
+	 * - `false`: no cloaking
 	 * - `CloakOptions`: advanced options with custom selector and/or fade-in duration
 	 */
 	cloak?: boolean | CloakOptions;
@@ -223,11 +225,9 @@ export async function initMancha<T extends StoreState = StoreState>(
 	let uncloak: (() => Promise<void>) | undefined;
 	document.documentElement.classList.add("mancha-loading");
 
-	const cloakOpts: CloakOptions | undefined = options.cloak
-		? options.cloak === true
-			? {}
-			: options.cloak
-		: undefined;
+	// Cloak by default, unless the page already pre-cloaked itself with its own rule.
+	const cloak = options.cloak ?? !document.getElementById(CLOAK_STYLE_ID);
+	const cloakOpts: CloakOptions | undefined = cloak ? (cloak === true ? {} : cloak) : undefined;
 
 	if (cloakOpts) {
 		const defaultSelectors = options.target
