@@ -94,6 +94,13 @@ describe("Evaluator", () => {
 		assert.equal(evalExpr("false && missing?.(1)", scope), false);
 	});
 
+	it("should evaluate bitwise & and ^ (#195)", () => {
+		const evalExpr = (expr: string) => (parse(expr, factory) as Expression).evaluate({});
+		assert.equal(evalExpr("6 & 3"), 2);
+		assert.equal(evalExpr("6 ^ 3"), 5);
+		assert.equal(evalExpr("4 ^ 6 & 3"), 6);
+	});
+
 	it("should short-circuit &&, || and ?? (#193)", () => {
 		let calls = 0;
 		const scope = { f: () => ++calls };
