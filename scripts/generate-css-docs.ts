@@ -455,11 +455,11 @@ function generateMarkdown() {
 	}
 	// Document position values
 	md +=
-		"| `top-{0-512}`, `bottom-{0-512}`, `left-{0-512}`, `right-{0-512}` | Position in rem units (0.25rem increments, plus half steps `0.5`, `1.5`, `2.5`, `3.5`) |\n";
+		"| `inset-{0-512}`, `inset-x-{0-512}`, `inset-y-{0-512}`, `top-{0-512}`, `bottom-{0-512}`, `left-{0-512}`, `right-{0-512}` | Position in rem units (0.25rem increments, plus half steps `0.5`, `1.5`, `2.5`, `3.5`) |\n";
 	md +=
-		"| `top-{0-512}px`, `bottom-{0-512}px`, `left-{0-512}px`, `right-{0-512}px` | Position in pixels |\n";
+		"| `inset-{0-512}px`, `inset-x-{0-512}px`, `inset-y-{0-512}px`, `top-{0-512}px`, `bottom-{0-512}px`, `left-{0-512}px`, `right-{0-512}px` | Position in pixels |\n";
 	md +=
-		"| `top-{1-100}%`, `bottom-{1-100}%`, `left-{1-100}%`, `right-{1-100}%` | Position in percentages |\n";
+		"| `inset-{1-100}%`, `inset-x-{1-100}%`, `inset-y-{1-100}%`, `top-{1-100}%`, `bottom-{1-100}%`, `left-{1-100}%`, `right-{1-100}%` | Position in percentages |\n";
 	md += "| `top-auto`, `bottom-auto`, `left-auto`, `right-auto` | Auto positioning |\n";
 	// Document z-index
 	md += `| \`z-{${PERCENTS.join(",")}}\` | Z-index values |\n`;
@@ -668,6 +668,7 @@ function generateMarkdown() {
 	md += "| `mx-`, `my-` | margin-inline, margin-block |\n";
 	md += "| `p-`, `pt-`, `pr-`, `pb-`, `pl-` | padding |\n";
 	md += "| `px-`, `py-` | padding-inline, padding-block |\n";
+	md += "| `inset-`, `inset-x-`, `inset-y-` | inset, inset-inline, inset-block |\n";
 	md += "| `top`, `right`, `bottom`, `left` | positioning |\n";
 	md += "| `gap-`, `gap-x-`, `gap-y-` | gap |\n";
 	md += "| `grid-cols-`, `grid-rows-` | grid-template-columns, grid-template-rows |\n";

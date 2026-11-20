@@ -23,7 +23,11 @@ export const PROPS_SIZING = {
 	width: "w",
 	height: "h",
 };
+// Shorthand, then axis, then sides, so the more targeted class wins.
 export const PROPS_POSITION = {
+	inset: "inset",
+	"inset-inline": "inset-x",
+	"inset-block": "inset-y",
 	top: "top",
 	right: "right",
 	bottom: "bottom",
@@ -420,10 +424,7 @@ export const PROPS_CUSTOM: { [key: string]: string } = {
 	"content-stretch": "align-content: stretch",
 	"items-baseline": "align-items: baseline",
 	// Inset utilities.
-	"inset-0": "inset: 0",
 	"inset-auto": "inset: auto",
-	"inset-x-0": "left: 0; right: 0",
-	"inset-y-0": "top: 0; bottom: 0",
 	"inset-x-auto": "left: auto; right: auto",
 	"inset-y-auto": "top: auto; bottom: auto",
 	// Accessibility.
