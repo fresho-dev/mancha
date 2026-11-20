@@ -2790,28 +2790,24 @@ describe("SignalStore", () => {
 		});
 
 		it("holds the cooldown notify was given rather than the default", async () => {
-			// `notify(key, ms)` is public and nothing covered it. It is a cooldown to hold
-			// since the last run, so a longer one has to push this run further out.
+			// `notify(key, ms)` is public and nothing covered it. Timed from the call rather
+			// than after fixed sleeps, so a slow host delays the run without failing the test.
 			const store = new SignalStore({ v: 0 });
 			const runsAt: number[] = [];
-			const start = Date.now();
-			store.watch("v", () => runsAt.push(Date.now() - start));
+			store.watch("v", () => runsAt.push(Date.now()));
 
-			// Establish a cooldown by letting one ordinary run land.
-			void store.set("v", 1);
-			for (let i = 0; i < 3; i++) await sleepForReactivity();
+			// Let an ordinary run land first, so notify schedules a fresh run instead of joining one.
+			await store.set("v", 1);
 			assert.equal(runsAt.length, 1, "setup write should have notified once");
 
 			const longCooldown = REACTIVE_DEBOUNCE_MILLIS * 8;
-			void store.notify("v", longCooldown);
-			for (let i = 0; i < 3; i++) await sleepForReactivity();
-			assert.equal(runsAt.length, 1, `A ${longCooldown}ms cooldown ran early, at ${runsAt[1]}ms`);
-
-			await new Promise((resolve) => setTimeout(resolve, longCooldown));
+			const notifiedAt = Date.now();
+			await store.notify("v", longCooldown);
 			assert.equal(runsAt.length, 2, "the run never happened");
+			const waited = runsAt[1] - notifiedAt;
 			assert.ok(
-				runsAt[1] - runsAt[0] >= longCooldown - 2,
-				`Runs were ${runsAt[1] - runsAt[0]}ms apart, the cooldown asked for ${longCooldown}ms`,
+				waited >= longCooldown - 2,
+				`Ran ${waited}ms after notify, the cooldown asked for ${longCooldown}ms`,
 			);
 		});
 
