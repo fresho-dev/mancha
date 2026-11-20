@@ -47,6 +47,9 @@ const PROPERTY_MAP: Record<string, string> = {
 	py: "padding-block",
 
 	// Position.
+	inset: "inset",
+	"inset-x": "inset-inline",
+	"inset-y": "inset-block",
 	top: "top",
 	right: "right",
 	bottom: "bottom",
@@ -78,7 +81,7 @@ const CUSTOM_VALUE_PATTERN = /^(-?)([\w-]+)-\[(.+)\](?:\/(\d+))?$/;
 // Variable shorthand, as in Tailwind v4: `bg-(--x)` is `bg-[var(--x)]`; `text-(length:--x)` is a size.
 const VAR_VALUE_PATTERN = /^(-?)([\w-]+)-\((?:(length|color):)?(--[\w-]+)\)(?:\/(\d+))?$/;
 // Properties a leading `-` can negate; elsewhere a negative value is invalid or meaningless.
-const NEGATABLE = /^(margin|top|right|bottom|left|z-index)/;
+const NEGATABLE = /^(margin|top|right|bottom|left|inset|z-index)/;
 // Bracket values are spliced into the rule verbatim, so allow only characters that cannot end it.
 const SAFE_VALUE = /^[\w#.%+*/(),!-]+$/;
 

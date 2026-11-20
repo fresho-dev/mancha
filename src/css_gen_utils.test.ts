@@ -459,6 +459,24 @@ describe("CSS Generation Utils", () => {
 			assert.ok(css.includes(".left-4 { left: 1rem }"), "Should include left-4");
 		});
 
+		it("includes inset utilities on the position scale (#159)", () => {
+			const css = rules();
+			for (const rule of [
+				".inset-4 { inset: 1rem }",
+				".inset-x-0 { inset-inline: 0 }",
+				".inset-x-4 { inset-inline: 1rem }",
+				".inset-y-8px { inset-block: 8px }",
+				".-inset-y-4 { inset-block: -1rem }",
+				".inset-x-50\\% { inset-inline: 50% }",
+			]) {
+				assert.ok(css.includes(rule), `Should include ${rule}`);
+			}
+			// Shorthand, then axis, then sides, so the more targeted class wins.
+			const at = (klass: string) => css.indexOf(`.${klass} {`);
+			assert.ok(at("inset-4") < at("inset-x-4"));
+			assert.ok(at("inset-x-4") < at("left-4"));
+		});
+
 		it("includes space and divide utilities", () => {
 			const css = rules();
 			assert.ok(

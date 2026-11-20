@@ -570,15 +570,12 @@ A color name outside the palette reads a `--color-{name}` custom property define
 | `object-cover` | `object-fit: cover` |
 | `object-fill` | `object-fit: fill` |
 | `object-none` | `object-fit: none` |
-| `inset-0` | `inset: 0` |
 | `inset-auto` | `inset: auto` |
-| `inset-x-0` | `left: 0; right: 0` |
-| `inset-y-0` | `top: 0; bottom: 0` |
 | `inset-x-auto` | `left: auto; right: auto` |
 | `inset-y-auto` | `top: auto; bottom: auto` |
-| `top-{0-512}`, `bottom-{0-512}`, `left-{0-512}`, `right-{0-512}` | Position in rem units (0.25rem increments, plus half steps `0.5`, `1.5`, `2.5`, `3.5`) |
-| `top-{0-512}px`, `bottom-{0-512}px`, `left-{0-512}px`, `right-{0-512}px` | Position in pixels |
-| `top-{1-100}%`, `bottom-{1-100}%`, `left-{1-100}%`, `right-{1-100}%` | Position in percentages |
+| `inset-{0-512}`, `inset-x-{0-512}`, `inset-y-{0-512}`, `top-{0-512}`, `bottom-{0-512}`, `left-{0-512}`, `right-{0-512}` | Position in rem units (0.25rem increments, plus half steps `0.5`, `1.5`, `2.5`, `3.5`) |
+| `inset-{0-512}px`, `inset-x-{0-512}px`, `inset-y-{0-512}px`, `top-{0-512}px`, `bottom-{0-512}px`, `left-{0-512}px`, `right-{0-512}px` | Position in pixels |
+| `inset-{1-100}%`, `inset-x-{1-100}%`, `inset-y-{1-100}%`, `top-{1-100}%`, `bottom-{1-100}%`, `left-{1-100}%`, `right-{1-100}%` | Position in percentages |
 | `top-auto`, `bottom-auto`, `left-auto`, `right-auto` | Auto positioning |
 | `z-{5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100}` | Z-index values |
 
@@ -737,6 +734,7 @@ Color values take an opacity modifier in either form: `bg-(--brand)/20` and `bg-
 | `mx-`, `my-` | margin-inline, margin-block |
 | `p-`, `pt-`, `pr-`, `pb-`, `pl-` | padding |
 | `px-`, `py-` | padding-inline, padding-block |
+| `inset-`, `inset-x-`, `inset-y-` | inset, inset-inline, inset-block |
 | `top`, `right`, `bottom`, `left` | positioning |
 | `gap-`, `gap-x-`, `gap-y-` | gap |
 | `grid-cols-`, `grid-rows-` | grid-template-columns, grid-template-rows |

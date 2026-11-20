@@ -22,6 +22,9 @@ describe("css_parse", () => {
 		for (const [cls, property, value] of [
 			["-z-(--x)", "z-index", "calc(var(--x) * -1)"],
 			["-top-(--x)", "top", "calc(var(--x) * -1)"],
+			["-inset-y-(--x)", "inset-block", "calc(var(--x) * -1)"],
+			["inset-x-[3px]", "inset-inline", "3px"],
+			["inset-[5%]", "inset", "5%"],
 		]) {
 			it(`parses ${cls}`, () => {
 				assert.deepEqual(parseCustomValueClass(cls), { property, value });
